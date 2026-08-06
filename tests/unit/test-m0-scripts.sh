@@ -275,6 +275,7 @@ STUB
 }
 
 write_stubs
+chmod 0755 "$STUB_DIR"/*
 
 export NORTHSTAR_TEST_LOG=$LOG
 export NORTHSTAR_TEST_INSTALLED=$INSTALLED
