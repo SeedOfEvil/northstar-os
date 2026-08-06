@@ -6,7 +6,7 @@ Northstar is a planning codename for an open-source, FreeBSD-native desktop oper
 
 ## Project status
 
-This repository is at **PR 2: M0 development bootstrap**. The local FreeBSD host-validation, bootstrap, diagnostics, and smoke-test tooling is implemented. Native acceptance still requires running the documented checks on the existing FreeBSD host. It is not yet an installable operating system and it does not yet contain a working desktop shell.
+This repository is at **PR 2: M0 development bootstrap**. The local FreeBSD host-validation, bootstrap, diagnostics, and smoke-test tooling is implemented. Native acceptance still requires running the documented checks in the Proxmox validation VM. It is not yet an installable operating system and it does not yet contain a working desktop shell.
 
 The first implementation target is a repeatable custom shell on a stock FreeBSD installation:
 
@@ -70,7 +70,7 @@ make image
 make diagnostics OUTPUT=/tmp/northstar-m0-diagnostics
 ```
 
-The M0 commands are now functional. The configure, build, shell, package, and image targets remain guarded until their milestones are implemented. See [`docs/M0_BOOTSTRAP.md`](docs/M0_BOOTSTRAP.md) for the native FreeBSD runbook.
+The M0 commands are now functional. The configure, build, shell, package, and image targets remain guarded until their milestones are implemented. See [`docs/M0_BOOTSTRAP.md`](docs/M0_BOOTSTRAP.md) for the native FreeBSD bootstrap and [`docs/M0_PROXMOX.md`](docs/M0_PROXMOX.md) for the local Proxmox media and VM runbook.
 
 ## Scope guardrails
 

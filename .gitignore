@@ -6,6 +6,7 @@
 CMakeUserPresets.json
 
 # Release and VM artifacts
+/.artifacts/
 *.iso
 *.img
 *.qcow2

@@ -1,6 +1,6 @@
 # M0 development bootstrap
 
-This document is the operational runbook for PR 2. It prepares a stock FreeBSD 15.1 amd64 host for Northstar desktop development without installing Northstar files into the base system.
+This document is the operational runbook for PR 2. It prepares a stock FreeBSD 15.1 amd64 host for Northstar desktop development without installing Northstar files into the base system. For the Proxmox installation and media-transfer path, see [`docs/M0_PROXMOX.md`](M0_PROXMOX.md).
 
 ## Supported host
 

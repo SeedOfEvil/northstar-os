@@ -65,4 +65,6 @@ Alpha requires install, boot, login, Qt/Xwayland/browser applications, file mana
 7. Session supervisor.
 8. First FreeBSD port for `northstar-shell`.
 
-The ISO is deliberately absent from the first eight pull requests.
+The Northstar-produced ISO is deliberately absent from the first eight pull
+requests. M0 may use a stock FreeBSD installer ISO as an external, ignored
+validation input; that media is not a Northstar release artifact.
