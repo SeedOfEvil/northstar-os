@@ -2,7 +2,7 @@ SHELL := /bin/sh
 
 .DEFAULT_GOAL := help
 
-.PHONY: help check-host bootstrap configure build test run-shell package vm-smoke image diagnostics
+.PHONY: help check-host bootstrap configure build test run-shell package vm-smoke nested-wayfire image diagnostics
 
 MANIFEST ?= packaging/manifests/bootstrap-packages.txt
 NORTHSTAR_USER ?=
@@ -18,6 +18,7 @@ help:
 	@printf '%s\n' '  make run-shell    Start the Northstar shell session'
 	@printf '%s\n' '  make package      Build Northstar packages'
 	@printf '%s\n' '  make vm-smoke     Run the M0 native smoke preflight'
+	@printf '%s\n' '  make nested-wayfire Build the supplemental X11/pixman Wayfire lane'
 	@printf '%s\n' '  make image        Assemble a release image'
 	@printf '%s\n' '  make diagnostics  Collect non-secret diagnostics'
 	@printf '%s\n' ''
@@ -38,6 +39,9 @@ test:
 
 vm-smoke:
 	@sh tests/vm/m0-smoke.sh
+
+nested-wayfire:
+	@sh tools/build-nested-wayfire.sh
 
 diagnostics:
 	@sh tools/collect-diagnostics.sh --output "$(OUTPUT)"

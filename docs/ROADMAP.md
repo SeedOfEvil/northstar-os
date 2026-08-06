@@ -14,9 +14,9 @@ The project advances through user-visible milestones with explicit pass gates. A
 
 ## M0: Reproducible development desktop
 
-The PR 2 tooling now includes `check-host.sh`, an idempotent `bootstrap-dev.sh`, a package manifest, sanitized diagnostics, Wayland/seatd/Wayfire/Xwayland package setup, the Qt 6 development environment, QTerminal, Firefox, `xterm`, and a manual recovery path. See [`docs/M0_BOOTSTRAP.md`](M0_BOOTSTRAP.md).
+The PR 2 tooling now includes `check-host.sh`, an idempotent `bootstrap-dev.sh`, a package manifest, sanitized diagnostics, Wayland/seatd/Wayfire/Xwayland package setup, the Qt 6 development environment, QTerminal, Firefox, `xterm`, and a manual recovery path. The basic-VGA Proxmox lane also has `make nested-wayfire`, which builds a user-local Wayfire v0.10.1 X11/pixman compatibility binary without replacing the stock package. See [`docs/M0_BOOTSTRAP.md`](M0_BOOTSTRAP.md) and [`docs/M0_PROXMOX.md`](M0_PROXMOX.md).
 
-Pass only when the host is exactly FreeBSD 15.1 amd64, bootstrap succeeds from a clean VM and is harmless on a second run, Wayfire starts unprivileged, a native Wayland Qt application and an X11 application through Xwayland launch, installed versions are captured, and no project file is copied into `/usr/bin` or `/usr/lib`.
+Pass only when the host is exactly FreeBSD 15.1 amd64, bootstrap succeeds from a clean VM and is harmless on a second run, Wayfire starts unprivileged through a supported graphics path, a native Wayland Qt application and an X11 application through Xwayland launch, installed versions are captured, and no project file is copied into `/usr/bin` or `/usr/lib`. The nested lane is supplemental evidence and does not close the direct DRM/KMS gate.
 
 ## M1: Shell seed
 

@@ -66,11 +66,19 @@ make test
 make run-shell
 make package
 make vm-smoke
+make nested-wayfire
 make image
 make diagnostics OUTPUT=/tmp/northstar-m0-diagnostics
 ```
 
-The M0 commands are now functional. The configure, build, shell, package, and image targets remain guarded until their milestones are implemented. See [`docs/M0_BOOTSTRAP.md`](docs/M0_BOOTSTRAP.md) for the native FreeBSD bootstrap and [`docs/M0_PROXMOX.md`](docs/M0_PROXMOX.md) for the local Proxmox media and VM runbook.
+The M0 commands are now functional. `make nested-wayfire` is an optional
+Proxmox basic-VGA lane that builds a user-local Wayfire compatibility binary;
+it does not replace the package-managed compositor or satisfy the direct
+DRM/KMS gate. The configure, build, shell, package, and image targets remain
+guarded until their milestones are implemented. See
+[`docs/M0_BOOTSTRAP.md`](docs/M0_BOOTSTRAP.md) for the native FreeBSD
+bootstrap and [`docs/M0_PROXMOX.md`](docs/M0_PROXMOX.md) for the local Proxmox
+media and VM runbook.
 
 ## Scope guardrails
 

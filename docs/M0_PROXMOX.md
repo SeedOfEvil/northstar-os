@@ -94,11 +94,20 @@ choice as a separate validation decision.
 
 ## Optional Proxmox nested Wayland lane
 
-When no passthrough GPU is available, M0 can still validate the Wayland client
-and Xwayland application path by nesting Wayfire inside an Xorg server that
-uses Proxmox's virtual framebuffer. This is a supplemental `Proxmox nested
-Wayland` lane: it does not prove direct DRM/KMS, GPU acceleration, or physical
-hardware support.
+The first stock-package attempt exposed an important limitation: Xorg/scfb can
+display on Proxmox's virtual framebuffer, but the FreeBSD Wayfire package still
+requires a DRM render node. On NSTAR-DEV01 the guest has no `/dev/dri`, and the
+installed wlroots package reports `WLR_HAS_UDMABUF_ALLOCATOR=0`; therefore
+`WLR_BACKENDS=x11 WLR_RENDERER=pixman wayfire` exits before creating a
+compositor. `WLR_RENDERER_FORCE_SOFTWARE=1` cannot change that package's
+compile-time Wayfire guard.
+
+When no passthrough GPU is available, the supplemental `Proxmox nested
+Wayland` lane uses a small, user-local Wayfire source rebuild. The patch only
+allows the explicitly selected X11/pixman path to continue without DRM. It
+does not add a kernel driver, provide GPU acceleration, or prove direct
+DRM/KMS or physical hardware support. The stock package remains installed and
+is not overwritten.
 
 Before installing the optional packages, create a Proxmox snapshot of VM 102
 from the Proxmox UI or host. The current SSH access reaches the guest only and
@@ -107,11 +116,23 @@ cannot create a hypervisor snapshot.
 As `northstar` inside the guest, install the optional Xorg/scfb packages:
 
 ```sh
-sudo pkg install -y xorg-server xinit xf86-video-scfb
+sudo pkg install -y xorg-server xinit xf86-video-scfb xauth meson evdev-proto
 ```
 
 These packages are intentionally not part of the required M0 bootstrap
-manifest. Create the user-level Xorg launcher once:
+manifest. From the Northstar checkout, build the patched user-local Wayfire
+binary:
+
+```sh
+make nested-wayfire
+```
+
+The helper checks out the upstream `v0.10.1` tag, applies
+`packaging/patches/wayfire/0001-allow-x11-pixman-without-drm.patch`, and
+installs below `$HOME/.local/wayfire-nested`. It does not replace or remove
+the package-managed Wayfire.
+
+Create the user-level Xorg launcher once:
 
 ```sh
 umask 077
@@ -121,10 +142,29 @@ runtime_dir=${XDG_RUNTIME_DIR:-/tmp/northstar-runtime-$(id -u)}
 mkdir -p "$runtime_dir"
 chmod 700 "$runtime_dir"
 export XDG_RUNTIME_DIR="$runtime_dir"
-exec env WLR_BACKENDS=x11 WLR_RENDERER=pixman \
-    dbus-run-session -- wayfire
+wayfire_bin=${NORTHSTAR_WAYFIRE_BIN:-$HOME/.local/wayfire-nested/bin/wayfire}
+if [ ! -x "$wayfire_bin" ]; then
+    printf '%s\n' "ERROR: build the nested Wayfire binary first: make nested-wayfire" >&2
+    exit 1
+fi
+exec env WLR_BACKENDS=x11 WLR_RENDERER=pixman WLR_RENDERER_FORCE_SOFTWARE=1 \
+    dbus-run-session -- "$wayfire_bin"
 EOF
 chmod 700 "$HOME/.xinitrc"
+```
+
+The example Wayfire configuration binds `Super+Enter` to `alacritty`, which
+is not part of the M0 manifest. Set that binding to QTerminal before starting
+the session:
+
+```sh
+mkdir -p "$HOME/.config"
+cat > "$HOME/.config/wayfire.ini" <<'EOF'
+[command]
+binding_terminal = <super> KEY_ENTER
+command_terminal = qterminal
+EOF
+chmod 600 "$HOME/.config/wayfire.ini"
 ```
 
 From the VM's Proxmox noVNC/console session, log in as `northstar` and start
