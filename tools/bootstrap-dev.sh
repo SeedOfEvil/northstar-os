@@ -197,7 +197,7 @@ if [ "$DRY_RUN" -eq 1 ]; then
     done < "$VALIDATED_MANIFEST"
 else
     while IFS= read -r package_name; do
-        if pkg search -U -e "$package_name" >/dev/null 2>&1; then
+        if pkg search -U -S name -e "$package_name" >/dev/null 2>&1; then
             printf 'PASS: package is available: %s\n' "$package_name"
         else
             printf 'FAIL: package is unavailable: %s\n' "$package_name" >&2

@@ -132,6 +132,10 @@ case "${1:-}" in
         exit 0
         ;;
     search)
+        case " $* " in
+            *' -U -S name -e '*) ;;
+            *) exit 2 ;;
+        esac
         last=
         for argument do last=$argument; done
         case "$last" in
@@ -311,7 +315,7 @@ printf '%s\n' available missing-package > "$missing_manifest"
 reset_state
 run_expect 1 sh "$ROOT/tools/bootstrap-dev.sh" --user dev --manifest "$missing_manifest" --capture "$TMP_DIR/missing-package.txt"
 assert_contains 'pkg update' "$LOG"
-assert_contains 'pkg search -U -e missing-package' "$LOG"
+assert_contains 'pkg search -U -S name -e missing-package' "$LOG"
 assert_not_contains 'pkg install' "$LOG"
 assert_not_contains 'sysrc dbus_enable=YES' "$LOG"
 pass 'bootstrap aborts before installation when a package is unavailable'

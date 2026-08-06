@@ -77,6 +77,21 @@ official repository.
 
 Do not install `drm-kmod` as part of M0. GPU modules remain hardware-specific.
 
+## Proxmox graphics requirement
+
+The package and service gates can pass on a headless VM, but the graphical M0
+gate cannot pass on Proxmox's basic VGA device. In this configuration the
+FreeBSD guest may expose no usable DRM/KMS device; Wayfire then finds zero
+GPUs and exits. Wayfire's headless backend is not a substitute for this gate
+when the guest lacks the required DRM/`udmabuf` support.
+
+To complete the graphical gate, use a Proxmox device path that FreeBSD exposes
+as usable DRM/KMS (for example, a tested Intel/AMD GPU passed through to the
+guest), a verified FreeBSD-compatible virtual GPU, or a physical FreeBSD
+graphics host. Do not treat a basic-VGA Wayfire crash as a bootstrap failure,
+and do not add `drm-kmod` automatically; record any hardware-specific module
+choice as a separate validation decision.
+
 ## Transfer the local repository without a remote
 
 Once the VM has network access and SSH is available, create a Git bundle on
@@ -93,7 +108,7 @@ bundle locally:
 
 ```sh
 sudo pkg install git
-git clone /tmp/northstar-main.bundle "$HOME/src/northstar"
+git clone -b main /tmp/northstar-main.bundle "$HOME/src/northstar"
 cd "$HOME/src/northstar"
 git remote remove origin
 git remote -v
@@ -142,6 +157,7 @@ Northstar files were placed in `/usr/bin` or `/usr/lib`.
 - [ ] `make check-host` passes.
 - [ ] The first bootstrap succeeds.
 - [ ] The second bootstrap is idempotent.
+- [ ] The guest exposes usable DRM/KMS; basic VGA is not sufficient.
 - [ ] Wayfire starts as the unprivileged user through D-Bus.
 - [ ] QTerminal launches through Wayland.
 - [ ] Firefox launches with Wayland enabled.
