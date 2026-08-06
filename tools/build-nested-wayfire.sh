@@ -75,7 +75,8 @@ else
 fi
 
 if [ -f "$WAYFIRE_BUILD_DIR/build.ninja" ]; then
-    meson setup --reconfigure "$WAYFIRE_BUILD_DIR" \
+    meson setup "$WAYFIRE_BUILD_DIR" "$WAYFIRE_SOURCE_DIR" \
+        --reconfigure \
         --prefix="$WAYFIRE_PREFIX" \
         -Duse_system_wlroots=enabled \
         -Duse_system_wfconfig=enabled \
