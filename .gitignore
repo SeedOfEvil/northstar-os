@@ -1,0 +1,36 @@
+# Build and test output
+/build/
+/out/
+/dist/
+/coverage/
+CMakeUserPresets.json
+
+# Release and VM artifacts
+*.iso
+*.img
+*.qcow2
+*.raw
+*.vhd
+*.vmdk
+*.ova
+*.swp
+
+# Package repositories and signing material
+/packaging/repository/*
+!/packaging/repository/.gitkeep
+*.sig
+*.pub
+*.key
+*.pem
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.local
+
+# Host/editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

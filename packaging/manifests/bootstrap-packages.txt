@@ -1,0 +1,18 @@
+# Initial M0 development package set.
+# The bootstrap script must validate these names against the pinned repository.
+git
+gh
+cmake
+ninja
+pkgconf
+dbus
+wayland
+wayland-protocols
+seatd
+xwayland
+wayfire
+qt6-base
+qt6-declarative
+qt6-wayland
+plasma6-layer-shell-qt
+qterminal

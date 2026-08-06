@@ -1,0 +1,16 @@
+# Northstar PR 1 planning lock.
+#
+# UNSET and RESOLVED_BY_BUILDER values intentionally block release builds.
+# M0/M4 packaging work must replace them with exact revisions or resolved
+# package versions and record checksums before publishing an artifact.
+
+FREEBSD_RELEASE=15.1-RELEASE
+FREEBSD_ARCH=amd64
+
+PORTS_BRANCH=2026Q3
+PORTS_COMMIT=UNSET
+
+QT_PACKAGE_VERSION=RESOLVED_BY_BUILDER
+WAYFIRE_PACKAGE_VERSION=RESOLVED_BY_BUILDER
+
+PROJECT_COMMIT=GENERATED_AT_BUILD_TIME
