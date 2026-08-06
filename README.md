@@ -6,7 +6,7 @@ Northstar is a planning codename for an open-source, FreeBSD-native desktop oper
 
 ## Project status
 
-This repository is at **PR 1: charter and architecture**. It contains the project decisions, quality gates, and repository skeleton needed to start implementation. It is not yet an installable operating system and it does not yet contain a working desktop shell.
+This repository is at **PR 2: M0 development bootstrap**. The local FreeBSD host-validation, bootstrap, diagnostics, and smoke-test tooling is implemented. Native acceptance still requires running the documented checks on the existing FreeBSD host. It is not yet an installable operating system and it does not yet contain a working desktop shell.
 
 The first implementation target is a repeatable custom shell on a stock FreeBSD installation:
 
@@ -59,7 +59,7 @@ The stable contributor commands are being introduced incrementally. The command 
 
 ```sh
 make check-host
-make bootstrap
+make bootstrap NORTHSTAR_USER=<development-user>
 make configure
 make build
 make test
@@ -67,10 +67,10 @@ make run-shell
 make package
 make vm-smoke
 make image
-make diagnostics
+make diagnostics OUTPUT=/tmp/northstar-m0-diagnostics
 ```
 
-The M0 bootstrap implementation is planned for PR 2. Until then, `make help` describes the project state and the command targets fail clearly rather than pretending to complete a build.
+The M0 commands are now functional. The configure, build, shell, package, and image targets remain guarded until their milestones are implemented. See [`docs/M0_BOOTSTRAP.md`](docs/M0_BOOTSTRAP.md) for the native FreeBSD runbook.
 
 ## Scope guardrails
 

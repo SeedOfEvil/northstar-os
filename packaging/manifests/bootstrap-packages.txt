@@ -16,3 +16,5 @@ qt6-declarative
 qt6-wayland
 plasma6-layer-shell-qt
 qterminal
+firefox
+xterm

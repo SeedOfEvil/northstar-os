@@ -4,7 +4,7 @@ The project advances through user-visible milestones with explicit pass gates. A
 
 | Milestone | Name | Status | Primary outcome |
 | --- | --- | --- | --- |
-| M0 | Reproducible development desktop | Not started | A clean FreeBSD 15.1 amd64 VM becomes the approved development environment |
+| M0 | Reproducible development desktop | Tooling implemented; native gate pending | A clean FreeBSD 15.1 amd64 VM becomes the approved development environment |
 | M1 | Shell seed | Not started | Top bar and dock render on every connected display |
 | M2 | Desktop session | Not started | Session, services, supervision, notifications, and lifecycle work coherently |
 | M3 | Core desktop | Not started | Filer, settings, search, overview, associations, and project apps form a usable desktop |
@@ -14,7 +14,7 @@ The project advances through user-visible milestones with explicit pass gates. A
 
 ## M0: Reproducible development desktop
 
-Deliver `check-host.sh`, an idempotent `bootstrap-dev.sh`, a pinned package manifest, Wayland/seatd/Wayfire/Xwayland, the Qt 6 development environment, a terminal and test applications, and a manual recovery path.
+The PR 2 tooling now includes `check-host.sh`, an idempotent `bootstrap-dev.sh`, a package manifest, sanitized diagnostics, Wayland/seatd/Wayfire/Xwayland package setup, the Qt 6 development environment, QTerminal, Firefox, `xterm`, and a manual recovery path. See [`docs/M0_BOOTSTRAP.md`](M0_BOOTSTRAP.md).
 
 Pass only when the host is exactly FreeBSD 15.1 amd64, bootstrap succeeds from a clean VM and is harmless on a second run, Wayfire starts unprivileged, a native Wayland Qt application and an X11 application through Xwayland launch, installed versions are captured, and no project file is copied into `/usr/bin` or `/usr/lib`.
 
