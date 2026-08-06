@@ -92,6 +92,69 @@ graphics host. Do not treat a basic-VGA Wayfire crash as a bootstrap failure,
 and do not add `drm-kmod` automatically; record any hardware-specific module
 choice as a separate validation decision.
 
+## Optional Proxmox nested Wayland lane
+
+When no passthrough GPU is available, M0 can still validate the Wayland client
+and Xwayland application path by nesting Wayfire inside an Xorg server that
+uses Proxmox's virtual framebuffer. This is a supplemental `Proxmox nested
+Wayland` lane: it does not prove direct DRM/KMS, GPU acceleration, or physical
+hardware support.
+
+Before installing the optional packages, create a Proxmox snapshot of VM 102
+from the Proxmox UI or host. The current SSH access reaches the guest only and
+cannot create a hypervisor snapshot.
+
+As `northstar` inside the guest, install the optional Xorg/scfb packages:
+
+```sh
+sudo pkg install -y xorg-server xinit xf86-video-scfb
+```
+
+These packages are intentionally not part of the required M0 bootstrap
+manifest. Create the user-level Xorg launcher once:
+
+```sh
+umask 077
+cat > "$HOME/.xinitrc" <<'EOF'
+#!/bin/sh
+runtime_dir=${XDG_RUNTIME_DIR:-/tmp/northstar-runtime-$(id -u)}
+mkdir -p "$runtime_dir"
+chmod 700 "$runtime_dir"
+export XDG_RUNTIME_DIR="$runtime_dir"
+exec env WLR_BACKENDS=x11 WLR_RENDERER=pixman \
+    dbus-run-session -- wayfire
+EOF
+chmod 700 "$HOME/.xinitrc"
+```
+
+From the VM's Proxmox noVNC/console session, log in as `northstar` and start
+Xorg:
+
+```sh
+startx
+```
+
+The `.xinitrc` command starts Wayfire as an X11 client using wlroots' X11
+backend and the software pixman renderer. This is why it can display through
+the virtual VGA even though `/dev/dri` is absent. If Xorg does not select the
+framebuffer driver, inspect `/var/log/Xorg.0.log` for `scfb` and add a minimal
+`scfb` device configuration only after confirming the failure.
+
+From a terminal inside the nested Wayfire session, run the application checks:
+
+```sh
+make vm-smoke
+sh tests/vm/m0-smoke.sh --launch
+QT_QPA_PLATFORM=wayland qterminal
+MOZ_ENABLE_WAYLAND=1 firefox
+xterm
+```
+
+Record this result separately from the direct graphics gate. A successful
+nested run is evidence for Wayland protocol, Qt, Firefox, and Xwayland client
+behavior; it does not change the requirement for a DRM/KMS-capable device in a
+direct Wayfire lane.
+
 ## Transfer the local repository without a remote
 
 Once the VM has network access and SSH is available, create a Git bundle on
@@ -165,6 +228,7 @@ Northstar files were placed in `/usr/bin` or `/usr/lib`.
 - [ ] Captures contain package versions and service state.
 - [ ] Diagnostics contain no credentials, tokens, keys, or sensitive environment values.
 - [ ] No Northstar files are present in `/usr/bin` or `/usr/lib`.
+- [ ] Optional nested Wayland lane passes if direct GPU access is unavailable.
 - [ ] The Windows checkout still has no Git remote configured.
 
 ## Recovery
