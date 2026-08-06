@@ -142,6 +142,8 @@ runtime_dir=${XDG_RUNTIME_DIR:-/tmp/northstar-runtime-$(id -u)}
 mkdir -p "$runtime_dir"
 chmod 700 "$runtime_dir"
 export XDG_RUNTIME_DIR="$runtime_dir"
+export QT_QPA_PLATFORM=wayland
+export MOZ_ENABLE_WAYLAND=1
 wayfire_bin=${NORTHSTAR_WAYFIRE_BIN:-$HOME/.local/wayfire-nested/bin/wayfire}
 if [ ! -x "$wayfire_bin" ]; then
     printf '%s\n' "ERROR: build the nested Wayfire binary first: make nested-wayfire" >&2
