@@ -88,7 +88,7 @@ Window {
                         id: systemMouse
                         anchors.fill: parent
                         hoverEnabled: true
-                        onClicked: systemMenu.open()
+                        onClicked: systemMenu.openMenu()
                     }
                 }
 
@@ -164,65 +164,20 @@ Window {
         }
     }
 
-    Menu {
+    SystemMenu {
         id: systemMenu
-
-        Menu {
-            title: "Applications"
-
-            MenuItem {
-                text: "Open Application Overview"
-                onTriggered: applicationOverview.visible = true
-            }
-
-            MenuItem {
-                text: "Refresh Applications"
-                onTriggered: launcher.refreshApplications()
-            }
-
-            MenuSeparator {}
-
-            Repeater {
-                model: launcher.applications
-
-                delegate: MenuItem {
-                    required property var modelData
-
-                    text: modelData.name
-                    onTriggered: launcher.launchApplication(modelData.desktopId)
-                }
-            }
-        }
-
-        MenuSeparator {}
-
-        MenuItem {
-            text: shellState.darkMode ? "Use light appearance" : "Use dark appearance"
-            onTriggered: shellState.toggleDarkMode()
-        }
-
-        MenuItem {
-            text: "Launch Terminal"
-            onTriggered: launcher.launchTerminal()
-        }
-
-        MenuItem {
-            text: "Launch Firefox"
-            onTriggered: launcher.launchBrowser()
-        }
-
-        MenuSeparator {}
-
-        MenuItem {
-            text: "Quit Northstar Shell"
-            onTriggered: Qt.quit()
-        }
+        launcherController: launcher
+        overviewWindow: applicationOverview
+        state: shellState
+        targetScreen: targetScreen
+        panelHeight: root.height
     }
 
     ApplicationOverview {
         id: applicationOverview
         applicationLauncher: launcher
-        parentWindow: root
+        targetScreen: targetScreen
+        panelHeight: root.height
         surfaceBackground: root.panelBackground
         surfaceForeground: root.panelForeground
         surfaceMuted: root.panelMuted

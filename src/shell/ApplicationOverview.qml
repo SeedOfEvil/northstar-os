@@ -5,7 +5,13 @@ Window {
     id: overview
 
     property var applicationLauncher
-    property var parentWindow
+    property var targetScreen
+    property int panelHeight: 96
+    property int desktopMargin: 24
+    property int screenX: targetScreen ? targetScreen.geometry.x : 0
+    property int screenY: targetScreen ? targetScreen.geometry.y : 0
+    property int screenWidth: targetScreen ? targetScreen.geometry.width : 1280
+    property int screenHeight: targetScreen ? targetScreen.geometry.height : 800
     property color surfaceBackground: "#171a21"
     property color surfaceForeground: "#f5f7fb"
     property color surfaceMuted: "#a9b1c2"
@@ -13,21 +19,20 @@ Window {
 
     visible: false
     color: "transparent"
-    flags: Qt.Dialog | Qt.FramelessWindowHint
+    flags: Qt.Window | Qt.FramelessWindowHint
     modality: Qt.ApplicationModal
     title: "Northstar Applications"
 
-    width: 720
-    height: 520
-    x: parentWindow ? parentWindow.x + Math.max(16, (parentWindow.width - width) / 2) : 280
-    y: parentWindow ? parentWindow.y + 120 : 120
-
-    transientParent: parentWindow
+    width: Math.max(640, screenWidth - (desktopMargin * 2))
+    height: Math.max(420, screenHeight - panelHeight - (desktopMargin * 2))
+    x: screenX + desktopMargin
+    y: screenY + panelHeight + desktopMargin
 
     onVisibleChanged: {
         if (visible) {
             applicationLauncher.setApplicationQuery("")
             searchField.forceActiveFocus()
+            requestActivate()
         } else {
             applicationLauncher.setApplicationQuery("")
         }

@@ -26,6 +26,7 @@ qt_add_qml_module(northstar-shell
     QML_FILES
         ShellWindow.qml
         ApplicationOverview.qml
+        SystemMenu.qml
 )
 
 find_package(LayerShellQt 6.6 CONFIG REQUIRED)
