@@ -1,9 +1,14 @@
 # Contributor tools
 
-M0 provides `check-host.sh`, `bootstrap-dev.sh`, `collect-diagnostics.sh`, and
-the optional `build-nested-wayfire.sh`. They use POSIX `/bin/sh`, avoid
-secrets, and document manual recovery. `run-session.sh` remains deferred until
-the Northstar session/shell implementation exists.
+M0 provides `check-host.sh`, `bootstrap-dev.sh`, `collect-diagnostics.sh`,
+`build-nested-wayfire.sh`, and `install-nested-wayfire-session.sh`. They use
+POSIX `/bin/sh`, avoid secrets, and document manual recovery. The M2
+`src/session/northstar-session` supervisor and the standard Wayland session
+descriptor are now installable through `make install-user`; display-manager
+enablement remains deferred.
+`install-nested-wayfire-session.sh --supervised` is an explicit,
+backup-preserving way to rehearse the same supervisor from a future fresh
+`startx` session.
 
 Use the repository Make targets for the stable interface:
 
@@ -18,8 +23,10 @@ cannot start without a DRM render node. After installing the optional build
 dependencies documented in `docs/M0_PROXMOX.md`, use:
 
 ```sh
-make nested-wayfire
+make nested-wayfire-session
 ```
 
-This keeps the package-managed Wayfire intact and installs the patched binary
-under the development user's home directory.
+This builds the patched binary under the development user's home directory and
+installs the user-level `.xinitrc` and `wayfire.ini` needed by `startx`. Existing
+files are preserved; use `sh tools/install-nested-wayfire-session.sh --force`
+only when you have reviewed the backup behavior.

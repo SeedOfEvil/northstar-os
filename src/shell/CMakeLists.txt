@@ -1,0 +1,45 @@
+add_library(northstar-shell-core STATIC
+    applicationlauncher.cpp
+    shellstate.cpp
+)
+
+target_include_directories(northstar-shell-core
+    PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+target_link_libraries(northstar-shell-core
+    PUBLIC
+        northstar-launcher-core
+        Qt6::Core
+)
+
+qt_add_executable(northstar-shell
+    main.cpp
+    layershellsurface.cpp
+)
+
+qt_add_qml_module(northstar-shell
+    URI Northstar.Shell
+    VERSION 1.0
+    RESOURCE_PREFIX "/"
+    QML_FILES
+        ShellWindow.qml
+        ApplicationOverview.qml
+)
+
+find_package(LayerShellQt 6.6 CONFIG REQUIRED)
+
+target_link_libraries(northstar-shell
+    PRIVATE
+        northstar-shell-core
+        Qt6::Gui
+        Qt6::Qml
+        Qt6::Quick
+        Qt6::QuickControls2
+        LayerShellQt::Interface
+)
+
+install(TARGETS northstar-shell
+    RUNTIME DESTINATION bin
+)

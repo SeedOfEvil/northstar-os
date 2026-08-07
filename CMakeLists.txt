@@ -1,8 +1,23 @@
 cmake_minimum_required(VERSION 3.28)
 
-project(Northstar VERSION 0.1.0 LANGUAGES NONE)
+project(Northstar VERSION 0.1.0 LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTORCC ON)
+set(CMAKE_AUTOUIC ON)
+
+find_package(Qt6 6.6 REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2 Test)
 
 include(CTest)
 
-message(STATUS "Northstar PR 1 repository skeleton")
-message(STATUS "C++20, Qt 6, QML, and shell targets are introduced by the M1 implementation PRs.")
+add_subdirectory(src/session)
+add_subdirectory(src/launcher)
+add_subdirectory(src/shell)
+
+if(BUILD_TESTING)
+    add_subdirectory(tests/unit)
+endif()

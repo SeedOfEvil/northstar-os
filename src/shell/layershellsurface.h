@@ -1,0 +1,11 @@
+#pragma once
+
+#include <QScreen>
+
+class QWindow;
+
+class LayerShellSurface final
+{
+public:
+    static bool configurePanel(QWindow *window, QScreen *screen, int exclusiveZone, int displayIndex);
+};

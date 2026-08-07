@@ -1,0 +1,34 @@
+#!/bin/sh
+
+# Optional supervised entry point for the supplemental Proxmox basic-VGA lane.
+# This file is not installed by default; use the explicit --supervised option
+# after the user-local Northstar binaries have been installed.
+
+set -eu
+
+runtime_dir=${XDG_RUNTIME_DIR:-/tmp/northstar-runtime-$(id -u)}
+mkdir -p "$runtime_dir"
+chmod 700 "$runtime_dir"
+export XDG_RUNTIME_DIR="$runtime_dir"
+export QT_QPA_PLATFORM=wayland
+export MOZ_ENABLE_WAYLAND=1
+
+wayfire_bin=${NORTHSTAR_WAYFIRE_BIN:-$HOME/.local/wayfire-nested/bin/wayfire}
+session_bin=${NORTHSTAR_SESSION_BIN:-$HOME/.local/bin/northstar-session}
+shell_bin=${NORTHSTAR_SESSION_SHELL:-$HOME/.local/bin/northstar-shell}
+
+for required_file in "$wayfire_bin" "$session_bin" "$shell_bin"; do
+    if [ ! -x "$required_file" ]; then
+        printf '%s\n' "ERROR: supervised session executable is unavailable: $required_file" >&2
+        printf '%s\n' 'Build/install the project first with: make install-user' >&2
+        exit 1
+    fi
+done
+
+export NORTHSTAR_SESSION_COMPOSITOR="$wayfire_bin"
+export NORTHSTAR_SESSION_SHELL="$shell_bin"
+export WLR_BACKENDS=x11
+export WLR_RENDERER=pixman
+export WLR_RENDERER_FORCE_SOFTWARE=1
+
+exec "$session_bin"

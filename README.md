@@ -6,7 +6,12 @@ Northstar is a planning codename for an open-source, FreeBSD-native desktop oper
 
 ## Project status
 
-This repository is at **PR 2: M0 development bootstrap**. The local FreeBSD host-validation, bootstrap, diagnostics, and smoke-test tooling is implemented. Native acceptance still requires running the documented checks in the Proxmox validation VM. It is not yet an installable operating system and it does not yet contain a working desktop shell.
+This repository has completed the M0 tooling and supplemental Proxmox basic-VGA
+validation lane. The first M1 shell slice now builds and runs natively on the
+validation VM, including the initial standard `.desktop` application catalog
+and searchable application overview;
+direct DRM/KMS acceptance, multi-display coverage, and the full desktop session
+remain ahead. It is not yet an installable operating system.
 
 The first implementation target is a repeatable custom shell on a stock FreeBSD installation:
 
@@ -51,7 +56,8 @@ tests/         Unit, integration, VM, and screenshot tests
 tools/         Contributor and diagnostic command wrappers
 ```
 
-Directories are intentionally scaffolded ahead of implementation. The project will add source components only when their milestone and acceptance gate are defined.
+Directories remain intentionally scaffolded ahead of implementation, while
+the M1 shell seed is now the first implemented source component.
 
 ## Development interface
 
@@ -67,15 +73,17 @@ make run-shell
 make package
 make vm-smoke
 make nested-wayfire
+make nested-wayfire-session
 make image
 make diagnostics OUTPUT=/tmp/northstar-m0-diagnostics
 ```
 
-The M0 commands are now functional. `make nested-wayfire` is an optional
-Proxmox basic-VGA lane that builds a user-local Wayfire compatibility binary;
-it does not replace the package-managed compositor or satisfy the direct
-DRM/KMS gate. The configure, build, shell, package, and image targets remain
-guarded until their milestones are implemented. See
+The M0 commands are now functional. `make nested-wayfire-session` is the
+optional Proxmox basic-VGA lane: it builds a user-local Wayfire compatibility
+binary and installs the session files needed by `startx`; it does not replace
+the package-managed compositor or satisfy the direct DRM/KMS gate. The
+configure, build, shell, package, and image targets remain guarded until their
+milestones are implemented. See
 [`docs/M0_BOOTSTRAP.md`](docs/M0_BOOTSTRAP.md) for the native FreeBSD
 bootstrap and [`docs/M0_PROXMOX.md`](docs/M0_PROXMOX.md) for the local Proxmox
 media and VM runbook.

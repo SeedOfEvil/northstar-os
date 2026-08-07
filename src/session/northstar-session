@@ -1,0 +1,307 @@
+#!/bin/sh
+
+# Northstar M2 session supervisor foundation.
+#
+# This process owns only the compositor and shell it starts. It never scans
+# for or terminates unrelated user applications. Persistent display-manager
+# integration and privileged lifecycle actions are intentionally deferred.
+
+set -eu
+
+PROG=${0##*/}
+INSIDE_DBUS=${NORTHSTAR_SESSION_INSIDE_DBUS:-0}
+SKIP_DBUS=${NORTHSTAR_SESSION_SKIP_DBUS:-0}
+DBUS_RUNNER=${NORTHSTAR_SESSION_DBUS_RUNNER:-dbus-run-session}
+COMPOSITOR=${NORTHSTAR_SESSION_COMPOSITOR:-wayfire}
+SHELL_COMMAND=${NORTHSTAR_SESSION_SHELL:-northstar-shell}
+MAX_SHELL_RESTARTS=${NORTHSTAR_SESSION_MAX_SHELL_RESTARTS:-3}
+RESTART_DELAY=${NORTHSTAR_SESSION_RESTART_DELAY:-1}
+READY_TIMEOUT=${NORTHSTAR_SESSION_READY_TIMEOUT:-10}
+SHELL_PID=
+COMPOSITOR_PID=
+SHUTDOWN_REQUESTED=0
+LOCK_DIR=
+LOCK_ACQUIRED=0
+
+usage() {
+    cat <<USAGE
+Usage: $PROG
+
+Start a Northstar user session. The supervisor prepares a Wayland session,
+starts D-Bus unless NORTHSTAR_SESSION_SKIP_DBUS=1, starts the configured
+compositor, and supervises the configured shell.
+
+Environment:
+  NORTHSTAR_SESSION_COMPOSITOR       compositor command (default: wayfire)
+  NORTHSTAR_SESSION_SHELL             shell command (default: northstar-shell)
+  NORTHSTAR_SESSION_MAX_SHELL_RESTARTS  crash restart limit (default: 3)
+  NORTHSTAR_SESSION_READY_TIMEOUT     compositor socket wait in seconds (default: 10)
+  NORTHSTAR_SESSION_WAYLAND_DISPLAY   optional socket name override
+  NORTHSTAR_SESSION_LOG_DIR           state/log directory
+  NORTHSTAR_SESSION_LOCK_DIR          per-user lock directory
+  NORTHSTAR_SESSION_SKIP_DBUS=1       use the existing D-Bus environment
+USAGE
+}
+
+die() {
+    printf 'ERROR: %s\n' "$1" >&2
+    exit 1
+}
+
+case "${1:-}" in
+    '')
+        ;;
+    --help|-h)
+        usage
+        exit 0
+        ;;
+    *)
+        die "unknown argument: $1"
+        ;;
+esac
+
+[ "$(id -u)" -ne 0 ] || die 'northstar-session must run as an unprivileged user'
+
+case "$SKIP_DBUS:$INSIDE_DBUS" in
+    0:0)
+        dbus_path=$(command -v "$DBUS_RUNNER" 2>/dev/null || true)
+        [ -n "$dbus_path" ] || die "D-Bus runner is unavailable: $DBUS_RUNNER"
+        exec "$dbus_path" -- env NORTHSTAR_SESSION_INSIDE_DBUS=1 sh "$0"
+        ;;
+    0:1|1:0|1:1)
+        ;;
+    *)
+        die 'NORTHSTAR_SESSION_SKIP_DBUS and NORTHSTAR_SESSION_INSIDE_DBUS must be 0 or 1'
+        ;;
+esac
+
+case "$MAX_SHELL_RESTARTS" in
+    ''|*[!0-9]*) die 'NORTHSTAR_SESSION_MAX_SHELL_RESTARTS must be a non-negative integer' ;;
+esac
+case "$RESTART_DELAY" in
+    ''|*[!0-9]*) die 'NORTHSTAR_SESSION_RESTART_DELAY must be a non-negative integer' ;;
+esac
+case "$READY_TIMEOUT" in
+    ''|*[!0-9]*) die 'NORTHSTAR_SESSION_READY_TIMEOUT must be a non-negative integer' ;;
+esac
+
+if [ -z "${XDG_RUNTIME_DIR:-}" ]; then
+    XDG_RUNTIME_DIR=${TMPDIR:-/tmp}/northstar-runtime-$(id -u)
+    mkdir -p "$XDG_RUNTIME_DIR"
+    chmod 0700 "$XDG_RUNTIME_DIR"
+    export XDG_RUNTIME_DIR
+fi
+
+export XDG_CURRENT_DESKTOP=${XDG_CURRENT_DESKTOP:-Northstar}
+export XDG_SESSION_DESKTOP=${XDG_SESSION_DESKTOP:-Northstar}
+export XDG_SESSION_TYPE=${XDG_SESSION_TYPE:-wayland}
+REQUESTED_WAYLAND_DISPLAY=${NORTHSTAR_SESSION_WAYLAND_DISPLAY:-}
+case "$REQUESTED_WAYLAND_DISPLAY" in
+    ''|*[!A-Za-z0-9_.-]*)
+        [ -z "$REQUESTED_WAYLAND_DISPLAY" ] || die 'NORTHSTAR_SESSION_WAYLAND_DISPLAY contains unsafe characters'
+        ;;
+esac
+if [ -n "$REQUESTED_WAYLAND_DISPLAY" ]; then
+    WAYLAND_DISPLAY=$REQUESTED_WAYLAND_DISPLAY
+    export WAYLAND_DISPLAY
+else
+    unset WAYLAND_DISPLAY
+fi
+
+if [ -n "${NORTHSTAR_SESSION_LOG_DIR:-}" ]; then
+    LOG_DIR=$NORTHSTAR_SESSION_LOG_DIR
+else
+    state_home=${XDG_STATE_HOME:-${HOME:-/tmp}/.local/state}
+    LOG_DIR=$state_home/northstar
+fi
+mkdir -p "$LOG_DIR"
+chmod 0700 "$LOG_DIR"
+SESSION_LOG=$LOG_DIR/session.log
+COMPOSITOR_LOG=$LOG_DIR/compositor.log
+SHELL_LOG=$LOG_DIR/shell.log
+LOCK_DIR=${NORTHSTAR_SESSION_LOCK_DIR:-$XDG_RUNTIME_DIR/northstar-session.lock}
+LOCK_PID_FILE=$LOCK_DIR/pid
+WAYLAND_SOCKET=
+
+log_message() {
+    message=$1
+    printf '%s\n' "$message" >> "$SESSION_LOG"
+    printf '%s\n' "$message"
+}
+
+resolve_command() {
+    command_name=$1
+    case "$command_name" in
+        */*)
+            [ -x "$command_name" ] || die "command is not executable: $command_name"
+            printf '%s\n' "$command_name"
+            ;;
+        *)
+            command_path=$(command -v "$command_name" 2>/dev/null || true)
+            [ -n "$command_path" ] || die "command is unavailable: $command_name"
+            printf '%s\n' "$command_path"
+            ;;
+    esac
+}
+
+acquire_lock() {
+    if mkdir "$LOCK_DIR" 2>/dev/null; then
+        LOCK_ACQUIRED=1
+        printf '%s\n' "$$" > "$LOCK_PID_FILE"
+        chmod 0600 "$LOCK_PID_FILE"
+        return
+    fi
+
+    existing_pid=$(cat "$LOCK_PID_FILE" 2>/dev/null || true)
+    case "$existing_pid" in
+        ''|*[!0-9])
+            existing_pid=
+            ;;
+    esac
+    if [ -n "$existing_pid" ] && kill -0 "$existing_pid" 2>/dev/null; then
+        die "a Northstar session is already running (PID $existing_pid)"
+    fi
+
+    rm -f "$LOCK_PID_FILE"
+    rmdir "$LOCK_DIR" 2>/dev/null || die 'the Northstar session lock is busy'
+    mkdir "$LOCK_DIR" 2>/dev/null || die 'could not acquire the Northstar session lock'
+    LOCK_ACQUIRED=1
+    printf '%s\n' "$$" > "$LOCK_PID_FILE"
+    chmod 0600 "$LOCK_PID_FILE"
+}
+
+release_lock() {
+    if [ "$LOCK_ACQUIRED" -eq 1 ]; then
+        owner_pid=$(cat "$LOCK_PID_FILE" 2>/dev/null || true)
+        if [ "$owner_pid" = "$$" ]; then
+            rm -f "$LOCK_PID_FILE"
+            rmdir "$LOCK_DIR" 2>/dev/null || true
+        fi
+        LOCK_ACQUIRED=0
+    fi
+}
+
+compositor_path=$(resolve_command "$COMPOSITOR")
+shell_path=$(resolve_command "$SHELL_COMMAND")
+
+stop_children() {
+    if [ -n "$SHELL_PID" ]; then
+        if kill -0 "$SHELL_PID" 2>/dev/null; then
+            kill -TERM "$SHELL_PID" 2>/dev/null || true
+        fi
+        wait "$SHELL_PID" 2>/dev/null || true
+        SHELL_PID=
+    fi
+    if [ -n "$COMPOSITOR_PID" ]; then
+        if kill -0 "$COMPOSITOR_PID" 2>/dev/null; then
+            kill -TERM "$COMPOSITOR_PID" 2>/dev/null || true
+        fi
+        wait "$COMPOSITOR_PID" 2>/dev/null || true
+        COMPOSITOR_PID=
+    fi
+}
+
+wait_for_wayland() {
+    waited=0
+    while :; do
+        if [ -n "$REQUESTED_WAYLAND_DISPLAY" ]; then
+            candidate=$XDG_RUNTIME_DIR/$REQUESTED_WAYLAND_DISPLAY
+        else
+            candidate=$(find "$XDG_RUNTIME_DIR" -maxdepth 1 -type s -name 'wayland-*' -print -quit 2>/dev/null || true)
+        fi
+        if [ -n "$candidate" ] && [ -e "$candidate" ]; then
+            WAYLAND_SOCKET=$candidate
+            WAYLAND_DISPLAY=${candidate##*/}
+            export WAYLAND_DISPLAY
+            return 0
+        fi
+        if ! kill -0 "$COMPOSITOR_PID" 2>/dev/null; then
+            die 'compositor exited before creating its Wayland socket'
+        fi
+        if [ "$waited" -ge "$READY_TIMEOUT" ]; then
+            if [ -n "$REQUESTED_WAYLAND_DISPLAY" ]; then
+                die "compositor did not create Wayland socket within ${READY_TIMEOUT}s: $XDG_RUNTIME_DIR/$REQUESTED_WAYLAND_DISPLAY"
+            fi
+            die "compositor did not create a Wayland socket within ${READY_TIMEOUT}s in $XDG_RUNTIME_DIR"
+        fi
+        sleep 1
+        waited=$((waited + 1))
+    done
+}
+
+on_signal() {
+    SHUTDOWN_REQUESTED=1
+    stop_children
+}
+
+cleanup() {
+    stop_children
+    release_lock
+}
+
+trap on_signal INT TERM HUP
+trap cleanup EXIT
+
+acquire_lock
+
+log_message "Northstar session starting"
+display_request=${REQUESTED_WAYLAND_DISPLAY:-auto}
+log_message "Environment: XDG_CURRENT_DESKTOP=$XDG_CURRENT_DESKTOP XDG_SESSION_TYPE=$XDG_SESSION_TYPE WAYLAND_DISPLAY=$display_request"
+
+if [ -n "$REQUESTED_WAYLAND_DISPLAY" ] && { [ -e "$XDG_RUNTIME_DIR/$REQUESTED_WAYLAND_DISPLAY" ] || [ -L "$XDG_RUNTIME_DIR/$REQUESTED_WAYLAND_DISPLAY" ]; }; then
+    die "Wayland socket already exists: $XDG_RUNTIME_DIR/$REQUESTED_WAYLAND_DISPLAY"
+fi
+
+"$compositor_path" >> "$COMPOSITOR_LOG" 2>&1 &
+COMPOSITOR_PID=$!
+kill -0 "$COMPOSITOR_PID" 2>/dev/null || die 'compositor exited during startup'
+log_message 'Compositor started; waiting for its Wayland socket'
+wait_for_wayland
+log_message "Wayland socket ready: $WAYLAND_SOCKET (WAYLAND_DISPLAY=$WAYLAND_DISPLAY)"
+
+restart_count=0
+session_status=0
+while [ "$SHUTDOWN_REQUESTED" -eq 0 ]; do
+    if ! kill -0 "$COMPOSITOR_PID" 2>/dev/null; then
+        log_message 'Compositor exited before the shell'
+        session_status=1
+        break
+    fi
+
+    "$shell_path" >> "$SHELL_LOG" 2>&1 &
+    SHELL_PID=$!
+    if wait "$SHELL_PID"; then
+        shell_status=0
+    else
+        shell_status=$?
+    fi
+    SHELL_PID=
+
+    [ "$SHUTDOWN_REQUESTED" -eq 0 ] || break
+    if ! kill -0 "$COMPOSITOR_PID" 2>/dev/null; then
+        log_message 'Compositor exited while the shell was running'
+        session_status=1
+        break
+    fi
+
+    if [ "$shell_status" -eq 0 ]; then
+        log_message 'Shell exited normally; ending the session'
+        break
+    fi
+
+    if [ "$restart_count" -ge "$MAX_SHELL_RESTARTS" ]; then
+        log_message "Shell crash restart limit reached with status $shell_status"
+        session_status=$shell_status
+        break
+    fi
+
+    restart_count=$((restart_count + 1))
+    log_message "Shell exited with status $shell_status; restart $restart_count/$MAX_SHELL_RESTARTS"
+    if [ "$RESTART_DELAY" -gt 0 ]; then
+        sleep "$RESTART_DELAY"
+    fi
+done
+
+stop_children
+log_message "Northstar session stopped"
+exit "$session_status"
