@@ -172,7 +172,7 @@ Window {
 
             MenuItem {
                 text: "Open Application Overview"
-                onTriggered: applicationOverview.open()
+                onTriggered: applicationOverview.visible = true
             }
 
             MenuItem {
@@ -222,6 +222,7 @@ Window {
     ApplicationOverview {
         id: applicationOverview
         applicationLauncher: launcher
+        parentWindow: root
         surfaceBackground: root.panelBackground
         surfaceForeground: root.panelForeground
         surfaceMuted: root.panelMuted

@@ -11,6 +11,7 @@ OUTPUT ?= /tmp/northstar-diagnostics
 BUILD_DIR ?= build
 CMAKE_BUILD_TYPE ?= Debug
 NORTHSTAR_PREFIX ?= $(HOME)/.local
+NORTHSTAR_SHELL_BIN ?= $(NORTHSTAR_PREFIX)/bin/northstar-shell
 
 help:
 	@printf '%s\n' 'Northstar development commands:'
@@ -85,8 +86,8 @@ install-user: build
 shell-smoke: build
 	@NORTHSTAR_SHELL_BIN="$(BUILD_DIR)/src/shell/northstar-shell" sh tests/integration/test-shell-session.sh
 
-shell-restart-smoke: build
-	@NORTHSTAR_SHELL_BIN="$(BUILD_DIR)/src/shell/northstar-shell" sh tests/integration/test-shell-session.sh --restart
+shell-restart-smoke: install-user
+	@NORTHSTAR_SHELL_BIN="$(NORTHSTAR_SHELL_BIN)" sh tests/integration/test-shell-session.sh --restart
 
 package image:
 	@printf '%s\n' "Northstar: '$@' is planned for a later milestone." >&2
