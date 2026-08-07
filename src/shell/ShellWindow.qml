@@ -168,6 +168,7 @@ Window {
         id: systemMenu
         launcherController: launcher
         overviewWindow: applicationOverview
+        settingsSurface: settingsWindow
         state: shellState
         targetScreen: targetScreen
         panelHeight: root.height
@@ -182,5 +183,12 @@ Window {
         surfaceForeground: root.panelForeground
         surfaceMuted: root.panelMuted
         surfaceAccent: root.panelAccent
+    }
+
+    SettingsWindow {
+        id: settingsWindow
+        state: shellState
+        targetScreen: targetScreen
+        panelHeight: root.height
     }
 }

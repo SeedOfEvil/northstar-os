@@ -5,6 +5,7 @@ Window {
 
     property var launcherController
     property var overviewWindow
+    property var settingsSurface
     property var state
     property var targetScreen
     property int panelHeight: 96
@@ -23,7 +24,7 @@ Window {
     title: "Northstar Menu"
 
     width: 320
-    height: 292
+    height: 330
     x: screenX + screenWidth - width - desktopMargin
     y: screenY + panelHeight + 8
 
@@ -44,6 +45,8 @@ Window {
             overviewWindow.show()
             overviewWindow.raise()
             overviewWindow.requestActivate()
+        } else if (action === "settings") {
+            settingsSurface.openSettings()
         } else if (action === "refresh") {
             launcherController.refreshApplications()
         } else if (action === "theme") {
@@ -56,8 +59,6 @@ Window {
             Qt.quit()
         }
     }
-
-    Keys.onEscapePressed: closeMenu()
 
     Rectangle {
         anchors.fill: parent
@@ -90,6 +91,7 @@ Window {
                     { kind: "action", id: "applications", label: "Applications" },
                     { kind: "action", id: "refresh", label: "Refresh Applications" },
                     { kind: "separator" },
+                    { kind: "action", id: "settings", label: "Settings" },
                     { kind: "action", id: "theme", label: "" },
                     { kind: "action", id: "terminal", label: "Launch Terminal" },
                     { kind: "action", id: "browser", label: "Launch Firefox" },
@@ -115,7 +117,7 @@ Window {
                         color: menu.surfaceForeground
                         elide: Text.ElideRight
                         font.pixelSize: 13
-                        text: modelData.id === "theme"
+                        text: modelData.kind === "separator" ? "" : modelData.id === "theme"
                             ? (menu.state && menu.state.darkMode
                                 ? "Use light appearance" : "Use dark appearance")
                             : modelData.label
