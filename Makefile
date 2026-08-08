@@ -2,7 +2,7 @@ SHELL := /bin/sh
 
 .DEFAULT_GOAL := help
 
-.PHONY: help check-host bootstrap configure build test run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart package vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
+.PHONY: help check-host bootstrap configure build test run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
 
 MANIFEST ?= packaging/manifests/bootstrap-packages.txt
 NORTHSTAR_USER ?=
@@ -26,6 +26,8 @@ help:
 	@printf '%s\n' '  make install-user Install the built session and shell below NORTHSTAR_PREFIX'
 	@printf '%s\n' '  make install-console-autostart Enable desktop start after local console login'
 	@printf '%s\n' '  make disable-console-autostart Disable the local console-login desktop start'
+	@printf '%s\n' '  make install-sddm-fallback Enable the branded SDDM Proxmox fallback policy (root)'
+	@printf '%s\n' '  make disable-sddm-fallback Disable the branded SDDM Proxmox fallback policy (root)'
 	@printf '%s\n' '  make package      Build Northstar packages'
 	@printf '%s\n' '  make vm-smoke     Run the M0 native smoke preflight'
 	@printf '%s\n' '  make nested-wayfire Build the supplemental X11/pixman Wayfire lane'
@@ -50,6 +52,8 @@ test:
 	@sh tests/unit/test-m0-scripts.sh
 	@sh tests/unit/test-nested-wayfire-session.sh
 	@sh tests/unit/test-console-autostart.sh
+	@sh tests/unit/test-sddm-theme.sh
+	@sh tests/unit/test-sddm-fallback.sh
 	@sh tests/unit/test-session-script.sh
 	@$(MAKE) build
 	@sh tests/unit/test-session-entrypoint.sh "$(BUILD_DIR)"
@@ -91,6 +95,12 @@ install-console-autostart:
 
 disable-console-autostart:
 	@sh tools/install-console-autostart.sh --disable
+
+install-sddm-fallback:
+	@sh tools/install-sddm-fallback.sh --enable
+
+disable-sddm-fallback:
+	@sh tools/install-sddm-fallback.sh --disable
 
 shell-smoke: build
 	@NORTHSTAR_SHELL_BIN="$(BUILD_DIR)/src/shell/northstar-shell" sh tests/integration/test-shell-session.sh

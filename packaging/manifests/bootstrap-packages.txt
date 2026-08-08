@@ -18,3 +18,4 @@ plasma6-layer-shell-qt
 qterminal
 firefox
 xterm
+sddm

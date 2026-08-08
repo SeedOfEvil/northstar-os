@@ -61,6 +61,8 @@ sh "$ROOT/tools/install-nested-wayfire-session.sh" > "$OUTPUT" 2> "$ERROR_OUTPUT
 cmp "$ROOT/config/xinitrc.nested-wayfire" "$HOME/.xinitrc" || fail '.xinitrc differs from the project template'
 cmp "$ROOT/config/wayfire-nested.ini" "$HOME/.config/wayfire.ini" || fail 'wayfire.ini differs from the project template'
 grep -F 'mode = 1280x800' "$HOME/.config/wayfire.ini" >/dev/null || fail 'wayfire.ini does not request the full 1280x800 X11 output'
+grep -F '  ipc ' "$HOME/.config/wayfire.ini" >/dev/null || fail 'wayfire.ini does not enable Wayfire IPC'
+grep -F '  ipc-rules ' "$HOME/.config/wayfire.ini" >/dev/null || fail 'wayfire.ini does not enable Wayfire IPC window rules'
 pass 'installer creates the nested session files'
 
 sh "$ROOT/tools/install-nested-wayfire-session.sh" > "$OUTPUT" 2> "$ERROR_OUTPUT"

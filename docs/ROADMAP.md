@@ -6,7 +6,7 @@ The project advances through user-visible milestones with explicit pass gates. A
 | --- | --- | --- | --- |
 | M0 | Reproducible development desktop | Supplemental lane validated; native gate pending | A clean FreeBSD 15.1 amd64 VM becomes the approved development environment |
 | M1 | Shell seed | Single-display slice validated; multi-display deferred | Top bar and dock render on every connected display |
-| M2 | Desktop session | Supervisor, session entry point, and live nested login wrapper validated; acceptance pending | Session, services, supervision, notifications, and lifecycle work coherently |
+| M2 | Desktop session | Supervisor, session entry point, live nested login wrapper, branded greeter, and Proxmox fallback prepared; native acceptance pending | Session, services, supervision, notifications, and lifecycle work coherently |
 | M3 | Core desktop | Not started | Filer, settings, search, overview, associations, and project apps form a usable desktop |
 | M4 | Packages, updates, rollback | Not started | Signed packages and ZFS boot-environment rollback work end to end |
 | M5 | Reproducible image and installer | Not started | Pinned inputs produce a bootable UEFI root-on-ZFS image |
@@ -30,7 +30,7 @@ Pass only when surfaces reserve or overlay space correctly, appear on every disp
 
 Deliver `northstar-session`, environment setup, D-Bus startup, logout/reboot/shutdown, launcher, notifications, settings, file associations, removable-volume events, crash restart policy, and diagnostic logging.
 
-The first scoped foundation is documented in [`docs/M2_SESSION.md`](M2_SESSION.md). It prepares the user environment, starts D-Bus and the configured compositor, discovers the compositor's actual Wayland socket, supervises the shell, restarts shell crashes within a bounded limit, stops only the child processes it owns, installs a standard Wayland session descriptor, and provides an opt-in supervised nested `startx` wrapper that is now live-validated. Privileged lifecycle actions, live display-manager login, and persistent service integration remain future work.
+The first scoped foundation is documented in [`docs/M2_SESSION.md`](M2_SESSION.md). It prepares the user environment, starts D-Bus and the configured compositor, discovers the compositor's actual Wayland socket, supervises the shell, restarts shell crashes within a bounded limit, stops only the child processes it owns, installs a standard Wayland session descriptor, and provides an opt-in supervised nested `startx` wrapper that is now live-validated. The first branded SDDM greeter, official Northstar logo, and explicit Proxmox X11 fallback session are now prepared for non-destructive preview. Native display-manager login and persistent service integration remain future work.
 
 The follow-on session slices add a user-private status contract, a confirmed
 unprivileged end-session request, tracked application launches, controlled

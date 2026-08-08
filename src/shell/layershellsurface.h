@@ -8,4 +8,5 @@ class LayerShellSurface final
 {
 public:
     static bool configurePanel(QWindow *window, QScreen *screen, int exclusiveZone, int displayIndex);
+    static bool configureDock(QWindow *window, QScreen *screen, int exclusiveZone, int displayIndex);
 };

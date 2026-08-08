@@ -11,13 +11,23 @@ Window {
     property var targetScreen
     property string shellApplicationName: "northstar-shell"
     property string shellApplicationVersion: "0.1.0"
-    property int panelHeight: 96
+    property int panelHeight: 44
     property int desktopMargin: 24
     property string selectedSection: "appearance"
     property int screenX: targetScreen ? targetScreen.geometry.x : 0
     property int screenY: targetScreen ? targetScreen.geometry.y : 0
     property int screenWidth: targetScreen ? targetScreen.geometry.width : 1280
     property int screenHeight: targetScreen ? targetScreen.geometry.height : 800
+    property int minimumSurfaceWidth: 640
+    property int minimumSurfaceHeight: 420
+    property bool maximized: false
+    property point normalGeometryPosition: Qt.point(0, 0)
+    property size normalGeometrySize: Qt.size(0, 0)
+    property bool dragging: false
+    property point dragOrigin: Qt.point(0, 0)
+    property point windowOrigin: Qt.point(0, 0)
+    property point resizeOrigin: Qt.point(0, 0)
+    property size resizeSize: Qt.size(0, 0)
     property color surfaceBackground: state && state.darkMode ? "#171a21" : "#f4f6fb"
     property color surfaceForeground: state && state.darkMode ? "#f5f7fb" : "#1e2430"
     property color surfaceMuted: state && state.darkMode ? "#a9b1c2" : "#637083"
@@ -28,11 +38,13 @@ Window {
     visible: false
     color: "transparent"
     flags: Qt.Window | Qt.FramelessWindowHint
-    modality: Qt.ApplicationModal
+    modality: Qt.NonModal
     title: "Northstar Settings"
 
-    width: Math.min(900, screenWidth - (desktopMargin * 2))
-    height: Math.max(520, screenHeight - panelHeight - (desktopMargin * 2))
+    minimumWidth: settings.minimumSurfaceWidth
+    minimumHeight: settings.minimumSurfaceHeight
+    width: Math.min(900, Math.max(minimumSurfaceWidth, screenWidth - (desktopMargin * 2)))
+    height: Math.min(screenHeight - panelHeight - desktopMargin, Math.max(minimumSurfaceHeight, 520))
     x: screenX + Math.max(desktopMargin, (screenWidth - width) / 2)
     y: screenY + panelHeight + desktopMargin
 
@@ -43,6 +55,70 @@ Window {
         if (sessionController) {
             sessionController.refresh()
         }
+    }
+
+    function toggleMaximize() {
+        if (settings.maximized) {
+            settings.x = settings.normalGeometryPosition.x
+            settings.y = settings.normalGeometryPosition.y
+            settings.width = settings.normalGeometrySize.width
+            settings.height = settings.normalGeometrySize.height
+            settings.maximized = false
+            return
+        }
+
+        settings.normalGeometryPosition = Qt.point(settings.x, settings.y)
+        settings.normalGeometrySize = Qt.size(settings.width, settings.height)
+        settings.x = settings.screenX
+        settings.y = settings.screenY + settings.panelHeight
+        settings.width = settings.screenWidth
+        settings.height = Math.max(settings.minimumSurfaceHeight, settings.screenHeight - settings.panelHeight)
+        settings.maximized = true
+    }
+
+    function beginDrag(mouseX, mouseY) {
+        if (settings.maximized) {
+            return
+        }
+        settings.dragging = true
+        settings.dragOrigin = Qt.point(mouseX, mouseY)
+        settings.windowOrigin = Qt.point(settings.x, settings.y)
+    }
+
+    function updateDrag(mouseX, mouseY) {
+        if (!settings.dragging || settings.maximized) {
+            return
+        }
+        const deltaX = mouseX - settings.dragOrigin.x
+        const deltaY = mouseY - settings.dragOrigin.y
+        const maxX = settings.screenX + settings.screenWidth - settings.width
+        const maxY = settings.screenY + settings.screenHeight - settings.height
+        settings.x = Math.max(settings.screenX, Math.min(maxX, settings.windowOrigin.x + deltaX))
+        settings.y = Math.max(settings.screenY + settings.panelHeight, Math.min(maxY, settings.windowOrigin.y + deltaY))
+    }
+
+    function endDrag() {
+        settings.dragging = false
+    }
+
+    function beginResize(mouseX, mouseY) {
+        if (settings.maximized) {
+            return
+        }
+        settings.resizeOrigin = Qt.point(mouseX, mouseY)
+        settings.resizeSize = Qt.size(settings.width, settings.height)
+    }
+
+    function updateResize(mouseX, mouseY) {
+        if (settings.maximized) {
+            return
+        }
+        const deltaX = mouseX - settings.resizeOrigin.x
+        const deltaY = mouseY - settings.resizeOrigin.y
+        settings.width = Math.min(settings.screenX + settings.screenWidth - settings.x,
+                                  Math.max(settings.minimumSurfaceWidth, settings.resizeSize.width + deltaX))
+        settings.height = Math.min(settings.screenY + settings.screenHeight - settings.y,
+                                   Math.max(settings.minimumSurfaceHeight, settings.resizeSize.height + deltaY))
     }
 
     Timer {
@@ -94,12 +170,23 @@ Window {
             anchors.margins: 22
             spacing: 18
 
-            Row {
+            Item {
+                id: titleBar
                 width: parent.width
-                spacing: 12
+                height: 48
+
+                MouseArea {
+                    anchors.fill: parent
+                    onPressed: settings.beginDrag(mouse.x, mouse.y)
+                    onPositionChanged: settings.updateDrag(mouse.x, mouse.y)
+                    onReleased: settings.endDrag()
+                    onCanceled: settings.endDrag()
+                }
 
                 Column {
-                    width: parent.width - closeButton.width - parent.spacing
+                    anchors.left: parent.left
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: parent.width - closeButton.width - 12
                     spacing: 3
 
                     Text {
@@ -116,10 +203,74 @@ Window {
                     }
                 }
 
-                Button {
+                Row {
                     id: closeButton
-                    text: "Close"
-                    onClicked: settings.hide()
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 6
+
+                    Rectangle {
+                        color: minimizeMouse.containsMouse ? settings.surfaceAccent : settings.surfaceRaised
+                        height: 32
+                        radius: 5
+                        width: 34
+
+                        Text {
+                            anchors.centerIn: parent
+                            color: settings.surfaceForeground
+                            font.pixelSize: 15
+                            text: "_"
+                        }
+
+                        MouseArea {
+                            id: minimizeMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            onClicked: settings.hide()
+                        }
+                    }
+
+                    Rectangle {
+                        color: maximizeMouse.containsMouse ? settings.surfaceAccent : settings.surfaceRaised
+                        height: 32
+                        radius: 5
+                        width: 34
+
+                        Text {
+                            anchors.centerIn: parent
+                            color: settings.surfaceForeground
+                            font.pixelSize: 14
+                            text: settings.maximized ? "❐" : "□"
+                        }
+
+                        MouseArea {
+                            id: maximizeMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            onClicked: settings.toggleMaximize()
+                        }
+                    }
+
+                    Rectangle {
+                        color: closeMouse.containsMouse ? "#c34f65" : settings.surfaceRaised
+                        height: 32
+                        radius: 5
+                        width: 58
+
+                        Text {
+                            anchors.centerIn: parent
+                            color: settings.surfaceForeground
+                            font.pixelSize: 12
+                            text: "Close"
+                        }
+
+                        MouseArea {
+                            id: closeMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            onClicked: settings.hide()
+                        }
+                    }
                 }
             }
 
@@ -613,6 +764,33 @@ Window {
                     }
                 }
             }
+        }
+    }
+
+    Rectangle {
+        id: resizeHandle
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        color: settings.maximized ? "transparent" : settings.surfaceAccent
+        height: 18
+        opacity: settings.maximized ? 0 : 0.85
+        visible: !settings.maximized
+        width: 18
+        z: 10
+
+        Text {
+            anchors.centerIn: parent
+            color: settings.surfaceBackground
+            font.pixelSize: 12
+            rotation: 45
+            text: "···"
+        }
+
+        MouseArea {
+            anchors.fill: parent
+            cursorShape: Qt.SizeFDiagCursor
+            onPressed: settings.beginResize(mouse.x, mouse.y)
+            onPositionChanged: settings.updateResize(mouse.x, mouse.y)
         }
     }
 }

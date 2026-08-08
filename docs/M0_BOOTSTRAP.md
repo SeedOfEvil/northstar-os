@@ -27,7 +27,10 @@ sudo make bootstrap NORTHSTAR_USER=<development-user>
 
 The bootstrap performs `pkg update`, verifies every package in [`packaging/manifests/bootstrap-packages.txt`](../packaging/manifests/bootstrap-packages.txt) with an exact repository search, installs only packages that are not already present, enables `dbus` and `seatd`, starts them if necessary, and adds the selected account to `video`.
 
-The package set includes QTerminal, Firefox, and `xterm` so the first Wayland/Xwayland smoke path is deterministic.
+The package set includes QTerminal, Firefox, and `xterm` so the first
+Wayland/Xwayland smoke path is deterministic. It also installs SDDM for the
+Northstar graphical-login slice, but bootstrap does not enable SDDM or change
+the active display-manager policy.
 
 Log out and back in after the first successful run so the new `video` group membership is present in the desktop session.
 

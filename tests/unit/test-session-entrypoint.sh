@@ -40,6 +40,7 @@ if ! cmake --install "$BUILD_DIR" --prefix "$PREFIX" > "$OUTPUT" 2> "$ERROR_OUTP
 fi
 
 [ -x "$PREFIX/bin/northstar-session" ] || fail 'northstar-session was not installed executable'
+[ -x "$PREFIX/bin/northstar-session-x11" ] || fail 'northstar-session-x11 was not installed executable'
 [ -x "$PREFIX/bin/northstar-shell" ] || fail 'northstar-shell was not installed executable'
 if [ ! -f "$PREFIX/share/wayland-sessions/northstar.desktop" ]; then
     fail 'Northstar Wayland session descriptor was not installed'
@@ -55,6 +56,17 @@ fi
 if ! grep -F 'DesktopNames=Northstar' "$desktop" >/dev/null; then
     fail 'session descriptor is missing DesktopNames'
 fi
+
+fallback_desktop=$PREFIX/share/xsessions/northstar-proxmox.desktop
+[ -f "$fallback_desktop" ] || fail 'Northstar Proxmox fallback descriptor was not installed'
+if ! grep -F 'Exec=northstar-session-x11' "$fallback_desktop" >/dev/null; then
+    fail 'fallback descriptor does not launch northstar-session-x11'
+fi
+
+[ -f "$PREFIX/share/sddm/themes/northstar/metadata.desktop" ] || fail 'Northstar SDDM metadata was not installed'
+[ -f "$PREFIX/share/sddm/themes/northstar/Main.qml" ] || fail 'Northstar SDDM theme was not installed'
+[ -f "$PREFIX/share/sddm/themes/northstar/assets/northstar-logo.png" ] || fail 'Northstar SDDM logo was not installed'
+[ -f "$PREFIX/share/northstar/branding/northstar-logo.png" ] || fail 'canonical Northstar logo was not installed'
 
 if grep -Eiq '(^|[[:space:]])(sudo|su|doas|pkexec|shutdown|reboot)([[:space:]]|$)' "$PREFIX/bin/northstar-session" "$desktop"; then
     fail 'session entry point contains an unapproved privileged lifecycle command'

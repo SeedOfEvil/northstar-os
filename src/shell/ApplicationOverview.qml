@@ -6,7 +6,7 @@ Window {
 
     property var applicationLauncher
     property var targetScreen
-    property int panelHeight: 96
+    property int panelHeight: 44
     property int desktopMargin: 24
     property int screenX: targetScreen ? targetScreen.geometry.x : 0
     property int screenY: targetScreen ? targetScreen.geometry.y : 0
@@ -20,7 +20,7 @@ Window {
     visible: false
     color: "transparent"
     flags: Qt.Window | Qt.FramelessWindowHint
-    modality: Qt.ApplicationModal
+    modality: Qt.NonModal
     title: "Northstar Applications"
 
     width: Math.max(640, screenWidth - (desktopMargin * 2))

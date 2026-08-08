@@ -11,7 +11,7 @@ Window {
     property var sessionController
     property var state
     property var targetScreen
-    property int panelHeight: 96
+    property int panelHeight: 44
     property int desktopMargin: 18
     property int screenX: targetScreen ? targetScreen.geometry.x : 0
     property int screenY: targetScreen ? targetScreen.geometry.y : 0

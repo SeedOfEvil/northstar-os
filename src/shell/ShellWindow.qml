@@ -7,7 +7,7 @@ Window {
     visible: false
     color: "transparent"
     flags: Qt.FramelessWindowHint | Qt.Tool
-    height: 96
+    height: 44
     width: 1280
     title: "Northstar Shell"
 
@@ -116,68 +116,6 @@ Window {
             }
         }
 
-        Rectangle {
-            anchors.bottom: parent.bottom
-            anchors.left: parent.left
-            anchors.right: parent.right
-            height: 52
-            color: root.panelBackground
-            opacity: 0.98
-
-            Row {
-                anchors.left: parent.left
-                anchors.leftMargin: 18
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: 10
-
-                Text {
-                    color: root.panelMuted
-                    font.pixelSize: 12
-                    text: "Dock"
-                    verticalAlignment: Text.AlignVCenter
-                }
-
-                Rectangle {
-                    color: root.panelAccent
-                    height: 1
-                    width: 26
-                }
-
-                Repeater {
-                    model: shellState.pinnedApplications
-
-                    delegate: Rectangle {
-                        color: dockMouse.containsMouse ? root.panelAccent : (shellState.darkMode ? "#252b36" : "#e8edf5")
-                        height: 34
-                        radius: 7
-                        width: 112
-
-                        Text {
-                            anchors.centerIn: parent
-                            color: root.panelForeground
-                            font.pixelSize: 12
-                            text: modelData === "qterminal" ? "Terminal" : "Firefox"
-                        }
-
-                        MouseArea {
-                            id: dockMouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            onClicked: modelData === "qterminal" ? launcher.launchTerminal() : launcher.launchBrowser()
-                        }
-                    }
-                }
-            }
-
-            Text {
-                anchors.right: parent.right
-                anchors.rightMargin: 18
-                anchors.verticalCenter: parent.verticalCenter
-                color: root.panelMuted
-                font.pixelSize: 11
-                text: "Display " + (displayIndex + 1)
-            }
-        }
     }
 
     Rectangle {

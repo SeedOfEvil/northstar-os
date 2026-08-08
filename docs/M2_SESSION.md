@@ -45,10 +45,14 @@ restart count. A confirmed End Northstar Session request writes an
 `end-session` marker and signals the exact parent supervisor; the supervisor's
 existing cleanup path then terminates only the compositor and shell it owns.
 
-The descriptor, SDDM integration boundary, and opt-in nested wrapper are now
-present, but the project does not yet enable a display manager, perform
-privileged logout/reboot/shutdown, or supervise the full service set. Those
-are the remaining M2 acceptance slices.
+The descriptor, SDDM integration boundary, opt-in nested wrapper, and explicit
+Proxmox X11 fallback session are now present. The first branded SDDM greeter is also present under
+`config/sddm/northstar`; it delegates authentication, session selection, and
+power actions to SDDM and uses the official Northstar logo. The project does
+not yet perform the native DRM/KMS login acceptance or supervise the full
+service set. The fallback policy can be enabled on the development VM after a
+system-prefix install and recovery-console check; native display-manager
+acceptance remains separate.
 
 The shell launch slice is documented in [`docs/M2_LAUNCHES.md`](M2_LAUNCHES.md).
 It records the identity and PID of launched applications in a user-private log
@@ -86,8 +90,19 @@ make disable-console-autostart
 
 This is a development-console convenience, not the final graphical-login
 policy. The production path remains the standard Wayland descriptor selected
-through a display manager, followed by a separately validated autologin policy
-and lock screen.
+through the branded SDDM greeter, followed by a separately validated autologin
+policy and lock screen.
+
+The greeter can be previewed without changing the active display manager:
+
+```sh
+sddm-greeter --test-mode --theme "$PWD/config/sddm/northstar"
+```
+
+Do not enable SDDM while the console `startx` session is active. First disable
+the console hook, preserve a recovery console, and validate the greeter and
+the selected `northstar.desktop` session manually. The current Proxmox
+basic-VGA lane remains insufficient for native Wayland/DRM acceptance.
 
 ## Deterministic validation
 
@@ -99,10 +114,10 @@ D-Bus wrapper handoff, and preservation of an unrelated sentinel process:
 make test
 ```
 
-`make test` also covers the power-controller contract and console autostart
-installer, stages the built files into a temporary prefix, and verifies
-that the installed session descriptor launches only the unprivileged
-`northstar-session` entry point.
+`make test` also covers the power-controller contract, console autostart
+installer, SDDM theme boundary, and Proxmox fallback environment, stages the
+built files into a temporary prefix, and verifies that the installed session
+descriptors launch only unprivileged Northstar entry points.
 
 The current shell and compositor can be selected without changing source:
 
