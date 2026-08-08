@@ -1,6 +1,7 @@
 #include "applicationlauncher.h"
 #include "filebrowsercontroller.h"
 #include "layershellsurface.h"
+#include "notificationcenter.h"
 #include "powercontroller.h"
 #include "sessioncontroller.h"
 #include "shellstate.h"
@@ -54,12 +55,28 @@ int main(int argc, char *argv[])
     QQmlApplicationEngine engine;
     ShellState shellState;
     ApplicationLauncher applicationLauncher;
+    NotificationCenter notificationCenter;
     FileBrowserController fileBrowserController;
     PowerController powerController;
     SessionController sessionController;
     ShortcutCatalog shortcutCatalog;
     VolumeController volumeController;
     WindowController windowController;
+    QObject::connect(&applicationLauncher, &ApplicationLauncher::launchStatusChanged,
+                     &notificationCenter, [&applicationLauncher, &notificationCenter]() {
+        if (applicationLauncher.launchMessage().isEmpty()) {
+            return;
+        }
+
+        notificationCenter.pushNotification(
+            applicationLauncher.lastLaunchSucceeded()
+                ? QStringLiteral("Application started")
+                : QStringLiteral("Application launch failed"),
+            applicationLauncher.launchMessage(),
+            applicationLauncher.lastLaunchSucceeded()
+                ? QStringLiteral("success")
+                : QStringLiteral("error"));
+    });
     const QUrl logoSource = northstarLogoSource();
     const QUrl iconsSource = northstarIconsSource();
     QQmlComponent backgroundComponent(&engine, QUrl(QStringLiteral("qrc:/Northstar/Shell/DesktopBackground.qml")));
@@ -110,6 +127,7 @@ int main(int argc, char *argv[])
         auto *context = new QQmlContext(engine.rootContext());
         context->setContextProperty(QStringLiteral("shellState"), &shellState);
         context->setContextProperty(QStringLiteral("launcher"), &applicationLauncher);
+        context->setContextProperty(QStringLiteral("northstarNotificationCenter"), &notificationCenter);
         context->setContextProperty(QStringLiteral("northstarFileBrowserController"), &fileBrowserController);
         context->setContextProperty(QStringLiteral("northstarPowerController"), &powerController);
         context->setContextProperty(QStringLiteral("northstarSessionController"), &sessionController);

@@ -55,9 +55,10 @@ system-prefix install and recovery-console check; native display-manager
 acceptance remains separate.
 
 The shell launch slice is documented in [`docs/M2_LAUNCHES.md`](M2_LAUNCHES.md).
-It records the identity and PID of launched applications in a user-private log
-and presents short success/failure feedback without expanding supervisor
-ownership to those applications.
+It records the identity and PID of launched applications in a user-private log,
+presents short success/failure feedback, and exposes a bounded in-shell
+Notification Center without expanding supervisor ownership to those
+applications.
 
 The system menu now exposes a confirmed `Log Out of Northstar` action while a
 supervised session is running. It reuses the exact-parent supervisor request

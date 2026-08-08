@@ -63,7 +63,7 @@ The shell owns project surfaces: the top bar, dock, desktop, overview, app switc
 
 Logical service boundaries are defined before process boundaries are split. The initial implementation may keep several services in one executable while interfaces, authorization, logging, and restart behavior stabilize.
 
-Planned services include launcher, notifications, settings, file associations, volumes, updates, and power. The current settings slice stores only user-scoped appearance preferences through Qt's configuration path; it never requires root access. File associations are likewise stored as user-scoped extension preferences and are validated against the current launcher catalog before use. Reboot and shutdown are controlled authorization operations, not arbitrary shell commands. Project `.app` bundles carry a source/package/revision provenance record that the launcher validates before discovery.
+Planned services include launcher, notifications, settings, file associations, volumes, updates, and power. The current notification slice is an in-process, bounded, session-scoped history of user-visible launch events; it never requires root access or supervises applications. The current settings slice stores only user-scoped appearance preferences through Qt's configuration path. File associations are likewise stored as user-scoped extension preferences and are validated against the current launcher catalog before use. Reboot and shutdown are controlled authorization operations, not arbitrary shell commands. Project `.app` bundles carry a source/package/revision provenance record that the launcher validates before discovery.
 
 ### Applications
 
