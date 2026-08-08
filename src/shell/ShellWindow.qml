@@ -189,7 +189,7 @@ Window {
         id: settingsWindow
         state: shellState
         launcherController: launcher
-        sessionController: sessionController
+        sessionController: northstarSessionController
         targetScreen: targetScreen
         panelHeight: root.height
     }

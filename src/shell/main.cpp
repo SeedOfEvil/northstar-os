@@ -47,7 +47,7 @@ int main(int argc, char *argv[])
         auto *context = new QQmlContext(engine.rootContext());
         context->setContextProperty(QStringLiteral("shellState"), &shellState);
         context->setContextProperty(QStringLiteral("launcher"), &applicationLauncher);
-        context->setContextProperty(QStringLiteral("sessionController"), &sessionController);
+        context->setContextProperty(QStringLiteral("northstarSessionController"), &sessionController);
         context->setContextProperty(QStringLiteral("targetScreen"), screen);
         context->setContextProperty(QStringLiteral("displayIndex"), index);
 

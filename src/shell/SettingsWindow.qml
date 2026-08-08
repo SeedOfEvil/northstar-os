@@ -7,6 +7,7 @@ Window {
     property var state
     property var launcherController
     property var sessionController
+    property bool hasSessionController: sessionController !== null && sessionController !== undefined
     property var targetScreen
     property string shellApplicationName: "northstar-shell"
     property string shellApplicationVersion: "0.1.0"
@@ -22,6 +23,7 @@ Window {
     property color surfaceMuted: state && state.darkMode ? "#a9b1c2" : "#637083"
     property color surfaceAccent: state && state.darkMode ? "#79b8ff" : "#1769aa"
     property color surfaceRaised: state && state.darkMode ? "#252b36" : "#e8edf5"
+    property string catalogStatus: ""
 
     visible: false
     color: "transparent"
@@ -46,8 +48,14 @@ Window {
     Timer {
         interval: 1000
         repeat: true
-        running: settings.visible && settings.sessionController
+        running: settings.visible && settings.hasSessionController
         onTriggered: settings.sessionController.refresh()
+    }
+
+    Timer {
+        id: catalogStatusTimer
+        interval: 2500
+        onTriggered: settings.catalogStatus = ""
     }
 
     Dialog {
@@ -67,7 +75,7 @@ Window {
         }
 
         onAccepted: {
-            const requested = settings.sessionController && settings.sessionController.requestEndSession()
+            const requested = settings.hasSessionController && settings.sessionController.requestEndSession()
             if (requested) {
                 settings.hide()
             }
@@ -275,7 +283,7 @@ Window {
                             color: settings.surfaceBackground
                             border.color: settings.surfaceMuted
                             border.width: 1
-                            height: 198
+                            height: 286
                             radius: 8
                             width: parent.width
 
@@ -298,8 +306,27 @@ Window {
                                     Text {
                                         color: settings.surfaceForeground
                                         font.pixelSize: 13
-                                        text: settings.sessionController && settings.sessionController.available
+                                        text: settings.hasSessionController && settings.sessionController.available
                                             ? settings.sessionController.state : "Not supervised"
+                                    }
+                                }
+
+                                Row {
+                                    spacing: 8
+                                    width: parent.width
+
+                                    Text {
+                                        color: settings.surfaceMuted
+                                        font.pixelSize: 13
+                                        text: "Supervisor PID"
+                                        width: 150
+                                    }
+
+                                    Text {
+                                        color: settings.surfaceForeground
+                                        font.pixelSize: 13
+                                        text: settings.hasSessionController && settings.sessionController.supervisorPid > 0
+                                            ? settings.sessionController.supervisorPid : "—"
                                     }
                                 }
 
@@ -317,7 +344,7 @@ Window {
                                     Text {
                                         color: settings.surfaceForeground
                                         font.pixelSize: 13
-                                        text: settings.sessionController && settings.sessionController.available
+                                        text: settings.hasSessionController && settings.sessionController.available
                                             ? settings.sessionController.waylandDisplay : "—"
                                     }
                                 }
@@ -336,7 +363,7 @@ Window {
                                     Text {
                                         color: settings.surfaceForeground
                                         font.pixelSize: 13
-                                        text: settings.sessionController && settings.sessionController.shellPid > 0
+                                        text: settings.hasSessionController && settings.sessionController.shellPid > 0
                                             ? settings.sessionController.shellPid : "—"
                                     }
                                 }
@@ -355,7 +382,7 @@ Window {
                                     Text {
                                         color: settings.surfaceForeground
                                         font.pixelSize: 13
-                                        text: settings.sessionController && settings.sessionController.compositorPid > 0
+                                        text: settings.hasSessionController && settings.sessionController.compositorPid > 0
                                             ? settings.sessionController.compositorPid : "—"
                                     }
                                 }
@@ -374,7 +401,63 @@ Window {
                                     Text {
                                         color: settings.surfaceForeground
                                         font.pixelSize: 13
-                                        text: settings.sessionController ? settings.sessionController.restartCount : 0
+                                        text: settings.hasSessionController ? settings.sessionController.restartCount : 0
+                                    }
+                                }
+
+                                Row {
+                                    spacing: 8
+                                    width: parent.width
+
+                                    Text {
+                                        color: settings.surfaceMuted
+                                        font.pixelSize: 13
+                                        text: "Last event"
+                                        width: 150
+                                    }
+
+                                    Text {
+                                        color: settings.surfaceForeground
+                                        font.pixelSize: 13
+                                        text: settings.hasSessionController && settings.sessionController.lastEvent.length > 0
+                                            ? settings.sessionController.lastEvent : "—"
+                                    }
+                                }
+
+                                Row {
+                                    spacing: 8
+                                    width: parent.width
+
+                                    Text {
+                                        color: settings.surfaceMuted
+                                        font.pixelSize: 13
+                                        text: "Desktop"
+                                        width: 150
+                                    }
+
+                                    Text {
+                                        color: settings.surfaceForeground
+                                        font.pixelSize: 13
+                                        text: settings.state && settings.state.activeWindowTitle
+                                            ? settings.state.activeWindowTitle : "Desktop"
+                                    }
+                                }
+
+                                Row {
+                                    spacing: 8
+                                    width: parent.width
+
+                                    Text {
+                                        color: settings.surfaceMuted
+                                        font.pixelSize: 13
+                                        text: "Display"
+                                        width: 150
+                                    }
+
+                                    Text {
+                                        color: settings.surfaceForeground
+                                        font.pixelSize: 13
+                                        text: settings.screenWidth + " x " + settings.screenHeight
                                     }
                                 }
 
@@ -403,13 +486,27 @@ Window {
                             text: "Refresh Application Catalog"
                             onClicked: {
                                 if (settings.launcherController) {
-                                    settings.launcherController.refreshApplications()
+                                    const changed = settings.launcherController.refreshApplications()
+                                    settings.catalogStatus = changed
+                                        ? "Application catalog refreshed."
+                                        : "Application catalog is already current."
+                                    catalogStatusTimer.restart()
+                                } else {
+                                    settings.catalogStatus = "Application catalog is unavailable."
+                                    catalogStatusTimer.restart()
                                 }
                             }
                         }
 
+                        Text {
+                            color: settings.surfaceMuted
+                            font.pixelSize: 12
+                            text: settings.catalogStatus
+                            visible: text.length > 0
+                        }
+
                         Button {
-                            enabled: settings.sessionController && settings.sessionController.available
+                            enabled: settings.hasSessionController && settings.sessionController.available
                             text: "End Northstar Session"
                             onClicked: endSessionDialog.open()
                         }
