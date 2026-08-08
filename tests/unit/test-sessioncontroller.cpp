@@ -1,0 +1,79 @@
+#include "sessioncontroller.h"
+
+#include <QFile>
+#include <QTemporaryDir>
+#include <QtTest/QtTest>
+
+class SessionControllerTest final : public QObject
+{
+    Q_OBJECT
+
+private slots:
+    void readsStatusContract();
+    void missingStatusIsUnavailable();
+    void rejectsEndRequestFromUnexpectedParent();
+};
+
+void SessionControllerTest::readsStatusContract()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+
+    const QString statusPath = temporaryDirectory.filePath(QStringLiteral("session.status"));
+    QFile statusFile(statusPath);
+    QVERIFY(statusFile.open(QIODevice::WriteOnly | QIODevice::Text));
+    statusFile.write("status_version=1\n"
+                     "state=running\n"
+                     "supervisor_pid=1234\n"
+                     "compositor_pid=1235\n"
+                     "shell_pid=1236\n"
+                     "wayland_display=wayland-1\n"
+                     "restart_count=2\n"
+                     "last_event=shell-started\n");
+    statusFile.close();
+
+    SessionController controller(statusPath, temporaryDirectory.filePath(QStringLiteral("session.control")), 1234);
+
+    QVERIFY(controller.available());
+    QCOMPARE(controller.state(), QStringLiteral("running"));
+    QCOMPARE(controller.waylandDisplay(), QStringLiteral("wayland-1"));
+    QCOMPARE(controller.supervisorPid(), 1234);
+    QCOMPARE(controller.compositorPid(), 1235);
+    QCOMPARE(controller.shellPid(), 1236);
+    QCOMPARE(controller.restartCount(), 2);
+    QCOMPARE(controller.lastEvent(), QStringLiteral("shell-started"));
+}
+
+void SessionControllerTest::missingStatusIsUnavailable()
+{
+    SessionController controller(QStringLiteral("/tmp/northstar-session-status-does-not-exist"),
+                                 QStringLiteral("/tmp/northstar-session-control-does-not-exist"),
+                                 1234);
+
+    QVERIFY(!controller.available());
+    QCOMPARE(controller.state(), QStringLiteral("Not supervised"));
+    QCOMPARE(controller.supervisorPid(), 0);
+}
+
+void SessionControllerTest::rejectsEndRequestFromUnexpectedParent()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+
+    const QString statusPath = temporaryDirectory.filePath(QStringLiteral("session.status"));
+    QFile statusFile(statusPath);
+    QVERIFY(statusFile.open(QIODevice::WriteOnly | QIODevice::Text));
+    statusFile.write("state=running\n"
+                     "supervisor_pid=1234\n"
+                     "wayland_display=wayland-1\n");
+    statusFile.close();
+
+    const QString controlPath = temporaryDirectory.filePath(QStringLiteral("session.control"));
+    SessionController controller(statusPath, controlPath, 1234);
+
+    QVERIFY(!controller.requestEndSession());
+    QVERIFY(!QFile::exists(controlPath));
+}
+
+QTEST_MAIN(SessionControllerTest)
+#include "test-sessioncontroller.moc"

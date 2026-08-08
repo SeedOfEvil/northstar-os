@@ -119,14 +119,38 @@ chmod 0700 "$LOG_DIR"
 SESSION_LOG=$LOG_DIR/session.log
 COMPOSITOR_LOG=$LOG_DIR/compositor.log
 SHELL_LOG=$LOG_DIR/shell.log
+STATUS_FILE=$LOG_DIR/session.status
+CONTROL_FILE=$LOG_DIR/session.control
 LOCK_DIR=${NORTHSTAR_SESSION_LOCK_DIR:-$XDG_RUNTIME_DIR/northstar-session.lock}
 LOCK_PID_FILE=$LOCK_DIR/pid
 WAYLAND_SOCKET=
+
+export NORTHSTAR_SESSION_STATUS_FILE=$STATUS_FILE
+export NORTHSTAR_SESSION_CONTROL_FILE=$CONTROL_FILE
+export NORTHSTAR_SESSION_SUPERVISOR_PID=$$
 
 log_message() {
     message=$1
     printf '%s\n' "$message" >> "$SESSION_LOG"
     printf '%s\n' "$message"
+}
+
+write_status() {
+    status=$1
+    event=$2
+    status_tmp=$STATUS_FILE.$$
+    {
+        printf 'status_version=1\n'
+        printf 'state=%s\n' "$status"
+        printf 'supervisor_pid=%s\n' "$$"
+        printf 'compositor_pid=%s\n' "${COMPOSITOR_PID:-}"
+        printf 'shell_pid=%s\n' "${SHELL_PID:-}"
+        printf 'wayland_display=%s\n' "${WAYLAND_DISPLAY:-}"
+        printf 'restart_count=%s\n' "${restart_count:-0}"
+        printf 'last_event=%s\n' "$event"
+    } > "$status_tmp"
+    chmod 0600 "$status_tmp"
+    mv -f "$status_tmp" "$STATUS_FILE"
 }
 
 resolve_command() {
@@ -231,11 +255,14 @@ wait_for_wayland() {
 
 on_signal() {
     SHUTDOWN_REQUESTED=1
+    write_status 'stopping' 'end-session-requested'
     stop_children
 }
 
 cleanup() {
     stop_children
+    write_status 'stopped' 'session-stopped'
+    rm -f "$CONTROL_FILE"
     release_lock
 }
 
@@ -243,6 +270,8 @@ trap on_signal INT TERM HUP
 trap cleanup EXIT
 
 acquire_lock
+rm -f "$CONTROL_FILE"
+write_status 'starting' 'session-starting'
 
 log_message "Northstar session starting"
 display_request=${REQUESTED_WAYLAND_DISPLAY:-auto}
@@ -255,21 +284,26 @@ fi
 "$compositor_path" >> "$COMPOSITOR_LOG" 2>&1 &
 COMPOSITOR_PID=$!
 kill -0 "$COMPOSITOR_PID" 2>/dev/null || die 'compositor exited during startup'
+write_status 'starting' 'compositor-started'
 log_message 'Compositor started; waiting for its Wayland socket'
 wait_for_wayland
+write_status 'running' 'wayland-ready'
 log_message "Wayland socket ready: $WAYLAND_SOCKET (WAYLAND_DISPLAY=$WAYLAND_DISPLAY)"
 
 restart_count=0
 session_status=0
 while [ "$SHUTDOWN_REQUESTED" -eq 0 ]; do
     if ! kill -0 "$COMPOSITOR_PID" 2>/dev/null; then
+        write_status 'failed' 'compositor-exited-before-shell'
         log_message 'Compositor exited before the shell'
         session_status=1
         break
     fi
 
+    write_status 'running' 'shell-starting'
     "$shell_path" >> "$SHELL_LOG" 2>&1 &
     SHELL_PID=$!
+    write_status 'running' 'shell-started'
     if wait "$SHELL_PID"; then
         shell_status=0
     else
@@ -277,25 +311,33 @@ while [ "$SHUTDOWN_REQUESTED" -eq 0 ]; do
     fi
     SHELL_PID=
 
-    [ "$SHUTDOWN_REQUESTED" -eq 0 ] || break
+    if [ "$SHUTDOWN_REQUESTED" -ne 0 ]; then
+        write_status 'stopping' 'end-session-requested'
+        break
+    fi
+    write_status 'running' 'shell-exited'
     if ! kill -0 "$COMPOSITOR_PID" 2>/dev/null; then
+        write_status 'failed' 'compositor-exited-while-shell-running'
         log_message 'Compositor exited while the shell was running'
         session_status=1
         break
     fi
 
     if [ "$shell_status" -eq 0 ]; then
+        write_status 'stopping' 'shell-exited-normally'
         log_message 'Shell exited normally; ending the session'
         break
     fi
 
     if [ "$restart_count" -ge "$MAX_SHELL_RESTARTS" ]; then
+        write_status 'failed' 'shell-restart-limit-reached'
         log_message "Shell crash restart limit reached with status $shell_status"
         session_status=$shell_status
         break
     fi
 
     restart_count=$((restart_count + 1))
+    write_status 'restarting' 'shell-crashed'
     log_message "Shell exited with status $shell_status; restart $restart_count/$MAX_SHELL_RESTARTS"
     if [ "$RESTART_DELAY" -gt 0 ]; then
         sleep "$RESTART_DELAY"

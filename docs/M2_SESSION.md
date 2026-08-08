@@ -37,6 +37,14 @@ The supervisor:
 - stops only the compositor and shell PIDs it started;
 - records non-secret lifecycle messages.
 
+While the shell is supervised, the supervisor writes a user-private
+`session.status` contract below its state directory and exports the status and
+control paths to the shell. The shell's Settings > Session page reads that
+contract to show the session state, Wayland display, owned process IDs, and
+restart count. A confirmed End Northstar Session request writes an
+`end-session` marker and signals the exact parent supervisor; the supervisor's
+existing cleanup path then terminates only the compositor and shell it owns.
+
 The descriptor, SDDM integration boundary, and opt-in nested wrapper are now
 present, but the project does not yet enable a display manager, perform
 privileged logout/reboot/shutdown, or supervise the full service set. Those

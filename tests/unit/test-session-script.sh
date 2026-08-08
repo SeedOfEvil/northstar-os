@@ -141,6 +141,9 @@ run_expect 0 sh "$ROOT/src/session/northstar-session"
 grep -F 'start' "$COMPOSITOR_EVENTS" >/dev/null || fail 'compositor did not start'
 grep -F 'stop' "$COMPOSITOR_EVENTS" >/dev/null || fail 'compositor was not stopped'
 grep -F 'restart 1/2' "$LOG_DIR/session.log" >/dev/null || fail 'restart was not recorded'
+grep -F 'state=stopped' "$LOG_DIR/session.status" >/dev/null || fail 'session status did not record stopped state'
+grep -F 'wayland_display=test-wayland' "$LOG_DIR/session.status" >/dev/null || fail 'session status did not record Wayland display'
+grep -F 'restart_count=1' "$LOG_DIR/session.status" >/dev/null || fail 'session status did not record restart count'
 kill -0 "$SENTINEL_PID" 2>/dev/null || fail 'unrelated sentinel process was terminated'
 [ ! -d "$TMP_DIR/lock" ] || fail 'session lock was not released'
 pass 'session restarts a crashed shell and stops only its compositor'
@@ -180,6 +183,14 @@ while [ ! -d "$TMP_DIR/live-lock" ] && [ "$waited" -lt 5 ]; do
     waited=$((waited + 1))
 done
 [ -d "$TMP_DIR/live-lock" ] || fail 'long-running session did not acquire its lock'
+waited=0
+while { [ ! -f "$TMP_DIR/live-logs/session.status" ] || ! grep -F 'state=running' "$TMP_DIR/live-logs/session.status" >/dev/null; } && [ "$waited" -lt 5 ]; do
+    sleep 1
+    waited=$((waited + 1))
+done
+[ -f "$TMP_DIR/live-logs/session.status" ] || fail 'live session status file was not created'
+grep -F 'state=running' "$TMP_DIR/live-logs/session.status" >/dev/null || fail 'live session status did not reach running state'
+grep -F 'wayland_display=test-wayland' "$TMP_DIR/live-logs/session.status" >/dev/null || fail 'live session status has wrong Wayland display'
 run_expect 1 sh "$ROOT/src/session/northstar-session"
 grep -F 'already running' "$ERROR_OUTPUT" >/dev/null || fail 'duplicate session was not rejected'
 kill -TERM "$SESSION_PID"
@@ -190,6 +201,7 @@ else
 fi
 SESSION_PID=
 [ ! -d "$TMP_DIR/live-lock" ] || fail 'long-running session lock was not released'
+grep -F 'state=stopped' "$TMP_DIR/live-logs/session.status" >/dev/null || fail 'live session status did not record stopped state'
 pass 'session rejects a duplicate user session'
 
 printf 'All session supervisor tests passed.\n'

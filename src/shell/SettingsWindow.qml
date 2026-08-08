@@ -6,6 +6,7 @@ Window {
 
     property var state
     property var launcherController
+    property var sessionController
     property var targetScreen
     property string shellApplicationName: "northstar-shell"
     property string shellApplicationVersion: "0.1.0"
@@ -37,6 +38,40 @@ Window {
         show()
         raise()
         requestActivate()
+        if (sessionController) {
+            sessionController.refresh()
+        }
+    }
+
+    Timer {
+        interval: 1000
+        repeat: true
+        running: settings.visible && settings.sessionController
+        onTriggered: settings.sessionController.refresh()
+    }
+
+    Dialog {
+        id: endSessionDialog
+        modal: true
+        title: "End Northstar session?"
+        standardButtons: Dialog.Cancel | Dialog.Ok
+        width: 420
+        x: (settings.width - width) / 2
+        y: (settings.height - height) / 2
+
+        contentItem: Text {
+            color: settings.surfaceForeground
+            text: "This closes the Northstar shell and its supervised compositor. Other user applications are not targeted."
+            wrapMode: Text.WordWrap
+            width: 360
+        }
+
+        onAccepted: {
+            const requested = settings.sessionController && settings.sessionController.requestEndSession()
+            if (requested) {
+                settings.hide()
+            }
+        }
     }
 
     Rectangle {
@@ -231,7 +266,7 @@ Window {
                         Text {
                             color: settings.surfaceMuted
                             font.pixelSize: 13
-                            text: "Review the current Northstar desktop session and refresh its application catalog."
+                            text: "Review the supervised Northstar session and refresh its application catalog."
                             wrapMode: Text.WordWrap
                             width: parent.width
                         }
@@ -240,7 +275,7 @@ Window {
                             color: settings.surfaceBackground
                             border.color: settings.surfaceMuted
                             border.width: 1
-                            height: 156
+                            height: 198
                             radius: 8
                             width: parent.width
 
@@ -256,14 +291,15 @@ Window {
                                     Text {
                                         color: settings.surfaceMuted
                                         font.pixelSize: 13
-                                        text: "Desktop"
+                                        text: "Session"
                                         width: 150
                                     }
 
                                     Text {
                                         color: settings.surfaceForeground
                                         font.pixelSize: 13
-                                        text: settings.state ? settings.state.activeWindowTitle : "Desktop"
+                                        text: settings.sessionController && settings.sessionController.available
+                                            ? settings.sessionController.state : "Not supervised"
                                     }
                                 }
 
@@ -274,14 +310,71 @@ Window {
                                     Text {
                                         color: settings.surfaceMuted
                                         font.pixelSize: 13
-                                        text: "Display"
+                                        text: "Wayland display"
                                         width: 150
                                     }
 
                                     Text {
                                         color: settings.surfaceForeground
                                         font.pixelSize: 13
-                                        text: settings.screenWidth + " × " + settings.screenHeight
+                                        text: settings.sessionController && settings.sessionController.available
+                                            ? settings.sessionController.waylandDisplay : "—"
+                                    }
+                                }
+
+                                Row {
+                                    spacing: 8
+                                    width: parent.width
+
+                                    Text {
+                                        color: settings.surfaceMuted
+                                        font.pixelSize: 13
+                                        text: "Shell PID"
+                                        width: 150
+                                    }
+
+                                    Text {
+                                        color: settings.surfaceForeground
+                                        font.pixelSize: 13
+                                        text: settings.sessionController && settings.sessionController.shellPid > 0
+                                            ? settings.sessionController.shellPid : "—"
+                                    }
+                                }
+
+                                Row {
+                                    spacing: 8
+                                    width: parent.width
+
+                                    Text {
+                                        color: settings.surfaceMuted
+                                        font.pixelSize: 13
+                                        text: "Compositor PID"
+                                        width: 150
+                                    }
+
+                                    Text {
+                                        color: settings.surfaceForeground
+                                        font.pixelSize: 13
+                                        text: settings.sessionController && settings.sessionController.compositorPid > 0
+                                            ? settings.sessionController.compositorPid : "—"
+                                    }
+                                }
+
+                                Row {
+                                    spacing: 8
+                                    width: parent.width
+
+                                    Text {
+                                        color: settings.surfaceMuted
+                                        font.pixelSize: 13
+                                        text: "Restart count"
+                                        width: 150
+                                    }
+
+                                    Text {
+                                        color: settings.surfaceForeground
+                                        font.pixelSize: 13
+                                        text: settings.sessionController ? settings.sessionController.restartCount : 0
                                     }
                                 }
 
@@ -313,6 +406,12 @@ Window {
                                     settings.launcherController.refreshApplications()
                                 }
                             }
+                        }
+
+                        Button {
+                            enabled: settings.sessionController && settings.sessionController.available
+                            text: "End Northstar Session"
+                            onClicked: endSessionDialog.open()
                         }
                     }
 

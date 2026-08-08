@@ -1,5 +1,6 @@
 #include "applicationlauncher.h"
 #include "layershellsurface.h"
+#include "sessioncontroller.h"
 #include "shellstate.h"
 
 #include <QCoreApplication>
@@ -28,6 +29,7 @@ int main(int argc, char *argv[])
     QQmlApplicationEngine engine;
     ShellState shellState;
     ApplicationLauncher applicationLauncher;
+    SessionController sessionController;
     QQmlComponent component(&engine, QUrl(QStringLiteral("qrc:/Northstar/Shell/ShellWindow.qml")));
 
     if (component.status() == QQmlComponent::Error) {
@@ -45,6 +47,7 @@ int main(int argc, char *argv[])
         auto *context = new QQmlContext(engine.rootContext());
         context->setContextProperty(QStringLiteral("shellState"), &shellState);
         context->setContextProperty(QStringLiteral("launcher"), &applicationLauncher);
+        context->setContextProperty(QStringLiteral("sessionController"), &sessionController);
         context->setContextProperty(QStringLiteral("targetScreen"), screen);
         context->setContextProperty(QStringLiteral("displayIndex"), index);
 
