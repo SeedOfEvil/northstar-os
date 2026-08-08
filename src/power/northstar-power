@@ -1,0 +1,22 @@
+#!/bin/sh
+
+# Fixed-argument power boundary for the Northstar shell.
+# The current development VM authorizes sudo non-interactively. Production
+# installs should replace this with a root-owned helper and a narrow policy
+# allowing only these exact actions.
+
+set -eu
+
+[ "$#" -eq 1 ] || exit 64
+
+case "$1" in
+    restart)
+        exec /usr/local/bin/sudo -n /sbin/shutdown -r now
+        ;;
+    shutdown)
+        exec /usr/local/bin/sudo -n /sbin/shutdown -p now
+        ;;
+    *)
+        exit 64
+        ;;
+esac

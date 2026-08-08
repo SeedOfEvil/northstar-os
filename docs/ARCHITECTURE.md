@@ -85,7 +85,7 @@ The upgrade is successful only when the new environment boots, the shell and app
 
 Every release definition records the FreeBSD release, architecture, Ports branch and commit, resolved package versions, project commit, build host, compiler, and artifact checksum. Release builds reject `latest`, unpinned source branches, arbitrary downloads, missing checksums, and unresolved package versions.
 
-The planning manifest is [`packaging/manifests/upstream.lock`](../packaging/manifests/upstream.lock). Its unresolved fields are intentional in PR 1 and block a release build until M0 packaging work resolves them.
+The planning manifest is [`packaging/manifests/upstream.lock`](../packaging/manifests/upstream.lock). Its unresolved fields remain intentional at M0 and block a release build until later packaging work resolves them.
 
 ## Security boundaries
 

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Northstar (Proxmox X11 fallback)
+Comment=Northstar nested Wayfire session for basic VGA testing
+Exec=northstar-session-x11
+TryExec=northstar-session-x11
+Type=Application
+DesktopNames=Northstar
+X-Northstar-Compatibility=proxmox-basic-vga

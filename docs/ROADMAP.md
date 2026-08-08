@@ -4,23 +4,25 @@ The project advances through user-visible milestones with explicit pass gates. A
 
 | Milestone | Name | Status | Primary outcome |
 | --- | --- | --- | --- |
-| M0 | Reproducible development desktop | Not started | A clean FreeBSD 15.1 amd64 VM becomes the approved development environment |
-| M1 | Shell seed | Not started | Top bar and dock render on every connected display |
-| M2 | Desktop session | Not started | Session, services, supervision, notifications, and lifecycle work coherently |
-| M3 | Core desktop | Not started | Filer, settings, search, overview, associations, and project apps form a usable desktop |
+| M0 | Reproducible development desktop | Supplemental lane validated; native gate pending | A clean FreeBSD 15.1 amd64 VM becomes the approved development environment |
+| M1 | Shell seed | Single-display slice validated; multi-display deferred | Top bar and dock render on every connected display |
+| M2 | Desktop session | Supervisor, session entry point, live nested login wrapper, branded greeter, and Proxmox fallback prepared; native acceptance pending | Session, services, supervision, notifications, and lifecycle work coherently |
+| M3 | Core desktop | Files slice in progress | Filer, settings, search, overview, associations, and project apps form a usable desktop |
 | M4 | Packages, updates, rollback | Not started | Signed packages and ZFS boot-environment rollback work end to end |
 | M5 | Reproducible image and installer | Not started | Pinned inputs produce a bootable UEFI root-on-ZFS image |
 | M6 | Alpha hardware release | Not started | The supported VM and narrow Intel/AMD hardware matrix meets the alpha definition |
 
 ## M0: Reproducible development desktop
 
-Deliver `check-host.sh`, an idempotent `bootstrap-dev.sh`, a pinned package manifest, Wayland/seatd/Wayfire/Xwayland, the Qt 6 development environment, a terminal and test applications, and a manual recovery path.
+The PR 2 tooling now includes `check-host.sh`, an idempotent `bootstrap-dev.sh`, a package manifest, sanitized diagnostics, Wayland/seatd/Wayfire/Xwayland package setup, the Qt 6 development environment, QTerminal, Firefox, `xterm`, and a manual recovery path. The basic-VGA Proxmox lane also has `make nested-wayfire-session`, which builds a user-local Wayfire v0.10.1 X11/pixman compatibility binary and installs its session files without replacing the stock package. The host, bootstrap, nested client, and visible console evidence are recorded in [`docs/validation/M0_NSTAR-DEV01_2026-08-06.md`](validation/M0_NSTAR-DEV01_2026-08-06.md). See [`docs/M0_BOOTSTRAP.md`](M0_BOOTSTRAP.md) and [`docs/M0_PROXMOX.md`](M0_PROXMOX.md).
 
-Pass only when the host is exactly FreeBSD 15.1 amd64, bootstrap succeeds from a clean VM and is harmless on a second run, Wayfire starts unprivileged, a native Wayland Qt application and an X11 application through Xwayland launch, installed versions are captured, and no project file is copied into `/usr/bin` or `/usr/lib`.
+Pass only when the host is exactly FreeBSD 15.1 amd64, bootstrap succeeds from a clean VM and is harmless on a second run, Wayfire starts unprivileged through a supported graphics path, a native Wayland Qt application and an X11 application through Xwayland launch, installed versions are captured, and no project file is copied into `/usr/bin` or `/usr/lib`. The nested lane is supplemental evidence and does not close the direct DRM/KMS gate.
 
 ## M1: Shell seed
 
-Deliver one `northstar-shell` process with a top bar, dock, clock, active-window title, static system menu, pinned application list, launcher buttons, light/dark design tokens, and one surface per connected display. Use Qt 6, QML, and Layer Shell behind a platform interface.
+Deliver one `northstar-shell` process with a top bar, dock, clock, active-window title, application catalog/menu, searchable application overview, pinned application list, launcher buttons, light/dark design tokens, and one surface per connected display. Use Qt 6, QML, and Layer Shell behind a platform interface.
+
+The first implementation slice is documented in [`docs/M1_SHELL.md`](M1_SHELL.md). It provides a native Qt/QML process, a C++ LayerShellQt adapter, and one reserved panel surface per display. By decision on 2026-08-06, multi-display testing is deferred for the current development lane; it remains an M1 release gate.
 
 Pass only when surfaces reserve or overlay space correctly, appear on every display, restart without terminating applications, launch terminal and Firefox, run unprivileged, and pass native Qt unit tests.
 
@@ -28,11 +30,28 @@ Pass only when surfaces reserve or overlay space correctly, appear on every disp
 
 Deliver `northstar-session`, environment setup, D-Bus startup, logout/reboot/shutdown, launcher, notifications, settings, file associations, removable-volume events, crash restart policy, and diagnostic logging.
 
+The first scoped foundation is documented in [`docs/M2_SESSION.md`](M2_SESSION.md). It prepares the user environment, starts D-Bus and the configured compositor, discovers the compositor's actual Wayland socket, supervises the shell, restarts shell crashes within a bounded limit, stops only the child processes it owns, installs a standard Wayland session descriptor, and provides an opt-in supervised nested `startx` wrapper that is now live-validated. The first branded SDDM greeter, official Northstar logo, and explicit Proxmox X11 fallback session are now prepared for non-destructive preview. Native display-manager login and persistent service integration remain future work.
+
+The follow-on session slices add a user-private status contract, a confirmed
+unprivileged end-session request, tracked application launches, controlled
+restart/shutdown actions, and an opt-in console-login autostart path for the
+current development VM. The Session settings page shows supervisor state,
+Wayland display, owned process IDs, and restart count; the launcher records
+desktop identity and PID and gives the shell success/failure feedback without
+widening supervisor process ownership. The system menu now exposes confirmed
+logout, restart, and shutdown actions, with an explicit unmanaged-shell
+fallback for logout.
+
 Pass only when login starts exactly one session, shell crashes are detected and restarted, logout terminates only the user session, privileged lifecycle actions are controlled, launches record PID and identity, and logs contain no secrets.
 
 ## M3: Core desktop experience
 
 Deliver the filer, settings, search, application overview, keyboard mapping, drag-and-drop launching, desktop icons or volumes, trash integration, the first `.app` implementation, and a project-owned Qt global menu.
+
+The first filer slice is documented in [`docs/M3_FILES.md`](M3_FILES.md). It
+adds a home-folder-scoped Files window with folder navigation, default file
+opening, path-boundary protection, and top-menu/dock entry points. Trash,
+volumes, drag-and-drop, and file search remain follow-on slices.
 
 Third-party global menus and full macOS compatibility remain out of scope.
 
@@ -61,8 +80,10 @@ Alpha requires install, boot, login, Qt/Xwayland/browser applications, file mana
 3. CI foundation, including native FreeBSD checks.
 4. Qt shell skeleton and tests.
 5. Layer-shell top bar.
-6. Dock and `.desktop` application launch.
+6. Dock and `.desktop` application catalog/launch.
 7. Session supervisor.
 8. First FreeBSD port for `northstar-shell`.
 
-The ISO is deliberately absent from the first eight pull requests.
+The Northstar-produced ISO is deliberately absent from the first eight pull
+requests. M0 may use a stock FreeBSD installer ISO as an external, ignored
+validation input; that media is not a Northstar release artifact.

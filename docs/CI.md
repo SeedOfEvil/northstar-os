@@ -30,4 +30,4 @@ The exact FreeBSD release and package source are part of the job evidence.
 
 Package repositories, image assembly, QEMU smoke tests, and signed artifacts run only from protected branches or manually approved workflows. Use disposable VMs where possible. Public pull requests and forks must not reach persistent privileged runners, package-signing keys, or production repository credentials.
 
-The workflow implementation is planned for PR 3. This document defines the contract without falsely claiming that CI is active in PR 1.
+The workflow implementation is planned for PR 3. This document defines the contract without falsely claiming that CI is active in PR 2.

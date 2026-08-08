@@ -1,0 +1,15 @@
+--- a/src/main.cpp
++++ b/src/main.cpp
+@@ -437,11 +437,6 @@ int main(int argc, char *argv[])
+         LOGW("Failed to open DRM render device, consider specifying WLR_RENDER_DRM_DEVICE."
+              "Trying SW rendering instead.");
+ #else
+-        LOGE("Failed to open DRM render device, consider specifying WLR_RENDER_DRM_DEVICE."
+-             "If you want to use software rendering, ensure that wlroots has been compiled with udmabuf "
+-             "allocator support (available in wlroots >= 0.19.0) and recompile Wayfire.");
+-        wl_display_destroy_clients(core.display);
+-        wl_display_destroy(core.display);
+-        return EXIT_FAILURE;
++        LOGW("Failed to open DRM render device; continuing with the explicitly selected software renderer.");
+ #endif
+     }

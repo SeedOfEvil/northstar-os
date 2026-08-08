@@ -1,0 +1,41 @@
+#!/bin/sh
+
+# Northstar's explicit Proxmox/basic-VGA fallback session.
+#
+# SDDM starts this as an X11 user session. The Northstar compositor remains
+# Wayland, but Wayfire is nested into SDDM's X display with the software
+# renderer. This is a compatibility lane only; it does not satisfy native
+# DRM/KMS acceptance.
+
+set -eu
+
+die() {
+    printf 'ERROR: %s\n' "$1" >&2
+    exit 1
+}
+
+[ "$(id -u)" -ne 0 ] || die 'northstar-session-x11 must run as an unprivileged user'
+[ -n "${DISPLAY:-}" ] || die 'northstar-session-x11 requires an SDDM X11 DISPLAY'
+
+runtime_dir=${XDG_RUNTIME_DIR:-/tmp/northstar-runtime-$(id -u)}
+mkdir -p "$runtime_dir"
+chmod 700 "$runtime_dir"
+export XDG_RUNTIME_DIR="$runtime_dir"
+export QT_QPA_PLATFORM=wayland
+export MOZ_ENABLE_WAYLAND=1
+export WLR_BACKENDS=x11
+export WLR_RENDERER=pixman
+export WLR_RENDERER_FORCE_SOFTWARE=1
+
+wayfire_bin=${NORTHSTAR_WAYFIRE_BIN:-$HOME/.local/wayfire-nested/bin/wayfire}
+session_bin=${NORTHSTAR_SESSION_BIN:-$HOME/.local/bin/northstar-session}
+shell_bin=${NORTHSTAR_SESSION_SHELL:-$HOME/.local/bin/northstar-shell}
+
+for required_file in "$wayfire_bin" "$session_bin" "$shell_bin"; do
+    [ -x "$required_file" ] || die "fallback session executable is unavailable: $required_file"
+done
+
+export NORTHSTAR_SESSION_COMPOSITOR="$wayfire_bin"
+export NORTHSTAR_SESSION_SHELL="$shell_bin"
+
+exec "$session_bin"

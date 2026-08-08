@@ -2,7 +2,16 @@ SHELL := /bin/sh
 
 .DEFAULT_GOAL := help
 
-.PHONY: help check-host bootstrap configure build test run-shell package vm-smoke image diagnostics
+.PHONY: help check-host bootstrap configure build test run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
+
+MANIFEST ?= packaging/manifests/bootstrap-packages.txt
+NORTHSTAR_USER ?=
+NORTHSTAR_WAYFIRE_BIN ?=
+OUTPUT ?= /tmp/northstar-diagnostics
+BUILD_DIR ?= build
+CMAKE_BUILD_TYPE ?= Debug
+NORTHSTAR_PREFIX ?= $(HOME)/.local
+NORTHSTAR_SHELL_BIN ?= $(NORTHSTAR_PREFIX)/bin/northstar-shell
 
 help:
 	@printf '%s\n' 'Northstar development commands:'
@@ -12,13 +21,93 @@ help:
 	@printf '%s\n' '  make build        Build project components'
 	@printf '%s\n' '  make test         Run unit and integration tests'
 	@printf '%s\n' '  make run-shell    Start the Northstar shell session'
+	@printf '%s\n' '  make shell-smoke  Check the live shell session'
+	@printf '%s\n' '  make shell-restart-smoke  Restart only the live shell and verify clients survive'
+	@printf '%s\n' '  make install-user Install the built session and shell below NORTHSTAR_PREFIX'
+	@printf '%s\n' '  make install-console-autostart Enable desktop start after local console login'
+	@printf '%s\n' '  make disable-console-autostart Disable the local console-login desktop start'
+	@printf '%s\n' '  make install-sddm-fallback Enable the branded SDDM Proxmox fallback policy (root)'
+	@printf '%s\n' '  make disable-sddm-fallback Disable the branded SDDM Proxmox fallback policy (root)'
 	@printf '%s\n' '  make package      Build Northstar packages'
-	@printf '%s\n' '  make vm-smoke     Run the disposable VM smoke test'
-	printf '%s\n' '  make image        Assemble a release image'
+	@printf '%s\n' '  make vm-smoke     Run the M0 native smoke preflight'
+	@printf '%s\n' '  make nested-wayfire Build the supplemental X11/pixman Wayfire lane'
+	@printf '%s\n' '  make nested-wayfire-session Build and install the supplemental user session'
+	@printf '%s\n' '  make nested-wayfire-session-supervised Opt in to the northstar-session nested lane'
+	@printf '%s\n' '  make image        Assemble a release image'
 	@printf '%s\n' '  make diagnostics  Collect non-secret diagnostics'
 	@printf '%s\n' ''
-	@printf '%s\n' 'The implementation targets are introduced milestone by milestone.'
+	@printf '%s\n' 'M0 and the first M1 shell slice are functional; later targets remain guarded.'
 
-check-host bootstrap configure build test run-shell package vm-smoke image diagnostics:
-	@printf '%s\n' "Northstar: '$@' is planned but not implemented in PR 1." >&2
+check-host:
+	@sh tools/check-host.sh
+
+bootstrap:
+	@if [ -z "$(NORTHSTAR_USER)" ]; then \
+		printf '%s\n' 'ERROR: pass NORTHSTAR_USER=<development-user>' >&2; \
+		exit 2; \
+	fi
+	@sh tools/bootstrap-dev.sh --user "$(NORTHSTAR_USER)" --manifest "$(MANIFEST)"
+
+test:
+	@sh tests/unit/test-m0-scripts.sh
+	@sh tests/unit/test-nested-wayfire-session.sh
+	@sh tests/unit/test-console-autostart.sh
+	@sh tests/unit/test-sddm-theme.sh
+	@sh tests/unit/test-sddm-fallback.sh
+	@sh tests/unit/test-session-script.sh
+	@$(MAKE) build
+	@sh tests/unit/test-session-entrypoint.sh "$(BUILD_DIR)"
+	@ctest --test-dir "$(BUILD_DIR)" --output-on-failure
+
+vm-smoke:
+	@if [ -n "$(NORTHSTAR_WAYFIRE_BIN)" ]; then \
+		NORTHSTAR_WAYFIRE_BIN="$(NORTHSTAR_WAYFIRE_BIN)" sh tests/vm/m0-smoke.sh; \
+	else \
+		sh tests/vm/m0-smoke.sh; \
+	fi
+
+nested-wayfire:
+	@sh tools/build-nested-wayfire.sh
+
+nested-wayfire-session: nested-wayfire
+	@sh tools/install-nested-wayfire-session.sh
+
+nested-wayfire-session-supervised: nested-wayfire install-user
+	@sh tools/install-nested-wayfire-session.sh --supervised
+
+diagnostics:
+	@sh tools/collect-diagnostics.sh --output "$(OUTPUT)"
+
+configure:
+	@cmake -S . -B "$(BUILD_DIR)" -G Ninja -DCMAKE_BUILD_TYPE="$(CMAKE_BUILD_TYPE)" -DBUILD_TESTING=ON
+
+build: configure
+	@cmake --build "$(BUILD_DIR)" --parallel 2
+
+run-shell: build
+	@exec "$(BUILD_DIR)/src/shell/northstar-shell"
+
+install-user: build
+	@cmake --install "$(BUILD_DIR)" --prefix "$(NORTHSTAR_PREFIX)"
+
+install-console-autostart:
+	@sh tools/install-console-autostart.sh --enable
+
+disable-console-autostart:
+	@sh tools/install-console-autostart.sh --disable
+
+install-sddm-fallback:
+	@sh tools/install-sddm-fallback.sh --enable
+
+disable-sddm-fallback:
+	@sh tools/install-sddm-fallback.sh --disable
+
+shell-smoke: build
+	@NORTHSTAR_SHELL_BIN="$(BUILD_DIR)/src/shell/northstar-shell" sh tests/integration/test-shell-session.sh
+
+shell-restart-smoke: install-user
+	@NORTHSTAR_SHELL_BIN="$(NORTHSTAR_SHELL_BIN)" sh tests/integration/test-shell-session.sh --restart
+
+package image:
+	@printf '%s\n' "Northstar: '$@' is planned for a later milestone." >&2
 	@exit 2

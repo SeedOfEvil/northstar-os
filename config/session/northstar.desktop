@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=Northstar
+Comment=Northstar Wayland desktop session
+Exec=northstar-session
+TryExec=northstar-session
+Type=Application
+DesktopNames=Northstar

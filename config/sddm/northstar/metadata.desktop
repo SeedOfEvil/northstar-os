@@ -1,0 +1,10 @@
+[SddmGreeterTheme]
+Name=Northstar
+Description=Northstar branded graphical login
+Author=Northstar Project
+License=MIT
+Type=sddm-theme
+Version=0.1.0
+MainScript=Main.qml
+ConfigFile=theme.conf
+Theme-API=2.0

@@ -1,0 +1,16 @@
+# FreeBSD 15.1 installer media used for local M0 validation.
+#
+# This locks an external validation input, not a Northstar release image.
+# M5 must define release-set, package-repository, and image reproducibility
+# inputs separately before any Northstar image is published.
+
+RELEASE=15.1-RELEASE
+ARCH=amd64
+FIRMWARE=UEFI
+MEDIA_KIND=installer
+ARTIFACT=FreeBSD-15.1-RELEASE-amd64-disc1.iso
+SOURCE_URL=https://download.freebsd.org/releases/amd64/amd64/ISO-IMAGES/15.1/FreeBSD-15.1-RELEASE-amd64-disc1.iso
+SHA256_URL=https://download.freebsd.org/releases/amd64/amd64/ISO-IMAGES/15.1/CHECKSUM.SHA256-FreeBSD-15.1-RELEASE-amd64
+SHA512_URL=https://download.freebsd.org/releases/amd64/amd64/ISO-IMAGES/15.1/CHECKSUM.SHA512-FreeBSD-15.1-RELEASE-amd64
+SHA256=fa27646f05a1440fd26ffbb85e06a50bc86e128242a4e9cb7bb3ea76e1aa5fd9
+SHA512=7b844d390648eb9888a74da02e63a76fad58b5722ab25624cf547395e687a2c5de4275781fdfc55a4d717fc4c245913893f1449976fb778be5e160495c538e28

@@ -1,0 +1,24 @@
+#!/bin/sh
+
+# Northstar's supplemental Proxmox basic-VGA lane.
+# This starts the user-local Wayfire build as an X11 client of Xorg/scfb.
+# It is not the direct DRM/KMS graphics path.
+
+set -eu
+
+runtime_dir=${XDG_RUNTIME_DIR:-/tmp/northstar-runtime-$(id -u)}
+mkdir -p "$runtime_dir"
+chmod 700 "$runtime_dir"
+export XDG_RUNTIME_DIR="$runtime_dir"
+export QT_QPA_PLATFORM=wayland
+export MOZ_ENABLE_WAYLAND=1
+
+wayfire_bin=${NORTHSTAR_WAYFIRE_BIN:-$HOME/.local/wayfire-nested/bin/wayfire}
+if [ ! -x "$wayfire_bin" ]; then
+    printf '%s\n' "ERROR: nested Wayfire binary is unavailable: $wayfire_bin" >&2
+    printf '%s\n' 'Build it with: make nested-wayfire' >&2
+    exit 1
+fi
+
+exec env WLR_BACKENDS=x11 WLR_RENDERER=pixman WLR_RENDERER_FORCE_SOFTWARE=1 \
+    dbus-run-session -- "$wayfire_bin"
