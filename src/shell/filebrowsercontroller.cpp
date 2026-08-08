@@ -8,6 +8,7 @@
 #include <QDirIterator>
 #include <QSaveFile>
 #include <QStandardPaths>
+#include <QStorageInfo>
 
 #include <algorithm>
 
@@ -26,9 +27,13 @@ bool pathMatchesRoot(const QString &path, const QString &root)
 
 FileBrowserController::FileBrowserController(QObject *parent,
                                              QString rootPath,
-                                             OpenFunction openFunction)
+                                             OpenFunction openFunction,
+                                             QStringList mountedLocationRoots)
     : QObject(parent)
     , m_rootPath(canonicalOrNormalizedPath(rootPath.isEmpty() ? QDir::homePath() : rootPath))
+    , m_navigationRoot(m_rootPath)
+    , m_locationLabel(QStringLiteral("Home"))
+    , m_mountedLocationRoots(std::move(mountedLocationRoots))
     , m_currentPath(m_rootPath)
     , m_openFunction(std::move(openFunction))
 {
@@ -55,20 +60,47 @@ QString FileBrowserController::displayPath() const
         return QStringLiteral("Search: %1").arg(m_searchQuery);
     }
 
-    if (m_currentPath == m_rootPath) {
+    if (m_currentPath == m_navigationRoot && !m_locationLabel.isEmpty()) {
+        if (!homeLocation()) {
+            return QStringLiteral("%1 (%2)").arg(m_locationLabel, m_navigationRoot);
+        }
+        return QStringLiteral("~");
+    }
+
+    if (homeLocation() && m_currentPath == m_rootPath) {
         return QStringLiteral("~");
     }
 
     const QString prefix = m_rootPath + QLatin1Char('/');
-    if (m_currentPath.startsWith(prefix)) {
+    if (homeLocation() && m_currentPath.startsWith(prefix)) {
         return QStringLiteral("~/") + m_currentPath.mid(prefix.size());
     }
     return m_currentPath;
 }
 
+QString FileBrowserController::locationRoot() const
+{
+    return m_navigationRoot;
+}
+
 QString FileBrowserController::homePath() const
 {
     return m_rootPath;
+}
+
+bool FileBrowserController::homeLocation() const
+{
+    return !m_showingTrash && m_navigationRoot == m_rootPath;
+}
+
+bool FileBrowserController::readOnlyLocation() const
+{
+    return !m_showingTrash && !homeLocation();
+}
+
+bool FileBrowserController::canNavigateUp() const
+{
+    return !m_showingTrash && m_currentPath != m_navigationRoot;
 }
 
 QString FileBrowserController::searchQuery() const
@@ -78,7 +110,7 @@ QString FileBrowserController::searchQuery() const
 
 bool FileBrowserController::searching() const
 {
-    return !m_searchQuery.isEmpty() && !m_showingTrash;
+    return !m_searchQuery.isEmpty() && homeLocation();
 }
 
 QString FileBrowserController::errorMessage() const
@@ -95,8 +127,10 @@ bool FileBrowserController::navigateTo(const QString &path)
 {
     const bool wasShowingTrash = m_showingTrash;
     const QString resolvedPath = resolvePath(path);
-    if (resolvedPath.isEmpty() || !isWithinRoot(resolvedPath)) {
-        setErrorMessage(QStringLiteral("That location is outside the Northstar home folder."));
+    if (resolvedPath.isEmpty() || !isWithinNavigationRoot(resolvedPath)) {
+        setErrorMessage(readOnlyLocation()
+                ? QStringLiteral("That location is outside the mounted volume.")
+                : QStringLiteral("That location is outside the Northstar home folder."));
         return false;
     }
 
@@ -111,6 +145,7 @@ bool FileBrowserController::navigateTo(const QString &path)
     if (m_currentPath != resolvedPath) {
         m_currentPath = resolvedPath;
         emit currentPathChanged();
+        emit locationChanged();
     }
     m_showingTrash = false;
     if (wasShowingTrash) {
@@ -121,12 +156,45 @@ bool FileBrowserController::navigateTo(const QString &path)
     return true;
 }
 
-bool FileBrowserController::navigateUp()
+bool FileBrowserController::openLocation(const QString &path, const QString &label)
 {
-    if (m_showingTrash) {
+    const QString resolvedPath = canonicalOrNormalizedPath(path);
+    if (resolvedPath.isEmpty()) {
+        setErrorMessage(QStringLiteral("That volume is not available."));
         return false;
     }
-    if (m_currentPath == m_rootPath) {
+    if (resolvedPath == m_rootPath) {
+        return goHome();
+    }
+    if (!isMountedLocationRoot(resolvedPath)) {
+        setErrorMessage(QStringLiteral("That location is not a mounted volume."));
+        return false;
+    }
+
+    const QFileInfo info(resolvedPath);
+    if (!info.isDir()) {
+        setErrorMessage(QStringLiteral("That volume is not available."));
+        return false;
+    }
+
+    clearSearchQuery();
+    const bool pathChanged = m_currentPath != resolvedPath;
+    m_navigationRoot = resolvedPath;
+    m_locationLabel = label.trimmed().isEmpty() ? resolvedPath : label.trimmed();
+    m_showingTrash = false;
+    m_currentPath = resolvedPath;
+    if (pathChanged) {
+        emit currentPathChanged();
+    }
+    emit locationChanged();
+    setErrorMessage({});
+    refresh();
+    return true;
+}
+
+bool FileBrowserController::navigateUp()
+{
+    if (!canNavigateUp()) {
         return false;
     }
 
@@ -138,13 +206,17 @@ bool FileBrowserController::goHome()
 {
     clearSearchQuery();
     const bool wasShowingTrash = m_showingTrash;
+    const bool locationRootChanged = m_navigationRoot != m_rootPath
+        || m_locationLabel != QStringLiteral("Home");
     const bool pathChanged = m_currentPath != m_rootPath;
+    m_navigationRoot = m_rootPath;
+    m_locationLabel = QStringLiteral("Home");
     m_showingTrash = false;
     m_currentPath = m_rootPath;
     if (pathChanged) {
         emit currentPathChanged();
     }
-    if (wasShowingTrash) {
+    if (wasShowingTrash || locationRootChanged || pathChanged) {
         emit locationChanged();
     }
     setErrorMessage({});
@@ -173,7 +245,7 @@ bool FileBrowserController::showTrash()
 void FileBrowserController::setSearchQuery(const QString &query)
 {
     const QString normalizedQuery = query.simplified();
-    if (m_showingTrash && !normalizedQuery.isEmpty()) {
+    if ((!homeLocation() || m_showingTrash) && !normalizedQuery.isEmpty()) {
         setErrorMessage(QStringLiteral("Search is available from the Northstar home folder."));
         return;
     }
@@ -219,8 +291,10 @@ bool FileBrowserController::openEntry(const QString &path)
     }
 
     const QString resolvedPath = resolvePath(path);
-    if (resolvedPath.isEmpty() || !isWithinRoot(resolvedPath)) {
-        setErrorMessage(QStringLiteral("That item is outside the Northstar home folder."));
+    if (resolvedPath.isEmpty() || !isWithinNavigationRoot(resolvedPath)) {
+        setErrorMessage(readOnlyLocation()
+                ? QStringLiteral("That item is outside the mounted volume.")
+                : QStringLiteral("That item is outside the Northstar home folder."));
         return false;
     }
 
@@ -248,6 +322,10 @@ bool FileBrowserController::createFolder(const QString &name)
 {
     if (m_showingTrash) {
         setErrorMessage(QStringLiteral("Go Home before creating a folder."));
+        return false;
+    }
+    if (!homeLocation()) {
+        setErrorMessage(QStringLiteral("Return to Home before changing files."));
         return false;
     }
 
@@ -280,6 +358,10 @@ bool FileBrowserController::createFile(const QString &name)
 {
     if (m_showingTrash) {
         setErrorMessage(QStringLiteral("Go Home before creating a file."));
+        return false;
+    }
+    if (!homeLocation()) {
+        setErrorMessage(QStringLiteral("Return to Home before changing files."));
         return false;
     }
 
@@ -316,6 +398,10 @@ bool FileBrowserController::renameEntry(const QString &path, const QString &newN
 {
     if (m_showingTrash) {
         setErrorMessage(QStringLiteral("Restore an item before renaming it."));
+        return false;
+    }
+    if (!homeLocation()) {
+        setErrorMessage(QStringLiteral("Return to Home before changing files."));
         return false;
     }
 
@@ -367,6 +453,10 @@ bool FileBrowserController::moveToTrash(const QString &path)
 {
     if (m_showingTrash) {
         setErrorMessage(QStringLiteral("An item cannot be moved to Trash from the Trash view."));
+        return false;
+    }
+    if (!homeLocation()) {
+        setErrorMessage(QStringLiteral("Return to Home before changing files."));
         return false;
     }
 
@@ -529,7 +619,7 @@ void FileBrowserController::refresh()
     for (const QFileInfo &info : fileInfos) {
         const QString resolvedPath = canonicalOrNormalizedPath(info.absoluteFilePath());
         if (resolvedPath.isEmpty()
-            || (m_showingTrash ? !isWithinTrash(resolvedPath) : !isWithinRoot(resolvedPath))) {
+            || (m_showingTrash ? !isWithinTrash(resolvedPath) : !isWithinNavigationRoot(resolvedPath))) {
             continue;
         }
 
@@ -540,6 +630,7 @@ void FileBrowserController::refresh()
             {QStringLiteral("kind"), info.isDir() ? QStringLiteral("Folder") : QStringLiteral("File")},
             {QStringLiteral("size"), info.isDir() ? qint64(0) : info.size()},
             {QStringLiteral("modified"), info.lastModified().toString(Qt::ISODate)},
+            {QStringLiteral("readOnly"), readOnlyLocation()},
         };
         if (m_showingTrash) {
             QString originalPath;
@@ -695,6 +786,35 @@ QString FileBrowserController::resolveTrashPath(const QString &path) const
 bool FileBrowserController::isWithinRoot(const QString &path) const
 {
     return pathMatchesRoot(normalizedPath(path), normalizedPath(m_rootPath));
+}
+
+bool FileBrowserController::isWithinNavigationRoot(const QString &path) const
+{
+    return pathMatchesRoot(normalizedPath(path), normalizedPath(m_navigationRoot));
+}
+
+bool FileBrowserController::isMountedLocationRoot(const QString &path) const
+{
+    const QString candidate = canonicalOrNormalizedPath(path);
+    if (candidate.isEmpty()) {
+        return false;
+    }
+
+    QStringList roots = m_mountedLocationRoots;
+    if (roots.isEmpty()) {
+        for (const QStorageInfo &storage : QStorageInfo::mountedVolumes()) {
+            if (storage.isValid() && storage.isReady()) {
+                roots.append(storage.rootPath());
+            }
+        }
+    }
+
+    for (const QString &root : std::as_const(roots)) {
+        if (canonicalOrNormalizedPath(root) == candidate) {
+            return true;
+        }
+    }
+    return false;
 }
 
 bool FileBrowserController::isWithinTrash(const QString &path) const

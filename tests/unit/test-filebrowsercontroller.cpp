@@ -23,6 +23,7 @@ private slots:
     void showsAndRestoresTrashEntries();
     void emptiesTrash();
     void rejectsUnsafeMutations();
+    void opensMountedLocationReadOnly();
 };
 
 namespace {
@@ -256,6 +257,41 @@ void FileBrowserControllerTest::rejectsUnsafeMutations()
     QVERIFY(!controller.renameEntry(sourcePath, QStringLiteral("../outside")));
     QVERIFY(!controller.moveToTrash(temporaryDirectory.path()));
     QVERIFY(QFileInfo::exists(sourcePath));
+}
+
+void FileBrowserControllerTest::opensMountedLocationReadOnly()
+{
+    QTemporaryDir homeDirectory;
+    QTemporaryDir volumeDirectory;
+    QVERIFY(homeDirectory.isValid());
+    QVERIFY(volumeDirectory.isValid());
+
+    const QString documentsPath = QDir(volumeDirectory.path()).filePath(QStringLiteral("Documents"));
+    QVERIFY(QDir().mkpath(documentsPath));
+    const QString notePath = QDir(documentsPath).filePath(QStringLiteral("note.txt"));
+    QVERIFY(writeFile(notePath, "mounted"));
+
+    FileBrowserController controller(nullptr, homeDirectory.path(), {}, {volumeDirectory.path()});
+    QVERIFY(controller.openLocation(volumeDirectory.path(), QStringLiteral("Test Volume")));
+    QVERIFY(!controller.homeLocation());
+    QVERIFY(controller.readOnlyLocation());
+    QVERIFY(!controller.canNavigateUp());
+    QCOMPARE(controller.locationRoot(), QFileInfo(volumeDirectory.path()).canonicalFilePath());
+    QCOMPARE(controller.displayPath(),
+             QStringLiteral("Test Volume (%1)").arg(QFileInfo(volumeDirectory.path()).canonicalFilePath()));
+    QVERIFY(controller.entries().size() >= 1);
+    QVERIFY(controller.entries().first().toMap().value(QStringLiteral("readOnly")).toBool());
+
+    QVERIFY(controller.navigateTo(documentsPath));
+    QVERIFY(controller.canNavigateUp());
+    QVERIFY(!controller.createFile(QStringLiteral("blocked.txt")));
+    QVERIFY(controller.errorMessage().contains(QStringLiteral("Home")));
+    QVERIFY(!QFileInfo::exists(QDir(documentsPath).filePath(QStringLiteral("blocked.txt"))));
+
+    QVERIFY(controller.goHome());
+    QVERIFY(controller.homeLocation());
+    QVERIFY(!controller.readOnlyLocation());
+    QVERIFY(!controller.canNavigateUp());
 }
 
 QTEST_MAIN(FileBrowserControllerTest)

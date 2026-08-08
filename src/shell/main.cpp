@@ -4,6 +4,7 @@
 #include "powercontroller.h"
 #include "sessioncontroller.h"
 #include "shellstate.h"
+#include "volumecatalog.h"
 #include "windowcontroller.h"
 
 #include <QCoreApplication>
@@ -55,6 +56,7 @@ int main(int argc, char *argv[])
     FileBrowserController fileBrowserController;
     PowerController powerController;
     SessionController sessionController;
+    VolumeController volumeController;
     WindowController windowController;
     const QUrl logoSource = northstarLogoSource();
     const QUrl iconsSource = northstarIconsSource();
@@ -109,6 +111,7 @@ int main(int argc, char *argv[])
         context->setContextProperty(QStringLiteral("northstarFileBrowserController"), &fileBrowserController);
         context->setContextProperty(QStringLiteral("northstarPowerController"), &powerController);
         context->setContextProperty(QStringLiteral("northstarSessionController"), &sessionController);
+        context->setContextProperty(QStringLiteral("northstarVolumeController"), &volumeController);
         context->setContextProperty(QStringLiteral("northstarWindowController"), &windowController);
         context->setContextProperty(QStringLiteral("northstarLogoSource"), logoSource);
         context->setContextProperty(QStringLiteral("northstarIconsSource"), iconsSource);
@@ -130,6 +133,7 @@ int main(int argc, char *argv[])
         dockContext->setContextProperty(QStringLiteral("shellState"), &shellState);
         dockContext->setContextProperty(QStringLiteral("launcher"), &applicationLauncher);
         dockContext->setContextProperty(QStringLiteral("northstarFileBrowserController"), &fileBrowserController);
+        dockContext->setContextProperty(QStringLiteral("northstarVolumeController"), &volumeController);
         dockContext->setContextProperty(QStringLiteral("northstarWindowController"), &windowController);
         dockContext->setContextProperty(QStringLiteral("northstarLogoSource"), logoSource);
         dockContext->setContextProperty(QStringLiteral("northstarIconsSource"), iconsSource);

@@ -312,6 +312,7 @@ Window {
         id: fileBrowserWindow
         fileBrowserController: northstarFileBrowserController
         applicationLauncher: launcher
+        volumeController: northstarVolumeController
         state: shellState
         targetScreen: targetScreen
         panelHeight: root.height

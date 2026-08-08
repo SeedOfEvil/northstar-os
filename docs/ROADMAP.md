@@ -53,9 +53,10 @@ adds a home-folder-scoped Files window with folder navigation, default file
 opening, path-boundary protection, search, explicit Open With selection, and
 top-menu/dock entry points. The first project-defined `.app` slice now
 discovers a validated development bundle, surfaces its owned icon, passes its
-owned executable directly to the launcher, and supports dragging regular Files
-entries onto Apps tiles for explicit file launching. Trash, volumes, package
-provenance, and the project global menu remain follow-on slices.
+owned executable directly to the launcher, supports dragging regular Files
+entries onto Apps tiles for explicit file launching, and provides a Locations
+bar for mounted non-pseudo volumes with read-only navigation. Package
+provenance and the project global menu remain follow-on slices.
 
 Third-party global menus and full macOS compatibility remain out of scope.
 
