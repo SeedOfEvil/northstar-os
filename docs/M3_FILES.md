@@ -20,18 +20,24 @@ small and safe for the development desktop:
 - Trash is a first-class Files location with restore and confirmed empty
   actions. The selected-item action is labeled Delete to distinguish it from
   the Trash location, while still using the recoverable Trash path.
+- The Locations bar shows Home, Trash, and mounted non-pseudo volumes
+  discovered through Qt's storage API. Mounted-volume browsing is read-only;
+  file creation, rename, delete, and search remain scoped to Home.
 - The window is movable and resizable and is reachable from the top system menu
   and the bottom dock.
 - Home-folder search recursively finds matching file and folder names, shows
   each result's relative location, excludes the Northstar Trash store, and
   caps results to keep interactive search bounded.
+- Regular files can be dragged from the Files explorer onto an application
+  tile in Apps; the existing launcher validates the file and passes it as the
+  selected application's argument.
 
 The controller is covered by a native Qt test for ordering, navigation, file
 opening, path-boundary rejection, creation, renaming, Trash metadata, restore,
-empty-Trash behavior, and bounded home-folder search. The shell presents an
-explicit Open With chooser for registered desktop applications. Volume
-discovery, drag-and-drop, and `.app` association behavior remain later M3
-slices.
+empty-Trash behavior, bounded home-folder search, and read-only mounted-volume
+navigation. The shell presents an explicit Open With chooser for registered
+desktop applications. Package provenance and the project-owned global menu
+remain later M3 slices.
 
 ## VM validation
 
@@ -52,4 +58,8 @@ before permanently removing its contents. Use the **Search the Northstar home
 folder** field to find a nested item, verify its relative location is shown,
 and clear the query before returning to normal navigation. A regular file
 should open the Northstar Open With chooser; use **New File** to create an
-empty `association-test.txt` when testing that path.
+empty `association-test.txt` when testing that path. Drag that file onto an
+application tile in **Apps** and confirm the selected application receives it;
+folders and Trash entries should not start a drag operation. In **Locations**,
+open each mounted volume, navigate into a folder, verify the read-only label
+and disabled mutation/search controls, then return to **Home**.

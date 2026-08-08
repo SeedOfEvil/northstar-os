@@ -52,9 +52,11 @@ The first filer slice is documented in [`docs/M3_FILES.md`](M3_FILES.md). It
 adds a home-folder-scoped Files window with folder navigation, default file
 opening, path-boundary protection, search, explicit Open With selection, and
 top-menu/dock entry points. The first project-defined `.app` slice now
-discovers a validated development bundle, surfaces its owned icon, and passes
-its owned executable directly to the launcher. Trash, volumes, drag-and-drop,
-package provenance, and the project global menu remain follow-on slices.
+discovers a validated development bundle, surfaces its owned icon, passes its
+owned executable directly to the launcher, supports dragging regular Files
+entries onto Apps tiles for explicit file launching, and provides a Locations
+bar for mounted non-pseudo volumes with read-only navigation. Package
+provenance and the project global menu remain follow-on slices.
 
 Third-party global menus and full macOS compatibility remain out of scope.
 

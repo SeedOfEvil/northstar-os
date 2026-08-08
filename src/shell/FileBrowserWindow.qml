@@ -6,6 +6,7 @@ Window {
 
     property var fileBrowserController
     property var applicationLauncher
+    property var volumeController
     property var state
     property var targetScreen
     property int panelHeight: 44
@@ -64,10 +65,24 @@ Window {
         if (!files.fileBrowserController) {
             return
         }
+        if (files.volumeController) {
+            files.volumeController.refresh()
+        }
         files.clearSelection()
         files.fileBrowserController.setSearchQuery("")
         searchField.text = ""
         files.fileBrowserController.refresh()
+        show()
+        raise()
+        requestActivate()
+    }
+
+    function openVolume(path, label) {
+        if (!files.fileBrowserController
+                || !files.fileBrowserController.openLocation(path, label)) {
+            return
+        }
+        files.clearSelection()
         show()
         raise()
         requestActivate()
@@ -199,6 +214,13 @@ Window {
         return "northstar"
     }
 
+    function localFileUrl(path) {
+        const normalizedPath = String(path || "").replace(/\\/g, "/")
+        return "file://" + normalizedPath.split("/").map(function(segment) {
+            return encodeURIComponent(segment)
+        }).join("/")
+    }
+
     function openEmptyTrashDialog() {
         if (!files.fileBrowserController || !files.showingTrash) {
             return
@@ -286,6 +308,8 @@ Window {
                             ? "Review and restore deleted items"
                             : files.fileBrowserController && files.fileBrowserController.searching
                                 ? "Search results from your Northstar home folder"
+                            : files.fileBrowserController && files.fileBrowserController.readOnlyLocation
+                                ? "Browse a mounted volume (read-only)"
                             : "Browse your Northstar home folder"
                     }
                 }
@@ -315,6 +339,193 @@ Window {
                 }
             }
 
+            Rectangle {
+                id: locationsSurface
+                color: files.surfaceRaised
+                border.color: files.surfaceMuted
+                border.width: 1
+                height: 58
+                radius: 8
+                width: parent.width
+
+                Row {
+                    anchors.fill: parent
+                    anchors.leftMargin: 10
+                    anchors.rightMargin: 10
+                    spacing: 8
+
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: files.surfaceMuted
+                        font.bold: true
+                        font.pixelSize: 12
+                        text: "Locations"
+                        width: 68
+                    }
+
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: !files.showingTrash && files.fileBrowserController
+                            && files.fileBrowserController.homeLocation
+                            ? files.surfaceAccent : homeLocationMouse.containsMouse
+                                ? files.surfaceAccent : files.surfaceBackground
+                        border.color: files.surfaceMuted
+                        border.width: 1
+                        height: 40
+                        radius: 6
+                        width: 92
+
+                        Row {
+                            anchors.centerIn: parent
+                            spacing: 6
+
+                            NorthstarIcon {
+                                anchors.verticalCenter: parent.verticalCenter
+                                height: 24
+                                width: 24
+                                iconName: "desktop"
+                            }
+
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                color: files.surfaceForeground
+                                font.pixelSize: 11
+                                text: "Home"
+                            }
+                        }
+
+                        MouseArea {
+                            id: homeLocationMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            onClicked: {
+                                if (files.fileBrowserController.goHome()) {
+                                    files.clearSelection()
+                                }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: files.showingTrash ? files.surfaceAccent
+                            : trashLocationMouse.containsMouse ? files.surfaceAccent : files.surfaceBackground
+                        border.color: files.surfaceMuted
+                        border.width: 1
+                        height: 40
+                        radius: 6
+                        width: 92
+
+                        Row {
+                            anchors.centerIn: parent
+                            spacing: 6
+
+                            NorthstarIcon {
+                                anchors.verticalCenter: parent.verticalCenter
+                                height: 24
+                                width: 24
+                                iconName: "trash"
+                            }
+
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                color: files.surfaceForeground
+                                font.pixelSize: 11
+                                text: "Trash"
+                            }
+                        }
+
+                        MouseArea {
+                            id: trashLocationMouse
+                            anchors.fill: parent
+                            enabled: !!files.fileBrowserController
+                            hoverEnabled: true
+                            onClicked: files.openTrash()
+                        }
+                    }
+
+                    Item {
+                        anchors.verticalCenter: parent.verticalCenter
+                        height: 42
+                        width: Math.max(120, parent.width - 270)
+
+                        ListView {
+                            id: volumeList
+                            anchors.fill: parent
+                            clip: true
+                            spacing: 8
+                            orientation: ListView.Horizontal
+                            model: files.volumeController ? files.volumeController.volumes : []
+
+                            delegate: Rectangle {
+                                required property var modelData
+
+                                color: volumeMouse.containsMouse
+                                    ? files.surfaceAccent : files.surfaceBackground
+                                border.color: files.surfaceMuted
+                                border.width: 1
+                                height: 42
+                                radius: 6
+                                width: 136
+
+                                Row {
+                                    anchors.fill: parent
+                                    anchors.leftMargin: 8
+                                    anchors.rightMargin: 8
+                                    spacing: 6
+
+                                    NorthstarIcon {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        height: 24
+                                        width: 24
+                                        iconName: modelData.isSystem ? "desktop" : "files"
+                                    }
+
+                                    Column {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        spacing: 1
+                                        width: parent.width - 30
+
+                                        Text {
+                                            color: files.surfaceForeground
+                                            elide: Text.ElideRight
+                                            font.pixelSize: 11
+                                            text: modelData.name || modelData.path
+                                            width: parent.width
+                                        }
+
+                                        Text {
+                                            color: files.surfaceMuted
+                                            elide: Text.ElideRight
+                                            font.pixelSize: 9
+                                            text: modelData.readOnly
+                                                ? "Read-only"
+                                                : (modelData.capacityLabel || "Mounted volume")
+                                            width: parent.width
+                                        }
+                                    }
+                                }
+
+                                MouseArea {
+                                    id: volumeMouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    onClicked: files.openVolume(modelData.path, modelData.name)
+                                }
+                            }
+                        }
+
+                        Text {
+                            anchors.centerIn: parent
+                            color: files.surfaceMuted
+                            font.pixelSize: 11
+                            text: "No mounted volumes"
+                            visible: volumeList.count === 0
+                        }
+                    }
+                }
+            }
+
             Row {
                 id: navigationRow
                 spacing: 8
@@ -339,63 +550,13 @@ Window {
                         enabled: !!files.fileBrowserController
                             && !files.showingTrash
                             && !files.fileBrowserController.searching
-                            && files.fileBrowserController.currentPath !== files.fileBrowserController.homePath
+                            && files.fileBrowserController.canNavigateUp
                         hoverEnabled: true
                         onClicked: {
                             if (files.fileBrowserController.navigateUp()) {
                                 files.clearSelection()
                             }
                         }
-                    }
-                }
-
-                Rectangle {
-                    color: homeMouse.containsMouse || !files.showingTrash && files.fileBrowserController
-                        && files.fileBrowserController.currentPath === files.fileBrowserController.homePath
-                        ? files.surfaceAccent : files.surfaceRaised
-                    height: 34
-                    radius: 5
-                    width: 78
-
-                    Text {
-                        anchors.centerIn: parent
-                        color: files.surfaceForeground
-                        font.pixelSize: 12
-                        text: "Home"
-                    }
-
-                    MouseArea {
-                        id: homeMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        onClicked: {
-                            if (files.fileBrowserController.goHome()) {
-                                files.clearSelection()
-                            }
-                        }
-                    }
-                }
-
-                Rectangle {
-                    color: trashLocationMouse.containsMouse || files.showingTrash
-                        ? files.surfaceAccent : files.surfaceRaised
-                    height: 34
-                    radius: 5
-                    width: 72
-
-                    Text {
-                        anchors.centerIn: parent
-                        color: files.surfaceForeground
-                        font.pixelSize: 12
-                        text: "Trash"
-                    }
-
-                    MouseArea {
-                        id: trashLocationMouse
-                        anchors.fill: parent
-                        enabled: !!files.fileBrowserController
-                        hoverEnabled: true
-                        onClicked: files.openTrash()
                     }
                 }
 
@@ -418,6 +579,9 @@ Window {
                         hoverEnabled: true
                         onClicked: {
                             files.clearSelection()
+                            if (files.volumeController) {
+                                files.volumeController.refresh()
+                            }
                             files.fileBrowserController.refresh()
                         }
                     }
@@ -475,7 +639,7 @@ Window {
                     elide: Text.ElideMiddle
                     font.pixelSize: 13
                     text: files.fileBrowserController ? files.fileBrowserController.displayPath : "~"
-                    width: Math.max(80, parent.width - 464)
+                    width: Math.max(80, parent.width - 306)
                 }
             }
 
@@ -493,9 +657,12 @@ Window {
                         radius: 6
                     }
                     color: files.surfaceForeground
-                    enabled: !!files.fileBrowserController && !files.showingTrash
+                    enabled: !!files.fileBrowserController && files.fileBrowserController.homeLocation
+                        && !files.showingTrash
                     height: 36
-                    placeholderText: "Search the Northstar home folder"
+                    placeholderText: files.fileBrowserController && files.fileBrowserController.readOnlyLocation
+                        ? "Return Home to search"
+                        : "Search the Northstar home folder"
                     placeholderTextColor: files.surfaceMuted
                     selectByMouse: true
                     width: parent.width - clearSearchButton.width - searchHint.implicitWidth - (2 * parent.spacing)
@@ -539,7 +706,9 @@ Window {
                     font.pixelSize: 11
                     text: files.fileBrowserController && files.fileBrowserController.searching
                         ? files.fileBrowserController.entries.length + " result(s)"
-                        : "Home search"
+                        : files.fileBrowserController && files.fileBrowserController.readOnlyLocation
+                            ? "Home-only search"
+                            : "Home search"
                 }
             }
 
@@ -575,7 +744,8 @@ Window {
                 Rectangle {
                     color: newFileMouse.containsMouse ? files.surfaceAccent : files.surfaceRaised
                     height: 34
-                    opacity: files.showingTrash ? 0.55 : 1
+                    opacity: files.fileBrowserController && files.fileBrowserController.homeLocation
+                        && !files.showingTrash ? 1 : 0.55
                     radius: 5
                     width: 82
 
@@ -589,7 +759,8 @@ Window {
                     MouseArea {
                         id: newFileMouse
                         anchors.fill: parent
-                        enabled: !!files.fileBrowserController && !files.showingTrash
+                        enabled: !!files.fileBrowserController && files.fileBrowserController.homeLocation
+                            && !files.showingTrash
                         hoverEnabled: true
                         onClicked: files.openNameDialog("file")
                     }
@@ -598,7 +769,8 @@ Window {
                 Rectangle {
                     color: newFolderMouse.containsMouse ? files.surfaceAccent : files.surfaceRaised
                     height: 34
-                    opacity: files.showingTrash ? 0.55 : 1
+                    opacity: files.fileBrowserController && files.fileBrowserController.homeLocation
+                        && !files.showingTrash ? 1 : 0.55
                     radius: 5
                     width: 96
 
@@ -612,7 +784,8 @@ Window {
                     MouseArea {
                         id: newFolderMouse
                         anchors.fill: parent
-                        enabled: !!files.fileBrowserController && !files.showingTrash
+                        enabled: !!files.fileBrowserController && files.fileBrowserController.homeLocation
+                            && !files.showingTrash
                         hoverEnabled: true
                         onClicked: files.openNameDialog("create")
                     }
@@ -622,7 +795,8 @@ Window {
                     color: files.hasSelection && !files.showingTrash && renameMouse.containsMouse
                         ? files.surfaceAccent : files.surfaceRaised
                     height: 34
-                    opacity: files.hasSelection && !files.showingTrash ? 1 : 0.55
+                    opacity: files.hasSelection && files.fileBrowserController
+                        && files.fileBrowserController.homeLocation && !files.showingTrash ? 1 : 0.55
                     radius: 5
                     width: 76
 
@@ -636,7 +810,8 @@ Window {
                     MouseArea {
                         id: renameMouse
                         anchors.fill: parent
-                        enabled: files.hasSelection && !files.showingTrash
+                        enabled: files.hasSelection && files.fileBrowserController
+                            && files.fileBrowserController.homeLocation && !files.showingTrash
                         hoverEnabled: true
                         onClicked: files.openNameDialog("rename")
                     }
@@ -646,7 +821,8 @@ Window {
                     color: files.hasSelection && !files.showingTrash && deleteMouse.containsMouse
                         ? "#c34f65" : files.surfaceRaised
                     height: 34
-                    opacity: files.hasSelection && !files.showingTrash ? 1 : 0.55
+                    opacity: files.hasSelection && files.fileBrowserController
+                        && files.fileBrowserController.homeLocation && !files.showingTrash ? 1 : 0.55
                     radius: 5
                     width: 78
 
@@ -660,7 +836,8 @@ Window {
                     MouseArea {
                         id: deleteMouse
                         anchors.fill: parent
-                        enabled: files.hasSelection && !files.showingTrash
+                        enabled: files.hasSelection && files.fileBrowserController
+                            && files.fileBrowserController.homeLocation && !files.showingTrash
                         hoverEnabled: true
                         onClicked: files.openTrashDialog()
                     }
@@ -732,7 +909,7 @@ Window {
                 border.color: files.surfaceMuted
                 border.width: 1
                 height: Math.max(160, parent.height - titleBar.height - navigationRow.height
-                    - searchRow.height - actionRow.height - footerText.implicitHeight - 48)
+                    - locationsSurface.height - searchRow.height - actionRow.height - footerText.implicitHeight - 60)
                 radius: 8
                 width: parent.width
 
@@ -749,6 +926,13 @@ Window {
                         required property var modelData
                         required property int index
                         property bool selected: files.selectedIndex === index
+                        property string dragUrl: files.localFileUrl(modelData.path)
+
+                        Drag.active: fileDragHandler.active
+                        Drag.hotSpot.x: width / 2
+                        Drag.hotSpot.y: height / 2
+                        Drag.mimeData: ({ "text/uri-list": dragUrl })
+                        Drag.supportedActions: Qt.CopyAction
 
                         color: selected || fileMouse.containsMouse ? files.surfaceAccent : files.surfaceRaised
                         height: files.gridView ? 104 : 50
@@ -837,6 +1021,18 @@ Window {
                                 files.openSelectedEntry()
                             }
                         }
+
+                        DragHandler {
+                            id: fileDragHandler
+                            acceptedButtons: Qt.LeftButton
+                            enabled: !files.showingTrash && !modelData.isDirectory && dragUrl.length > 7
+
+                            onActiveChanged: {
+                                if (active) {
+                                    files.selectedIndex = index
+                                }
+                            }
+                        }
                     }
 
                     ScrollBar.vertical: ScrollBar {}
@@ -861,7 +1057,9 @@ Window {
                     ? files.fileBrowserController.errorMessage
                     : files.fileBrowserController && files.fileBrowserController.searching
                         ? "Search results are scoped to the Northstar home folder."
-                    : "Select an item and choose Open, or double-click it."
+                    : files.fileBrowserController && files.fileBrowserController.readOnlyLocation
+                        ? "Mounted volumes are read-only. Return Home to create, rename, or delete files."
+                    : "Select an item and choose Open, or drag a file onto an app in Apps."
                 width: parent.width
             }
         }

@@ -79,6 +79,20 @@ Window {
         return "northstar"
     }
 
+    function localPathFromDrop(drop) {
+        if (!drop || !drop.urls || drop.urls.length === 0) {
+            return ""
+        }
+
+        const url = drop.urls[0]
+        if (url && typeof url.toLocalFile === "function") {
+            return url.toLocalFile()
+        }
+
+        const text = String(url || "")
+        return text.indexOf("file://") === 0 ? decodeURIComponent(text.slice(7)) : ""
+    }
+
     Rectangle {
         anchors.fill: parent
         color: overview.surfaceBackground
@@ -163,7 +177,8 @@ Window {
                     delegate: Rectangle {
                         required property var modelData
 
-                        color: applicationMouse.containsMouse ? overview.surfaceAccent : overview.surfaceBackground
+                        color: applicationDropArea.containsDrag || applicationMouse.containsMouse
+                            ? overview.surfaceAccent : overview.surfaceBackground
                         height: 102
                         radius: 10
                         width: 112
@@ -221,6 +236,34 @@ Window {
                                 applicationLauncher.launchApplication(modelData.desktopId)
                                 overview.visible = false
                             }
+                        }
+
+                        DropArea {
+                            id: applicationDropArea
+                            anchors.fill: parent
+                            keys: ["text/uri-list"]
+
+                            onDropped: function(drop) {
+                                const filePath = overview.localPathFromDrop(drop)
+                                if (!filePath) {
+                                    return
+                                }
+
+                                if (applicationLauncher.launchApplicationWithFile(modelData.desktopId, filePath)) {
+                                    drop.acceptProposedAction()
+                                    overview.visible = false
+                                }
+                            }
+                        }
+
+                        Text {
+                            anchors.centerIn: parent
+                            color: overview.surfaceForeground
+                            font.bold: true
+                            font.pixelSize: 11
+                            text: "Drop to open"
+                            visible: applicationDropArea.containsDrag
+                            z: 2
                         }
                     }
 
