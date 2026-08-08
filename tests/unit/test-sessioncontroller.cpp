@@ -4,6 +4,9 @@
 #include <QTemporaryDir>
 #include <QtTest/QtTest>
 
+#include <csignal>
+#include <unistd.h>
+
 class SessionControllerTest final : public QObject
 {
     Q_OBJECT
@@ -12,6 +15,7 @@ private slots:
     void readsStatusContract();
     void missingStatusIsUnavailable();
     void rejectsEndRequestFromUnexpectedParent();
+    void requestsEndSessionThroughExactParent();
 };
 
 void SessionControllerTest::readsStatusContract()
@@ -73,6 +77,44 @@ void SessionControllerTest::rejectsEndRequestFromUnexpectedParent()
 
     QVERIFY(!controller.requestEndSession());
     QVERIFY(!QFile::exists(controlPath));
+}
+
+void SessionControllerTest::requestsEndSessionThroughExactParent()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+
+    const qint64 expectedSupervisorPid = static_cast<qint64>(::getppid());
+    const QString statusPath = temporaryDirectory.filePath(QStringLiteral("session.status"));
+    QFile statusFile(statusPath);
+    QVERIFY(statusFile.open(QIODevice::WriteOnly | QIODevice::Text));
+    statusFile.write("state=running\nsupervisor_pid=");
+    statusFile.write(QByteArray::number(expectedSupervisorPid));
+    statusFile.write("\nwayland_display=wayland-1\n");
+    statusFile.close();
+
+    const QString controlPath = temporaryDirectory.filePath(QStringLiteral("session.control"));
+    qint64 signaledPid = 0;
+    int signaledSignal = 0;
+    SessionController controller(
+        statusPath,
+        controlPath,
+        expectedSupervisorPid,
+        nullptr,
+        [&signaledPid, &signaledSignal](qint64 pid, int signal) {
+            signaledPid = pid;
+            signaledSignal = signal;
+            return 0;
+        });
+
+    QVERIFY(controller.requestEndSession());
+    QCOMPARE(signaledPid, expectedSupervisorPid);
+    QCOMPARE(signaledSignal, SIGTERM);
+    QCOMPARE(controller.state(), QStringLiteral("stopping"));
+
+    QFile controlFile(controlPath);
+    QVERIFY(controlFile.open(QIODevice::ReadOnly | QIODevice::Text));
+    QCOMPARE(controlFile.readAll(), QByteArray("end-session\n"));
 }
 
 QTEST_MAIN(SessionControllerTest)

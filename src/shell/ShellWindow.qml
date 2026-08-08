@@ -208,6 +208,7 @@ Window {
         launcherController: launcher
         overviewWindow: applicationOverview
         settingsSurface: settingsWindow
+        sessionController: northstarSessionController
         state: shellState
         targetScreen: targetScreen
         panelHeight: root.height

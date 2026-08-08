@@ -55,6 +55,12 @@ It records the identity and PID of launched applications in a user-private log
 and presents short success/failure feedback without expanding supervisor
 ownership to those applications.
 
+The system menu now exposes a confirmed `Log Out of Northstar` action while a
+supervised session is running. It reuses the exact-parent supervisor request
+and therefore ends only Northstar's shell/compositor. In an unmanaged shell,
+the same menu entry is labeled `Quit Northstar Shell` and retains the local
+development fallback without claiming to perform a session logout.
+
 ## Deterministic validation
 
 The fake-compositor/fake-shell test runs as an unprivileged user and verifies

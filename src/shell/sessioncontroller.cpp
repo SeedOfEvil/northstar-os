@@ -8,6 +8,7 @@
 #include <QStringList>
 
 #include <csignal>
+#include <utility>
 #include <unistd.h>
 
 namespace {
@@ -39,11 +40,13 @@ SessionController::SessionController(QObject *parent)
 SessionController::SessionController(const QString &statusFile,
                                      const QString &controlFile,
                                      qint64 expectedSupervisorPid,
-                                     QObject *parent)
+                                     QObject *parent,
+                                     SignalFunction signalFunction)
     : QObject(parent)
     , m_statusFile(statusFile)
     , m_controlFile(controlFile)
     , m_expectedSupervisorPid(expectedSupervisorPid)
+    , m_signalFunction(std::move(signalFunction))
 {
     refresh();
 }
@@ -165,7 +168,10 @@ bool SessionController::requestEndSession()
     controlFile.close();
     controlFile.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner);
 
-    if (::kill(static_cast<pid_t>(m_supervisorPid), SIGTERM) != 0) {
+    const auto signalFunction = m_signalFunction ? m_signalFunction : [](qint64 pid, int signal) {
+        return ::kill(static_cast<pid_t>(pid), signal);
+    };
+    if (signalFunction(m_supervisorPid, SIGTERM) != 0) {
         return false;
     }
 

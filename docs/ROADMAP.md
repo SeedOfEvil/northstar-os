@@ -37,6 +37,8 @@ unprivileged end-session request, and tracked application launches. The Session
 settings page shows supervisor state, Wayland display, owned process IDs, and
 restart count; the launcher records desktop identity and PID and gives the
 shell success/failure feedback without widening supervisor process ownership.
+The system menu now exposes that end-session request as a confirmed logout
+action, with an explicit unmanaged-shell fallback.
 
 Pass only when login starts exactly one session, shell crashes are detected and restarted, logout terminates only the user session, privileged lifecycle actions are controlled, launches record PID and identity, and logs contain no secrets.
 

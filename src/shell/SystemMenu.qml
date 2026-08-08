@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 
 Window {
     id: menu
@@ -6,6 +7,7 @@ Window {
     property var launcherController
     property var overviewWindow
     property var settingsSurface
+    property var sessionController
     property var state
     property var targetScreen
     property int panelHeight: 96
@@ -17,6 +19,10 @@ Window {
     property color surfaceForeground: state && state.darkMode ? "#f5f7fb" : "#1e2430"
     property color surfaceMuted: state && state.darkMode ? "#a9b1c2" : "#637083"
     property color surfaceAccent: state && state.darkMode ? "#79b8ff" : "#1769aa"
+    property bool canLogout: sessionController !== null
+        && sessionController !== undefined
+        && sessionController.available
+    property string logoutError: ""
 
     visible: false
     color: "transparent"
@@ -39,25 +45,76 @@ Window {
     }
 
     function triggerAction(action) {
-        closeMenu()
-
         if (action === "applications") {
+            closeMenu()
             overviewWindow.show()
             overviewWindow.raise()
             overviewWindow.requestActivate()
         } else if (action === "settings") {
+            closeMenu()
             settingsSurface.openSettings()
         } else if (action === "refresh") {
+            closeMenu()
             launcherController.refreshApplications()
         } else if (action === "theme") {
+            closeMenu()
             state.toggleDarkMode()
         } else if (action === "terminal") {
+            closeMenu()
             launcherController.launchTerminal()
         } else if (action === "browser") {
+            closeMenu()
             launcherController.launchBrowser()
-        } else if (action === "quit") {
-            Qt.quit()
+        } else if (action === "logout") {
+            if (menu.canLogout) {
+                menu.logoutError = ""
+                logoutDialog.open()
+            } else {
+                closeMenu()
+                Qt.quit()
+            }
         }
+    }
+
+    Dialog {
+        id: logoutDialog
+        modal: true
+        title: "Log out of Northstar?"
+        standardButtons: Dialog.Cancel | Dialog.Ok
+        width: 420
+        x: (menu.width - width) / 2
+        y: (menu.height - height) / 2
+
+        contentItem: Column {
+            spacing: 10
+            width: 360
+
+            Text {
+                color: menu.surfaceForeground
+                text: "This ends the Northstar shell and its supervised compositor. Other user applications are not targeted."
+                wrapMode: Text.WordWrap
+                width: parent.width
+            }
+
+            Text {
+                color: "#c34f65"
+                text: menu.logoutError
+                visible: text.length > 0
+                wrapMode: Text.WordWrap
+                width: parent.width
+            }
+        }
+
+        onAccepted: {
+            const requested = menu.canLogout && menu.sessionController.requestEndSession()
+            if (requested) {
+                menu.hide()
+            } else {
+                menu.logoutError = "The supervised Northstar session is no longer available."
+            }
+        }
+
+        onRejected: menu.logoutError = ""
     }
 
     Rectangle {
@@ -96,7 +153,7 @@ Window {
                     { kind: "action", id: "terminal", label: "Launch Terminal" },
                     { kind: "action", id: "browser", label: "Launch Firefox" },
                     { kind: "separator" },
-                    { kind: "action", id: "quit", label: "Quit Northstar Shell" }
+                    { kind: "action", id: "logout", label: "Log Out of Northstar" }
                 ]
                 width: parent.width
                 height: parent.height - 26
@@ -120,6 +177,8 @@ Window {
                         text: modelData.kind === "separator" ? "" : modelData.id === "theme"
                             ? (menu.state && menu.state.darkMode
                                 ? "Use light appearance" : "Use dark appearance")
+                            : modelData.id === "logout" && !menu.canLogout
+                            ? "Quit Northstar Shell"
                             : modelData.label
                         verticalAlignment: Text.AlignVCenter
                     }

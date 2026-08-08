@@ -1,5 +1,7 @@
 #pragma once
 
+#include <functional>
+
 #include <QObject>
 #include <QString>
 
@@ -16,11 +18,14 @@ class SessionController final : public QObject
     Q_PROPERTY(QString lastEvent READ lastEvent NOTIFY statusChanged)
 
 public:
+    using SignalFunction = std::function<int(qint64 pid, int signal)>;
+
     explicit SessionController(QObject *parent = nullptr);
     SessionController(const QString &statusFile,
                       const QString &controlFile,
                       qint64 expectedSupervisorPid,
-                      QObject *parent = nullptr);
+                      QObject *parent = nullptr,
+                      SignalFunction signalFunction = {});
 
     bool available() const;
     QString state() const;
@@ -43,6 +48,7 @@ private:
     QString m_statusFile;
     QString m_controlFile;
     qint64 m_expectedSupervisorPid = 0;
+    SignalFunction m_signalFunction;
     bool m_available = false;
     QString m_state = QStringLiteral("Not supervised");
     QString m_waylandDisplay;
