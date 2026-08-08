@@ -48,6 +48,37 @@ Window {
         searchField.selectAll()
     }
 
+    function applicationIconName(application) {
+        if (!application) {
+            return "northstar"
+        }
+
+        const descriptor = ((application.name || "") + " "
+            + (application.genericName || "") + " "
+            + (application.desktopId || "")).toLowerCase()
+        if (descriptor.indexOf("terminal") >= 0 || descriptor.indexOf("shell") >= 0
+                || descriptor.indexOf("console") >= 0) {
+            return "terminal"
+        }
+        if (descriptor.indexOf("firefox") >= 0 || descriptor.indexOf("browser") >= 0
+                || descriptor.indexOf("web") >= 0) {
+            return "browser"
+        }
+        if (descriptor.indexOf("setting") >= 0 || descriptor.indexOf("preference") >= 0
+                || descriptor.indexOf("config") >= 0) {
+            return "settings"
+        }
+        if (descriptor.indexOf("file") >= 0 || descriptor.indexOf("folder") >= 0
+                || descriptor.indexOf("manager") >= 0) {
+            return "files"
+        }
+        if (descriptor.indexOf("text") >= 0 || descriptor.indexOf("editor") >= 0
+                || descriptor.indexOf("note") >= 0) {
+            return "editor"
+        }
+        return "northstar"
+    }
+
     Rectangle {
         anchors.fill: parent
         color: overview.surfaceBackground
@@ -141,21 +172,11 @@ Window {
                             anchors.margins: 10
                             spacing: 5
 
-                            Rectangle {
+                            NorthstarIcon {
                                 anchors.horizontalCenter: parent.horizontalCenter
-                                color: overview.surfaceAccent
                                 height: 44
-                                radius: 10
                                 width: 44
-
-                                Text {
-                                    anchors.centerIn: parent
-                                    color: overview.surfaceForeground
-                                    font.bold: true
-                                    font.pixelSize: 20
-                                    text: modelData.name && modelData.name.length > 0
-                                        ? modelData.name.charAt(0).toUpperCase() : "?"
-                                }
+                                iconName: overview.applicationIconName(modelData)
                             }
 
                             Text {
