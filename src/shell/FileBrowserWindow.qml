@@ -109,6 +109,14 @@ Window {
             }
             return
         }
+
+        const preferredDesktopId = files.applicationLauncher
+            ? files.applicationLauncher.preferredApplicationForFile(files.selectedPath) : ""
+        if (preferredDesktopId
+                && files.applicationLauncher.launchApplicationWithFile(preferredDesktopId, files.selectedPath)) {
+            files.clearSelection()
+            return
+        }
         files.openAssociationDialog()
     }
 
@@ -118,6 +126,10 @@ Window {
         }
         associationDialog.itemPath = files.selectedPath
         associationDialog.itemName = files.selectedName
+        associationDialog.extension = files.fileExtension(files.selectedPath)
+        associationDialog.preferredDesktopId = files.applicationLauncher
+            ? files.applicationLauncher.preferredApplicationForFile(files.selectedPath) : ""
+        associationDialog.rememberChoice.checked = false
         if (files.applicationLauncher) {
             files.applicationLauncher.setApplicationQuery("")
         }
@@ -129,6 +141,10 @@ Window {
             return
         }
         if (files.applicationLauncher.launchApplicationWithFile(desktopId, associationDialog.itemPath)) {
+            if (associationDialog.rememberChoice.checked && associationDialog.extension.length > 0) {
+                files.applicationLauncher.setPreferredApplicationForFile(associationDialog.itemPath, desktopId)
+                associationDialog.preferredDesktopId = desktopId
+            }
             associationDialog.close()
         }
     }
@@ -219,6 +235,16 @@ Window {
         return "file://" + normalizedPath.split("/").map(function(segment) {
             return encodeURIComponent(segment)
         }).join("/")
+    }
+
+    function fileExtension(path) {
+        const normalizedPath = String(path || "").replace(/\\/g, "/")
+        const name = normalizedPath.slice(normalizedPath.lastIndexOf("/") + 1)
+        const dot = name.lastIndexOf(".")
+        if (dot <= 0 || dot >= name.length - 1) {
+            return ""
+        }
+        return name.slice(dot + 1).toLowerCase()
     }
 
     function openEmptyTrashDialog() {
@@ -742,6 +768,32 @@ Window {
                 }
 
                 Rectangle {
+                    color: files.hasSelection && !files.showingTrash && !files.selectedEntry.isDirectory
+                        && openWithMouse.containsMouse ? files.surfaceAccent : files.surfaceRaised
+                    height: 34
+                    opacity: files.hasSelection && !files.showingTrash && !files.selectedEntry.isDirectory
+                        ? 1 : 0.55
+                    radius: 5
+                    width: 100
+
+                    Text {
+                        anchors.centerIn: parent
+                        color: files.surfaceForeground
+                        font.pixelSize: 12
+                        text: "Open With..."
+                    }
+
+                    MouseArea {
+                        id: openWithMouse
+                        anchors.fill: parent
+                        enabled: files.hasSelection && !files.showingTrash
+                            && !files.selectedEntry.isDirectory
+                        hoverEnabled: true
+                        onClicked: files.openAssociationDialog()
+                    }
+                }
+
+                Rectangle {
                     color: newFileMouse.containsMouse ? files.surfaceAccent : files.surfaceRaised
                     height: 34
                     opacity: files.fileBrowserController && files.fileBrowserController.homeLocation
@@ -1069,6 +1121,8 @@ Window {
         id: associationDialog
         property string itemPath: ""
         property string itemName: ""
+        property string extension: ""
+        property string preferredDesktopId: ""
 
         title: "Open with an application"
         modal: true
@@ -1093,6 +1147,15 @@ Window {
                 color: files.surfaceForeground
                 text: "Choose how Northstar should open \"" + associationDialog.itemName + "\"."
                 wrapMode: Text.WordWrap
+                width: parent.width
+            }
+
+            Text {
+                color: files.surfaceMuted
+                elide: Text.ElideRight
+                text: associationDialog.preferredDesktopId.length > 0
+                    ? "Current default: " + associationDialog.preferredDesktopId
+                    : "No Northstar default is saved for this file type."
                 width: parent.width
             }
 
@@ -1188,9 +1251,36 @@ Window {
                 }
             }
 
+            CheckBox {
+                id: rememberChoice
+                text: associationDialog.extension.length > 0
+                    ? "Remember this choice for ." + associationDialog.extension + " files"
+                    : "Remember this choice"
+                visible: associationList.count > 0 && associationDialog.extension.length > 0
+                width: parent.width
+
+                contentItem: Text {
+                    color: files.surfaceForeground
+                    leftPadding: rememberChoice.indicator.width + 8
+                    text: rememberChoice.text
+                    verticalAlignment: Text.AlignVCenter
+                }
+            }
+
             Row {
                 spacing: 8
                 width: parent.width
+
+                Button {
+                    text: "Forget Default"
+                    visible: associationDialog.preferredDesktopId.length > 0
+                    onClicked: {
+                        if (files.applicationLauncher
+                                && files.applicationLauncher.clearPreferredApplicationForFile(associationDialog.itemPath)) {
+                            associationDialog.preferredDesktopId = ""
+                        }
+                    }
+                }
 
                 Button {
                     text: "Use System Default"

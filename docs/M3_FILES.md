@@ -14,7 +14,11 @@ small and safe for the development desktop:
 - Empty files and folders can be created, and entries can be renamed from the
   current folder.
 - A selected entry has an explicit Open action; files can be opened with a
-  registered application or the platform's explicit default association.
+  registered application or the platform's explicit default association. The
+  Open With action remains available even after a default is saved.
+- The Open With chooser can remember one user-scoped application per file
+  extension and can forget that choice later; it never changes system-wide
+  desktop associations.
 - Entries can be moved to the per-user FreeDesktop Trash with `.trashinfo`
   metadata; operations stay inside the Northstar home-folder boundary.
 - Trash is a first-class Files location with restore and confirmed empty
@@ -35,9 +39,10 @@ small and safe for the development desktop:
 The controller is covered by a native Qt test for ordering, navigation, file
 opening, path-boundary rejection, creation, renaming, Trash metadata, restore,
 empty-Trash behavior, bounded home-folder search, and read-only mounted-volume
-navigation. The shell presents an explicit Open With chooser for registered
-desktop applications. Package provenance and the project-owned global menu
-remain later M3 slices.
+navigation. The launcher also tests persistence and validation of the
+user-scoped extension association store. Package provenance is complete for
+the current `.app` contract; the project-owned global menu remains outside
+the application-level shortcut slice.
 
 ## VM validation
 
@@ -58,8 +63,11 @@ before permanently removing its contents. Use the **Search the Northstar home
 folder** field to find a nested item, verify its relative location is shown,
 and clear the query before returning to normal navigation. A regular file
 should open the Northstar Open With chooser; use **New File** to create an
-empty `association-test.txt` when testing that path. Drag that file onto an
-application tile in **Apps** and confirm the selected application receives it;
+empty `association-test.txt` when testing that path. Choose an application,
+enable **Remember this choice**, open the file again to confirm it launches
+directly, then use **Open With...** and **Forget Default** to confirm the
+choice is reversible. Drag that file onto an application tile in **Apps** and
+confirm the selected application receives it;
 folders and Trash entries should not start a drag operation. In **Locations**,
 open each mounted volume, navigate into a folder, verify the read-only label
 and disabled mutation/search controls, then return to **Home**.
