@@ -94,6 +94,18 @@ target_link_libraries(test-notificationcenter
 
 add_test(NAME northstar-notificationcenter COMMAND test-notificationcenter)
 
+qt_add_executable(test-packagecatalog
+    test-packagecatalog.cpp
+)
+
+target_link_libraries(test-packagecatalog
+    PRIVATE
+        northstar-shell-core
+        Qt6::Test
+)
+
+add_test(NAME northstar-packagecatalog COMMAND test-packagecatalog)
+
 qt_add_executable(test-volumecatalog
     test-volumecatalog.cpp
 )

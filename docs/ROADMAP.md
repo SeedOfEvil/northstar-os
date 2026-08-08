@@ -8,7 +8,7 @@ The project advances through user-visible milestones with explicit pass gates. A
 | M1 | Shell seed | Single-display slice validated; multi-display deferred | Top bar and dock render on every connected display |
 | M2 | Desktop session | Supervisor, session entry point, live nested login wrapper, branded greeter, and Proxmox fallback prepared; native acceptance pending | Session, services, supervision, notifications, and lifecycle work coherently |
 | M3 | Core desktop | Files slice in progress | Filer, settings, search, overview, associations, and project apps form a usable desktop |
-| M4 | Packages, updates, rollback | Not started | Signed packages and ZFS boot-environment rollback work end to end |
+| M4 | Packages, updates, rollback | Software inventory foundation implemented; signed update lane not started | Signed packages and ZFS boot-environment rollback work end to end |
 | M5 | Reproducible image and installer | Not started | Pinned inputs produce a bootable UEFI root-on-ZFS image |
 | M6 | Alpha hardware release | Not started | The supported VM and narrow Intel/AMD hardware matrix meets the alpha definition |
 
@@ -70,7 +70,7 @@ Third-party global menus and full macOS compatibility remain out of scope.
 
 ## M4: Packages, updates, and rollback
 
-Deliver Ports overlays, Poudriere configuration, signed development/stable repositories, an upgrade command, boot-environment creation before upgrades, rollback documentation, and compatibility tests.
+The first Software Center foundation is documented in [`docs/M4_SOFTWARE.md`](M4_SOFTWARE.md). It reads and searches the installed FreeBSD package inventory without mutating the host. It does not close M4: Ports overlays, Poudriere configuration, signed development/stable repositories, an upgrade command, boot-environment creation before upgrades, rollback documentation, and compatibility tests are still required.
 
 Pass only when project components install through `pkg`, repository metadata is signed, N-1 to N upgrades work, rollback restores the prior shell and package set, and user documents survive.
 
