@@ -25,6 +25,11 @@ Window {
     property color surfaceMuted: state && state.darkMode ? "#a9b1c2" : "#637083"
     property color surfaceAccent: state && state.darkMode ? "#79b8ff" : "#1769aa"
     property color surfaceRaised: state && state.darkMode ? "#252b36" : "#e8edf5"
+    property string selectedPath: fileList.currentItem && fileList.currentItem.modelData
+        ? fileList.currentItem.modelData.path : ""
+    property string selectedName: fileList.currentItem && fileList.currentItem.modelData
+        ? fileList.currentItem.modelData.name : ""
+    property bool hasSelection: files.selectedPath.length > 0
 
     visible: false
     color: "transparent"
@@ -47,6 +52,25 @@ Window {
         show()
         raise()
         requestActivate()
+    }
+
+    function openNameDialog(mode) {
+        if (!files.fileBrowserController || (mode === "rename" && !files.hasSelection)) {
+            return
+        }
+        nameDialog.mode = mode
+        nameDialog.originalPath = mode === "rename" ? files.selectedPath : ""
+        nameField.text = mode === "rename" ? files.selectedName : ""
+        nameDialog.open()
+    }
+
+    function openTrashDialog() {
+        if (!files.fileBrowserController || !files.hasSelection) {
+            return
+        }
+        trashDialog.itemPath = files.selectedPath
+        trashDialog.itemName = files.selectedName
+        trashDialog.open()
     }
 
     function beginDrag(mouseX, mouseY) {
@@ -222,13 +246,83 @@ Window {
                     }
                 }
 
+                Rectangle {
+                    color: newFolderMouse.containsMouse ? files.surfaceAccent : files.surfaceRaised
+                    height: 34
+                    radius: 5
+                    width: 96
+
+                    Text {
+                        anchors.centerIn: parent
+                        color: files.surfaceForeground
+                        font.pixelSize: 12
+                        text: "New Folder"
+                    }
+
+                    MouseArea {
+                        id: newFolderMouse
+                        anchors.fill: parent
+                        enabled: !!files.fileBrowserController
+                        hoverEnabled: true
+                        onClicked: files.openNameDialog("create")
+                    }
+                }
+
+                Rectangle {
+                    color: files.hasSelection && renameMouse.containsMouse
+                        ? files.surfaceAccent : files.surfaceRaised
+                    height: 34
+                    opacity: files.hasSelection ? 1 : 0.55
+                    radius: 5
+                    width: 76
+
+                    Text {
+                        anchors.centerIn: parent
+                        color: files.surfaceForeground
+                        font.pixelSize: 12
+                        text: "Rename"
+                    }
+
+                    MouseArea {
+                        id: renameMouse
+                        anchors.fill: parent
+                        enabled: files.hasSelection
+                        hoverEnabled: true
+                        onClicked: files.openNameDialog("rename")
+                    }
+                }
+
+                Rectangle {
+                    color: files.hasSelection && trashMouse.containsMouse
+                        ? "#c34f65" : files.surfaceRaised
+                    height: 34
+                    opacity: files.hasSelection ? 1 : 0.55
+                    radius: 5
+                    width: 84
+
+                    Text {
+                        anchors.centerIn: parent
+                        color: files.surfaceForeground
+                        font.pixelSize: 12
+                        text: "Trash"
+                    }
+
+                    MouseArea {
+                        id: trashMouse
+                        anchors.fill: parent
+                        enabled: files.hasSelection
+                        hoverEnabled: true
+                        onClicked: files.openTrashDialog()
+                    }
+                }
+
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
                     color: files.surfaceMuted
                     elide: Text.ElideMiddle
                     font.pixelSize: 13
                     text: files.fileBrowserController ? files.fileBrowserController.displayPath : "~"
-                    width: parent.width - 252
+                    width: Math.max(32, parent.width - 530)
                 }
             }
 
@@ -325,6 +419,101 @@ Window {
                     ? files.fileBrowserController.errorMessage
                     : "Double-click a folder to browse it or a file to open it."
                 width: parent.width
+            }
+        }
+    }
+
+    Dialog {
+        id: nameDialog
+        property string mode: "create"
+        property string originalPath: ""
+
+        title: mode === "rename" ? "Rename item" : "Create folder"
+        modal: true
+        padding: 16
+        standardButtons: Dialog.Cancel | Dialog.Ok
+        width: Math.min(420, files.width - 48)
+        x: (files.width - width) / 2
+        y: (files.height - height) / 2
+
+        background: Rectangle {
+            color: files.surfaceBackground
+            border.color: files.surfaceAccent
+            border.width: 1
+            radius: 8
+        }
+
+        contentItem: Column {
+            spacing: 10
+            width: nameDialog.width - (2 * nameDialog.padding)
+
+            Text {
+                color: files.surfaceForeground
+                text: nameDialog.mode === "rename"
+                    ? "Choose a new name for the selected item."
+                    : "Choose a name for the new folder."
+                wrapMode: Text.WordWrap
+                width: parent.width
+            }
+
+            TextField {
+                id: nameField
+                width: parent.width
+                placeholderText: "Name"
+                selectByMouse: true
+                onAccepted: nameDialog.accept()
+            }
+        }
+
+        onOpened: {
+            nameField.forceActiveFocus()
+            nameField.selectAll()
+        }
+
+        onAccepted: {
+            const succeeded = mode === "rename"
+                ? files.fileBrowserController.renameEntry(originalPath, nameField.text)
+                : files.fileBrowserController.createFolder(nameField.text)
+            if (succeeded) {
+                fileList.currentIndex = -1
+            } else {
+                Qt.callLater(function() { nameDialog.open() })
+            }
+        }
+    }
+
+    Dialog {
+        id: trashDialog
+        property string itemPath: ""
+        property string itemName: ""
+
+        title: "Move to Trash?"
+        modal: true
+        padding: 16
+        standardButtons: Dialog.Cancel | Dialog.Ok
+        width: Math.min(420, files.width - 48)
+        x: (files.width - width) / 2
+        y: (files.height - height) / 2
+
+        background: Rectangle {
+            color: files.surfaceBackground
+            border.color: files.surfaceAccent
+            border.width: 1
+            radius: 8
+        }
+
+        contentItem: Text {
+            color: files.surfaceForeground
+            text: "Move \"" + trashDialog.itemName + "\" to the Northstar Trash?"
+            wrapMode: Text.WordWrap
+            width: trashDialog.width - (2 * trashDialog.padding)
+        }
+
+        onAccepted: {
+            if (files.fileBrowserController.moveToTrash(itemPath)) {
+                fileList.currentIndex = -1
+            } else {
+                Qt.callLater(function() { trashDialog.open() })
             }
         }
     }

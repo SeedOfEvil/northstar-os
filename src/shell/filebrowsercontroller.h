@@ -32,6 +32,9 @@ public:
     Q_INVOKABLE bool navigateUp();
     Q_INVOKABLE bool goHome();
     Q_INVOKABLE bool openEntry(const QString &path);
+    Q_INVOKABLE bool createFolder(const QString &name);
+    Q_INVOKABLE bool renameEntry(const QString &path, const QString &newName);
+    Q_INVOKABLE bool moveToTrash(const QString &path);
     Q_INVOKABLE void refresh();
 
 signals:
@@ -42,8 +45,14 @@ signals:
 private:
     static QString normalizedPath(const QString &path);
     static QString canonicalOrNormalizedPath(const QString &path);
+    static bool isValidEntryName(const QString &name);
     QString resolvePath(const QString &path) const;
     bool isWithinRoot(const QString &path) const;
+    QString trashFilesPath() const;
+    QString trashInfoPath() const;
+    QString uniqueTrashName(const QString &name) const;
+    bool ensureTrashDirectories() const;
+    bool writeTrashInfo(const QString &infoPath, const QString &originalPath) const;
     void setErrorMessage(const QString &message);
 
     QString m_rootPath;
