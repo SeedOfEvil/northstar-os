@@ -16,5 +16,14 @@
         <string>Utility</string>
         <string>Northstar</string>
     </array>
+    <key>Provenance</key>
+    <dict>
+        <key>Source</key>
+        <string>northstar-project</string>
+        <key>Package</key>
+        <string>northstar-welcome</string>
+        <key>Revision</key>
+        <string>development</string>
+    </dict>
 </dict>
 </plist>

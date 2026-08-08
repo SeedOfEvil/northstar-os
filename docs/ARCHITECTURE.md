@@ -63,7 +63,7 @@ The shell owns project surfaces: the top bar, dock, desktop, overview, app switc
 
 Logical service boundaries are defined before process boundaries are split. The initial implementation may keep several services in one executable while interfaces, authorization, logging, and restart behavior stabilize.
 
-Planned services include launcher, notifications, settings, file associations, volumes, updates, and power. The current settings slice stores only user-scoped appearance preferences through Qt's configuration path; it never requires root access. Reboot and shutdown are controlled authorization operations, not arbitrary shell commands.
+Planned services include launcher, notifications, settings, file associations, volumes, updates, and power. The current settings slice stores only user-scoped appearance preferences through Qt's configuration path; it never requires root access. Reboot and shutdown are controlled authorization operations, not arbitrary shell commands. Project `.app` bundles carry a source/package/revision provenance record that the launcher validates before discovery.
 
 ### Applications
 
@@ -71,7 +71,7 @@ Application discovery starts with standard FreeBSD `.desktop` files. A project `
 
 ## Packaging and update model
 
-FreeBSD base and kernel updates use the official FreeBSD mechanism. Third-party desktop dependencies come from a pinned FreeBSD package source. Northstar components are built in clean Poudriere jails and published through a signed `pkg` repository.
+FreeBSD base and kernel updates use the official FreeBSD mechanism. Third-party desktop dependencies come from a pinned FreeBSD package source. Northstar components are built in clean Poudriere jails and published through a signed `pkg` repository. Development `.app` bundles expose manifest-level provenance now; package ownership, repository verification, and cryptographic signing remain part of M4.
 
 Before a major upgrade, the updater creates a named boot environment:
 
