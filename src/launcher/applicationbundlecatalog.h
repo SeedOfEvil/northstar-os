@@ -5,6 +5,20 @@
 #include <QStringList>
 #include <QVariantList>
 
+struct BundleProvenance
+{
+    QString source;
+    QString package;
+    QString revision;
+};
+
+inline bool operator==(const BundleProvenance &left, const BundleProvenance &right)
+{
+    return left.source == right.source
+        && left.package == right.package
+        && left.revision == right.revision;
+}
+
 struct BundleApplication
 {
     QString bundleId;
@@ -17,6 +31,7 @@ struct BundleApplication
     QString bundlePath;
     QString executablePath;
     QString iconPath;
+    BundleProvenance provenance;
 };
 
 inline bool operator==(const BundleApplication &left, const BundleApplication &right)
@@ -30,7 +45,8 @@ inline bool operator==(const BundleApplication &left, const BundleApplication &r
         && left.categories == right.categories
         && left.bundlePath == right.bundlePath
         && left.executablePath == right.executablePath
-        && left.iconPath == right.iconPath;
+        && left.iconPath == right.iconPath
+        && left.provenance == right.provenance;
 }
 
 class ApplicationBundleCatalog final : public QObject
