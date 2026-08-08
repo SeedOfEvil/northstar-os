@@ -25,6 +25,9 @@ small and safe for the development desktop:
 - Home-folder search recursively finds matching file and folder names, shows
   each result's relative location, excludes the Northstar Trash store, and
   caps results to keep interactive search bounded.
+- Regular files can be dragged from the Files explorer onto an application
+  tile in Apps; the existing launcher validates the file and passes it as the
+  selected application's argument.
 
 The controller is covered by a native Qt test for ordering, navigation, file
 opening, path-boundary rejection, creation, renaming, Trash metadata, restore,
@@ -52,4 +55,6 @@ before permanently removing its contents. Use the **Search the Northstar home
 folder** field to find a nested item, verify its relative location is shown,
 and clear the query before returning to normal navigation. A regular file
 should open the Northstar Open With chooser; use **New File** to create an
-empty `association-test.txt` when testing that path.
+empty `association-test.txt` when testing that path. Drag that file onto an
+application tile in **Apps** and confirm the selected application receives it;
+folders and Trash entries should not start a drag operation.

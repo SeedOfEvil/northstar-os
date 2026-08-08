@@ -199,6 +199,13 @@ Window {
         return "northstar"
     }
 
+    function localFileUrl(path) {
+        const normalizedPath = String(path || "").replace(/\\/g, "/")
+        return "file://" + normalizedPath.split("/").map(function(segment) {
+            return encodeURIComponent(segment)
+        }).join("/")
+    }
+
     function openEmptyTrashDialog() {
         if (!files.fileBrowserController || !files.showingTrash) {
             return
@@ -749,6 +756,13 @@ Window {
                         required property var modelData
                         required property int index
                         property bool selected: files.selectedIndex === index
+                        property string dragUrl: files.localFileUrl(modelData.path)
+
+                        Drag.active: fileDragHandler.active
+                        Drag.hotSpot.x: width / 2
+                        Drag.hotSpot.y: height / 2
+                        Drag.mimeData: ({ "text/uri-list": dragUrl })
+                        Drag.supportedActions: Qt.CopyAction
 
                         color: selected || fileMouse.containsMouse ? files.surfaceAccent : files.surfaceRaised
                         height: files.gridView ? 104 : 50
@@ -837,6 +851,18 @@ Window {
                                 files.openSelectedEntry()
                             }
                         }
+
+                        DragHandler {
+                            id: fileDragHandler
+                            acceptedButtons: Qt.LeftButton
+                            enabled: !files.showingTrash && !modelData.isDirectory && dragUrl.length > 7
+
+                            onActiveChanged: {
+                                if (active) {
+                                    files.selectedIndex = index
+                                }
+                            }
+                        }
                     }
 
                     ScrollBar.vertical: ScrollBar {}
@@ -861,7 +887,7 @@ Window {
                     ? files.fileBrowserController.errorMessage
                     : files.fileBrowserController && files.fileBrowserController.searching
                         ? "Search results are scoped to the Northstar home folder."
-                    : "Select an item and choose Open, or double-click it."
+                    : "Select an item and choose Open, or drag a file onto an app in Apps."
                 width: parent.width
             }
         }

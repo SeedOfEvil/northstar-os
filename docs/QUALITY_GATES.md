@@ -25,7 +25,7 @@ Hold a change when it depends on an unpinned dependency, requires broad root acc
 | M0 host | Exact FreeBSD 15.1 amd64, clean VM bootstrap, idempotent second run, package versions, Wayland and Xwayland smoke tests |
 | M1 shell | Multi-monitor Layer Shell behavior, unprivileged launch, app launch, shell-only restart, Qt unit tests |
 | M2 session | Exactly one session, controlled lifecycle, service restart, launch identity, sanitized logs |
-| M3 desktop | File operations, settings persistence, search, associations, overview, drag-and-drop, project-owned menu |
+| M3 desktop | File operations, settings persistence, search, associations, overview, Files-to-Apps drag-and-drop, project-owned menu |
 | M4 update | Signed repository, N-1 to N upgrade, pre-upgrade `bectl` environment, rollback, home-data preservation |
 | M5 image | Clean builder, pinned inputs, checksums, UEFI GPT/root-on-ZFS install, first boot, update/rollback |
 | M6 alpha | Supported VM and physical hardware matrix, diagnostics, crash recovery, shutdown, application coverage |
