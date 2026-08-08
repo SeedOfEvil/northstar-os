@@ -32,8 +32,25 @@ Window {
     modality: Qt.NonModal
     title: "Northstar Software"
 
+    function activateSearchField() {
+        if (!software.visible) {
+            return
+        }
+        software.raise()
+        software.requestActivate()
+        searchField.forceActiveFocus()
+    }
+
     onVisibleChanged: {
         if (visible) {
+            // The compositor may not have mapped the window when visible changes.
+            // Defer focus until the surface can accept keyboard activation.
+            Qt.callLater(software.activateSearchField)
+        }
+    }
+
+    onActiveChanged: {
+        if (active && visible) {
             searchField.forceActiveFocus()
         }
     }
@@ -58,7 +75,7 @@ Window {
         show()
         raise()
         requestActivate()
-        searchField.forceActiveFocus()
+        Qt.callLater(software.activateSearchField)
     }
 
     function beginDrag(mouseX, mouseY) {
@@ -287,12 +304,19 @@ Window {
 
             TextField {
                 id: searchField
+                activeFocusOnPress: true
                 color: software.surfaceForeground
+                focus: true
                 font.pixelSize: 13
                 placeholderText: "Search installed packages..."
                 placeholderTextColor: software.surfaceMuted
                 selectByMouse: true
                 width: parent.width
+
+                TapHandler {
+                    acceptedButtons: Qt.LeftButton
+                    onTapped: software.activateSearchField()
+                }
 
                 background: Rectangle {
                     color: software.surfaceRaised
