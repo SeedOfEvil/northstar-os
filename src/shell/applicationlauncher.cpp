@@ -6,7 +6,9 @@
 #include <QFileDevice>
 #include <QFileInfo>
 #include <QProcess>
+#include <QVariantMap>
 
+#include <algorithm>
 #include <utility>
 
 namespace {
@@ -29,15 +31,40 @@ QString logValue(const QString &value)
     return result;
 }
 
+QVariantList mergeApplicationLists(const QVariantList &first, const QVariantList &second)
+{
+    QVariantList merged = first;
+    merged.append(second);
+    std::sort(merged.begin(), merged.end(), [](const QVariant &left, const QVariant &right) {
+        const QVariantMap leftMap = left.toMap();
+        const QVariantMap rightMap = right.toMap();
+        const int nameComparison = QString::compare(
+            leftMap.value(QStringLiteral("name")).toString(),
+            rightMap.value(QStringLiteral("name")).toString(),
+            Qt::CaseInsensitive);
+        if (nameComparison != 0) {
+            return nameComparison < 0;
+        }
+        return QString::compare(
+                   leftMap.value(QStringLiteral("desktopId")).toString(),
+                   rightMap.value(QStringLiteral("desktopId")).toString(),
+                   Qt::CaseInsensitive)
+            < 0;
+    });
+    return merged;
+}
+
 } // namespace
 
 ApplicationLauncher::ApplicationLauncher(
     QObject *parent,
     LaunchFunction launchFunction,
     QStringList applicationDirectories,
-    QString launchLogPath)
+    QString launchLogPath,
+    QStringList bundleDirectories)
     : QObject(parent)
     , m_catalog(std::move(applicationDirectories))
+    , m_bundleCatalog(std::move(bundleDirectories))
     , m_launchFunction(std::move(launchFunction))
     , m_launchLogPath(launchLogPath.isEmpty() ? defaultLaunchLogPath() : std::move(launchLogPath))
 {
@@ -49,11 +76,13 @@ ApplicationLauncher::ApplicationLauncher(
 
     connect(&m_catalog, &ApplicationCatalog::applicationsChanged, this, &ApplicationLauncher::applicationsChanged);
     connect(&m_catalog, &ApplicationCatalog::applicationsChanged, this, &ApplicationLauncher::matchingApplicationsChanged);
+    connect(&m_bundleCatalog, &ApplicationBundleCatalog::applicationsChanged, this, &ApplicationLauncher::applicationsChanged);
+    connect(&m_bundleCatalog, &ApplicationBundleCatalog::applicationsChanged, this, &ApplicationLauncher::matchingApplicationsChanged);
 }
 
 QVariantList ApplicationLauncher::applications() const
 {
-    return m_catalog.applications();
+    return mergeApplicationLists(m_catalog.applications(), m_bundleCatalog.applications());
 }
 
 QString ApplicationLauncher::applicationQuery() const
@@ -63,7 +92,9 @@ QString ApplicationLauncher::applicationQuery() const
 
 QVariantList ApplicationLauncher::matchingApplications() const
 {
-    return m_catalog.searchApplications(m_applicationQuery);
+    return mergeApplicationLists(
+        m_catalog.searchApplications(m_applicationQuery),
+        m_bundleCatalog.searchApplications(m_applicationQuery));
 }
 
 QString ApplicationLauncher::launchMessage() const
@@ -110,7 +141,7 @@ bool ApplicationLauncher::launchApplication(const QString &desktopId)
 {
     QString program;
     QStringList arguments;
-    if (!m_catalog.launchSpec(desktopId, &program, &arguments)) {
+    if (!launchSpec(desktopId, &program, &arguments)) {
         setLaunchStatus(desktopId, applicationNameFor(desktopId), {}, 0, false);
         return false;
     }
@@ -128,7 +159,7 @@ bool ApplicationLauncher::launchApplicationWithFile(const QString &desktopId, co
 
     QString program;
     QStringList arguments;
-    if (!m_catalog.launchSpec(desktopId, &program, &arguments)) {
+    if (!launchSpec(desktopId, &program, &arguments)) {
         setLaunchStatus(desktopId, applicationNameFor(desktopId), {}, 0, false);
         return false;
     }
@@ -139,7 +170,9 @@ bool ApplicationLauncher::launchApplicationWithFile(const QString &desktopId, co
 
 bool ApplicationLauncher::refreshApplications()
 {
-    return m_catalog.reload();
+    const bool desktopChanged = m_catalog.reload();
+    const bool bundleChanged = m_bundleCatalog.reload();
+    return desktopChanged || bundleChanged;
 }
 
 void ApplicationLauncher::setApplicationQuery(const QString &query)
@@ -235,5 +268,18 @@ QString ApplicationLauncher::applicationNameFor(const QString &desktopId) const
             return application.name;
         }
     }
+    for (const BundleApplication &application : m_bundleCatalog.entries()) {
+        if (application.desktopId == desktopId) {
+            return application.name;
+        }
+    }
     return desktopId;
+}
+
+bool ApplicationLauncher::launchSpec(const QString &desktopId,
+                                     QString *program,
+                                     QStringList *arguments) const
+{
+    return m_catalog.launchSpec(desktopId, program, arguments)
+        || m_bundleCatalog.launchSpec(desktopId, program, arguments);
 }

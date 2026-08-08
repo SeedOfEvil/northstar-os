@@ -14,6 +14,7 @@ class FileBrowserControllerTest final : public QObject
 private slots:
     void listsFoldersBeforeFiles();
     void navigatesWithinHomeFolder();
+    void searchesHomeTreeAndClearsOnNavigation();
     void opensFilesThroughInjectedHandler();
     void rejectsPathsOutsideHomeFolder();
     void createsAndRenamesEntries();
@@ -73,6 +74,38 @@ void FileBrowserControllerTest::navigatesWithinHomeFolder()
     QVERIFY(controller.navigateUp());
     QCOMPARE(controller.currentPath(), QDir::cleanPath(QDir::fromNativeSeparators(temporaryDirectory.path())));
     QVERIFY(!controller.navigateUp());
+}
+
+void FileBrowserControllerTest::searchesHomeTreeAndClearsOnNavigation()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    const QString documentsPath = QDir(temporaryDirectory.path()).filePath(QStringLiteral("Documents/Projects"));
+    QVERIFY(QDir().mkpath(documentsPath));
+    QVERIFY(writeFile(QDir(documentsPath).filePath(QStringLiteral("notes.txt")), "Northstar"));
+    QVERIFY(writeFile(QDir(temporaryDirectory.path()).filePath(QStringLiteral("readme.txt")), "root"));
+
+    const QString trashPath = QDir(temporaryDirectory.path()).filePath(QStringLiteral(".local/share/Trash/files"));
+    QVERIFY(QDir().mkpath(trashPath));
+    QVERIFY(writeFile(QDir(trashPath).filePath(QStringLiteral("deleted-notes.txt")), "trash"));
+
+    FileBrowserController controller(nullptr, temporaryDirectory.path());
+    controller.setSearchQuery(QStringLiteral("notes"));
+
+    QVERIFY(controller.searching());
+    QCOMPARE(controller.displayPath(), QStringLiteral("Search: notes"));
+    QCOMPARE(controller.entries().size(), 1);
+    QCOMPARE(entryName(controller.entries().first()), QStringLiteral("notes.txt"));
+    QVERIFY(controller.entries().first().toMap().value(QStringLiteral("searchLocation")).toString()
+                .endsWith(QStringLiteral("Documents/Projects/notes.txt")));
+
+    controller.setSearchQuery(QStringLiteral("deleted"));
+    QVERIFY(controller.entries().isEmpty());
+
+    QVERIFY(controller.navigateTo(QDir(temporaryDirectory.path()).filePath(QStringLiteral("Documents"))));
+    QVERIFY(!controller.searching());
+    QVERIFY(controller.searchQuery().isEmpty());
+    QCOMPARE(controller.displayPath(), QStringLiteral("~/Documents"));
 }
 
 void FileBrowserControllerTest::opensFilesThroughInjectedHandler()

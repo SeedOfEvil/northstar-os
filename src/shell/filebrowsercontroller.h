@@ -3,6 +3,7 @@
 #include <functional>
 
 #include <QObject>
+#include <QString>
 #include <QUrl>
 #include <QVariantList>
 
@@ -13,6 +14,8 @@ class FileBrowserController final : public QObject
     Q_PROPERTY(QString currentPath READ currentPath NOTIFY currentPathChanged)
     Q_PROPERTY(QString displayPath READ displayPath NOTIFY locationChanged)
     Q_PROPERTY(QString homePath READ homePath CONSTANT)
+    Q_PROPERTY(QString searchQuery READ searchQuery WRITE setSearchQuery NOTIFY searchQueryChanged)
+    Q_PROPERTY(bool searching READ searching NOTIFY searchQueryChanged)
     Q_PROPERTY(QString errorMessage READ errorMessage NOTIFY errorMessageChanged)
     Q_PROPERTY(bool showingTrash READ showingTrash NOTIFY locationChanged)
 
@@ -27,6 +30,8 @@ public:
     QString currentPath() const;
     QString displayPath() const;
     QString homePath() const;
+    QString searchQuery() const;
+    bool searching() const;
     QString errorMessage() const;
     bool showingTrash() const;
 
@@ -43,10 +48,14 @@ public:
     Q_INVOKABLE bool emptyTrash();
     Q_INVOKABLE void refresh();
 
+public slots:
+    void setSearchQuery(const QString &query);
+
 signals:
     void entriesChanged();
     void currentPathChanged();
     void locationChanged();
+    void searchQueryChanged();
     void errorMessageChanged();
 
 private:
@@ -63,10 +72,13 @@ private:
     bool ensureTrashDirectories() const;
     bool readTrashOriginalPath(const QString &trashPath, QString *originalPath) const;
     bool writeTrashInfo(const QString &infoPath, const QString &originalPath) const;
+    void clearSearchQuery();
+    void refreshSearchResults();
     void setErrorMessage(const QString &message);
 
     QString m_rootPath;
     QString m_currentPath;
+    QString m_searchQuery;
     QVariantList m_entries;
     OpenFunction m_openFunction;
     QString m_errorMessage;

@@ -5,12 +5,17 @@
 #include <QFileInfo>
 #include <QDesktopServices>
 #include <QDateTime>
+#include <QDirIterator>
 #include <QSaveFile>
 #include <QStandardPaths>
+
+#include <algorithm>
 
 #include <utility>
 
 namespace {
+
+constexpr qsizetype MaximumSearchResults = 500;
 
 bool pathMatchesRoot(const QString &path, const QString &root)
 {
@@ -46,6 +51,10 @@ QString FileBrowserController::displayPath() const
         return QStringLiteral("Trash");
     }
 
+    if (!m_searchQuery.isEmpty()) {
+        return QStringLiteral("Search: %1").arg(m_searchQuery);
+    }
+
     if (m_currentPath == m_rootPath) {
         return QStringLiteral("~");
     }
@@ -60,6 +69,16 @@ QString FileBrowserController::displayPath() const
 QString FileBrowserController::homePath() const
 {
     return m_rootPath;
+}
+
+QString FileBrowserController::searchQuery() const
+{
+    return m_searchQuery;
+}
+
+bool FileBrowserController::searching() const
+{
+    return !m_searchQuery.isEmpty() && !m_showingTrash;
 }
 
 QString FileBrowserController::errorMessage() const
@@ -86,6 +105,8 @@ bool FileBrowserController::navigateTo(const QString &path)
         setErrorMessage(QStringLiteral("That folder is not available."));
         return false;
     }
+
+    clearSearchQuery();
 
     if (m_currentPath != resolvedPath) {
         m_currentPath = resolvedPath;
@@ -115,6 +136,7 @@ bool FileBrowserController::navigateUp()
 
 bool FileBrowserController::goHome()
 {
+    clearSearchQuery();
     const bool wasShowingTrash = m_showingTrash;
     const bool pathChanged = m_currentPath != m_rootPath;
     m_showingTrash = false;
@@ -132,6 +154,7 @@ bool FileBrowserController::goHome()
 
 bool FileBrowserController::showTrash()
 {
+    clearSearchQuery();
     if (!ensureTrashDirectories()) {
         setErrorMessage(QStringLiteral("Unable to prepare the Northstar Trash."));
         return false;
@@ -145,6 +168,23 @@ bool FileBrowserController::showTrash()
     setErrorMessage({});
     refresh();
     return true;
+}
+
+void FileBrowserController::setSearchQuery(const QString &query)
+{
+    const QString normalizedQuery = query.simplified();
+    if (m_showingTrash && !normalizedQuery.isEmpty()) {
+        setErrorMessage(QStringLiteral("Search is available from the Northstar home folder."));
+        return;
+    }
+    if (m_searchQuery == normalizedQuery) {
+        return;
+    }
+
+    m_searchQuery = normalizedQuery;
+    emit searchQueryChanged();
+    setErrorMessage({});
+    refresh();
 }
 
 bool FileBrowserController::openEntry(const QString &path)
@@ -466,6 +506,11 @@ bool FileBrowserController::emptyTrash()
 
 void FileBrowserController::refresh()
 {
+    if (searching()) {
+        refreshSearchResults();
+        return;
+    }
+
     QVariantList refreshedEntries;
     const QString directoryPath = m_showingTrash ? trashFilesPath() : m_currentPath;
     const QDir directory(directoryPath);
@@ -508,6 +553,91 @@ void FileBrowserController::refresh()
             entry.insert(QStringLiteral("isTrashEntry"), true);
         }
         refreshedEntries.append(entry);
+    }
+
+    m_entries = refreshedEntries;
+    emit entriesChanged();
+    setErrorMessage({});
+}
+
+void FileBrowserController::clearSearchQuery()
+{
+    if (m_searchQuery.isEmpty()) {
+        return;
+    }
+
+    m_searchQuery.clear();
+    emit searchQueryChanged();
+}
+
+void FileBrowserController::refreshSearchResults()
+{
+    struct SearchMatch {
+        QFileInfo info;
+        QString path;
+    };
+
+    const QString trashFilesRoot = normalizedPath(trashFilesPath());
+    const QString trashInfoRoot = normalizedPath(trashInfoPath());
+    QList<SearchMatch> matches;
+    QDirIterator iterator(
+        m_rootPath,
+        QDir::AllEntries | QDir::Hidden | QDir::NoDotAndDotDot,
+        QDirIterator::Subdirectories);
+
+    while (iterator.hasNext()) {
+        const QString candidatePath = iterator.next();
+        const QString resolvedPath = canonicalOrNormalizedPath(candidatePath);
+        if (resolvedPath.isEmpty()
+            || !isWithinRoot(resolvedPath)
+            || pathMatchesRoot(resolvedPath, trashFilesRoot)
+            || pathMatchesRoot(resolvedPath, trashInfoRoot)) {
+            continue;
+        }
+
+        const QFileInfo info(resolvedPath);
+        if (!info.exists()) {
+            continue;
+        }
+
+        const QString relativePath = QDir(m_rootPath).relativeFilePath(resolvedPath);
+        if (!info.fileName().contains(m_searchQuery, Qt::CaseInsensitive)
+            && !relativePath.contains(m_searchQuery, Qt::CaseInsensitive)) {
+            continue;
+        }
+
+        matches.append({info, resolvedPath});
+        if (matches.size() >= MaximumSearchResults) {
+            break;
+        }
+    }
+
+    std::sort(matches.begin(), matches.end(), [](const SearchMatch &left, const SearchMatch &right) {
+        const bool leftDirectory = left.info.isDir();
+        const bool rightDirectory = right.info.isDir();
+        if (leftDirectory != rightDirectory) {
+            return leftDirectory;
+        }
+        const int nameComparison = QString::compare(left.info.fileName(), right.info.fileName(), Qt::CaseInsensitive);
+        if (nameComparison != 0) {
+            return nameComparison < 0;
+        }
+        return QString::compare(left.path, right.path, Qt::CaseInsensitive) < 0;
+    });
+
+    QVariantList refreshedEntries;
+    refreshedEntries.reserve(matches.size());
+    for (const SearchMatch &match : std::as_const(matches)) {
+        const QString relativePath = QDir(m_rootPath).relativeFilePath(match.path);
+        refreshedEntries.append(QVariantMap{
+            {QStringLiteral("name"), match.info.fileName()},
+            {QStringLiteral("path"), match.path},
+            {QStringLiteral("isDirectory"), match.info.isDir()},
+            {QStringLiteral("kind"), match.info.isDir() ? QStringLiteral("Folder") : QStringLiteral("File")},
+            {QStringLiteral("size"), match.info.isDir() ? qint64(0) : match.info.size()},
+            {QStringLiteral("modified"), match.info.lastModified().toString(Qt::ISODate)},
+            {QStringLiteral("searchLocation"), QStringLiteral("~/") + relativePath},
+        });
     }
 
     m_entries = refreshedEntries;
