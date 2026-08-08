@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+    <key>BundleIdentifier</key>
+    <string>org.northstar.Welcome</string>
+    <key>DisplayName</key>
+    <string>Northstar Welcome</string>
+    <key>Version</key>
+    <string>0.1.0</string>
+    <key>Executable</key>
+    <string>northstar-welcome</string>
+    <key>Icon</key>
+    <string>northstar-welcome.svg</string>
+    <key>Categories</key>
+    <array>
+        <string>Utility</string>
+        <string>Northstar</string>
+    </array>
+</dict>
+</plist>

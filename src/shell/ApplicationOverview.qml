@@ -172,11 +172,26 @@ Window {
                             anchors.margins: 10
                             spacing: 5
 
-                            NorthstarIcon {
+                            Item {
                                 anchors.horizontalCenter: parent.horizontalCenter
                                 height: 44
                                 width: 44
-                                iconName: overview.applicationIconName(modelData)
+
+                                NorthstarIcon {
+                                    anchors.fill: parent
+                                    visible: modelData.sourceType !== "bundle" || !modelData.iconSource
+                                    iconName: overview.applicationIconName(modelData)
+                                }
+
+                                Image {
+                                    anchors.fill: parent
+                                    asynchronous: true
+                                    fillMode: Image.PreserveAspectFit
+                                    mipmap: true
+                                    smooth: true
+                                    source: modelData.iconSource || ""
+                                    visible: modelData.sourceType === "bundle" && !!modelData.iconSource
+                                }
                             }
 
                             Text {

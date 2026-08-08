@@ -8,6 +8,7 @@
 #include <QVariantList>
 
 #include "../launcher/applicationcatalog.h"
+#include "../launcher/applicationbundlecatalog.h"
 
 class ApplicationLauncher final : public QObject
 {
@@ -22,7 +23,8 @@ public:
         QObject *parent = nullptr,
         LaunchFunction launchFunction = {},
         QStringList applicationDirectories = {},
-        QString launchLogPath = {});
+        QString launchLogPath = {},
+        QStringList bundleDirectories = {});
 
     Q_PROPERTY(QVariantList applications READ applications NOTIFY applicationsChanged)
     Q_PROPERTY(QString applicationQuery READ applicationQuery WRITE setApplicationQuery NOTIFY applicationQueryChanged)
@@ -75,8 +77,10 @@ private:
                          qint64 pid,
                          bool succeeded);
     QString applicationNameFor(const QString &desktopId) const;
+    bool launchSpec(const QString &desktopId, QString *program, QStringList *arguments) const;
 
     ApplicationCatalog m_catalog;
+    ApplicationBundleCatalog m_bundleCatalog;
     QString m_applicationQuery;
     LaunchFunction m_launchFunction;
     QString m_launchLogPath;
