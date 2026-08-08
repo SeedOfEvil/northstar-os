@@ -34,6 +34,7 @@ qt_add_qml_module(northstar-shell
         ShellWindow.qml
         DockWindow.qml
         ApplicationOverview.qml
+        QuickSettings.qml
         FileBrowserWindow.qml
         SystemMenu.qml
         SettingsWindow.qml

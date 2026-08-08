@@ -17,7 +17,10 @@ private slots:
     void opensFilesThroughInjectedHandler();
     void rejectsPathsOutsideHomeFolder();
     void createsAndRenamesEntries();
+    void createsFiles();
     void movesEntriesToTrashWithMetadata();
+    void showsAndRestoresTrashEntries();
+    void emptiesTrash();
     void rejectsUnsafeMutations();
 };
 
@@ -120,6 +123,24 @@ void FileBrowserControllerTest::createsAndRenamesEntries()
     QVERIFY(QFileInfo::exists(QDir(temporaryDirectory.path()).filePath(QStringLiteral("notes.txt"))));
 }
 
+void FileBrowserControllerTest::createsFiles()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+
+    FileBrowserController controller(nullptr, temporaryDirectory.path());
+    QVERIFY(controller.createFile(QStringLiteral("association-test.txt")));
+
+    const QString filePath = QDir(temporaryDirectory.path()).filePath(QStringLiteral("association-test.txt"));
+    QVERIFY(QFileInfo(filePath).isFile());
+    QFile file(filePath);
+    QVERIFY(file.open(QIODevice::ReadOnly));
+    QCOMPARE(file.readAll(), QByteArray());
+
+    QVERIFY(!controller.createFile(QStringLiteral("../outside.txt")));
+    QVERIFY(!controller.createFile(QStringLiteral("association-test.txt")));
+}
+
 void FileBrowserControllerTest::movesEntriesToTrashWithMetadata()
 {
     QTemporaryDir temporaryDirectory;
@@ -144,6 +165,50 @@ void FileBrowserControllerTest::movesEntriesToTrashWithMetadata()
     const QByteArray metadataContents = metadata.readAll();
     QVERIFY(metadataContents.contains("[Trash Info]"));
     QVERIFY(metadataContents.contains(QUrl::toPercentEncoding(QFileInfo(sourcePath).absoluteFilePath())));
+}
+
+void FileBrowserControllerTest::showsAndRestoresTrashEntries()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    const QString sourcePath = QDir(temporaryDirectory.path()).filePath(QStringLiteral("restore-me.txt"));
+    QVERIFY(writeFile(sourcePath, "restore"));
+
+    FileBrowserController controller(nullptr, temporaryDirectory.path());
+    QVERIFY(controller.moveToTrash(sourcePath));
+    QVERIFY(controller.showTrash());
+    QVERIFY(controller.showingTrash());
+    QCOMPARE(controller.displayPath(), QStringLiteral("Trash"));
+    QCOMPARE(controller.entries().size(), 1);
+
+    const QVariantMap entry = controller.entries().first().toMap();
+    QVERIFY(entry.value(QStringLiteral("isTrashEntry")).toBool());
+    QCOMPARE(entry.value(QStringLiteral("originalPath")).toString(),
+             QDir::cleanPath(QDir::fromNativeSeparators(sourcePath)));
+
+    QVERIFY(controller.restoreEntry(entry.value(QStringLiteral("path")).toString()));
+    QVERIFY(QFileInfo::exists(sourcePath));
+    QVERIFY(!QFileInfo::exists(QDir(temporaryDirectory.path())
+                                   .filePath(QStringLiteral(".local/share/Trash/info/restore-me.txt.trashinfo"))));
+    QVERIFY(controller.entries().isEmpty());
+}
+
+void FileBrowserControllerTest::emptiesTrash()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    QVERIFY(writeFile(QDir(temporaryDirectory.path()).filePath(QStringLiteral("one.txt")), "one"));
+    QVERIFY(writeFile(QDir(temporaryDirectory.path()).filePath(QStringLiteral("two.txt")), "two"));
+
+    FileBrowserController controller(nullptr, temporaryDirectory.path());
+    QVERIFY(controller.moveToTrash(QDir(temporaryDirectory.path()).filePath(QStringLiteral("one.txt"))));
+    QVERIFY(controller.moveToTrash(QDir(temporaryDirectory.path()).filePath(QStringLiteral("two.txt"))));
+    QVERIFY(controller.showTrash());
+    QCOMPARE(controller.entries().size(), 2);
+    QVERIFY(controller.emptyTrash());
+    QVERIFY(controller.entries().isEmpty());
+    QVERIFY(QDir(QDir(temporaryDirectory.path()).filePath(QStringLiteral(".local/share/Trash/files")))
+                .entryList(QDir::AllEntries | QDir::Hidden | QDir::NoDotAndDotDot).isEmpty());
 }
 
 void FileBrowserControllerTest::rejectsUnsafeMutations()

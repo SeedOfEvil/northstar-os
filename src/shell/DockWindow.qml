@@ -29,22 +29,38 @@ Window {
 
     Rectangle {
         anchors.fill: parent
-        color: dock.dockBackground
-        border.color: dock.dockAccent
-        border.width: 1
-        opacity: 0.98
+        color: "transparent"
+
+        Rectangle {
+            id: dockSurface
+            anchors.bottom: parent.bottom
+            anchors.horizontalCenter: parent.horizontalCenter
+            color: dock.dockBackground
+            height: 58
+            opacity: 0.98
+            radius: 18
+            width: Math.min(parent.width - 32, 980)
+            border.color: dock.dockAccent
+            border.width: 1
+        }
 
         Row {
-            anchors.fill: parent
-            anchors.leftMargin: 18
-            anchors.rightMargin: 18
+            anchors.bottom: dockSurface.bottom
+            anchors.left: dockSurface.left
+            anchors.margins: 10
+            anchors.right: dockSurface.right
+            anchors.top: dockSurface.top
             spacing: 10
 
-            Text {
+            Image {
                 anchors.verticalCenter: parent.verticalCenter
-                color: dock.dockMuted
-                font.pixelSize: 12
-                text: "Shortcuts"
+                fillMode: Image.PreserveAspectFit
+                height: 28
+                mipmap: true
+                smooth: true
+                source: northstarLogoSource
+                sourceClipRect: Qt.rect(270, 245, 485, 335)
+                width: 28
             }
 
             Rectangle {
@@ -64,7 +80,7 @@ Window {
                     color: shortcutMouse.containsMouse ? dock.dockAccent : dock.dockButton
                     height: 38
                     radius: 7
-                    width: 112
+                    width: 84
 
                     Text {
                         anchors.centerIn: parent
@@ -95,7 +111,7 @@ Window {
                 color: filesShortcutMouse.containsMouse ? dock.dockAccent : dock.dockButton
                 height: 38
                 radius: 7
-                width: 96
+                width: 72
 
                 Text {
                     anchors.centerIn: parent
@@ -109,6 +125,28 @@ Window {
                     anchors.fill: parent
                     hoverEnabled: true
                     onClicked: filesWindow.openBrowser()
+                }
+            }
+
+            Rectangle {
+                anchors.verticalCenter: parent.verticalCenter
+                color: trashShortcutMouse.containsMouse ? "#c34f65" : dock.dockButton
+                height: 38
+                radius: 7
+                width: 72
+
+                Text {
+                    anchors.centerIn: parent
+                    color: dock.dockForeground
+                    font.pixelSize: 12
+                    text: "Trash"
+                }
+
+                MouseArea {
+                    id: trashShortcutMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    onClicked: filesWindow.openTrash()
                 }
             }
 
@@ -151,7 +189,7 @@ Window {
                             color: appMouse.containsMouse ? dock.dockAccent : dock.dockButton
                             height: 38
                             radius: 7
-                            width: 188
+                            width: 156
 
                             Text {
                                 anchors.left: parent.left
@@ -220,13 +258,13 @@ Window {
                 color: refreshMouse.containsMouse ? dock.dockAccent : dock.dockButton
                 height: 38
                 radius: 7
-                width: 82
+                width: 38
 
                 Text {
                     anchors.centerIn: parent
                     color: dock.dockForeground
                     font.pixelSize: 12
-                    text: "Refresh"
+                    text: "↻"
                 }
 
                 MouseArea {

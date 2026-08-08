@@ -54,47 +54,20 @@ Window {
             height: 44
             color: "transparent"
 
-            Text {
-                anchors.left: parent.left
-                anchors.leftMargin: 20
-                anchors.verticalCenter: parent.verticalCenter
-                color: root.panelForeground
-                font.bold: true
-                font.pixelSize: 16
-                text: "Northstar"
-            }
-
-            Rectangle {
-                anchors.left: parent.left
-                anchors.leftMargin: 132
-                anchors.verticalCenter: parent.verticalCenter
-                color: "transparent"
-                height: 32
-                width: 170
-
-                Text {
-                    anchors.centerIn: parent
-                    color: root.panelMuted
-                    elide: Text.ElideRight
-                    font.pixelSize: 13
-                    text: shellState.activeWindowTitle
-                }
-            }
-
             Row {
-                anchors.right: parent.right
-                anchors.rightMargin: 18
+                id: brandNavigation
+                anchors.left: parent.left
+                anchors.leftMargin: 12
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: 8
+                spacing: 7
 
                 Rectangle {
                     color: systemMouse.containsMouse ? root.panelAccent : "transparent"
-                    height: 30
-                    radius: 6
-                    width: 42
+                    height: 32
+                    radius: 8
+                    width: 30
 
                     Image {
-                        id: menuLogo
                         anchors.centerIn: parent
                         fillMode: Image.PreserveAspectFit
                         height: 24
@@ -102,7 +75,7 @@ Window {
                         smooth: true
                         source: northstarLogoSource
                         sourceClipRect: Qt.rect(270, 245, 485, 335)
-                        width: 32
+                        width: 24
                     }
 
                     MouseArea {
@@ -114,8 +87,142 @@ Window {
                 }
 
                 Text {
+                    anchors.verticalCenter: parent.verticalCenter
                     color: root.panelForeground
-                    font.pixelSize: 13
+                    font.bold: true
+                    font.pixelSize: 15
+                    text: "NorthStar"
+                }
+
+                Rectangle {
+                    color: "transparent"
+                    height: 32
+                    width: 56
+
+                    Text {
+                        anchors.centerIn: parent
+                        color: root.panelMuted
+                        font.pixelSize: 11
+                        text: "Desktop"
+                    }
+
+                    MouseArea {
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onClicked: systemMenu.closeMenu()
+                    }
+                }
+
+                Rectangle {
+                    color: filesNavMouse.containsMouse ? root.panelAccent : "transparent"
+                    height: 32
+                    radius: 7
+                    width: 42
+
+                    Text {
+                        anchors.centerIn: parent
+                        color: root.panelMuted
+                        font.pixelSize: 11
+                        text: "Files"
+                    }
+
+                    MouseArea {
+                        id: filesNavMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onClicked: fileBrowserWindow.openBrowser()
+                    }
+                }
+
+                Rectangle {
+                    color: appsNavMouse.containsMouse ? root.panelAccent : "transparent"
+                    height: 32
+                    radius: 7
+                    width: 42
+
+                    Text {
+                        anchors.centerIn: parent
+                        color: root.panelMuted
+                        font.pixelSize: 11
+                        text: "Apps"
+                    }
+
+                    MouseArea {
+                        id: appsNavMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onClicked: applicationOverview.openWithQuery("")
+                    }
+                }
+            }
+
+            Rectangle {
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.verticalCenter: parent.verticalCenter
+                color: shellState.darkMode ? "#252d3c" : "#e8edf5"
+                height: 30
+                radius: 9
+                width: Math.min(300, root.width - 500)
+
+                TextField {
+                    id: globalSearchField
+                    anchors.fill: parent
+                    color: root.panelForeground
+                    font.pixelSize: 11
+                    placeholderText: "Search Northstar apps..."
+                    placeholderTextColor: root.panelMuted
+                    selectByMouse: true
+
+                    background: Rectangle {
+                        color: "transparent"
+                    }
+
+                    onAccepted: {
+                        applicationOverview.openWithQuery(text)
+                        globalSearchField.text = ""
+                    }
+                }
+
+                Text {
+                    anchors.right: parent.right
+                    anchors.rightMargin: 8
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: root.panelMuted
+                    font.pixelSize: 10
+                    text: "⌘K"
+                }
+            }
+
+            Row {
+                anchors.right: parent.right
+                anchors.rightMargin: 12
+                anchors.verticalCenter: parent.verticalCenter
+                spacing: 5
+
+                Rectangle {
+                    color: quickSettingsMouse.containsMouse ? root.panelAccent : "transparent"
+                    height: 30
+                    radius: 7
+                    width: 34
+
+                    Text {
+                        anchors.centerIn: parent
+                        color: root.panelForeground
+                        font.pixelSize: 13
+                        text: "⌁"
+                    }
+
+                    MouseArea {
+                        id: quickSettingsMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onClicked: quickSettingsWindow.togglePanel()
+                    }
+                }
+
+                Text {
+                    color: root.panelForeground
+                    font.pixelSize: 11
                     text: Qt.formatDateTime(root.now, "ddd MMM d  hh:mm")
                 }
             }
@@ -168,6 +275,13 @@ Window {
         surfaceForeground: root.panelForeground
         surfaceMuted: root.panelMuted
         surfaceAccent: root.panelAccent
+    }
+
+    QuickSettings {
+        id: quickSettingsWindow
+        state: shellState
+        targetScreen: targetScreen
+        panelHeight: root.height
     }
 
     FileBrowserWindow {

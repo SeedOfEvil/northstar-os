@@ -119,6 +119,7 @@ int main(int argc, char *argv[])
         dockContext->setContextProperty(QStringLiteral("launcher"), &applicationLauncher);
         dockContext->setContextProperty(QStringLiteral("northstarFileBrowserController"), &fileBrowserController);
         dockContext->setContextProperty(QStringLiteral("northstarWindowController"), &windowController);
+        dockContext->setContextProperty(QStringLiteral("northstarLogoSource"), logoSource);
         dockContext->setContextProperty(QStringLiteral("targetScreen"), screen);
         dockContext->setContextProperty(QStringLiteral("displayIndex"), index);
 

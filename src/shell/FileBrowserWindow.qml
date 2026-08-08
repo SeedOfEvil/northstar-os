@@ -25,11 +25,16 @@ Window {
     property color surfaceMuted: state && state.darkMode ? "#a9b1c2" : "#637083"
     property color surfaceAccent: state && state.darkMode ? "#79b8ff" : "#1769aa"
     property color surfaceRaised: state && state.darkMode ? "#252b36" : "#e8edf5"
-    property string selectedPath: fileList.currentItem && fileList.currentItem.modelData
-        ? fileList.currentItem.modelData.path : ""
-    property string selectedName: fileList.currentItem && fileList.currentItem.modelData
-        ? fileList.currentItem.modelData.name : ""
-    property bool hasSelection: files.selectedPath.length > 0
+    property bool gridView: true
+    property int selectedIndex: -1
+    property var selectedEntry: files.fileBrowserController
+        && files.selectedIndex >= 0
+        && files.selectedIndex < files.fileBrowserController.entries.length
+        ? files.fileBrowserController.entries[files.selectedIndex] : null
+    property string selectedPath: files.selectedEntry ? files.selectedEntry.path : ""
+    property string selectedName: files.selectedEntry ? files.selectedEntry.name : ""
+    property bool hasSelection: !!files.selectedEntry && files.selectedPath.length > 0
+    property bool showingTrash: files.fileBrowserController && files.fileBrowserController.showingTrash
 
     visible: false
     color: "transparent"
@@ -48,6 +53,7 @@ Window {
         if (!files.fileBrowserController) {
             return
         }
+        files.clearSelection()
         files.fileBrowserController.refresh()
         show()
         raise()
@@ -64,13 +70,70 @@ Window {
         nameDialog.open()
     }
 
+    function openSelectedEntry() {
+        if (!files.fileBrowserController || files.showingTrash || !files.hasSelection) {
+            return
+        }
+        const entry = files.selectedEntry
+        if (files.fileBrowserController.openEntry(files.selectedPath) && entry.isDirectory) {
+            files.clearSelection()
+        }
+    }
+
+    function clearSelection() {
+        files.selectedIndex = -1
+    }
+
     function openTrashDialog() {
-        if (!files.fileBrowserController || !files.hasSelection) {
+        if (!files.fileBrowserController || files.showingTrash || !files.hasSelection) {
             return
         }
         trashDialog.itemPath = files.selectedPath
         trashDialog.itemName = files.selectedName
         trashDialog.open()
+    }
+
+    function openTrash() {
+        if (!files.fileBrowserController || !files.fileBrowserController.showTrash()) {
+            return
+        }
+        files.clearSelection()
+        show()
+        raise()
+        requestActivate()
+    }
+
+    function openRestoreDialog() {
+        if (!files.fileBrowserController || !files.showingTrash || !files.hasSelection) {
+            return
+        }
+        restoreDialog.itemPath = files.selectedPath
+        restoreDialog.itemName = files.selectedName
+        restoreDialog.originalLocation = files.fileListOriginalLocation()
+        restoreDialog.open()
+    }
+
+    function fileListOriginalLocation() {
+        if (!files.selectedEntry) {
+            return ""
+        }
+        return files.selectedEntry.originalLocation || "the original location"
+    }
+
+    function entrySummary(entry) {
+        if (!entry) {
+            return ""
+        }
+        return files.showingTrash
+            ? entry.kind + " - " + (entry.originalLocation || "Original location unavailable")
+            : entry.kind + " - " + entry.modified
+    }
+
+    function openEmptyTrashDialog() {
+        if (!files.fileBrowserController || !files.showingTrash) {
+            return
+        }
+        emptyTrashDialog.open()
     }
 
     function beginDrag(mouseX, mouseY) {
@@ -149,7 +212,9 @@ Window {
                     Text {
                         color: files.surfaceMuted
                         font.pixelSize: 12
-                        text: "Browse your Northstar home folder"
+                        text: files.showingTrash
+                            ? "Review and restore deleted items"
+                            : "Browse your Northstar home folder"
                     }
                 }
 
@@ -179,6 +244,7 @@ Window {
             }
 
             Row {
+                id: navigationRow
                 spacing: 8
                 width: parent.width
 
@@ -198,14 +264,22 @@ Window {
                     MouseArea {
                         id: backMouse
                         anchors.fill: parent
-                        enabled: !!files.fileBrowserController && files.fileBrowserController.currentPath !== files.fileBrowserController.homePath
+                        enabled: !!files.fileBrowserController
+                            && !files.showingTrash
+                            && files.fileBrowserController.currentPath !== files.fileBrowserController.homePath
                         hoverEnabled: true
-                        onClicked: files.fileBrowserController.navigateUp()
+                        onClicked: {
+                            if (files.fileBrowserController.navigateUp()) {
+                                files.clearSelection()
+                            }
+                        }
                     }
                 }
 
                 Rectangle {
-                    color: homeMouse.containsMouse ? files.surfaceAccent : files.surfaceRaised
+                    color: homeMouse.containsMouse || !files.showingTrash && files.fileBrowserController
+                        && files.fileBrowserController.currentPath === files.fileBrowserController.homePath
+                        ? files.surfaceAccent : files.surfaceRaised
                     height: 34
                     radius: 5
                     width: 78
@@ -221,7 +295,34 @@ Window {
                         id: homeMouse
                         anchors.fill: parent
                         hoverEnabled: true
-                        onClicked: files.fileBrowserController.goHome()
+                        onClicked: {
+                            if (files.fileBrowserController.goHome()) {
+                                files.clearSelection()
+                            }
+                        }
+                    }
+                }
+
+                Rectangle {
+                    color: trashLocationMouse.containsMouse || files.showingTrash
+                        ? files.surfaceAccent : files.surfaceRaised
+                    height: 34
+                    radius: 5
+                    width: 72
+
+                    Text {
+                        anchors.centerIn: parent
+                        color: files.surfaceForeground
+                        font.pixelSize: 12
+                        text: "Trash"
+                    }
+
+                    MouseArea {
+                        id: trashLocationMouse
+                        anchors.fill: parent
+                        enabled: !!files.fileBrowserController
+                        hoverEnabled: true
+                        onClicked: files.openTrash()
                     }
                 }
 
@@ -242,13 +343,125 @@ Window {
                         id: refreshMouse
                         anchors.fill: parent
                         hoverEnabled: true
-                        onClicked: files.fileBrowserController.refresh()
+                        onClicked: {
+                            files.clearSelection()
+                            files.fileBrowserController.refresh()
+                        }
+                    }
+                }
+
+                Rectangle {
+                    color: files.gridView || tilesMouse.containsMouse
+                        ? files.surfaceAccent : files.surfaceRaised
+                    height: 34
+                    radius: 5
+                    width: 60
+
+                    Text {
+                        anchors.centerIn: parent
+                        color: files.surfaceForeground
+                        font.bold: files.gridView
+                        font.pixelSize: 12
+                        text: "Tiles"
+                    }
+
+                    MouseArea {
+                        id: tilesMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onClicked: files.gridView = true
+                    }
+                }
+
+                Rectangle {
+                    color: !files.gridView || listViewMouse.containsMouse
+                        ? files.surfaceAccent : files.surfaceRaised
+                    height: 34
+                    radius: 5
+                    width: 58
+
+                    Text {
+                        anchors.centerIn: parent
+                        color: files.surfaceForeground
+                        font.bold: !files.gridView
+                        font.pixelSize: 12
+                        text: "List"
+                    }
+
+                    MouseArea {
+                        id: listViewMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onClicked: files.gridView = false
+                    }
+                }
+
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: files.surfaceMuted
+                    elide: Text.ElideMiddle
+                    font.pixelSize: 13
+                    text: files.fileBrowserController ? files.fileBrowserController.displayPath : "~"
+                    width: Math.max(80, parent.width - 464)
+                }
+            }
+
+            Row {
+                id: actionRow
+                spacing: 8
+                width: parent.width
+
+                Rectangle {
+                    color: files.hasSelection && !files.showingTrash && openMouse.containsMouse
+                        ? files.surfaceAccent : files.surfaceRaised
+                    height: 34
+                    opacity: files.hasSelection && !files.showingTrash ? 1 : 0.55
+                    radius: 5
+                    width: 70
+
+                    Text {
+                        anchors.centerIn: parent
+                        color: files.surfaceForeground
+                        font.pixelSize: 12
+                        text: "Open"
+                    }
+
+                    MouseArea {
+                        id: openMouse
+                        anchors.fill: parent
+                        enabled: files.hasSelection && !files.showingTrash
+                        hoverEnabled: true
+                        onClicked: files.openSelectedEntry()
+                    }
+                }
+
+                Rectangle {
+                    color: newFileMouse.containsMouse ? files.surfaceAccent : files.surfaceRaised
+                    height: 34
+                    opacity: files.showingTrash ? 0.55 : 1
+                    radius: 5
+                    width: 82
+
+                    Text {
+                        anchors.centerIn: parent
+                        color: files.surfaceForeground
+                        font.pixelSize: 12
+                        text: "New File"
+                    }
+
+                    MouseArea {
+                        id: newFileMouse
+                        anchors.fill: parent
+                        enabled: !!files.fileBrowserController && !files.showingTrash
+                        hoverEnabled: true
+                        onClicked: files.openNameDialog("file")
                     }
                 }
 
                 Rectangle {
                     color: newFolderMouse.containsMouse ? files.surfaceAccent : files.surfaceRaised
                     height: 34
+                    opacity: files.showingTrash ? 0.55 : 1
                     radius: 5
                     width: 96
 
@@ -262,17 +475,17 @@ Window {
                     MouseArea {
                         id: newFolderMouse
                         anchors.fill: parent
-                        enabled: !!files.fileBrowserController
+                        enabled: !!files.fileBrowserController && !files.showingTrash
                         hoverEnabled: true
                         onClicked: files.openNameDialog("create")
                     }
                 }
 
                 Rectangle {
-                    color: files.hasSelection && renameMouse.containsMouse
+                    color: files.hasSelection && !files.showingTrash && renameMouse.containsMouse
                         ? files.surfaceAccent : files.surfaceRaised
                     height: 34
-                    opacity: files.hasSelection ? 1 : 0.55
+                    opacity: files.hasSelection && !files.showingTrash ? 1 : 0.55
                     radius: 5
                     width: 76
 
@@ -286,43 +499,94 @@ Window {
                     MouseArea {
                         id: renameMouse
                         anchors.fill: parent
-                        enabled: files.hasSelection
+                        enabled: files.hasSelection && !files.showingTrash
                         hoverEnabled: true
                         onClicked: files.openNameDialog("rename")
                     }
                 }
 
                 Rectangle {
-                    color: files.hasSelection && trashMouse.containsMouse
+                    color: files.hasSelection && !files.showingTrash && deleteMouse.containsMouse
                         ? "#c34f65" : files.surfaceRaised
                     height: 34
-                    opacity: files.hasSelection ? 1 : 0.55
+                    opacity: files.hasSelection && !files.showingTrash ? 1 : 0.55
                     radius: 5
-                    width: 84
+                    width: 78
 
                     Text {
                         anchors.centerIn: parent
                         color: files.surfaceForeground
                         font.pixelSize: 12
-                        text: "Trash"
+                        text: "Delete"
                     }
 
                     MouseArea {
-                        id: trashMouse
+                        id: deleteMouse
                         anchors.fill: parent
-                        enabled: files.hasSelection
+                        enabled: files.hasSelection && !files.showingTrash
                         hoverEnabled: true
                         onClicked: files.openTrashDialog()
+                    }
+                }
+
+                Rectangle {
+                    color: files.hasSelection && files.showingTrash && restoreMouse.containsMouse
+                        ? files.surfaceAccent : files.surfaceRaised
+                    height: 34
+                    opacity: files.hasSelection && files.showingTrash ? 1 : 0.55
+                    radius: 5
+                    visible: files.showingTrash
+                    width: 86
+
+                    Text {
+                        anchors.centerIn: parent
+                        color: files.surfaceForeground
+                        font.pixelSize: 12
+                        text: "Restore"
+                    }
+
+                    MouseArea {
+                        id: restoreMouse
+                        anchors.fill: parent
+                        enabled: files.hasSelection && files.showingTrash
+                        hoverEnabled: true
+                        onClicked: files.openRestoreDialog()
+                    }
+                }
+
+                Rectangle {
+                    color: files.showingTrash && emptyTrashMouse.containsMouse ? "#c34f65" : files.surfaceRaised
+                    height: 34
+                    opacity: files.showingTrash ? 1 : 0.55
+                    radius: 5
+                    visible: files.showingTrash
+                    width: 100
+
+                    Text {
+                        anchors.centerIn: parent
+                        color: files.surfaceForeground
+                        font.pixelSize: 12
+                        text: "Empty Trash"
+                    }
+
+                    MouseArea {
+                        id: emptyTrashMouse
+                        anchors.fill: parent
+                        enabled: files.showingTrash
+                        hoverEnabled: true
+                        onClicked: files.openEmptyTrashDialog()
                     }
                 }
 
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
                     color: files.surfaceMuted
-                    elide: Text.ElideMiddle
-                    font.pixelSize: 13
-                    text: files.fileBrowserController ? files.fileBrowserController.displayPath : "~"
-                    width: Math.max(32, parent.width - 530)
+                    elide: Text.ElideRight
+                    font.pixelSize: 12
+                    text: files.showingTrash
+                        ? "Select an item to restore it."
+                        : "Select an item to open, rename, or delete."
+                    width: Math.max(80, parent.width - (files.showingTrash ? 214 : 434))
                 }
             }
 
@@ -330,33 +594,77 @@ Window {
                 color: files.surfaceBackground
                 border.color: files.surfaceMuted
                 border.width: 1
-                height: parent.height - titleBar.height - 72
+                height: Math.max(160, parent.height - titleBar.height - navigationRow.height
+                    - actionRow.height - footerText.implicitHeight - 48)
                 radius: 8
                 width: parent.width
 
-                ListView {
+                GridView {
                     id: fileList
                     anchors.fill: parent
                     anchors.margins: 8
+                    cellHeight: files.gridView ? 116 : 58
+                    cellWidth: files.gridView ? 176 : width
                     clip: true
                     model: files.fileBrowserController ? files.fileBrowserController.entries : []
-                    spacing: 4
 
                     delegate: Rectangle {
                         required property var modelData
                         required property int index
-                        property bool selected: fileList.currentIndex === index
+                        property bool selected: files.selectedIndex === index
 
                         color: selected || fileMouse.containsMouse ? files.surfaceAccent : files.surfaceRaised
-                        height: 48
+                        height: files.gridView ? 104 : 50
                         radius: 6
-                        width: fileList.width
+                        width: files.gridView ? 160 : fileList.cellWidth - 16
+
+                        Column {
+                            id: tileContent
+                            anchors.fill: parent
+                            anchors.margins: 10
+                            spacing: 6
+                            visible: files.gridView
+
+                            Rectangle {
+                                color: modelData.isDirectory ? "#35658f" : "#3e4d64"
+                                height: 38
+                                radius: 7
+                                width: 52
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    color: "#ffffff"
+                                    font.bold: true
+                                    font.pixelSize: 11
+                                    text: modelData.isDirectory ? "DIR" : "FILE"
+                                }
+                            }
+
+                            Text {
+                                color: files.surfaceForeground
+                                elide: Text.ElideRight
+                                font.bold: true
+                                font.pixelSize: 13
+                                text: modelData.name
+                                width: parent.width
+                            }
+
+                            Text {
+                                color: files.surfaceMuted
+                                elide: Text.ElideRight
+                                font.pixelSize: 11
+                                text: files.entrySummary(modelData)
+                                width: parent.width
+                            }
+                        }
 
                         Row {
+                            id: listContent
                             anchors.fill: parent
                             anchors.leftMargin: 14
                             anchors.rightMargin: 14
                             spacing: 12
+                            visible: !files.gridView
 
                             Text {
                                 anchors.verticalCenter: parent.verticalCenter
@@ -383,7 +691,10 @@ Window {
                                 Text {
                                     color: files.surfaceMuted
                                     font.pixelSize: 11
-                                    text: modelData.kind + "  ·  " + modelData.modified
+                                    text: files.showingTrash
+                                        ? modelData.kind + "  ·  "
+                                            + (modelData.originalLocation || "Original location unavailable")
+                                        : modelData.kind + "  ·  " + modelData.modified
                                     width: parent.width
                                 }
                             }
@@ -393,8 +704,11 @@ Window {
                             id: fileMouse
                             anchors.fill: parent
                             hoverEnabled: true
-                            onClicked: fileList.currentIndex = index
-                            onDoubleClicked: files.fileBrowserController.openEntry(modelData.path)
+                            onClicked: files.selectedIndex = index
+                            onDoubleClicked: {
+                                files.selectedIndex = index
+                                files.openSelectedEntry()
+                            }
                         }
                     }
 
@@ -411,13 +725,14 @@ Window {
             }
 
             Text {
+                id: footerText
                 color: files.fileBrowserController && files.fileBrowserController.errorMessage.length > 0
                     ? "#c34f65" : files.surfaceMuted
                 elide: Text.ElideRight
                 font.pixelSize: 12
                 text: files.fileBrowserController && files.fileBrowserController.errorMessage.length > 0
                     ? files.fileBrowserController.errorMessage
-                    : "Double-click a folder to browse it or a file to open it."
+                    : "Select an item and choose Open, or double-click it."
                 width: parent.width
             }
         }
@@ -428,7 +743,8 @@ Window {
         property string mode: "create"
         property string originalPath: ""
 
-        title: mode === "rename" ? "Rename item" : "Create folder"
+        title: mode === "rename" ? "Rename item"
+            : mode === "file" ? "Create file" : "Create folder"
         modal: true
         padding: 16
         standardButtons: Dialog.Cancel | Dialog.Ok
@@ -451,7 +767,9 @@ Window {
                 color: files.surfaceForeground
                 text: nameDialog.mode === "rename"
                     ? "Choose a new name for the selected item."
-                    : "Choose a name for the new folder."
+                    : nameDialog.mode === "file"
+                        ? "Choose a name for the new empty file."
+                        : "Choose a name for the new folder."
                 wrapMode: Text.WordWrap
                 width: parent.width
             }
@@ -473,9 +791,11 @@ Window {
         onAccepted: {
             const succeeded = mode === "rename"
                 ? files.fileBrowserController.renameEntry(originalPath, nameField.text)
-                : files.fileBrowserController.createFolder(nameField.text)
+                : mode === "file"
+                    ? files.fileBrowserController.createFile(nameField.text)
+                    : files.fileBrowserController.createFolder(nameField.text)
             if (succeeded) {
-                fileList.currentIndex = -1
+                files.clearSelection()
             } else {
                 Qt.callLater(function() { nameDialog.open() })
             }
@@ -487,7 +807,7 @@ Window {
         property string itemPath: ""
         property string itemName: ""
 
-        title: "Move to Trash?"
+        title: "Delete item?"
         modal: true
         padding: 16
         standardButtons: Dialog.Cancel | Dialog.Ok
@@ -504,16 +824,89 @@ Window {
 
         contentItem: Text {
             color: files.surfaceForeground
-            text: "Move \"" + trashDialog.itemName + "\" to the Northstar Trash?"
+            text: "Move \"" + trashDialog.itemName
+                + "\" to the Northstar Trash? You can restore it later."
             wrapMode: Text.WordWrap
             width: trashDialog.width - (2 * trashDialog.padding)
         }
 
         onAccepted: {
             if (files.fileBrowserController.moveToTrash(itemPath)) {
-                fileList.currentIndex = -1
+                files.clearSelection()
             } else {
                 Qt.callLater(function() { trashDialog.open() })
+            }
+        }
+    }
+
+    Dialog {
+        id: restoreDialog
+        property string itemPath: ""
+        property string itemName: ""
+        property string originalLocation: ""
+
+        title: "Restore item?"
+        modal: true
+        padding: 16
+        standardButtons: Dialog.Cancel | Dialog.Ok
+        width: Math.min(440, files.width - 48)
+        x: (files.width - width) / 2
+        y: (files.height - height) / 2
+
+        background: Rectangle {
+            color: files.surfaceBackground
+            border.color: files.surfaceAccent
+            border.width: 1
+            radius: 8
+        }
+
+        contentItem: Text {
+            color: files.surfaceForeground
+            text: "Restore \"" + restoreDialog.itemName + "\" to "
+                + restoreDialog.originalLocation + "?"
+            wrapMode: Text.WordWrap
+            width: restoreDialog.width - (2 * restoreDialog.padding)
+        }
+
+        onAccepted: {
+            if (files.fileBrowserController.restoreEntry(itemPath)) {
+                files.clearSelection()
+            } else {
+                Qt.callLater(function() { restoreDialog.open() })
+            }
+        }
+    }
+
+    Dialog {
+        id: emptyTrashDialog
+
+        title: "Empty Trash?"
+        modal: true
+        padding: 16
+        standardButtons: Dialog.Cancel | Dialog.Ok
+        width: Math.min(420, files.width - 48)
+        x: (files.width - width) / 2
+        y: (files.height - height) / 2
+
+        background: Rectangle {
+            color: files.surfaceBackground
+            border.color: "#c34f65"
+            border.width: 1
+            radius: 8
+        }
+
+        contentItem: Text {
+            color: files.surfaceForeground
+            text: "This permanently removes every item currently in the Northstar Trash."
+            wrapMode: Text.WordWrap
+            width: emptyTrashDialog.width - (2 * emptyTrashDialog.padding)
+        }
+
+        onAccepted: {
+            if (files.fileBrowserController.emptyTrash()) {
+                files.clearSelection()
+            } else {
+                Qt.callLater(function() { emptyTrashDialog.open() })
             }
         }
     }

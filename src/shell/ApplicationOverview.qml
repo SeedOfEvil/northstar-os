@@ -23,10 +23,10 @@ Window {
     modality: Qt.NonModal
     title: "Northstar Applications"
 
-    width: Math.max(640, screenWidth - (desktopMargin * 2))
-    height: Math.max(420, screenHeight - panelHeight - (desktopMargin * 2))
-    x: screenX + desktopMargin
-    y: screenY + panelHeight + desktopMargin
+    width: Math.min(780, screenWidth - 80)
+    height: Math.min(500, screenHeight - panelHeight - 80)
+    x: screenX + (screenWidth - width) / 2
+    y: screenY + panelHeight + (screenHeight - panelHeight - height) / 2
 
     onVisibleChanged: {
         if (visible) {
@@ -38,17 +38,27 @@ Window {
         }
     }
 
+    function openWithQuery(query) {
+        show()
+        raise()
+        requestActivate()
+        searchField.text = query || ""
+        applicationLauncher.setApplicationQuery(searchField.text)
+        searchField.forceActiveFocus()
+        searchField.selectAll()
+    }
+
     Rectangle {
         anchors.fill: parent
         color: overview.surfaceBackground
         border.color: overview.surfaceAccent
         border.width: 1
-        radius: 12
+        radius: 16
 
         Column {
             anchors.fill: parent
-            anchors.margins: 18
-            spacing: 12
+            anchors.margins: 22
+            spacing: 14
 
             Row {
                 width: parent.width
@@ -61,14 +71,14 @@ Window {
                     Text {
                         color: overview.surfaceForeground
                         font.bold: true
-                        font.pixelSize: 20
-                        text: "Applications"
+                        font.pixelSize: 18
+                        text: "Apps"
                     }
 
                     Text {
                         color: overview.surfaceMuted
                         font.pixelSize: 12
-                        text: "Search installed FreeBSD applications"
+                        text: "Launch your Northstar applications"
                     }
                 }
 
@@ -81,8 +91,17 @@ Window {
 
             TextField {
                 id: searchField
+                background: Rectangle {
+                    color: overview.surfaceBackground
+                    border.color: overview.surfaceAccent
+                    border.width: 1
+                    radius: 8
+                }
+                color: overview.surfaceForeground
+                height: 38
                 width: parent.width
                 placeholderText: "Search by name, category, or desktop id"
+                placeholderTextColor: overview.surfaceMuted
                 selectByMouse: true
 
                 onTextChanged: applicationLauncher.setApplicationQuery(text)
@@ -101,22 +120,71 @@ Window {
                 height: parent.height - searchField.height - 72
                 width: parent.width
 
-                ListView {
+                GridView {
                     id: applicationList
                     anchors.fill: parent
                     anchors.margins: 6
+                    cellHeight: 112
+                    cellWidth: 124
                     clip: true
                     model: applicationLauncher ? applicationLauncher.matchingApplications : []
-                    spacing: 4
 
-                    delegate: ItemDelegate {
+                    delegate: Rectangle {
                         required property var modelData
 
-                        width: applicationList.width
-                        text: modelData.genericName ? modelData.name + "  ·  " + modelData.genericName : modelData.name
-                        onClicked: {
-                            applicationLauncher.launchApplication(modelData.desktopId)
-                            overview.visible = false
+                        color: applicationMouse.containsMouse ? overview.surfaceAccent : overview.surfaceBackground
+                        height: 102
+                        radius: 10
+                        width: 112
+                        Column {
+                            anchors.fill: parent
+                            anchors.margins: 10
+                            spacing: 5
+
+                            Rectangle {
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                color: overview.surfaceAccent
+                                height: 44
+                                radius: 10
+                                width: 44
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    color: overview.surfaceForeground
+                                    font.bold: true
+                                    font.pixelSize: 20
+                                    text: modelData.name && modelData.name.length > 0
+                                        ? modelData.name.charAt(0).toUpperCase() : "?"
+                                }
+                            }
+
+                            Text {
+                                color: overview.surfaceForeground
+                                elide: Text.ElideRight
+                                font.pixelSize: 11
+                                horizontalAlignment: Text.AlignHCenter
+                                text: modelData.name
+                                width: parent.width
+                            }
+
+                            Text {
+                                color: overview.surfaceMuted
+                                elide: Text.ElideRight
+                                font.pixelSize: 9
+                                horizontalAlignment: Text.AlignHCenter
+                                text: modelData.genericName || "Application"
+                                width: parent.width
+                            }
+                        }
+
+                        MouseArea {
+                            id: applicationMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            onClicked: {
+                                applicationLauncher.launchApplication(modelData.desktopId)
+                                overview.visible = false
+                            }
                         }
                     }
 
