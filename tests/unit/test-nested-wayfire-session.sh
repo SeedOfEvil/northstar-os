@@ -63,6 +63,7 @@ cmp "$ROOT/config/wayfire-nested.ini" "$HOME/.config/wayfire.ini" || fail 'wayfi
 grep -F 'mode = 1280x800' "$HOME/.config/wayfire.ini" >/dev/null || fail 'wayfire.ini does not request the full 1280x800 X11 output'
 grep -F '  ipc ' "$HOME/.config/wayfire.ini" >/dev/null || fail 'wayfire.ini does not enable Wayfire IPC'
 grep -F '  ipc-rules ' "$HOME/.config/wayfire.ini" >/dev/null || fail 'wayfire.ini does not enable Wayfire IPC window rules'
+grep -F '  xdg-activation ' "$HOME/.config/wayfire.ini" >/dev/null || fail 'wayfire.ini does not enable XDG activation'
 if grep -E '^[[:space:]]*terminal[[:space:]]*=[[:space:]]*qterminal[[:space:]]*$' "$HOME/.config/wayfire.ini" >/dev/null; then
     fail 'wayfire.ini still autostarts QTerminal'
 fi
