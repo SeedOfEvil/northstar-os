@@ -17,6 +17,7 @@ void ShortcutCatalogTest::exposesStableApplicationMappings()
     ShortcutCatalog catalog;
 
     QCOMPARE(catalog.sequenceFor(QStringLiteral("applications")), QStringLiteral("Meta+K"));
+    QCOMPARE(catalog.sequenceFor(QStringLiteral("software")), QStringLiteral("Meta+U"));
     QCOMPARE(catalog.sequenceFor(QStringLiteral("files")), QStringLiteral("Meta+E"));
     QCOMPARE(catalog.sequenceFor(QStringLiteral("settings")), QStringLiteral("Meta+,"));
     QCOMPARE(catalog.sequenceFor(QStringLiteral("terminal")), QStringLiteral("Ctrl+Alt+T"));
@@ -24,7 +25,7 @@ void ShortcutCatalogTest::exposesStableApplicationMappings()
     QCOMPARE(catalog.sequenceFor(QStringLiteral("refresh")), QStringLiteral("Meta+R"));
 
     const QVariantList entries = catalog.shortcuts();
-    QCOMPARE(entries.size(), 6);
+    QCOMPARE(entries.size(), 7);
     QCOMPARE(entries.first().toMap().value(QStringLiteral("label")).toString(), QStringLiteral("Applications"));
 }
 
