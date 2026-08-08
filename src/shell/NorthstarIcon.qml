@@ -33,6 +33,7 @@ Item {
         case "file":
             return 9
         case "info":
+        case "notifications":
             return 10
         case "northstar":
         default:

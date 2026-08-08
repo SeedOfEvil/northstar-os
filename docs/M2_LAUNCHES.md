@@ -19,10 +19,14 @@ desktop ID, display name, program, PID, and `started` or `failed` result. No
 arguments or environment variables are recorded.
 
 The shell exposes the most recent result through `ApplicationLauncher` QML
-properties and displays a short success/failure notification. The notification
-is feedback only; it does not supervise or terminate the launched application.
+properties and displays a short success/failure notification. The in-shell
+Notification Center also keeps a bounded, session-scoped history of those
+events with mark-read and clear controls. Notifications are feedback only; they
+do not supervise or terminate the launched application.
 
 Deterministic unit tests cover PID propagation, result properties, launch log
-contents, catalog arguments, and invalid desktop IDs. The live VM check should
-launch Terminal and Firefox from the menu or overview, confirm the notification,
-and inspect the private log without requiring direct DRM/KMS graphics.
+contents, catalog arguments, invalid desktop IDs, and the Notification
+Center's bounded-history, read, dismiss, and clear behavior. The live VM check
+should launch Terminal and Firefox from the menu or overview, confirm the
+top-bar notification badge, open the Notification Center, and inspect the
+private log without requiring direct DRM/KMS graphics.

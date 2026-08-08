@@ -1,6 +1,7 @@
 add_library(northstar-shell-core STATIC
     applicationlauncher.cpp
     filebrowsercontroller.cpp
+    notificationcenter.cpp
     powercontroller.cpp
     sessioncontroller.cpp
     shellstate.cpp
@@ -37,6 +38,7 @@ qt_add_qml_module(northstar-shell
         DockWindow.qml
         ApplicationOverview.qml
         QuickSettings.qml
+        NotificationCenterWindow.qml
         NorthstarIcon.qml
         FileBrowserWindow.qml
         SystemMenu.qml

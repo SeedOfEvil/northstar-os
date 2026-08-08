@@ -47,6 +47,8 @@ Window {
             applicationOverview.hide()
         } else if (quickSettingsWindow.visible) {
             quickSettingsWindow.hide()
+        } else if (notificationCenterWindow.visible) {
+            notificationCenterWindow.hide()
         } else if (fileBrowserWindow.visible) {
             fileBrowserWindow.hide()
         } else if (settingsWindow.visible) {
@@ -105,7 +107,7 @@ Window {
     Shortcut {
         context: Qt.ApplicationShortcut
         enabled: systemMenu.visible || applicationOverview.visible || quickSettingsWindow.visible
-            || fileBrowserWindow.visible || settingsWindow.visible
+            || notificationCenterWindow.visible || fileBrowserWindow.visible || settingsWindow.visible
         sequence: "Escape"
         onActivated: root.closeTransientSurfaces()
     }
@@ -294,6 +296,37 @@ Window {
                 spacing: 5
 
                 Rectangle {
+                    color: notificationMouse.containsMouse ? root.panelAccent : "transparent"
+                    height: 30
+                    radius: 7
+                    width: 34
+
+                    NorthstarIcon {
+                        anchors.centerIn: parent
+                        height: 22
+                        width: 22
+                        iconName: "notifications"
+                    }
+
+                    Rectangle {
+                        anchors.right: parent.right
+                        anchors.top: parent.top
+                        color: "#c34f65"
+                        height: 12
+                        radius: 6
+                        visible: northstarNotificationCenter && northstarNotificationCenter.unreadCount > 0
+                        width: 12
+                    }
+
+                    MouseArea {
+                        id: notificationMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onClicked: notificationCenterWindow.togglePanel()
+                    }
+                }
+
+                Rectangle {
                     color: quickSettingsMouse.containsMouse ? root.panelAccent : "transparent"
                     height: 30
                     radius: 7
@@ -374,6 +407,14 @@ Window {
 
     QuickSettings {
         id: quickSettingsWindow
+        state: shellState
+        targetScreen: targetScreen
+        panelHeight: root.height
+    }
+
+    NotificationCenterWindow {
+        id: notificationCenterWindow
+        center: northstarNotificationCenter
         state: shellState
         targetScreen: targetScreen
         panelHeight: root.height
