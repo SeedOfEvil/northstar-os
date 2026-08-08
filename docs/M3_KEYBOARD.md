@@ -8,6 +8,7 @@ shortcuts:
 | Command | Shortcut |
 | --- | --- |
 | Applications | `Meta+K` |
+| Software Center | `Meta+U` |
 | Files | `Meta+E` |
 | Settings | `Meta+,` |
 | Terminal | `Ctrl+Alt+T` |
@@ -29,5 +30,5 @@ make install-user NORTHSTAR_PREFIX="$HOME/.local"
 
 Open the shell and confirm that the accelerators appear in the Northstar menu,
 that each shortcut opens its corresponding surface or application, and that
-`Escape` closes the currently active menu, overview, Files, Settings, or Quick
-Settings surface.
+`Escape` closes the currently active menu, overview, Software, Files, Settings,
+or Quick Settings surface.

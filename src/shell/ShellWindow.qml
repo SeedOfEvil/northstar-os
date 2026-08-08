@@ -49,6 +49,8 @@ Window {
             quickSettingsWindow.hide()
         } else if (notificationCenterWindow.visible) {
             notificationCenterWindow.hide()
+        } else if (softwareCenterWindow.visible) {
+            softwareCenterWindow.hide()
         } else if (fileBrowserWindow.visible) {
             fileBrowserWindow.hide()
         } else if (settingsWindow.visible) {
@@ -70,6 +72,14 @@ Window {
         sequence: northstarShortcutCatalog
             ? northstarShortcutCatalog.sequenceFor("files") : ""
         onActivated: systemMenu.triggerAction("files")
+    }
+
+    Shortcut {
+        context: Qt.ApplicationShortcut
+        enabled: displayIndex === 0 && !!northstarShortcutCatalog
+        sequence: northstarShortcutCatalog
+            ? northstarShortcutCatalog.sequenceFor("software") : ""
+        onActivated: systemMenu.triggerAction("software")
     }
 
     Shortcut {
@@ -107,7 +117,8 @@ Window {
     Shortcut {
         context: Qt.ApplicationShortcut
         enabled: systemMenu.visible || applicationOverview.visible || quickSettingsWindow.visible
-            || notificationCenterWindow.visible || fileBrowserWindow.visible || settingsWindow.visible
+            || notificationCenterWindow.visible || softwareCenterWindow.visible
+            || fileBrowserWindow.visible || settingsWindow.visible
         sequence: "Escape"
         onActivated: root.closeTransientSurfaces()
     }
@@ -387,6 +398,7 @@ Window {
         overviewWindow: applicationOverview
         settingsSurface: settingsWindow
         filesWindow: fileBrowserWindow
+        softwareWindow: softwareCenterWindow
         sessionController: northstarSessionController
         shortcutCatalog: northstarShortcutCatalog
         state: shellState
@@ -415,6 +427,14 @@ Window {
     NotificationCenterWindow {
         id: notificationCenterWindow
         center: northstarNotificationCenter
+        state: shellState
+        targetScreen: targetScreen
+        panelHeight: root.height
+    }
+
+    SoftwareCenterWindow {
+        id: softwareCenterWindow
+        packageCatalog: northstarPackageCatalog
         state: shellState
         targetScreen: targetScreen
         panelHeight: root.height

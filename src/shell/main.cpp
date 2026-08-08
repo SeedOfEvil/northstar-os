@@ -2,6 +2,7 @@
 #include "filebrowsercontroller.h"
 #include "layershellsurface.h"
 #include "notificationcenter.h"
+#include "packagecatalog.h"
 #include "powercontroller.h"
 #include "sessioncontroller.h"
 #include "shellstate.h"
@@ -56,6 +57,7 @@ int main(int argc, char *argv[])
     ShellState shellState;
     ApplicationLauncher applicationLauncher;
     NotificationCenter notificationCenter;
+    PackageCatalog packageCatalog;
     FileBrowserController fileBrowserController;
     PowerController powerController;
     SessionController sessionController;
@@ -128,6 +130,7 @@ int main(int argc, char *argv[])
         context->setContextProperty(QStringLiteral("shellState"), &shellState);
         context->setContextProperty(QStringLiteral("launcher"), &applicationLauncher);
         context->setContextProperty(QStringLiteral("northstarNotificationCenter"), &notificationCenter);
+        context->setContextProperty(QStringLiteral("northstarPackageCatalog"), &packageCatalog);
         context->setContextProperty(QStringLiteral("northstarFileBrowserController"), &fileBrowserController);
         context->setContextProperty(QStringLiteral("northstarPowerController"), &powerController);
         context->setContextProperty(QStringLiteral("northstarSessionController"), &sessionController);

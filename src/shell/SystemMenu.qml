@@ -9,6 +9,7 @@ Window {
     property var overviewWindow
     property var settingsSurface
     property var filesWindow
+    property var softwareWindow
     property var sessionController
     property var shortcutCatalog
     property var state
@@ -24,7 +25,7 @@ Window {
     property color surfaceAccent: state && state.darkMode ? "#79b8ff" : "#1769aa"
     property int menuRowHeight: 38
     property int menuSeparatorHeight: 1
-    property int menuContentHeight: (10 * menuRowHeight) + (3 * menuSeparatorHeight)
+    property int menuContentHeight: (11 * menuRowHeight) + (3 * menuSeparatorHeight)
     property bool canLogout: sessionController !== null
         && sessionController !== undefined
         && sessionController.available
@@ -61,6 +62,8 @@ Window {
             return "applications"
         case "files":
             return "files"
+        case "software":
+            return "software"
         case "refresh":
             return "quick-settings"
         case "settings":
@@ -95,6 +98,9 @@ Window {
         } else if (action === "files") {
             closeMenu()
             filesWindow.openBrowser()
+        } else if (action === "software") {
+            closeMenu()
+            softwareWindow.openSoftware()
         } else if (action === "refresh") {
             closeMenu()
             launcherController.refreshApplications()
@@ -260,6 +266,7 @@ Window {
                 interactive: false
                 model: [
                     { kind: "action", id: "applications", label: "Applications" },
+                    { kind: "action", id: "software", label: "Software Center" },
                     { kind: "action", id: "files", label: "Open Files" },
                     { kind: "action", id: "refresh", label: "Refresh Applications" },
                     { kind: "separator" },

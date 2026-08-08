@@ -6,6 +6,7 @@ ShortcutCatalog::ShortcutCatalog(QObject *parent)
     : QObject(parent)
     , m_entries({
           {QStringLiteral("applications"), QStringLiteral("Applications"), QStringLiteral("Meta+K")},
+          {QStringLiteral("software"), QStringLiteral("Software Center"), QStringLiteral("Meta+U")},
           {QStringLiteral("files"), QStringLiteral("Files"), QStringLiteral("Meta+E")},
           {QStringLiteral("settings"), QStringLiteral("Settings"), QStringLiteral("Meta+,")},
           {QStringLiteral("terminal"), QStringLiteral("Terminal"), QStringLiteral("Ctrl+Alt+T")},

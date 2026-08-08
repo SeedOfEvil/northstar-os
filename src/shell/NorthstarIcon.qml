@@ -21,6 +21,8 @@ Item {
             return 3
         case "applications":
             return 4
+        case "software":
+            return 4
         case "quick-settings":
             return 5
         case "trash":
