@@ -43,6 +43,16 @@ Window {
     modality: Qt.NonModal
     title: "Northstar Files"
 
+    Connections {
+        target: files.fileBrowserController
+
+        function onSearchQueryChanged() {
+            if (searchField.text !== files.fileBrowserController.searchQuery) {
+                searchField.text = files.fileBrowserController.searchQuery
+            }
+        }
+    }
+
     minimumWidth: files.minimumSurfaceWidth
     minimumHeight: files.minimumSurfaceHeight
     width: Math.min(920, Math.max(files.minimumSurfaceWidth, files.screenWidth - (files.desktopMargin * 2)))
@@ -55,6 +65,8 @@ Window {
             return
         }
         files.clearSelection()
+        files.fileBrowserController.setSearchQuery("")
+        searchField.text = ""
         files.fileBrowserController.refresh()
         show()
         raise()
@@ -152,6 +164,8 @@ Window {
         }
         return files.showingTrash
             ? entry.kind + " - " + (entry.originalLocation || "Original location unavailable")
+            : files.fileBrowserController && files.fileBrowserController.searching
+                ? entry.kind + " - " + (entry.searchLocation || "Home folder")
             : entry.kind + " - " + entry.modified
     }
 
@@ -270,6 +284,8 @@ Window {
                         font.pixelSize: 12
                         text: files.showingTrash
                             ? "Review and restore deleted items"
+                            : files.fileBrowserController && files.fileBrowserController.searching
+                                ? "Search results from your Northstar home folder"
                             : "Browse your Northstar home folder"
                     }
                 }
@@ -322,6 +338,7 @@ Window {
                         anchors.fill: parent
                         enabled: !!files.fileBrowserController
                             && !files.showingTrash
+                            && !files.fileBrowserController.searching
                             && files.fileBrowserController.currentPath !== files.fileBrowserController.homePath
                         hoverEnabled: true
                         onClicked: {
@@ -459,6 +476,70 @@ Window {
                     font.pixelSize: 13
                     text: files.fileBrowserController ? files.fileBrowserController.displayPath : "~"
                     width: Math.max(80, parent.width - 464)
+                }
+            }
+
+            Row {
+                id: searchRow
+                spacing: 8
+                width: parent.width
+
+                TextField {
+                    id: searchField
+                    background: Rectangle {
+                        color: files.surfaceBackground
+                        border.color: files.surfaceAccent
+                        border.width: 1
+                        radius: 6
+                    }
+                    color: files.surfaceForeground
+                    enabled: !!files.fileBrowserController && !files.showingTrash
+                    height: 36
+                    placeholderText: "Search the Northstar home folder"
+                    placeholderTextColor: files.surfaceMuted
+                    selectByMouse: true
+                    width: parent.width - clearSearchButton.width - searchHint.implicitWidth - (2 * parent.spacing)
+
+                    onTextChanged: {
+                        if (files.fileBrowserController
+                                && text !== files.fileBrowserController.searchQuery) {
+                            files.fileBrowserController.setSearchQuery(text)
+                        }
+                    }
+                }
+
+                Rectangle {
+                    id: clearSearchButton
+                    color: clearSearchMouse.containsMouse ? files.surfaceAccent : files.surfaceRaised
+                    height: 36
+                    opacity: searchField.text.length > 0 ? 1 : 0.55
+                    radius: 6
+                    width: 62
+
+                    Text {
+                        anchors.centerIn: parent
+                        color: files.surfaceForeground
+                        font.pixelSize: 12
+                        text: "Clear"
+                    }
+
+                    MouseArea {
+                        id: clearSearchMouse
+                        anchors.fill: parent
+                        enabled: searchField.text.length > 0
+                        hoverEnabled: true
+                        onClicked: searchField.text = ""
+                    }
+                }
+
+                Text {
+                    id: searchHint
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: files.surfaceMuted
+                    font.pixelSize: 11
+                    text: files.fileBrowserController && files.fileBrowserController.searching
+                        ? files.fileBrowserController.entries.length + " result(s)"
+                        : "Home search"
                 }
             }
 
@@ -651,7 +732,7 @@ Window {
                 border.color: files.surfaceMuted
                 border.width: 1
                 height: Math.max(160, parent.height - titleBar.height - navigationRow.height
-                    - actionRow.height - footerText.implicitHeight - 48)
+                    - searchRow.height - actionRow.height - footerText.implicitHeight - 48)
                 radius: 8
                 width: parent.width
 
@@ -778,6 +859,8 @@ Window {
                 font.pixelSize: 12
                 text: files.fileBrowserController && files.fileBrowserController.errorMessage.length > 0
                     ? files.fileBrowserController.errorMessage
+                    : files.fileBrowserController && files.fileBrowserController.searching
+                        ? "Search results are scoped to the Northstar home folder."
                     : "Select an item and choose Open, or double-click it."
                 width: parent.width
             }
