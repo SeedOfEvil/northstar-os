@@ -13,12 +13,15 @@ private slots:
     void defaultsAreStable();
     void activeWindowTitleFallsBackToDesktop();
     void themeToggleEmitsOncePerChange();
+    void persistsDarkMode();
     void launcherUsesPinnedPrograms();
 };
 
 void ShellStateTest::defaultsAreStable()
 {
-    ShellState state;
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    ShellState state(nullptr, temporaryDirectory.filePath(QStringLiteral("preferences.ini")));
 
     QCOMPARE(state.pinnedApplications(), QStringList({QStringLiteral("qterminal"), QStringLiteral("firefox")}));
     QCOMPARE(state.activeWindowTitle(), QStringLiteral("Desktop"));
@@ -27,7 +30,9 @@ void ShellStateTest::defaultsAreStable()
 
 void ShellStateTest::activeWindowTitleFallsBackToDesktop()
 {
-    ShellState state;
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    ShellState state(nullptr, temporaryDirectory.filePath(QStringLiteral("preferences.ini")));
     QSignalSpy spy(&state, &ShellState::activeWindowTitleChanged);
 
     state.setActiveWindowTitle(QStringLiteral("   "));
@@ -42,7 +47,9 @@ void ShellStateTest::activeWindowTitleFallsBackToDesktop()
 
 void ShellStateTest::themeToggleEmitsOncePerChange()
 {
-    ShellState state;
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    ShellState state(nullptr, temporaryDirectory.filePath(QStringLiteral("preferences.ini")));
     QSignalSpy spy(&state, &ShellState::darkModeChanged);
 
     state.toggleDarkMode();
@@ -55,6 +62,22 @@ void ShellStateTest::themeToggleEmitsOncePerChange()
     state.setDarkMode(true);
     QVERIFY(state.darkMode());
     QCOMPARE(spy.count(), 2);
+}
+
+void ShellStateTest::persistsDarkMode()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    const QString settingsPath = temporaryDirectory.filePath(QStringLiteral("preferences.ini"));
+
+    {
+        ShellState state(nullptr, settingsPath);
+        QVERIFY(state.darkMode());
+        state.setDarkMode(false);
+    }
+
+    ShellState restoredState(nullptr, settingsPath);
+    QVERIFY(!restoredState.darkMode());
 }
 
 void ShellStateTest::launcherUsesPinnedPrograms()

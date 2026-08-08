@@ -1,10 +1,32 @@
 #include "shellstate.h"
 
-ShellState::ShellState(QObject *parent)
+#include <QDir>
+#include <QFileInfo>
+#include <QSettings>
+#include <QStandardPaths>
+
+namespace {
+
+QString defaultSettingsPath()
+{
+    QString configDirectory = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
+    if (configDirectory.isEmpty()) {
+        configDirectory = QDir::home().filePath(QStringLiteral(".config/northstar"));
+    }
+    return QDir(configDirectory).filePath(QStringLiteral("preferences.ini"));
+}
+
+} // namespace
+
+ShellState::ShellState(QObject *parent, QString settingsPath)
     : QObject(parent)
     , m_pinnedApplications({QStringLiteral("qterminal"), QStringLiteral("firefox")})
+    , m_settingsPath(settingsPath.trimmed().isEmpty()
+            ? defaultSettingsPath()
+            : QDir::cleanPath(QDir::fromNativeSeparators(settingsPath)))
     , m_activeWindowTitle(QStringLiteral("Desktop"))
 {
+    loadPreferences();
 }
 
 QStringList ShellState::pinnedApplications() const
@@ -40,10 +62,31 @@ void ShellState::setDarkMode(bool enabled)
     }
 
     m_darkMode = enabled;
+    savePreferences();
     emit darkModeChanged();
 }
 
 void ShellState::toggleDarkMode()
 {
     setDarkMode(!m_darkMode);
+}
+
+void ShellState::loadPreferences()
+{
+    QSettings settings(m_settingsPath, QSettings::IniFormat);
+    if (settings.contains(QStringLiteral("appearance/darkMode"))) {
+        m_darkMode = settings.value(QStringLiteral("appearance/darkMode"), true).toBool();
+    }
+}
+
+void ShellState::savePreferences() const
+{
+    const QFileInfo settingsInfo(m_settingsPath);
+    if (!QDir().mkpath(settingsInfo.absolutePath())) {
+        return;
+    }
+
+    QSettings settings(m_settingsPath, QSettings::IniFormat);
+    settings.setValue(QStringLiteral("appearance/darkMode"), m_darkMode);
+    settings.sync();
 }

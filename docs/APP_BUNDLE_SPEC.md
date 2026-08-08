@@ -2,7 +2,7 @@
 
 ## Status
 
-Version 0.1, accepted for design and implementation. The first development bundle is now discoverable and launchable through the Northstar catalog after manifest, path, ownership, and permission validation. This is a Northstar presentation and portability format. It is not a promise of macOS compatibility and it does not replace FreeBSD packages.
+Version 0.1, accepted for design and implementation. The first development bundle is now discoverable and launchable through the Northstar catalog after manifest, path, ownership, permission, and manifest-level provenance validation. This is a Northstar presentation and portability format. It is not a promise of macOS compatibility and it does not replace FreeBSD packages.
 
 ## Goals
 
@@ -42,14 +42,25 @@ Example.app/
 | `Executable` | string | Relative path below `Contents/Executable/` |
 | `Icon` | string | Relative path below `Contents/Resources/` |
 | `Categories` | array | Launcher categories |
+| `Provenance` | dictionary | Required source, package, and revision identity |
 | `DesktopFile` | string, optional | Associated `.desktop` file when one exists |
 | `MinimumNorthstar` | string, optional | Minimum shell/runtime contract |
+
+`Provenance` must contain these non-empty string keys:
+
+| Key | Meaning |
+| --- | --- |
+| `Source` | Human-readable source family or project that produced the bundle |
+| `Package` | Package or component identity that owns the bundle |
+| `Revision` | Source/package revision, release identifier, or explicit development marker |
+
+Values are bounded, trimmed, and free of control characters. Additional provenance keys may be added without changing the initial launcher contract. This is an auditable manifest identity, not a cryptographic signature.
 
 Unknown keys are ignored by older launchers but must not weaken validation. Paths must be relative and must not contain `..` components.
 
 ## Installation and updates
 
-Bundles are installed by FreeBSD packages or a future project package integration. They are not copied manually into system directories by the shell. A package owns every installed file and supplies licence/notice metadata.
+Bundles are installed by FreeBSD packages or a future project package integration. They are not copied manually into system directories by the shell. A package owns every installed file, supplies licence/notice metadata, and records its source/package/revision identity in the manifest provenance block.
 
 The launcher prefers a valid `.desktop` entry when one is available, then discovers project bundles from declared application roots. The first development roots are the user-local `XDG_DATA_HOME/northstar/apps` directory followed by `/usr/local/share/northstar/apps` and `/usr/share/northstar/apps`. A bundle can expose a `.desktop` entry for compatibility with existing FreeBSD tools. The repository includes a small `NorthstarWelcome.app` sample installed by the development CMake target; package integration remains a later milestone.
 
@@ -59,7 +70,7 @@ The launcher prefers a valid `.desktop` entry when one is available, then discov
 - Bundles do not receive implicit elevated privileges.
 - Private libraries must not override system libraries outside the bundle's declared runtime contract.
 - The format does not load macOS Mach-O binaries, Apple frameworks, or proprietary application metadata.
-- Signing and provenance requirements will be defined before bundles are used for release distribution.
-- The development catalog rejects symlinked bundle paths, traversal/absolute manifest paths, missing required files, group/other-writable files, and non-executable bundle entry points.
+- Manifest-level provenance is required for discovery; cryptographic signing and repository verification remain release-distribution work.
+- The development catalog rejects symlinked bundle paths, traversal/absolute manifest paths, missing required files, invalid provenance, group/other-writable files, and non-executable bundle entry points.
 
 The accepted decision is recorded in [`docs/adr/0005-project-app-bundle-layout.md`](adr/0005-project-app-bundle-layout.md).

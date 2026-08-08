@@ -24,6 +24,7 @@ struct BundleManifest
     QString executable;
     QString icon;
     QStringList categories;
+    BundleProvenance provenance;
 };
 
 QVariant readPlistValue(QXmlStreamReader &reader, bool *ok)
@@ -111,6 +112,21 @@ QVariant readPlistValue(QXmlStreamReader &reader, bool *ok)
     return {};
 }
 
+bool validProvenanceValue(const QString &value)
+{
+    if (value.isEmpty() || value.size() > 200 || value != value.trimmed()) {
+        return false;
+    }
+
+    for (const QChar character : value) {
+        if (character.isNull() || character == QLatin1Char('\n')
+            || character == QLatin1Char('\r') || character == QLatin1Char('\t')) {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool readManifest(const QString &path, BundleManifest *manifest)
 {
     if (manifest == nullptr) {
@@ -177,6 +193,28 @@ bool readManifest(const QString &path, BundleManifest *manifest)
         parsed.categories.append(category.toString());
     }
     if (parsed.categories.isEmpty()) {
+        return false;
+    }
+
+    const QVariant provenanceValue = values.value(QStringLiteral("Provenance"));
+    if (provenanceValue.typeId() != QMetaType::QVariantMap) {
+        return false;
+    }
+
+    const QVariantMap provenanceValues = provenanceValue.toMap();
+    const auto provenanceStringValue = [&provenanceValues](const QString &key, QString *output) {
+        const QVariant value = provenanceValues.value(key);
+        if (!value.isValid() || value.typeId() != QMetaType::QString
+            || !validProvenanceValue(value.toString())) {
+            return false;
+        }
+        *output = value.toString();
+        return true;
+    };
+
+    if (!provenanceStringValue(QStringLiteral("Source"), &parsed.provenance.source)
+        || !provenanceStringValue(QStringLiteral("Package"), &parsed.provenance.package)
+        || !provenanceStringValue(QStringLiteral("Revision"), &parsed.provenance.revision)) {
         return false;
     }
 
@@ -344,6 +382,7 @@ bool readBundle(const QString &path, BundleApplication *application)
     parsed.bundlePath = bundlePath;
     parsed.executablePath = executableInfo.canonicalFilePath();
     parsed.iconPath = iconInfo.canonicalFilePath();
+    parsed.provenance = manifest.provenance;
     *application = std::move(parsed);
     return true;
 }
@@ -354,7 +393,10 @@ bool matchesQuery(const BundleApplication &application, const QStringList &terms
         application.name,
         application.version,
         application.bundleId,
-        application.categories.join(QLatin1Char(' '))
+        application.categories.join(QLatin1Char(' ')),
+        application.provenance.source,
+        application.provenance.package,
+        application.provenance.revision
     }.join(QLatin1Char(' '));
 
     return std::all_of(terms.cbegin(), terms.cend(), [&searchText](const QString &term) {
@@ -415,6 +457,9 @@ QVariantList ApplicationBundleCatalog::toVariantList(const QList<BundleApplicati
         item.insert(QStringLiteral("iconSource"), QUrl::fromLocalFile(application.iconPath));
         item.insert(QStringLiteral("categories"), application.categories);
         item.insert(QStringLiteral("sourceType"), QStringLiteral("bundle"));
+        item.insert(QStringLiteral("provenanceSource"), application.provenance.source);
+        item.insert(QStringLiteral("provenancePackage"), application.provenance.package);
+        item.insert(QStringLiteral("provenanceRevision"), application.provenance.revision);
         result.append(item);
     }
 

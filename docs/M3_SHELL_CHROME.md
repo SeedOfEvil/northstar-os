@@ -12,6 +12,11 @@ and application controls:
   later integration slice.
 - The bottom dock is a centered capsule with pinned launchers, Files and Trash
   shortcuts, and open-window controls.
+- The Appearance setting persists the dark/light preference in the user's
+  Northstar configuration and restores it when the shell starts again.
+- The project-owned system menu and shell shortcuts share one tested command
+  catalog for the first Apps, Files, Settings, launch, refresh, and dismiss
+  actions.
 
 The visual language is intentionally Northstar-specific: rounded surfaces,
 deep blue-gray backgrounds, the official Northstar mark, and restrained blue
@@ -33,3 +38,6 @@ After installing the user build and starting a fresh graphical session, verify:
 
 The current Quick Settings toggles and sliders are visual preview controls;
 their direct hardware/session integration is a later slice.
+
+The durable Appearance setting is documented in [`docs/M3_SETTINGS.md`](M3_SETTINGS.md).
+The keyboard and menu command mapping is documented in [`docs/M3_KEYBOARD.md`](M3_KEYBOARD.md).

@@ -11,7 +11,7 @@ class ShellState final : public QObject
     Q_PROPERTY(bool darkMode READ darkMode WRITE setDarkMode NOTIFY darkModeChanged)
 
 public:
-    explicit ShellState(QObject *parent = nullptr);
+    explicit ShellState(QObject *parent = nullptr, QString settingsPath = {});
 
     QStringList pinnedApplications() const;
     QString activeWindowTitle() const;
@@ -27,7 +27,11 @@ signals:
     void darkModeChanged();
 
 private:
+    void loadPreferences();
+    void savePreferences() const;
+
     const QStringList m_pinnedApplications;
+    QString m_settingsPath;
     QString m_activeWindowTitle;
     bool m_darkMode = true;
 };

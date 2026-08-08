@@ -10,6 +10,7 @@ Window {
     property var settingsSurface
     property var filesWindow
     property var sessionController
+    property var shortcutCatalog
     property var state
     property var targetScreen
     property int panelHeight: 44
@@ -76,6 +77,10 @@ Window {
         default:
             return "info"
         }
+    }
+
+    function shortcutForAction(action) {
+        return menu.shortcutCatalog ? menu.shortcutCatalog.sequenceFor(action) : ""
     }
 
     function triggerAction(action) {
@@ -284,6 +289,7 @@ Window {
                     Text {
                         anchors.fill: parent
                         anchors.leftMargin: 42
+                        anchors.rightMargin: shortcutText.visible ? shortcutText.implicitWidth + 16 : 10
                         color: menu.surfaceForeground
                         elide: Text.ElideRight
                         font.pixelSize: 13
@@ -294,6 +300,18 @@ Window {
                             ? "Quit Northstar Shell"
                             : modelData.label
                         verticalAlignment: Text.AlignVCenter
+                    }
+
+                    Text {
+                        id: shortcutText
+                        anchors.right: parent.right
+                        anchors.rightMargin: 10
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: menu.surfaceMuted
+                        font.pixelSize: 10
+                        text: modelData.kind === "separator"
+                            ? "" : menu.shortcutForAction(modelData.id)
+                        visible: text.length > 0
                     }
 
                     NorthstarIcon {
