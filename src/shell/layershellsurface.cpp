@@ -51,7 +51,10 @@ bool LayerShellSurface::configurePanel(QWindow *window, QScreen *screen, int exc
     anchors |= LayerShellQt::Window::AnchorRight;
     surface->setAnchors(anchors);
     surface->setExclusiveZone(exclusiveZone);
-    surface->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityNone);
+    // The panel contains the global search field and must be focusable when
+    // the user clicks it. OnDemand preserves normal compositor focus rules;
+    // the desktop background and dock remain keyboard-inert.
+    surface->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityOnDemand);
     surface->setLayer(LayerShellQt::Window::LayerTop);
     surface->setScreen(screen);
     surface->setScope(QStringLiteral("northstar-shell-%1").arg(displayIndex));
