@@ -926,11 +926,26 @@ Window {
                             anchors.rightMargin: 10
                             spacing: 10
 
-                            NorthstarIcon {
+                            Item {
                                 anchors.verticalCenter: parent.verticalCenter
                                 height: 34
                                 width: 34
-                                iconName: files.applicationIconName(modelData)
+
+                                NorthstarIcon {
+                                    anchors.fill: parent
+                                    visible: modelData.sourceType !== "bundle" || !modelData.iconSource
+                                    iconName: files.applicationIconName(modelData)
+                                }
+
+                                Image {
+                                    anchors.fill: parent
+                                    asynchronous: true
+                                    fillMode: Image.PreserveAspectFit
+                                    mipmap: true
+                                    smooth: true
+                                    source: modelData.iconSource || ""
+                                    visible: modelData.sourceType === "bundle" && !!modelData.iconSource
+                                }
                             }
 
                             Column {
