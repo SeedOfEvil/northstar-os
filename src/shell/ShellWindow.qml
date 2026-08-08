@@ -188,6 +188,7 @@ Window {
     SettingsWindow {
         id: settingsWindow
         state: shellState
+        launcherController: launcher
         targetScreen: targetScreen
         panelHeight: root.height
     }

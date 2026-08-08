@@ -5,9 +5,13 @@ Window {
     id: settings
 
     property var state
+    property var launcherController
     property var targetScreen
+    property string shellApplicationName: "northstar-shell"
+    property string shellApplicationVersion: "0.1.0"
     property int panelHeight: 96
     property int desktopMargin: 24
+    property string selectedSection: "appearance"
     property int screenX: targetScreen ? targetScreen.geometry.x : 0
     property int screenY: targetScreen ? targetScreen.geometry.y : 0
     property int screenWidth: targetScreen ? targetScreen.geometry.width : 1280
@@ -92,41 +96,36 @@ Window {
                         anchors.margins: 10
                         spacing: 4
 
-                        Rectangle {
-                            color: settings.surfaceAccent
-                            height: 40
-                            radius: 6
-                            width: parent.width
+                        Repeater {
+                            model: [
+                                { id: "appearance", label: "Appearance" },
+                                { id: "session", label: "Session" },
+                                { id: "about", label: "About Northstar" }
+                            ]
 
-                            Text {
-                                anchors.left: parent.left
-                                anchors.leftMargin: 12
-                                anchors.verticalCenter: parent.verticalCenter
-                                color: settings.surfaceForeground
-                                font.bold: true
-                                font.pixelSize: 13
-                                text: "Appearance"
+                            delegate: Rectangle {
+                                required property var modelData
+
+                                color: settings.selectedSection === modelData.id ? settings.surfaceAccent : "transparent"
+                                height: 40
+                                radius: 6
+                                width: parent.width
+
+                                Text {
+                                    anchors.left: parent.left
+                                    anchors.leftMargin: 12
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    color: settings.selectedSection === modelData.id ? settings.surfaceForeground : settings.surfaceMuted
+                                    font.bold: settings.selectedSection === modelData.id
+                                    font.pixelSize: 13
+                                    text: modelData.label
+                                }
+
+                                MouseArea {
+                                    anchors.fill: parent
+                                    onClicked: settings.selectedSection = modelData.id
+                                }
                             }
-                        }
-
-                        Text {
-                            color: settings.surfaceMuted
-                            font.pixelSize: 13
-                            leftPadding: 12
-                            text: "Session"
-                            verticalAlignment: Text.AlignVCenter
-                            width: parent.width
-                            height: 40
-                        }
-
-                        Text {
-                            color: settings.surfaceMuted
-                            font.pixelSize: 13
-                            leftPadding: 12
-                            text: "About Northstar"
-                            verticalAlignment: Text.AlignVCenter
-                            width: parent.width
-                            height: 40
                         }
                     }
                 }
@@ -138,9 +137,11 @@ Window {
                     width: parent.width - 208
 
                     Column {
+                        id: appearancePage
                         anchors.fill: parent
                         anchors.margins: 22
                         spacing: 16
+                        visible: settings.selectedSection === "appearance"
 
                         Text {
                             color: settings.surfaceForeground
@@ -208,6 +209,208 @@ Window {
                             color: settings.surfaceMuted
                             font.pixelSize: 12
                             text: "More appearance controls will be added as the desktop settings service matures."
+                            wrapMode: Text.WordWrap
+                            width: parent.width
+                        }
+                    }
+
+                    Column {
+                        id: sessionPage
+                        anchors.fill: parent
+                        anchors.margins: 22
+                        spacing: 16
+                        visible: settings.selectedSection === "session"
+
+                        Text {
+                            color: settings.surfaceForeground
+                            font.bold: true
+                            font.pixelSize: 20
+                            text: "Session"
+                        }
+
+                        Text {
+                            color: settings.surfaceMuted
+                            font.pixelSize: 13
+                            text: "Review the current Northstar desktop session and refresh its application catalog."
+                            wrapMode: Text.WordWrap
+                            width: parent.width
+                        }
+
+                        Rectangle {
+                            color: settings.surfaceBackground
+                            border.color: settings.surfaceMuted
+                            border.width: 1
+                            height: 156
+                            radius: 8
+                            width: parent.width
+
+                            Column {
+                                anchors.fill: parent
+                                anchors.margins: 16
+                                spacing: 10
+
+                                Row {
+                                    spacing: 8
+                                    width: parent.width
+
+                                    Text {
+                                        color: settings.surfaceMuted
+                                        font.pixelSize: 13
+                                        text: "Desktop"
+                                        width: 150
+                                    }
+
+                                    Text {
+                                        color: settings.surfaceForeground
+                                        font.pixelSize: 13
+                                        text: settings.state ? settings.state.activeWindowTitle : "Desktop"
+                                    }
+                                }
+
+                                Row {
+                                    spacing: 8
+                                    width: parent.width
+
+                                    Text {
+                                        color: settings.surfaceMuted
+                                        font.pixelSize: 13
+                                        text: "Display"
+                                        width: 150
+                                    }
+
+                                    Text {
+                                        color: settings.surfaceForeground
+                                        font.pixelSize: 13
+                                        text: settings.screenWidth + " × " + settings.screenHeight
+                                    }
+                                }
+
+                                Row {
+                                    spacing: 8
+                                    width: parent.width
+
+                                    Text {
+                                        color: settings.surfaceMuted
+                                        font.pixelSize: 13
+                                        text: "Applications"
+                                        width: 150
+                                    }
+
+                                    Text {
+                                        color: settings.surfaceForeground
+                                        font.pixelSize: 13
+                                        text: settings.launcherController && settings.launcherController.applications
+                                            ? settings.launcherController.applications.length : 0
+                                    }
+                                }
+                            }
+                        }
+
+                        Button {
+                            text: "Refresh Application Catalog"
+                            onClicked: {
+                                if (settings.launcherController) {
+                                    settings.launcherController.refreshApplications()
+                                }
+                            }
+                        }
+                    }
+
+                    Column {
+                        id: aboutPage
+                        anchors.fill: parent
+                        anchors.margins: 22
+                        spacing: 16
+                        visible: settings.selectedSection === "about"
+
+                        Text {
+                            color: settings.surfaceForeground
+                            font.bold: true
+                            font.pixelSize: 20
+                            text: "About Northstar"
+                        }
+
+                        Text {
+                            color: settings.surfaceMuted
+                            font.pixelSize: 13
+                            text: "Northstar is a FreeBSD-native desktop experience built around a small, testable shell."
+                            wrapMode: Text.WordWrap
+                            width: parent.width
+                        }
+
+                        Rectangle {
+                            color: settings.surfaceBackground
+                            border.color: settings.surfaceMuted
+                            border.width: 1
+                            height: 132
+                            radius: 8
+                            width: parent.width
+
+                            Column {
+                                anchors.fill: parent
+                                anchors.margins: 16
+                                spacing: 10
+
+                                Row {
+                                    spacing: 8
+                                    width: parent.width
+
+                                    Text {
+                                        color: settings.surfaceMuted
+                                        font.pixelSize: 13
+                                        text: "Application"
+                                        width: 150
+                                    }
+
+                                    Text {
+                                        color: settings.surfaceForeground
+                                        font.pixelSize: 13
+                                        text: settings.shellApplicationName
+                                    }
+                                }
+
+                                Row {
+                                    spacing: 8
+                                    width: parent.width
+
+                                    Text {
+                                        color: settings.surfaceMuted
+                                        font.pixelSize: 13
+                                        text: "Version"
+                                        width: 150
+                                    }
+
+                                    Text {
+                                        color: settings.surfaceForeground
+                                        font.pixelSize: 13
+                                        text: settings.shellApplicationVersion
+                                    }
+                                }
+
+                                Row {
+                                    spacing: 8
+                                    width: parent.width
+
+                                    Text {
+                                        color: settings.surfaceMuted
+                                        font.pixelSize: 13
+                                        text: "Desktop"
+                                        width: 150
+                                    }
+
+                                    Text {
+                                        color: settings.surfaceForeground
+                                        font.pixelSize: 13
+                                        text: "Northstar / Wayland"
+                                    }
+                                }
+                            }
+                        }
+
+                        Text {
+                            color: settings.surfaceMuted
+                            font.pixelSize: 12
+                            text: "This development build is running from the user-local Northstar prefix."
                             wrapMode: Text.WordWrap
                             width: parent.width
                         }
