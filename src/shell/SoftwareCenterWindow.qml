@@ -32,6 +32,12 @@ Window {
     modality: Qt.NonModal
     title: "Northstar Software"
 
+    onVisibleChanged: {
+        if (visible) {
+            searchField.forceActiveFocus()
+        }
+    }
+
     minimumWidth: software.minimumSurfaceWidth
     minimumHeight: software.minimumSurfaceHeight
     width: Math.min(980, Math.max(software.minimumSurfaceWidth,
@@ -52,6 +58,7 @@ Window {
         show()
         raise()
         requestActivate()
+        searchField.forceActiveFocus()
     }
 
     function beginDrag(mouseX, mouseY) {
