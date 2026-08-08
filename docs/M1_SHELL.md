@@ -44,9 +44,16 @@ make run-shell
 
 The shell creates one reserved top panel surface per connected display. The
 panel contains the Northstar title, active-window placeholder, clock, an
-Applications submenu, a searchable application overview, pinned
-Terminal/Firefox launch buttons, and a light/dark token toggle. The shell runs
-unprivileged and does not own or terminate launched applications.
+Applications menu action, a searchable application overview, pinned
+Terminal/Firefox launch buttons, and a light/dark token toggle. The system menu
+and application overview are independent desktop windows rather than popups
+constrained to the panel surface, so they can extend into the desktop area.
+The Settings surface is also a desktop window with functional Appearance,
+Session, and About Northstar pages. Appearance controls the shared dark/light
+tokens; Session reports the active desktop, display size, and application count
+and can refresh the catalog; About reports the shell name and version.
+The shell runs unprivileged and does not own or terminate launched
+applications.
 
 `src/launcher/applicationcatalog.*` discovers standard `.desktop` entries in
 the XDG user and system application directories. User entries take precedence
