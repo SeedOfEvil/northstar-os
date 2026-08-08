@@ -15,8 +15,8 @@ private slots:
 void PackageCatalogTest::parsesAndSortsPackageQueryOutput()
 {
     const QList<InstalledPackage> packages = PackageCatalog::parseQueryOutput(
-        QByteArray("zlib\t1.3\tCompression library\n"
-                   "bash\t5.2\tBourne shell\n"));
+        QByteArray("zlib|1.3|Compression library\n"
+                   "bash|5.2|Bourne shell\n"));
 
     QCOMPARE(packages.size(), 2);
     QCOMPARE(packages.at(0).name, QStringLiteral("bash"));
@@ -28,13 +28,13 @@ void PackageCatalogTest::ignoresMalformedAndDuplicateRows()
 {
     const QList<InstalledPackage> packages = PackageCatalog::parseQueryOutput(
         QByteArray("invalid\n"
-                   "\t1.0\tmissing name\n"
-                   "qt6\t\tmissing version\n"
-                   "qt6\t6.8\tfirst\n"
-                   "qt6\t6.8\tduplicate\n"));
+                   "|1.0|missing name\n"
+                   "qt6||missing version\n"
+                   "qt6|6.8|first|with a pipe\n"
+                   "qt6|6.8|duplicate\n"));
 
     QCOMPARE(packages.size(), 1);
-    QCOMPARE(packages.constFirst().comment, QStringLiteral("first"));
+    QCOMPARE(packages.constFirst().comment, QStringLiteral("first|with a pipe"));
 }
 
 void PackageCatalogTest::filtersAcrossPackageFields()

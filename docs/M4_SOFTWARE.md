@@ -5,7 +5,7 @@ the `Meta+U` shortcut. It reads the installed FreeBSD package inventory with
 the non-mutating command:
 
 ```sh
-pkg query -a '%n\t%v\t%c'
+pkg query -a '%n|%v|%c'
 ```
 
 The surface supports:

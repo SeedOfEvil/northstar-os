@@ -106,7 +106,7 @@ bool PackageCatalog::refresh()
     QProcess process;
     process.setProgram(m_packageManagerPath);
     process.setArguments({QStringLiteral("query"), QStringLiteral("-a"),
-                          QStringLiteral("%n\t%v\t%c")});
+                          QStringLiteral("%n|%v|%c")});
     process.start();
 
     if (!process.waitForStarted(1500)) {
@@ -146,15 +146,17 @@ QList<InstalledPackage> PackageCatalog::parseQueryOutput(const QByteArray &outpu
     QSet<QString> seenNames;
     const QStringList lines = QString::fromUtf8(output).split(QLatin1Char('\n'), Qt::SkipEmptyParts);
     for (const QString &line : lines) {
-        const QStringList fields = line.split(QLatin1Char('\t'), Qt::KeepEmptyParts);
-        if (fields.size() < 2) {
+        const qsizetype firstSeparator = line.indexOf(QLatin1Char('|'));
+        const qsizetype secondSeparator = firstSeparator < 0
+            ? -1 : line.indexOf(QLatin1Char('|'), firstSeparator + 1);
+        if (firstSeparator <= 0 || secondSeparator <= firstSeparator + 1) {
             continue;
         }
 
         InstalledPackage package{
-            boundedField(fields.at(0), 128),
-            boundedField(fields.at(1), 128),
-            fields.size() > 2 ? boundedField(fields.at(2), 240) : QString(),
+            boundedField(line.left(firstSeparator), 128),
+            boundedField(line.mid(firstSeparator + 1, secondSeparator - firstSeparator - 1), 128),
+            boundedField(line.mid(secondSeparator + 1), 240),
         };
         if (package.name.isEmpty() || package.version.isEmpty() || seenNames.contains(package.name)) {
             continue;
