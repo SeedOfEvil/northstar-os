@@ -40,6 +40,76 @@ Window {
         }
     }
 
+    function closeTransientSurfaces() {
+        if (systemMenu.visible) {
+            systemMenu.closeMenu()
+        } else if (applicationOverview.visible) {
+            applicationOverview.hide()
+        } else if (quickSettingsWindow.visible) {
+            quickSettingsWindow.hide()
+        } else if (fileBrowserWindow.visible) {
+            fileBrowserWindow.hide()
+        } else if (settingsWindow.visible) {
+            settingsWindow.hide()
+        }
+    }
+
+    Shortcut {
+        context: Qt.ApplicationShortcut
+        enabled: displayIndex === 0 && !!northstarShortcutCatalog
+        sequence: northstarShortcutCatalog
+            ? northstarShortcutCatalog.sequenceFor("applications") : ""
+        onActivated: systemMenu.triggerAction("applications")
+    }
+
+    Shortcut {
+        context: Qt.ApplicationShortcut
+        enabled: displayIndex === 0 && !!northstarShortcutCatalog
+        sequence: northstarShortcutCatalog
+            ? northstarShortcutCatalog.sequenceFor("files") : ""
+        onActivated: systemMenu.triggerAction("files")
+    }
+
+    Shortcut {
+        context: Qt.ApplicationShortcut
+        enabled: displayIndex === 0 && !!northstarShortcutCatalog
+        sequence: northstarShortcutCatalog
+            ? northstarShortcutCatalog.sequenceFor("settings") : ""
+        onActivated: systemMenu.triggerAction("settings")
+    }
+
+    Shortcut {
+        context: Qt.ApplicationShortcut
+        enabled: displayIndex === 0 && !!northstarShortcutCatalog
+        sequence: northstarShortcutCatalog
+            ? northstarShortcutCatalog.sequenceFor("terminal") : ""
+        onActivated: systemMenu.triggerAction("terminal")
+    }
+
+    Shortcut {
+        context: Qt.ApplicationShortcut
+        enabled: displayIndex === 0 && !!northstarShortcutCatalog
+        sequence: northstarShortcutCatalog
+            ? northstarShortcutCatalog.sequenceFor("browser") : ""
+        onActivated: systemMenu.triggerAction("browser")
+    }
+
+    Shortcut {
+        context: Qt.ApplicationShortcut
+        enabled: displayIndex === 0 && !!northstarShortcutCatalog
+        sequence: northstarShortcutCatalog
+            ? northstarShortcutCatalog.sequenceFor("refresh") : ""
+        onActivated: systemMenu.triggerAction("refresh")
+    }
+
+    Shortcut {
+        context: Qt.ApplicationShortcut
+        enabled: systemMenu.visible || applicationOverview.visible || quickSettingsWindow.visible
+            || fileBrowserWindow.visible || settingsWindow.visible
+        sequence: "Escape"
+        onActivated: root.closeTransientSurfaces()
+    }
+
     Rectangle {
         anchors.fill: parent
         color: root.panelBackground
@@ -213,7 +283,7 @@ Window {
                     anchors.verticalCenter: parent.verticalCenter
                     color: root.panelMuted
                     font.pixelSize: 10
-                    text: "⌘K"
+                    text: "Super+K"
                 }
             }
 
@@ -285,6 +355,7 @@ Window {
         settingsSurface: settingsWindow
         filesWindow: fileBrowserWindow
         sessionController: northstarSessionController
+        shortcutCatalog: northstarShortcutCatalog
         state: shellState
         targetScreen: targetScreen
         panelHeight: root.height

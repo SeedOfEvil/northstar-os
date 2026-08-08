@@ -56,8 +56,10 @@ discovers a validated development bundle, surfaces its owned icon, passes its
 owned executable directly to the launcher, supports dragging regular Files
 entries onto Apps tiles for explicit file launching, provides a Locations bar
 for mounted non-pseudo volumes with read-only navigation, and persists the
-Appearance preference across shell restarts. Package provenance and the
-project global menu remain follow-on slices.
+Appearance preference across shell restarts. The first project-owned menu
+accelerators and application-level keyboard mappings now share a tested
+command catalog. Package provenance and compositor-wide/global third-party
+menu integration remain follow-on slices.
 
 Third-party global menus and full macOS compatibility remain out of scope.
 

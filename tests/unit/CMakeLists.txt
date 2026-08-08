@@ -10,6 +10,18 @@ target_link_libraries(test-shellstate
 
 add_test(NAME northstar-shellstate COMMAND test-shellstate)
 
+qt_add_executable(test-shortcutcatalog
+    test-shortcutcatalog.cpp
+)
+
+target_link_libraries(test-shortcutcatalog
+    PRIVATE
+        northstar-shell-core
+        Qt6::Test
+)
+
+add_test(NAME northstar-shortcutcatalog COMMAND test-shortcutcatalog)
+
 qt_add_executable(test-sessioncontroller
     test-sessioncontroller.cpp
 )

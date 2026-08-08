@@ -4,6 +4,7 @@
 #include "powercontroller.h"
 #include "sessioncontroller.h"
 #include "shellstate.h"
+#include "shortcutcatalog.h"
 #include "volumecatalog.h"
 #include "windowcontroller.h"
 
@@ -56,6 +57,7 @@ int main(int argc, char *argv[])
     FileBrowserController fileBrowserController;
     PowerController powerController;
     SessionController sessionController;
+    ShortcutCatalog shortcutCatalog;
     VolumeController volumeController;
     WindowController windowController;
     const QUrl logoSource = northstarLogoSource();
@@ -111,6 +113,7 @@ int main(int argc, char *argv[])
         context->setContextProperty(QStringLiteral("northstarFileBrowserController"), &fileBrowserController);
         context->setContextProperty(QStringLiteral("northstarPowerController"), &powerController);
         context->setContextProperty(QStringLiteral("northstarSessionController"), &sessionController);
+        context->setContextProperty(QStringLiteral("northstarShortcutCatalog"), &shortcutCatalog);
         context->setContextProperty(QStringLiteral("northstarVolumeController"), &volumeController);
         context->setContextProperty(QStringLiteral("northstarWindowController"), &windowController);
         context->setContextProperty(QStringLiteral("northstarLogoSource"), logoSource);

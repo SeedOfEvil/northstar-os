@@ -4,6 +4,7 @@ add_library(northstar-shell-core STATIC
     powercontroller.cpp
     sessioncontroller.cpp
     shellstate.cpp
+    shortcutcatalog.cpp
     volumecatalog.cpp
     windowcontroller.cpp
 )
