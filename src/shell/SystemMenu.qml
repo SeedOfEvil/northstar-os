@@ -19,6 +19,9 @@ Window {
     property color surfaceForeground: state && state.darkMode ? "#f5f7fb" : "#1e2430"
     property color surfaceMuted: state && state.darkMode ? "#a9b1c2" : "#637083"
     property color surfaceAccent: state && state.darkMode ? "#79b8ff" : "#1769aa"
+    property int menuRowHeight: 38
+    property int menuSeparatorHeight: 1
+    property int menuContentHeight: (7 * menuRowHeight) + (2 * menuSeparatorHeight)
     property bool canLogout: sessionController !== null
         && sessionController !== undefined
         && sessionController.available
@@ -30,7 +33,7 @@ Window {
     title: "Northstar Menu"
 
     width: 320
-    height: 330
+    height: menuContentHeight + 46
     x: screenX + screenWidth - width - desktopMargin
     y: screenY + panelHeight + 8
 
@@ -81,13 +84,21 @@ Window {
         modal: true
         title: "Log out of Northstar?"
         standardButtons: Dialog.Cancel | Dialog.Ok
-        width: 420
+        padding: 16
+        width: menu.width - 20
         x: (menu.width - width) / 2
         y: (menu.height - height) / 2
 
+        background: Rectangle {
+            color: menu.surfaceBackground
+            border.color: menu.surfaceAccent
+            border.width: 1
+            radius: 8
+        }
+
         contentItem: Column {
             spacing: 10
-            width: 360
+            width: logoutDialog.width - (2 * logoutDialog.padding)
 
             Text {
                 color: menu.surfaceForeground
@@ -164,7 +175,7 @@ Window {
                     color: modelData.kind === "separator"
                         ? menu.surfaceMuted
                         : menuItemMouse.containsMouse ? menu.surfaceAccent : "transparent"
-                    height: modelData.kind === "separator" ? 1 : 38
+                    height: modelData.kind === "separator" ? menu.menuSeparatorHeight : menu.menuRowHeight
                     radius: modelData.kind === "separator" ? 0 : 6
                     width: menuList.width
 

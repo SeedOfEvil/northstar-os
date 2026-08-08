@@ -137,6 +137,10 @@ moved to timestamped `.northstar-backup-*` files first.
 The nested config autostarts QTerminal and keeps `Super+Enter` as a second
 launch path, so a successful console start should show a usable terminal
 instead of an empty black compositor background.
+For the current Proxmox framebuffer, the template also pins `X11-1` to
+`1280x800`; without that output stanza wlroots defaults the nested X11
+compositor to `1024x768`, leaving an unused black strip in noVNC. If the VM's
+framebuffer size changes, update that mode before the next supervised start.
 
 From the VM's Proxmox noVNC/console session, log in as `northstar` and start
 Xorg:
