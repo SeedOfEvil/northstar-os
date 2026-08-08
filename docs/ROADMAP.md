@@ -33,12 +33,14 @@ Deliver `northstar-session`, environment setup, D-Bus startup, logout/reboot/shu
 The first scoped foundation is documented in [`docs/M2_SESSION.md`](M2_SESSION.md). It prepares the user environment, starts D-Bus and the configured compositor, discovers the compositor's actual Wayland socket, supervises the shell, restarts shell crashes within a bounded limit, stops only the child processes it owns, installs a standard Wayland session descriptor, and provides an opt-in supervised nested `startx` wrapper that is now live-validated. Privileged lifecycle actions, live display-manager login, and persistent service integration remain future work.
 
 The follow-on session slices add a user-private status contract, a confirmed
-unprivileged end-session request, and tracked application launches. The Session
-settings page shows supervisor state, Wayland display, owned process IDs, and
-restart count; the launcher records desktop identity and PID and gives the
-shell success/failure feedback without widening supervisor process ownership.
-The system menu now exposes that end-session request as a confirmed logout
-action, with an explicit unmanaged-shell fallback.
+unprivileged end-session request, tracked application launches, controlled
+restart/shutdown actions, and an opt-in console-login autostart path for the
+current development VM. The Session settings page shows supervisor state,
+Wayland display, owned process IDs, and restart count; the launcher records
+desktop identity and PID and gives the shell success/failure feedback without
+widening supervisor process ownership. The system menu now exposes confirmed
+logout, restart, and shutdown actions, with an explicit unmanaged-shell
+fallback for logout.
 
 Pass only when login starts exactly one session, shell crashes are detected and restarted, logout terminates only the user session, privileged lifecycle actions are controlled, launches record PID and identity, and logs contain no secrets.
 

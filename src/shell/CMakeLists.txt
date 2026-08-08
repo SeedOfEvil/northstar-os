@@ -1,5 +1,6 @@
 add_library(northstar-shell-core STATIC
     applicationlauncher.cpp
+    powercontroller.cpp
     sessioncontroller.cpp
     shellstate.cpp
 )
@@ -45,4 +46,8 @@ target_link_libraries(northstar-shell
 
 install(TARGETS northstar-shell
     RUNTIME DESTINATION bin
+)
+
+install(PROGRAMS ${PROJECT_SOURCE_DIR}/src/power/northstar-power
+    DESTINATION bin
 )

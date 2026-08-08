@@ -1,11 +1,13 @@
 # Contributor tools
 
 M0 provides `check-host.sh`, `bootstrap-dev.sh`, `collect-diagnostics.sh`,
-`build-nested-wayfire.sh`, and `install-nested-wayfire-session.sh`. They use
+`build-nested-wayfire.sh`, `install-nested-wayfire-session.sh`, and
+`install-console-autostart.sh`. They use
 POSIX `/bin/sh`, avoid secrets, and document manual recovery. The M2
 `src/session/northstar-session` supervisor and the standard Wayland session
 descriptor are now installable through `make install-user`; display-manager
-enablement remains deferred.
+enablement remains deferred. The console autostart installer is limited to
+local virtual-console logins and preserves the user's existing profile.
 `install-nested-wayfire-session.sh --supervised` is an explicit,
 backup-preserving way to rehearse the same supervisor from a future fresh
 `startx` session.

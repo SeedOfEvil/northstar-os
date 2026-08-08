@@ -206,6 +206,7 @@ Window {
     SystemMenu {
         id: systemMenu
         launcherController: launcher
+        powerController: northstarPowerController
         overviewWindow: applicationOverview
         settingsSurface: settingsWindow
         sessionController: northstarSessionController

@@ -61,6 +61,34 @@ and therefore ends only Northstar's shell/compositor. In an unmanaged shell,
 the same menu entry is labeled `Quit Northstar Shell` and retains the local
 development fallback without claiming to perform a session logout.
 
+The system menu also exposes confirmed `Restart FreeBSD` and `Shut Down
+FreeBSD` actions. They call the fixed-argument user-local
+`northstar-power` boundary, which is authorized by the current development
+VM's non-interactive sudo policy. The shell never constructs or executes an
+arbitrary privileged command. Production packaging must replace that wrapper
+with a root-owned helper and a narrow authorization rule for only the restart
+and shutdown operations.
+
+For the current Proxmox console lane, the opt-in console-login hook can start
+the supervised nested session automatically after a local `ttyv0` through
+`ttyv7` login:
+
+```sh
+make install-console-autostart
+```
+
+The hook does not run for SSH or serial logins and can be disabled without
+removing the profile integration:
+
+```sh
+make disable-console-autostart
+```
+
+This is a development-console convenience, not the final graphical-login
+policy. The production path remains the standard Wayland descriptor selected
+through a display manager, followed by a separately validated autologin policy
+and lock screen.
+
 ## Deterministic validation
 
 The fake-compositor/fake-shell test runs as an unprivileged user and verifies
@@ -71,7 +99,8 @@ D-Bus wrapper handoff, and preservation of an unrelated sentinel process:
 make test
 ```
 
-`make test` also stages the built files into a temporary prefix and verifies
+`make test` also covers the power-controller contract and console autostart
+installer, stages the built files into a temporary prefix, and verifies
 that the installed session descriptor launches only the unprivileged
 `northstar-session` entry point.
 

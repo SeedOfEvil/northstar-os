@@ -5,6 +5,7 @@ Window {
     id: menu
 
     property var launcherController
+    property var powerController
     property var overviewWindow
     property var settingsSurface
     property var sessionController
@@ -21,11 +22,16 @@ Window {
     property color surfaceAccent: state && state.darkMode ? "#79b8ff" : "#1769aa"
     property int menuRowHeight: 38
     property int menuSeparatorHeight: 1
-    property int menuContentHeight: (7 * menuRowHeight) + (2 * menuSeparatorHeight)
+    property int menuContentHeight: (9 * menuRowHeight) + (3 * menuSeparatorHeight)
     property bool canLogout: sessionController !== null
         && sessionController !== undefined
         && sessionController.available
+    property bool canPower: powerController !== null
+        && powerController !== undefined
+        && powerController.available
     property string logoutError: ""
+    property string powerError: ""
+    property string pendingPowerAction: ""
 
     visible: false
     color: "transparent"
@@ -76,6 +82,10 @@ Window {
                 closeMenu()
                 Qt.quit()
             }
+        } else if (action === "restart" || action === "shutdown") {
+            menu.pendingPowerAction = action
+            menu.powerError = ""
+            powerDialog.open()
         }
     }
 
@@ -128,6 +138,66 @@ Window {
         onRejected: menu.logoutError = ""
     }
 
+    Dialog {
+        id: powerDialog
+        modal: true
+        title: menu.pendingPowerAction === "restart" ? "Restart Northstar?" : "Shut down Northstar?"
+        standardButtons: Dialog.Cancel | Dialog.Ok
+        padding: 16
+        width: menu.width - 20
+        x: (menu.width - width) / 2
+        y: (menu.height - height) / 2
+
+        background: Rectangle {
+            color: menu.surfaceBackground
+            border.color: menu.surfaceAccent
+            border.width: 1
+            radius: 8
+        }
+
+        contentItem: Column {
+            spacing: 10
+            width: powerDialog.width - (2 * powerDialog.padding)
+
+            Text {
+                color: menu.surfaceForeground
+                text: menu.canPower
+                    ? (menu.pendingPowerAction === "restart"
+                        ? "This restarts the FreeBSD system and closes Northstar."
+                        : "This shuts down the FreeBSD system and closes Northstar.")
+                    : "Power controls are not configured for this system."
+                wrapMode: Text.WordWrap
+                width: parent.width
+            }
+
+            Text {
+                color: "#c34f65"
+                text: menu.powerError
+                visible: text.length > 0
+                wrapMode: Text.WordWrap
+                width: parent.width
+            }
+        }
+
+        onAccepted: {
+            const requested = menu.canPower && menu.pendingPowerAction === "restart"
+                ? menu.powerController.requestRestart()
+                : menu.canPower && menu.pendingPowerAction === "shutdown"
+                ? menu.powerController.requestShutdown()
+                : false
+            if (requested) {
+                menu.hide()
+            } else {
+                menu.powerError = menu.powerController && menu.powerController.statusMessage.length > 0
+                    ? menu.powerController.statusMessage
+                    : "The requested power action is unavailable."
+                powerDialog.open()
+            }
+        }
+
+        onRejected: menu.powerError = ""
+    }
+
     Rectangle {
         anchors.fill: parent
         color: menu.surfaceBackground
@@ -164,7 +234,10 @@ Window {
                     { kind: "action", id: "terminal", label: "Launch Terminal" },
                     { kind: "action", id: "browser", label: "Launch Firefox" },
                     { kind: "separator" },
-                    { kind: "action", id: "logout", label: "Log Out of Northstar" }
+                    { kind: "action", id: "logout", label: "Log Out of Northstar" },
+                    { kind: "separator" },
+                    { kind: "action", id: "restart", label: "Restart FreeBSD" },
+                    { kind: "action", id: "shutdown", label: "Shut Down FreeBSD" }
                 ]
                 width: parent.width
                 height: parent.height - 26

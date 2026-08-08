@@ -20,5 +20,11 @@ Northstar manually from a fresh console session, verify the user identity and
 Wayland environment, then log out cleanly before any autologin policy is
 considered.
 
+The current development VM also has an explicit console-login convenience
+installer, `make install-console-autostart`. That hook is limited to local
+`ttyv0` through `ttyv7` logins and is not a substitute for SDDM integration.
+Autologin remains deferred until a lock screen and a manual recovery path are
+validated.
+
 The current Proxmox basic-VGA lane remains a `startx`/nested-X11 fallback and
 does not prove display-manager or direct DRM/KMS acceptance.
