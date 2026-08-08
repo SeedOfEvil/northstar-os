@@ -58,8 +58,10 @@ entries onto Apps tiles for explicit file launching, provides a Locations bar
 for mounted non-pseudo volumes with read-only navigation, and persists the
 Appearance preference across shell restarts. The first project-owned menu
 accelerators and application-level keyboard mappings now share a tested
-command catalog. Package provenance and compositor-wide/global third-party
-menu integration remain follow-on slices.
+command catalog. Project `.app` bundles now require and expose a tested
+source/package/revision provenance record. Cryptographic signing, package
+repository verification, and compositor-wide/global third-party menu
+integration remain follow-on slices.
 
 Third-party global menus and full macOS compatibility remain out of scope.
 

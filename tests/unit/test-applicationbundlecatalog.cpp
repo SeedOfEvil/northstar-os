@@ -38,9 +38,10 @@ bool writeFile(const QString &path, const QByteArray &contents, QFileDevice::Per
 
 QByteArray manifest(const QByteArray &bundleId,
                     const QByteArray &executable = "northstar-welcome",
-                    const QByteArray &icon = "northstar-welcome.svg")
+                    const QByteArray &icon = "northstar-welcome.svg",
+                    bool includeProvenance = true)
 {
-    return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+    QByteArray result = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
            "<plist version=\"1.0\"><dict>\n"
            "<key>BundleIdentifier</key><string>" + bundleId + "</string>\n"
            "<key>DisplayName</key><string>Northstar Welcome</string>\n"
@@ -48,7 +49,16 @@ QByteArray manifest(const QByteArray &bundleId,
            "<key>Executable</key><string>" + executable + "</string>\n"
            "<key>Icon</key><string>" + icon + "</string>\n"
            "<key>Categories</key><array><string>Utility</string></array>\n"
-           "</dict></plist>\n";
+           ;
+    if (includeProvenance) {
+        result += "<key>Provenance</key><dict>\n"
+                  "<key>Source</key><string>northstar-project</string>\n"
+                  "<key>Package</key><string>northstar-welcome</string>\n"
+                  "<key>Revision</key><string>development</string>\n"
+                  "</dict>\n";
+    }
+    result += "</dict></plist>\n";
+    return result;
 }
 
 bool createBundle(const QString &directory,
@@ -100,10 +110,16 @@ void ApplicationBundleCatalogTest::discoversValidBundleAndLaunchSpec()
     QCOMPARE(catalog.applicationIds(), QStringList({QStringLiteral("bundle:org.northstar.Welcome")}));
     QCOMPARE(catalog.entries().first().name, QStringLiteral("Northstar Welcome"));
     QCOMPARE(catalog.entries().first().categories, QStringList({QStringLiteral("Utility")}));
+    QCOMPARE(catalog.entries().first().provenance.source, QStringLiteral("northstar-project"));
+    QCOMPARE(catalog.entries().first().provenance.package, QStringLiteral("northstar-welcome"));
+    QCOMPARE(catalog.entries().first().provenance.revision, QStringLiteral("development"));
 
     const QVariantMap item = catalog.applications().first().toMap();
     QCOMPARE(item.value(QStringLiteral("sourceType")).toString(), QStringLiteral("bundle"));
     QCOMPARE(item.value(QStringLiteral("genericName")).toString(), QStringLiteral("Version 0.1.0"));
+    QCOMPARE(item.value(QStringLiteral("provenanceSource")).toString(), QStringLiteral("northstar-project"));
+    QCOMPARE(item.value(QStringLiteral("provenancePackage")).toString(), QStringLiteral("northstar-welcome"));
+    QCOMPARE(item.value(QStringLiteral("provenanceRevision")).toString(), QStringLiteral("development"));
     QVERIFY(item.value(QStringLiteral("iconSource")).toUrl().isLocalFile());
 
     QString program;
@@ -123,6 +139,8 @@ void ApplicationBundleCatalogTest::rejectsMalformedTraversalAndWritableBundles()
     QVERIFY(createBundle(apps, "org.northstar.Absolute"));
     QVERIFY(createBundle(apps, "org.northstar.Writable"));
     QVERIFY(createBundle(apps, "org.northstar.Malformed"));
+    QVERIFY(createBundle(apps, "org.northstar.MissingProvenance"));
+    QVERIFY(createBundle(apps, "org.northstar.InvalidProvenance"));
 
     const QString traversalManifest = QDir(bundlePath(apps, QStringLiteral("org.northstar.Traversal")))
         .filePath(QStringLiteral("Contents/Info.plist"));
@@ -152,6 +170,21 @@ void ApplicationBundleCatalogTest::rejectsMalformedTraversalAndWritableBundles()
                       "#!/bin/sh\nexit 0\n",
                       QFileDevice::ReadOwner | QFileDevice::WriteOwner
                           | QFileDevice::ExeOwner | QFileDevice::WriteOther));
+
+    const QString missingProvenanceManifest = QDir(bundlePath(apps, QStringLiteral("org.northstar.MissingProvenance")))
+        .filePath(QStringLiteral("Contents/Info.plist"));
+    QVERIFY(writeFile(missingProvenanceManifest,
+                      manifest("org.northstar.MissingProvenance", "northstar-welcome", "northstar-welcome.svg", false),
+                      QFileDevice::ReadOwner | QFileDevice::WriteOwner));
+
+    const QString invalidProvenanceManifest = QDir(bundlePath(apps, QStringLiteral("org.northstar.InvalidProvenance")))
+        .filePath(QStringLiteral("Contents/Info.plist"));
+    QByteArray invalidProvenance = manifest("org.northstar.InvalidProvenance");
+    invalidProvenance.replace("<key>Source</key><string>northstar-project</string>",
+                              "<key>Source</key><string> northstar-project </string>");
+    QVERIFY(writeFile(invalidProvenanceManifest,
+                      invalidProvenance,
+                      QFileDevice::ReadOwner | QFileDevice::WriteOwner));
 
     ApplicationBundleCatalog catalog({apps});
     QVERIFY(catalog.entries().isEmpty());

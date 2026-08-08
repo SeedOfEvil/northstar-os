@@ -22,7 +22,7 @@ Use `Contents/Executable` rather than `Contents/MacOS` to keep the namespace pro
 
 ## Consequences
 
-The format is visually approachable and can carry project-owned resources without claiming compatibility with proprietary bundle internals. The launcher and packaging tools must define validation, signing/provenance, library isolation, localization, and file associations before release use.
+The format is visually approachable and can carry project-owned resources without claiming compatibility with proprietary bundle internals. The launcher now defines and validates a source/package/revision provenance record for development bundles. Packaging tools must still define cryptographic signing, repository verification, library isolation, localization, and file associations before release use.
 
 ## Alternatives considered
 
@@ -32,4 +32,4 @@ The format is visually approachable and can carry project-owned resources withou
 
 ## Validation
 
-M3 must install a sample bundle through `pkg`, validate its manifest, launch it as an unprivileged user, expose its icon/resources, and reject traversal paths or unowned executables.
+M3 must install a sample bundle through the development install path, validate its manifest and provenance, launch it as an unprivileged user, expose its icon/resources, and reject traversal paths or unowned executables. M4 adds package/repository and signing evidence.
