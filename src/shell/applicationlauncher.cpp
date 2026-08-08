@@ -118,6 +118,25 @@ bool ApplicationLauncher::launchApplication(const QString &desktopId)
     return launch(desktopId, applicationNameFor(desktopId), program, arguments);
 }
 
+bool ApplicationLauncher::launchApplicationWithFile(const QString &desktopId, const QString &filePath)
+{
+    const QFileInfo fileInfo(filePath);
+    if (!fileInfo.exists() || !fileInfo.isFile()) {
+        setLaunchStatus(desktopId, applicationNameFor(desktopId), {}, 0, false);
+        return false;
+    }
+
+    QString program;
+    QStringList arguments;
+    if (!m_catalog.launchSpec(desktopId, &program, &arguments)) {
+        setLaunchStatus(desktopId, applicationNameFor(desktopId), {}, 0, false);
+        return false;
+    }
+
+    arguments.append(fileInfo.absoluteFilePath());
+    return launch(desktopId, applicationNameFor(desktopId), program, arguments);
+}
+
 bool ApplicationLauncher::refreshApplications()
 {
     return m_catalog.reload();

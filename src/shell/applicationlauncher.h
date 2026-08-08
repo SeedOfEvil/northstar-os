@@ -46,6 +46,7 @@ public:
     Q_INVOKABLE bool launchTerminal();
     Q_INVOKABLE bool launchBrowser();
     Q_INVOKABLE bool launchApplication(const QString &desktopId);
+    Q_INVOKABLE bool launchApplicationWithFile(const QString &desktopId, const QString &filePath);
     Q_INVOKABLE bool refreshApplications();
     Q_INVOKABLE void clearLaunchMessage();
 

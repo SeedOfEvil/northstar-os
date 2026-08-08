@@ -5,6 +5,7 @@ Window {
     id: files
 
     property var fileBrowserController
+    property var applicationLauncher
     property var state
     property var targetScreen
     property int panelHeight: 44
@@ -75,8 +76,33 @@ Window {
             return
         }
         const entry = files.selectedEntry
-        if (files.fileBrowserController.openEntry(files.selectedPath) && entry.isDirectory) {
-            files.clearSelection()
+        if (entry.isDirectory) {
+            if (files.fileBrowserController.openEntry(files.selectedPath)) {
+                files.clearSelection()
+            }
+            return
+        }
+        files.openAssociationDialog()
+    }
+
+    function openAssociationDialog() {
+        if (!files.hasSelection || files.selectedEntry.isDirectory) {
+            return
+        }
+        associationDialog.itemPath = files.selectedPath
+        associationDialog.itemName = files.selectedName
+        if (files.applicationLauncher) {
+            files.applicationLauncher.setApplicationQuery("")
+        }
+        associationDialog.open()
+    }
+
+    function launchSelectedFile(desktopId) {
+        if (!files.applicationLauncher || !associationDialog.itemPath) {
+            return
+        }
+        if (files.applicationLauncher.launchApplicationWithFile(desktopId, associationDialog.itemPath)) {
+            associationDialog.close()
         }
     }
 
@@ -127,6 +153,36 @@ Window {
         return files.showingTrash
             ? entry.kind + " - " + (entry.originalLocation || "Original location unavailable")
             : entry.kind + " - " + entry.modified
+    }
+
+    function applicationIconName(application) {
+        if (!application) {
+            return "northstar"
+        }
+        const descriptor = ((application.name || "") + " "
+            + (application.genericName || "") + " "
+            + (application.desktopId || "")).toLowerCase()
+        if (descriptor.indexOf("terminal") >= 0 || descriptor.indexOf("shell") >= 0
+                || descriptor.indexOf("console") >= 0) {
+            return "terminal"
+        }
+        if (descriptor.indexOf("firefox") >= 0 || descriptor.indexOf("browser") >= 0
+                || descriptor.indexOf("web") >= 0) {
+            return "browser"
+        }
+        if (descriptor.indexOf("setting") >= 0 || descriptor.indexOf("preference") >= 0
+                || descriptor.indexOf("config") >= 0) {
+            return "settings"
+        }
+        if (descriptor.indexOf("file") >= 0 || descriptor.indexOf("folder") >= 0
+                || descriptor.indexOf("manager") >= 0) {
+            return "files"
+        }
+        if (descriptor.indexOf("text") >= 0 || descriptor.indexOf("editor") >= 0
+                || descriptor.indexOf("note") >= 0) {
+            return "editor"
+        }
+        return "northstar"
     }
 
     function openEmptyTrashDialog() {
@@ -625,19 +681,11 @@ Window {
                             spacing: 6
                             visible: files.gridView
 
-                            Rectangle {
-                                color: modelData.isDirectory ? "#35658f" : "#3e4d64"
+                            NorthstarIcon {
+                                anchors.horizontalCenter: parent.horizontalCenter
                                 height: 38
-                                radius: 7
                                 width: 52
-
-                                Text {
-                                    anchors.centerIn: parent
-                                    color: "#ffffff"
-                                    font.bold: true
-                                    font.pixelSize: 11
-                                    text: modelData.isDirectory ? "DIR" : "FILE"
-                                }
+                                iconName: modelData.isDirectory ? "files" : "editor"
                             }
 
                             Text {
@@ -666,19 +714,17 @@ Window {
                             spacing: 12
                             visible: !files.gridView
 
-                            Text {
+                            NorthstarIcon {
                                 anchors.verticalCenter: parent.verticalCenter
-                                color: files.surfaceForeground
-                                font.bold: true
-                                font.pixelSize: 11
-                                text: modelData.isDirectory ? "DIR" : "FILE"
-                                width: 34
+                                height: 32
+                                width: 32
+                                iconName: modelData.isDirectory ? "files" : "editor"
                             }
 
                             Column {
                                 anchors.verticalCenter: parent.verticalCenter
                                 spacing: 2
-                                width: parent.width - 46
+                                width: parent.width - 58
 
                                 Text {
                                     color: files.surfaceForeground
@@ -734,6 +780,136 @@ Window {
                     ? files.fileBrowserController.errorMessage
                     : "Select an item and choose Open, or double-click it."
                 width: parent.width
+            }
+        }
+    }
+
+    Dialog {
+        id: associationDialog
+        property string itemPath: ""
+        property string itemName: ""
+
+        title: "Open with an application"
+        modal: true
+        padding: 16
+        standardButtons: Dialog.NoButton
+        width: Math.min(520, files.width - 48)
+        x: (files.width - width) / 2
+        y: (files.height - height) / 2
+
+        background: Rectangle {
+            color: files.surfaceBackground
+            border.color: files.surfaceAccent
+            border.width: 1
+            radius: 8
+        }
+
+        contentItem: Column {
+            spacing: 10
+            width: associationDialog.width - (2 * associationDialog.padding)
+
+            Text {
+                color: files.surfaceForeground
+                text: "Choose how Northstar should open \"" + associationDialog.itemName + "\"."
+                wrapMode: Text.WordWrap
+                width: parent.width
+            }
+
+            Rectangle {
+                color: files.surfaceBackground
+                border.color: files.surfaceMuted
+                border.width: 1
+                height: 220
+                width: parent.width
+
+                ListView {
+                    id: associationList
+                    anchors.fill: parent
+                    anchors.margins: 6
+                    clip: true
+                    model: files.applicationLauncher ? files.applicationLauncher.applications : []
+
+                    delegate: Rectangle {
+                        required property var modelData
+
+                        color: associationMouse.containsMouse ? files.surfaceAccent : files.surfaceRaised
+                        height: 52
+                        radius: 6
+                        width: associationList.width - 12
+
+                        Row {
+                            anchors.fill: parent
+                            anchors.leftMargin: 10
+                            anchors.rightMargin: 10
+                            spacing: 10
+
+                            NorthstarIcon {
+                                anchors.verticalCenter: parent.verticalCenter
+                                height: 34
+                                width: 34
+                                iconName: files.applicationIconName(modelData)
+                            }
+
+                            Column {
+                                anchors.verticalCenter: parent.verticalCenter
+                                spacing: 2
+                                width: parent.width - 44
+
+                                Text {
+                                    color: files.surfaceForeground
+                                    elide: Text.ElideRight
+                                    font.pixelSize: 13
+                                    text: modelData.name
+                                    width: parent.width
+                                }
+
+                                Text {
+                                    color: files.surfaceMuted
+                                    elide: Text.ElideRight
+                                    font.pixelSize: 10
+                                    text: modelData.genericName || modelData.desktopId
+                                    width: parent.width
+                                }
+                            }
+                        }
+
+                        MouseArea {
+                            id: associationMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            onClicked: files.launchSelectedFile(modelData.desktopId)
+                        }
+                    }
+
+                    ScrollBar.vertical: ScrollBar {}
+                }
+
+                Text {
+                    anchors.centerIn: parent
+                    color: files.surfaceMuted
+                    text: "No registered applications were found."
+                    visible: associationList.count === 0
+                }
+            }
+
+            Row {
+                spacing: 8
+                width: parent.width
+
+                Button {
+                    text: "Use System Default"
+                    enabled: !!files.fileBrowserController
+                    onClicked: {
+                        if (files.fileBrowserController.openEntry(associationDialog.itemPath)) {
+                            associationDialog.close()
+                        }
+                    }
+                }
+
+                Button {
+                    text: "Cancel"
+                    onClicked: associationDialog.close()
+                }
             }
         }
     }

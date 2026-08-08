@@ -82,11 +82,23 @@ Window {
                     radius: 7
                     width: 84
 
-                    Text {
+                    Row {
                         anchors.centerIn: parent
-                        color: dock.dockForeground
-                        font.pixelSize: 12
-                        text: modelData === "qterminal" ? "Terminal" : "Firefox"
+                        spacing: 5
+
+                        NorthstarIcon {
+                            anchors.verticalCenter: parent.verticalCenter
+                            height: 24
+                            width: 24
+                            iconName: modelData === "qterminal" ? "terminal" : "browser"
+                        }
+
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            color: dock.dockForeground
+                            font.pixelSize: 12
+                            text: modelData === "qterminal" ? "Terminal" : "Firefox"
+                        }
                     }
 
                     MouseArea {
@@ -113,11 +125,23 @@ Window {
                 radius: 7
                 width: 72
 
-                Text {
+                Row {
                     anchors.centerIn: parent
-                    color: dock.dockForeground
-                    font.pixelSize: 12
-                    text: "Files"
+                    spacing: 4
+
+                    NorthstarIcon {
+                        anchors.verticalCenter: parent.verticalCenter
+                        height: 24
+                        width: 24
+                        iconName: "files"
+                    }
+
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: dock.dockForeground
+                        font.pixelSize: 12
+                        text: "Files"
+                    }
                 }
 
                 MouseArea {
@@ -135,11 +159,23 @@ Window {
                 radius: 7
                 width: 72
 
-                Text {
+                Row {
                     anchors.centerIn: parent
-                    color: dock.dockForeground
-                    font.pixelSize: 12
-                    text: "Trash"
+                    spacing: 4
+
+                    NorthstarIcon {
+                        anchors.verticalCenter: parent.verticalCenter
+                        height: 24
+                        width: 24
+                        iconName: "trash"
+                    }
+
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: dock.dockForeground
+                        font.pixelSize: 12
+                        text: "Trash"
+                    }
                 }
 
                 MouseArea {
@@ -260,11 +296,11 @@ Window {
                 radius: 7
                 width: 38
 
-                Text {
+                NorthstarIcon {
                     anchors.centerIn: parent
-                    color: dock.dockForeground
-                    font.pixelSize: 12
-                    text: "↻"
+                    height: 24
+                    width: 24
+                    iconName: "quick-settings"
                 }
 
                 MouseArea {
@@ -280,6 +316,7 @@ Window {
     FileBrowserWindow {
         id: filesWindow
         fileBrowserController: northstarFileBrowserController
+        applicationLauncher: launcher
         state: shellState
         targetScreen: targetScreen
         panelHeight: 44

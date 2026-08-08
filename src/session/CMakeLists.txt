@@ -32,3 +32,8 @@ install(FILES
     ${PROJECT_SOURCE_DIR}/assets/branding/northstar-logo.png
     DESTINATION share/northstar/branding
 )
+
+install(FILES
+    ${PROJECT_SOURCE_DIR}/assets/icons/northstar-icons.png
+    DESTINATION share/northstar/icons
+)

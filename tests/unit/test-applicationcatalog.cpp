@@ -153,7 +153,7 @@ void ApplicationCatalogTest::launcherUsesCatalogArguments()
     QTemporaryDir temporaryDirectory;
     QVERIFY(temporaryDirectory.isValid());
     const QString applications = applicationsDirectory(temporaryDirectory, QStringLiteral("applications"));
-    writeDesktopFile(applications, QStringLiteral("demo"), applicationEntry("Demo", "demo --ready"));
+    writeDesktopFile(applications, QStringLiteral("demo"), applicationEntry("Demo", "demo --ready %f"));
 
     QString launchedProgram;
     QStringList launchedArguments;
@@ -181,6 +181,20 @@ void ApplicationCatalogTest::launcherUsesCatalogArguments()
     QCOMPARE(launcher.lastLaunchDesktopId(), QStringLiteral("demo"));
     QCOMPARE(launcher.lastLaunchPid(), 4321);
     QVERIFY(launcher.lastLaunchSucceeded());
+
+    const QString documentPath = QDir(temporaryDirectory.path()).filePath(QStringLiteral("notes.txt"));
+    QFile document(documentPath);
+    QVERIFY(document.open(QIODevice::WriteOnly));
+    document.write("Northstar");
+    document.close();
+
+    QVERIFY(launcher.launchApplicationWithFile(QStringLiteral("demo"), documentPath));
+    QCOMPARE(launchedProgram, QStringLiteral("demo"));
+    QCOMPARE(launchedArguments, QStringList({
+        QStringLiteral("--ready"),
+        QFileInfo(documentPath).absoluteFilePath()
+    }));
+
     QVERIFY(!launcher.launchApplication(QStringLiteral("missing")));
     QCOMPARE(launcher.lastLaunchDesktopId(), QStringLiteral("missing"));
     QCOMPARE(launcher.lastLaunchPid(), 0);

@@ -119,11 +119,23 @@ Window {
                     radius: 7
                     width: 42
 
-                    Text {
+                    Row {
                         anchors.centerIn: parent
-                        color: root.panelMuted
-                        font.pixelSize: 11
-                        text: "Files"
+                        spacing: 3
+
+                        NorthstarIcon {
+                            anchors.verticalCenter: parent.verticalCenter
+                            height: 20
+                            width: 20
+                            iconName: "files"
+                        }
+
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            color: root.panelMuted
+                            font.pixelSize: 11
+                            text: "Files"
+                        }
                     }
 
                     MouseArea {
@@ -140,11 +152,23 @@ Window {
                     radius: 7
                     width: 42
 
-                    Text {
+                    Row {
                         anchors.centerIn: parent
-                        color: root.panelMuted
-                        font.pixelSize: 11
-                        text: "Apps"
+                        spacing: 3
+
+                        NorthstarIcon {
+                            anchors.verticalCenter: parent.verticalCenter
+                            height: 20
+                            width: 20
+                            iconName: "applications"
+                        }
+
+                        Text {
+                            anchors.verticalCenter: parent.verticalCenter
+                            color: root.panelMuted
+                            font.pixelSize: 11
+                            text: "Apps"
+                        }
                     }
 
                     MouseArea {
@@ -205,11 +229,11 @@ Window {
                     radius: 7
                     width: 34
 
-                    Text {
+                    NorthstarIcon {
                         anchors.centerIn: parent
-                        color: root.panelForeground
-                        font.pixelSize: 13
-                        text: "⌁"
+                        height: 22
+                        width: 22
+                        iconName: "quick-settings"
                     }
 
                     MouseArea {
@@ -287,6 +311,7 @@ Window {
     FileBrowserWindow {
         id: fileBrowserWindow
         fileBrowserController: northstarFileBrowserController
+        applicationLauncher: launcher
         state: shellState
         targetScreen: targetScreen
         panelHeight: root.height

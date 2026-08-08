@@ -54,6 +54,30 @@ Window {
         hide()
     }
 
+    function actionIconName(action) {
+        switch (action) {
+        case "applications":
+            return "applications"
+        case "files":
+            return "files"
+        case "refresh":
+            return "quick-settings"
+        case "settings":
+        case "theme":
+            return "settings"
+        case "terminal":
+            return "terminal"
+        case "browser":
+            return "browser"
+        case "logout":
+        case "restart":
+        case "shutdown":
+            return "northstar"
+        default:
+            return "info"
+        }
+    }
+
     function triggerAction(action) {
         if (action === "applications") {
             closeMenu()
@@ -259,7 +283,7 @@ Window {
 
                     Text {
                         anchors.fill: parent
-                        anchors.leftMargin: 10
+                        anchors.leftMargin: 42
                         color: menu.surfaceForeground
                         elide: Text.ElideRight
                         font.pixelSize: 13
@@ -270,6 +294,16 @@ Window {
                             ? "Quit Northstar Shell"
                             : modelData.label
                         verticalAlignment: Text.AlignVCenter
+                    }
+
+                    NorthstarIcon {
+                        anchors.left: parent.left
+                        anchors.leftMargin: 8
+                        anchors.verticalCenter: parent.verticalCenter
+                        height: 24
+                        visible: modelData.kind !== "separator"
+                        width: 24
+                        iconName: menu.actionIconName(modelData.id)
                     }
 
                     MouseArea {
