@@ -8,6 +8,7 @@ Window {
     property var powerController
     property var overviewWindow
     property var settingsSurface
+    property var filesWindow
     property var sessionController
     property var state
     property var targetScreen
@@ -22,7 +23,7 @@ Window {
     property color surfaceAccent: state && state.darkMode ? "#79b8ff" : "#1769aa"
     property int menuRowHeight: 38
     property int menuSeparatorHeight: 1
-    property int menuContentHeight: (9 * menuRowHeight) + (3 * menuSeparatorHeight)
+    property int menuContentHeight: (10 * menuRowHeight) + (3 * menuSeparatorHeight)
     property bool canLogout: sessionController !== null
         && sessionController !== undefined
         && sessionController.available
@@ -62,6 +63,9 @@ Window {
         } else if (action === "settings") {
             closeMenu()
             settingsSurface.openSettings()
+        } else if (action === "files") {
+            closeMenu()
+            filesWindow.openBrowser()
         } else if (action === "refresh") {
             closeMenu()
             launcherController.refreshApplications()
@@ -227,6 +231,7 @@ Window {
                 interactive: false
                 model: [
                     { kind: "action", id: "applications", label: "Applications" },
+                    { kind: "action", id: "files", label: "Open Files" },
                     { kind: "action", id: "refresh", label: "Refresh Applications" },
                     { kind: "separator" },
                     { kind: "action", id: "settings", label: "Settings" },

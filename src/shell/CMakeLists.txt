@@ -1,5 +1,6 @@
 add_library(northstar-shell-core STATIC
     applicationlauncher.cpp
+    filebrowsercontroller.cpp
     powercontroller.cpp
     sessioncontroller.cpp
     shellstate.cpp
@@ -15,6 +16,7 @@ target_link_libraries(northstar-shell-core
     PUBLIC
         northstar-launcher-core
         Qt6::Core
+        Qt6::Gui
         Qt6::Network
 )
 
@@ -31,6 +33,7 @@ qt_add_qml_module(northstar-shell
         ShellWindow.qml
         DockWindow.qml
         ApplicationOverview.qml
+        FileBrowserWindow.qml
         SystemMenu.qml
         SettingsWindow.qml
 )

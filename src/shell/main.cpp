@@ -1,4 +1,5 @@
 #include "applicationlauncher.h"
+#include "filebrowsercontroller.h"
 #include "layershellsurface.h"
 #include "powercontroller.h"
 #include "sessioncontroller.h"
@@ -32,6 +33,7 @@ int main(int argc, char *argv[])
     QQmlApplicationEngine engine;
     ShellState shellState;
     ApplicationLauncher applicationLauncher;
+    FileBrowserController fileBrowserController;
     PowerController powerController;
     SessionController sessionController;
     WindowController windowController;
@@ -59,6 +61,7 @@ int main(int argc, char *argv[])
         auto *context = new QQmlContext(engine.rootContext());
         context->setContextProperty(QStringLiteral("shellState"), &shellState);
         context->setContextProperty(QStringLiteral("launcher"), &applicationLauncher);
+        context->setContextProperty(QStringLiteral("northstarFileBrowserController"), &fileBrowserController);
         context->setContextProperty(QStringLiteral("northstarPowerController"), &powerController);
         context->setContextProperty(QStringLiteral("northstarSessionController"), &sessionController);
         context->setContextProperty(QStringLiteral("northstarWindowController"), &windowController);
@@ -77,6 +80,7 @@ int main(int argc, char *argv[])
         auto *dockContext = new QQmlContext(engine.rootContext());
         dockContext->setContextProperty(QStringLiteral("shellState"), &shellState);
         dockContext->setContextProperty(QStringLiteral("launcher"), &applicationLauncher);
+        dockContext->setContextProperty(QStringLiteral("northstarFileBrowserController"), &fileBrowserController);
         dockContext->setContextProperty(QStringLiteral("northstarWindowController"), &windowController);
         dockContext->setContextProperty(QStringLiteral("targetScreen"), screen);
         dockContext->setContextProperty(QStringLiteral("displayIndex"), index);

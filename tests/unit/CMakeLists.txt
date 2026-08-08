@@ -46,6 +46,18 @@ target_link_libraries(test-applicationcatalog
 
 add_test(NAME northstar-applicationcatalog COMMAND test-applicationcatalog)
 
+qt_add_executable(test-filebrowsercontroller
+    test-filebrowsercontroller.cpp
+)
+
+target_link_libraries(test-filebrowsercontroller
+    PRIVATE
+        northstar-shell-core
+        Qt6::Test
+)
+
+add_test(NAME northstar-filebrowsercontroller COMMAND test-filebrowsercontroller)
+
 qt_add_executable(test-windowcontroller
     test-windowcontroller.cpp
 )

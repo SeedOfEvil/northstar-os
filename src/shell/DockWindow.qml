@@ -60,6 +60,7 @@ Window {
                 delegate: Rectangle {
                     required property string modelData
 
+                    anchors.verticalCenter: parent.verticalCenter
                     color: shortcutMouse.containsMouse ? dock.dockAccent : dock.dockButton
                     height: 38
                     radius: 7
@@ -85,6 +86,29 @@ Window {
                             refreshTimer.restart()
                         }
                     }
+                }
+            }
+
+            Rectangle {
+                id: filesShortcut
+                anchors.verticalCenter: parent.verticalCenter
+                color: filesShortcutMouse.containsMouse ? dock.dockAccent : dock.dockButton
+                height: 38
+                radius: 7
+                width: 96
+
+                Text {
+                    anchors.centerIn: parent
+                    color: dock.dockForeground
+                    font.pixelSize: 12
+                    text: "Files"
+                }
+
+                MouseArea {
+                    id: filesShortcutMouse
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    onClicked: filesWindow.openBrowser()
                 }
             }
 
@@ -213,5 +237,13 @@ Window {
                 }
             }
         }
+    }
+
+    FileBrowserWindow {
+        id: filesWindow
+        fileBrowserController: northstarFileBrowserController
+        state: shellState
+        targetScreen: targetScreen
+        panelHeight: 44
     }
 }

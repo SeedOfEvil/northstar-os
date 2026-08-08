@@ -147,6 +147,7 @@ Window {
         powerController: northstarPowerController
         overviewWindow: applicationOverview
         settingsSurface: settingsWindow
+        filesWindow: fileBrowserWindow
         sessionController: northstarSessionController
         state: shellState
         targetScreen: targetScreen
@@ -162,6 +163,14 @@ Window {
         surfaceForeground: root.panelForeground
         surfaceMuted: root.panelMuted
         surfaceAccent: root.panelAccent
+    }
+
+    FileBrowserWindow {
+        id: fileBrowserWindow
+        fileBrowserController: northstarFileBrowserController
+        state: shellState
+        targetScreen: targetScreen
+        panelHeight: root.height
     }
 
     SettingsWindow {

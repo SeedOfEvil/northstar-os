@@ -134,9 +134,9 @@ installs the binary below `$HOME/.local/wayfire-nested` plus the user-level
 package-managed Wayfire. Existing configuration is preserved; if you explicitly use
 `sh tools/install-nested-wayfire-session.sh --force`, conflicting files are
 moved to timestamped `.northstar-backup-*` files first.
-The nested config autostarts QTerminal and keeps `Super+Enter` as a second
-launch path, so a successful console start should show a usable terminal
-instead of an empty black compositor background.
+The nested config leaves the compositor background clear at startup and keeps
+`Super+Enter` as the terminal launch path. The Northstar dock also provides a
+Terminal shortcut once the shell is running.
 For the current Proxmox framebuffer, the template also pins `X11-1` to
 `1280x800`; without that output stanza wlroots defaults the nested X11
 compositor to `1024x768`, leaving an unused black strip in noVNC. If the VM's

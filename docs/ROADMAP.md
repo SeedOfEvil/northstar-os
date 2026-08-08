@@ -7,7 +7,7 @@ The project advances through user-visible milestones with explicit pass gates. A
 | M0 | Reproducible development desktop | Supplemental lane validated; native gate pending | A clean FreeBSD 15.1 amd64 VM becomes the approved development environment |
 | M1 | Shell seed | Single-display slice validated; multi-display deferred | Top bar and dock render on every connected display |
 | M2 | Desktop session | Supervisor, session entry point, live nested login wrapper, branded greeter, and Proxmox fallback prepared; native acceptance pending | Session, services, supervision, notifications, and lifecycle work coherently |
-| M3 | Core desktop | Not started | Filer, settings, search, overview, associations, and project apps form a usable desktop |
+| M3 | Core desktop | Files slice in progress | Filer, settings, search, overview, associations, and project apps form a usable desktop |
 | M4 | Packages, updates, rollback | Not started | Signed packages and ZFS boot-environment rollback work end to end |
 | M5 | Reproducible image and installer | Not started | Pinned inputs produce a bootable UEFI root-on-ZFS image |
 | M6 | Alpha hardware release | Not started | The supported VM and narrow Intel/AMD hardware matrix meets the alpha definition |
@@ -47,6 +47,11 @@ Pass only when login starts exactly one session, shell crashes are detected and 
 ## M3: Core desktop experience
 
 Deliver the filer, settings, search, application overview, keyboard mapping, drag-and-drop launching, desktop icons or volumes, trash integration, the first `.app` implementation, and a project-owned Qt global menu.
+
+The first filer slice is documented in [`docs/M3_FILES.md`](M3_FILES.md). It
+adds a home-folder-scoped Files window with folder navigation, default file
+opening, path-boundary protection, and top-menu/dock entry points. Trash,
+volumes, drag-and-drop, and file search remain follow-on slices.
 
 Third-party global menus and full macOS compatibility remain out of scope.
 
