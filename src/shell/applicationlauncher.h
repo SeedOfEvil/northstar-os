@@ -24,7 +24,8 @@ public:
         LaunchFunction launchFunction = {},
         QStringList applicationDirectories = {},
         QString launchLogPath = {},
-        QStringList bundleDirectories = {});
+        QStringList bundleDirectories = {},
+        QString associationSettingsPath = {});
 
     Q_PROPERTY(QVariantList applications READ applications NOTIFY applicationsChanged)
     Q_PROPERTY(QString applicationQuery READ applicationQuery WRITE setApplicationQuery NOTIFY applicationQueryChanged)
@@ -49,6 +50,9 @@ public:
     Q_INVOKABLE bool launchBrowser();
     Q_INVOKABLE bool launchApplication(const QString &desktopId);
     Q_INVOKABLE bool launchApplicationWithFile(const QString &desktopId, const QString &filePath);
+    Q_INVOKABLE QString preferredApplicationForFile(const QString &filePath) const;
+    Q_INVOKABLE bool setPreferredApplicationForFile(const QString &filePath, const QString &desktopId);
+    Q_INVOKABLE bool clearPreferredApplicationForFile(const QString &filePath);
     Q_INVOKABLE bool refreshApplications();
     Q_INVOKABLE void clearLaunchMessage();
 
@@ -57,6 +61,7 @@ public slots:
 
 signals:
     void applicationsChanged();
+    void fileAssociationsChanged();
     void applicationQueryChanged();
     void matchingApplicationsChanged();
     void launchStatusChanged();
@@ -78,12 +83,16 @@ private:
                          bool succeeded);
     QString applicationNameFor(const QString &desktopId) const;
     bool launchSpec(const QString &desktopId, QString *program, QStringList *arguments) const;
+    QStringList applicationIds() const;
+    static QString associationExtension(const QString &filePath);
+    bool ensureAssociationSettingsDirectory() const;
 
     ApplicationCatalog m_catalog;
     ApplicationBundleCatalog m_bundleCatalog;
     QString m_applicationQuery;
     LaunchFunction m_launchFunction;
     QString m_launchLogPath;
+    QString m_associationSettingsPath;
     QString m_launchMessage;
     QString m_lastLaunchDesktopId;
     QString m_lastLaunchProgram;

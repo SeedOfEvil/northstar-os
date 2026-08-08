@@ -44,6 +44,7 @@ private slots:
     void searchesByNameCategoryAndDesktopId();
     void expandsDesktopExecWithoutShellEvaluation();
     void launcherUsesCatalogArguments();
+    void persistsFileAssociationsByExtension();
 };
 
 void ApplicationCatalogTest::filtersAndSortsDesktopEntries()
@@ -200,6 +201,52 @@ void ApplicationCatalogTest::launcherUsesCatalogArguments()
     QCOMPARE(launcher.lastLaunchPid(), 0);
     QVERIFY(!launcher.lastLaunchSucceeded());
     QVERIFY(launcher.launchMessage().contains(QStringLiteral("missing")));
+}
+
+void ApplicationCatalogTest::persistsFileAssociationsByExtension()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    const QString applications = applicationsDirectory(temporaryDirectory, QStringLiteral("applications"));
+    writeDesktopFile(applications, QStringLiteral("demo"), applicationEntry("Demo", "demo --ready %f"));
+
+    const QString associationPath = temporaryDirectory.filePath(QStringLiteral("config/file-associations.ini"));
+    const QString documentPath = QDir(temporaryDirectory.path()).filePath(QStringLiteral("notes.txt"));
+    QFile document(documentPath);
+    QVERIFY(document.open(QIODevice::WriteOnly));
+    QCOMPARE(document.write("Northstar"), 9);
+    document.close();
+
+    ApplicationLauncher launcher(
+        nullptr,
+        [](const QString &, const QStringList &, qint64 *pid) {
+            if (pid != nullptr) {
+                *pid = 4321;
+            }
+            return true;
+        },
+        {applications},
+        temporaryDirectory.filePath(QStringLiteral("launch.log")),
+        {},
+        associationPath);
+
+    QVERIFY(launcher.preferredApplicationForFile(documentPath).isEmpty());
+    QVERIFY(!launcher.setPreferredApplicationForFile(documentPath, QStringLiteral("missing")));
+    QVERIFY(launcher.setPreferredApplicationForFile(documentPath, QStringLiteral("demo")));
+    QCOMPARE(launcher.preferredApplicationForFile(documentPath), QStringLiteral("demo"));
+
+    ApplicationLauncher restoredLauncher(
+        nullptr,
+        {},
+        {applications},
+        temporaryDirectory.filePath(QStringLiteral("restored-launch.log")),
+        {},
+        associationPath);
+    QCOMPARE(restoredLauncher.preferredApplicationForFile(documentPath), QStringLiteral("demo"));
+    QVERIFY(restoredLauncher.clearPreferredApplicationForFile(documentPath));
+    QVERIFY(restoredLauncher.preferredApplicationForFile(documentPath).isEmpty());
+    QVERIFY(!restoredLauncher.setPreferredApplicationForFile(
+        QDir(temporaryDirectory.path()).filePath(QStringLiteral("README")), QStringLiteral("demo")));
 }
 
 QTEST_MAIN(ApplicationCatalogTest)

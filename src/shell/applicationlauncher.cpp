@@ -6,6 +6,8 @@
 #include <QFileDevice>
 #include <QFileInfo>
 #include <QProcess>
+#include <QSettings>
+#include <QStandardPaths>
 #include <QVariantMap>
 
 #include <algorithm>
@@ -20,6 +22,15 @@ QString defaultLaunchLogPath()
         stateHome = QDir::home().filePath(QStringLiteral(".local/state"));
     }
     return QDir(stateHome).filePath(QStringLiteral("northstar/launch.log"));
+}
+
+QString defaultAssociationSettingsPath()
+{
+    QString configHome = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
+    if (configHome.isEmpty()) {
+        configHome = QDir::home().filePath(QStringLiteral(".config/northstar"));
+    }
+    return QDir(configHome).filePath(QStringLiteral("file-associations.ini"));
 }
 
 QString logValue(const QString &value)
@@ -61,12 +72,16 @@ ApplicationLauncher::ApplicationLauncher(
     LaunchFunction launchFunction,
     QStringList applicationDirectories,
     QString launchLogPath,
-    QStringList bundleDirectories)
+    QStringList bundleDirectories,
+    QString associationSettingsPath)
     : QObject(parent)
     , m_catalog(std::move(applicationDirectories))
     , m_bundleCatalog(std::move(bundleDirectories))
     , m_launchFunction(std::move(launchFunction))
     , m_launchLogPath(launchLogPath.isEmpty() ? defaultLaunchLogPath() : std::move(launchLogPath))
+    , m_associationSettingsPath(associationSettingsPath.trimmed().isEmpty()
+            ? defaultAssociationSettingsPath()
+            : QDir::cleanPath(QDir::fromNativeSeparators(associationSettingsPath)))
 {
     if (!m_launchFunction) {
         m_launchFunction = [](const QString &program, const QStringList &arguments, qint64 *pid) {
@@ -166,6 +181,62 @@ bool ApplicationLauncher::launchApplicationWithFile(const QString &desktopId, co
 
     arguments.append(fileInfo.absoluteFilePath());
     return launch(desktopId, applicationNameFor(desktopId), program, arguments);
+}
+
+QString ApplicationLauncher::preferredApplicationForFile(const QString &filePath) const
+{
+    const QString extension = associationExtension(filePath);
+    if (extension.isEmpty()) {
+        return {};
+    }
+
+    QSettings settings(m_associationSettingsPath, QSettings::IniFormat);
+    const QString desktopId = settings.value(
+        QStringLiteral("fileAssociations/%1").arg(extension)).toString().trimmed();
+    if (desktopId.isEmpty() || !applicationIds().contains(desktopId)) {
+        return {};
+    }
+    return desktopId;
+}
+
+bool ApplicationLauncher::setPreferredApplicationForFile(const QString &filePath,
+                                                          const QString &desktopId)
+{
+    const QString extension = associationExtension(filePath);
+    const QString normalizedDesktopId = desktopId.trimmed();
+    if (extension.isEmpty() || normalizedDesktopId.isEmpty()
+        || !applicationIds().contains(normalizedDesktopId)
+        || !ensureAssociationSettingsDirectory()) {
+        return false;
+    }
+
+    QSettings settings(m_associationSettingsPath, QSettings::IniFormat);
+    settings.setValue(QStringLiteral("fileAssociations/%1").arg(extension), normalizedDesktopId);
+    settings.sync();
+    if (settings.status() != QSettings::NoError) {
+        return false;
+    }
+
+    emit fileAssociationsChanged();
+    return true;
+}
+
+bool ApplicationLauncher::clearPreferredApplicationForFile(const QString &filePath)
+{
+    const QString extension = associationExtension(filePath);
+    if (extension.isEmpty()) {
+        return false;
+    }
+
+    QSettings settings(m_associationSettingsPath, QSettings::IniFormat);
+    settings.remove(QStringLiteral("fileAssociations/%1").arg(extension));
+    settings.sync();
+    if (settings.status() != QSettings::NoError) {
+        return false;
+    }
+
+    emit fileAssociationsChanged();
+    return true;
 }
 
 bool ApplicationLauncher::refreshApplications()
@@ -282,4 +353,35 @@ bool ApplicationLauncher::launchSpec(const QString &desktopId,
 {
     return m_catalog.launchSpec(desktopId, program, arguments)
         || m_bundleCatalog.launchSpec(desktopId, program, arguments);
+}
+
+QStringList ApplicationLauncher::applicationIds() const
+{
+    QStringList result = m_catalog.applicationIds();
+    for (const QString &desktopId : m_bundleCatalog.applicationIds()) {
+        if (!result.contains(desktopId)) {
+            result.append(desktopId);
+        }
+    }
+    return result;
+}
+
+QString ApplicationLauncher::associationExtension(const QString &filePath)
+{
+    const QString extension = QFileInfo(filePath).suffix().trimmed().toLower();
+    if (extension.isEmpty() || extension.size() > 32) {
+        return {};
+    }
+    for (const QChar character : extension) {
+        if (!(character.isLetterOrNumber() || character == QLatin1Char('-')
+              || character == QLatin1Char('_'))) {
+            return {};
+        }
+    }
+    return extension;
+}
+
+bool ApplicationLauncher::ensureAssociationSettingsDirectory() const
+{
+    return QDir().mkpath(QFileInfo(m_associationSettingsPath).absolutePath());
 }

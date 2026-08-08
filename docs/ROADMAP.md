@@ -61,7 +61,8 @@ accelerators and application-level keyboard mappings now share a tested
 command catalog. Project `.app` bundles now require and expose a tested
 source/package/revision provenance record. Cryptographic signing, package
 repository verification, and compositor-wide/global third-party menu
-integration remain follow-on slices.
+integration remain follow-on slices. File opening now supports reversible,
+user-scoped extension defaults with an explicit Open With escape hatch.
 
 Third-party global menus and full macOS compatibility remain out of scope.
 
