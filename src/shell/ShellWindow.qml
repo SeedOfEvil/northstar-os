@@ -24,6 +24,22 @@ Window {
         onTriggered: root.now = new Date()
     }
 
+    Timer {
+        id: launchNotificationTimer
+        interval: 3500
+        onTriggered: launcher.clearLaunchMessage()
+    }
+
+    Connections {
+        target: launcher
+
+        function onLaunchStatusChanged() {
+            if (launcher.launchMessage.length > 0) {
+                launchNotificationTimer.restart()
+            }
+        }
+    }
+
     Rectangle {
         anchors.fill: parent
         color: root.panelBackground
@@ -161,6 +177,29 @@ Window {
                 font.pixelSize: 11
                 text: "Display " + (displayIndex + 1)
             }
+        }
+    }
+
+    Rectangle {
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.top: parent.top
+        anchors.topMargin: 5
+        color: launcher.lastLaunchSucceeded ? root.panelAccent : "#c34f65"
+        height: 34
+        radius: 7
+        visible: launcher.launchMessage.length > 0
+        width: Math.min(360, root.width - 40)
+        z: 20
+
+        Text {
+            anchors.fill: parent
+            anchors.leftMargin: 14
+            anchors.rightMargin: 14
+            color: root.panelForeground
+            elide: Text.ElideRight
+            font.pixelSize: 12
+            text: launcher.launchMessage
+            verticalAlignment: Text.AlignVCenter
         }
     }
 

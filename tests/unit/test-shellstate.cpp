@@ -1,6 +1,8 @@
 #include "applicationlauncher.h"
 #include "shellstate.h"
 
+#include <QFile>
+#include <QTemporaryDir>
 #include <QtTest/QtTest>
 
 class ShellStateTest final : public QObject
@@ -57,15 +59,40 @@ void ShellStateTest::themeToggleEmitsOncePerChange()
 
 void ShellStateTest::launcherUsesPinnedPrograms()
 {
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+
     QStringList launchedPrograms;
-    ApplicationLauncher launcher(nullptr, [&launchedPrograms](const QString &program, const QStringList &) {
-        launchedPrograms.append(program);
-        return true;
-    });
+    ApplicationLauncher launcher(
+        nullptr,
+        [&launchedPrograms](const QString &program, const QStringList &, qint64 *pid) {
+            launchedPrograms.append(program);
+            if (pid != nullptr) {
+                *pid = program == QStringLiteral("qterminal") ? 7001 : 7002;
+            }
+            return true;
+        },
+        {},
+        temporaryDirectory.filePath(QStringLiteral("launch.log")));
 
     QVERIFY(launcher.launchTerminal());
     QVERIFY(launcher.launchBrowser());
     QCOMPARE(launchedPrograms, QStringList({QStringLiteral("qterminal"), QStringLiteral("firefox")}));
+    QVERIFY(launcher.lastLaunchSucceeded());
+    QCOMPARE(launcher.lastLaunchDesktopId(), QStringLiteral("firefox"));
+    QCOMPARE(launcher.lastLaunchPid(), 7002);
+    QVERIFY(launcher.launchMessage().contains(QStringLiteral("Firefox")));
+
+    QFile launchLog(launcher.launchLogPath());
+    QVERIFY(launchLog.open(QIODevice::ReadOnly | QIODevice::Text));
+    const QString logContents = QString::fromUtf8(launchLog.readAll());
+    QVERIFY(logContents.contains(QStringLiteral("desktop_id=qterminal")));
+    QVERIFY(logContents.contains(QStringLiteral("pid=7001")));
+    QVERIFY(logContents.contains(QStringLiteral("desktop_id=firefox")));
+    QVERIFY(logContents.contains(QStringLiteral("pid=7002")));
+
+    launcher.clearLaunchMessage();
+    QVERIFY(launcher.launchMessage().isEmpty());
 }
 
 QTEST_MAIN(ShellStateTest)

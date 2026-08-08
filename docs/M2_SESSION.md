@@ -50,6 +50,11 @@ present, but the project does not yet enable a display manager, perform
 privileged logout/reboot/shutdown, or supervise the full service set. Those
 are the remaining M2 acceptance slices.
 
+The shell launch slice is documented in [`docs/M2_LAUNCHES.md`](M2_LAUNCHES.md).
+It records the identity and PID of launched applications in a user-private log
+and presents short success/failure feedback without expanding supervisor
+ownership to those applications.
+
 ## Deterministic validation
 
 The fake-compositor/fake-shell test runs as an unprivileged user and verifies

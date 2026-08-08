@@ -159,12 +159,16 @@ void ApplicationCatalogTest::launcherUsesCatalogArguments()
     QStringList launchedArguments;
     ApplicationLauncher launcher(
         nullptr,
-        [&launchedProgram, &launchedArguments](const QString &program, const QStringList &arguments) {
+        [&launchedProgram, &launchedArguments](const QString &program, const QStringList &arguments, qint64 *pid) {
             launchedProgram = program;
             launchedArguments = arguments;
+            if (pid != nullptr) {
+                *pid = 4321;
+            }
             return true;
         },
-        {applications});
+        {applications},
+        temporaryDirectory.filePath(QStringLiteral("launch.log")));
 
     QSignalSpy matchingSpy(&launcher, &ApplicationLauncher::matchingApplicationsChanged);
     launcher.setApplicationQuery(QStringLiteral("demo"));
@@ -174,7 +178,14 @@ void ApplicationCatalogTest::launcherUsesCatalogArguments()
     QVERIFY(launcher.launchApplication(QStringLiteral("demo")));
     QCOMPARE(launchedProgram, QStringLiteral("demo"));
     QCOMPARE(launchedArguments, QStringList({QStringLiteral("--ready")}));
+    QCOMPARE(launcher.lastLaunchDesktopId(), QStringLiteral("demo"));
+    QCOMPARE(launcher.lastLaunchPid(), 4321);
+    QVERIFY(launcher.lastLaunchSucceeded());
     QVERIFY(!launcher.launchApplication(QStringLiteral("missing")));
+    QCOMPARE(launcher.lastLaunchDesktopId(), QStringLiteral("missing"));
+    QCOMPARE(launcher.lastLaunchPid(), 0);
+    QVERIFY(!launcher.lastLaunchSucceeded());
+    QVERIFY(launcher.launchMessage().contains(QStringLiteral("missing")));
 }
 
 QTEST_MAIN(ApplicationCatalogTest)
