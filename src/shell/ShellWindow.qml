@@ -93,11 +93,16 @@ Window {
                     radius: 6
                     width: 42
 
-                    Text {
+                    Image {
+                        id: menuLogo
                         anchors.centerIn: parent
-                        color: root.panelForeground
-                        font.pixelSize: 16
-                        text: "☰"
+                        fillMode: Image.PreserveAspectFit
+                        height: 24
+                        mipmap: true
+                        smooth: true
+                        source: northstarLogoSource
+                        sourceClipRect: Qt.rect(270, 245, 485, 335)
+                        width: 32
                     }
 
                     MouseArea {

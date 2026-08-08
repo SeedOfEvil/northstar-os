@@ -14,6 +14,7 @@
 #include <QQmlContext>
 #include <QQmlEngine>
 #include <QScreen>
+#include <QStandardPaths>
 #include <QUrl>
 #include <QWindow>
 
@@ -21,6 +22,15 @@ namespace {
 
 constexpr int PanelHeight = 44;
 constexpr int DockHeight = 72;
+
+QUrl northstarLogoSource()
+{
+    const QString path = QStandardPaths::locate(
+        QStandardPaths::GenericDataLocation,
+        QStringLiteral("northstar/branding/northstar-logo.png"),
+        QStandardPaths::LocateFile);
+    return path.isEmpty() ? QUrl() : QUrl::fromLocalFile(path);
+}
 
 } // namespace
 
@@ -37,9 +47,17 @@ int main(int argc, char *argv[])
     PowerController powerController;
     SessionController sessionController;
     WindowController windowController;
+    const QUrl logoSource = northstarLogoSource();
+    QQmlComponent backgroundComponent(&engine, QUrl(QStringLiteral("qrc:/Northstar/Shell/DesktopBackground.qml")));
     QQmlComponent component(&engine, QUrl(QStringLiteral("qrc:/Northstar/Shell/ShellWindow.qml")));
     QQmlComponent dockComponent(&engine, QUrl(QStringLiteral("qrc:/Northstar/Shell/DockWindow.qml")));
 
+    if (backgroundComponent.status() == QQmlComponent::Error) {
+        for (const auto &error : backgroundComponent.errors()) {
+            qCritical().noquote() << error.toString();
+        }
+        return 1;
+    }
     if (component.status() == QQmlComponent::Error) {
         for (const auto &error : component.errors()) {
             qCritical().noquote() << error.toString();
@@ -58,6 +76,22 @@ int main(int argc, char *argv[])
     int displayIndex = 0;
 
     const auto createSurface = [&](QScreen *screen, int index) -> bool {
+        auto *backgroundContext = new QQmlContext(engine.rootContext());
+        backgroundContext->setContextProperty(QStringLiteral("northstarLogoSource"), logoSource);
+        backgroundContext->setContextProperty(QStringLiteral("shellState"), &shellState);
+        backgroundContext->setContextProperty(QStringLiteral("targetScreen"), screen);
+        backgroundContext->setContextProperty(QStringLiteral("displayIndex"), index);
+
+        QObject *backgroundObject = backgroundComponent.create(backgroundContext);
+        auto *backgroundWindow = qobject_cast<QWindow *>(backgroundObject);
+        if (backgroundWindow == nullptr
+            || !LayerShellSurface::configureBackground(backgroundWindow, screen, index)) {
+            qWarning() << "Unable to configure Northstar desktop background for display" << index;
+            delete backgroundObject;
+            delete backgroundContext;
+            return false;
+        }
+
         auto *context = new QQmlContext(engine.rootContext());
         context->setContextProperty(QStringLiteral("shellState"), &shellState);
         context->setContextProperty(QStringLiteral("launcher"), &applicationLauncher);
@@ -65,6 +99,7 @@ int main(int argc, char *argv[])
         context->setContextProperty(QStringLiteral("northstarPowerController"), &powerController);
         context->setContextProperty(QStringLiteral("northstarSessionController"), &sessionController);
         context->setContextProperty(QStringLiteral("northstarWindowController"), &windowController);
+        context->setContextProperty(QStringLiteral("northstarLogoSource"), logoSource);
         context->setContextProperty(QStringLiteral("targetScreen"), screen);
         context->setContextProperty(QStringLiteral("displayIndex"), index);
 
@@ -74,6 +109,8 @@ int main(int argc, char *argv[])
             qWarning() << "Unable to configure Northstar shell surface for display" << index;
             delete object;
             delete context;
+            delete backgroundObject;
+            delete backgroundContext;
             return false;
         }
 
@@ -93,9 +130,14 @@ int main(int argc, char *argv[])
             delete dockContext;
             delete object;
             delete context;
+            delete backgroundObject;
+            delete backgroundContext;
             return false;
         }
 
+        surfaces.append(backgroundObject);
+        contexts.append(backgroundContext);
+        backgroundWindow->show();
         surfaces.append(object);
         contexts.append(context);
         window->show();

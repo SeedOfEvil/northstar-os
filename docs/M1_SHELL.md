@@ -42,14 +42,16 @@ export MOZ_ENABLE_WAYLAND=1
 make run-shell
 ```
 
-The shell creates one reserved top panel and one reserved bottom dock surface
-per connected display. The panel contains the Northstar title, active-window
-placeholder, clock, an Applications menu action, and a light/dark token
-toggle. The dock contains pinned Terminal/Firefox launch shortcuts, a live
-list of mapped application views, refresh, focus, and minimize/restore
-controls. Wayfire IPC is optional at runtime; without an IPC socket, pinned
-launches still work and the dock reports that compositor window control is
-unavailable.
+The shell creates one desktop-background surface, one reserved top panel, and
+one reserved bottom dock surface per connected display. The background surface
+uses the official Northstar logo from the installed branding path and stays
+behind regular applications. The panel contains the Northstar title,
+active-window placeholder, clock, an Applications menu action, and a
+light/dark token toggle. The dock contains pinned Terminal/Firefox launch
+shortcuts, a live list of mapped application views, refresh, focus, and
+minimize/restore controls. Wayfire IPC is optional at runtime; without an IPC
+socket, pinned launches still work and the dock reports that compositor window
+control is unavailable.
 
 The system menu and application overview are independent desktop windows rather
 than popups constrained to the panel surface, so they can extend into the

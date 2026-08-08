@@ -30,6 +30,7 @@ qt_add_qml_module(northstar-shell
     VERSION 1.0
     RESOURCE_PREFIX "/"
     QML_FILES
+        DesktopBackground.qml
         ShellWindow.qml
         DockWindow.qml
         ApplicationOverview.qml
