@@ -4,13 +4,59 @@ The project advances through user-visible milestones with explicit pass gates. A
 
 | Milestone | Name | Status | Primary outcome |
 | --- | --- | --- | --- |
-| M0 | Reproducible development desktop | Supplemental lane validated; native gate pending | A clean FreeBSD 15.1 amd64 VM becomes the approved development environment |
-| M1 | Shell seed | Single-display slice validated; multi-display deferred | Top bar and dock render on every connected display |
-| M2 | Desktop session | Supervisor, session entry point, live nested login wrapper, branded greeter, and Proxmox fallback prepared; native acceptance pending | Session, services, supervision, notifications, and lifecycle work coherently |
-| M3 | Core desktop | Files slice in progress | Filer, settings, search, overview, associations, and project apps form a usable desktop |
-| M4 | Packages, updates, rollback | Software inventory foundation implemented; signed update lane not started | Signed packages and ZFS boot-environment rollback work end to end |
+| M0 | Reproducible development desktop | Supplemental VM lane validated; direct DRM/KMS gate pending | A clean FreeBSD 15.1 amd64 VM becomes the approved development environment |
+| M1 | Shell seed | Single-display product slice validated; multi-display acceptance pending | Top bar and dock render correctly on every connected display |
+| M2 | Desktop session | Development session lane validated; production display-manager and service integration pending | Session, services, supervision, notifications, and lifecycle work coherently |
+| M3 | Core desktop | Most user-facing slices implemented; acceptance closure and remaining polish pending | Filer, settings, search, overview, associations, and project apps form a usable desktop |
+| M4 | Packages, updates, rollback | Read-only Software Center implemented; update/rollback foundation is next | Signed packages and ZFS boot-environment rollback work end to end |
 | M5 | Reproducible image and installer | Not started | Pinned inputs produce a bootable UEFI root-on-ZFS image |
 | M6 | Alpha hardware release | Not started | The supported VM and narrow Intel/AMD hardware matrix meets the alpha definition |
+
+## Current baseline and clear path forward
+
+The current `main` line contains the merged Northstar shell, session, Files,
+application-bundle, notification, keyboard, and read-only Software Center
+slices through the panel keyboard-focus fix. The NSTAR-DEV01 FreeBSD 15.1
+development VM is the active validation environment. Its nested X11/pixman
+lane is working and the latest recorded native suite passed 11/11 tests.
+
+The VM is intentionally not being treated as final graphics evidence. Its
+Proxmox basic-VGA/scfb path does not provide a guest DRM render device, so
+direct DRM/KMS, multi-display, and native display-manager claims remain open
+until the appropriate hardware or graphics path is available. This keeps the
+product work moving while preserving honest release gates.
+
+The next work is ordered as follows:
+
+1. **Close the current desktop acceptance lane.** Re-run the M3 acceptance
+   matrix on a clean install: Files operations and Trash recovery, Open With
+   and reversible associations, home search, mounted-volume boundaries,
+   Files-to-Apps launching, keyboard mappings, settings persistence, and the
+   Software Center search/refresh flow. Record the exact VM commit and manual
+   results.
+2. **Close the remaining M1/M2 development evidence.** Capture a multi-display
+   Layer Shell run when hardware permits, and separately validate the branded
+   display-manager session, controlled lifecycle actions, and the production
+   privilege boundary. The current Proxmox fallback remains supplemental.
+3. **Build the M4 package-trust foundation.** Define the Northstar Ports and
+   Poudriere inputs, signed development/stable repository metadata, package
+   provenance, and a non-mutating update plan surfaced by Software Center.
+4. **Build safe update and rollback.** Add a narrow authorization boundary,
+   create a named `bectl` boot environment before upgrades, validate N-1 to N
+   upgrades and rollback, and prove that home data survives both paths. No
+   package mutation is exposed before these gates pass.
+5. **Produce the reproducible image and installer.** Only after M4 has current
+   evidence, pin the image inputs, build QCOW2 first, validate UEFI GPT/root-on-
+   ZFS installation and first boot, then add raw/USB/ISO outputs.
+6. **Run the alpha hardware matrix.** Validate the supported VM plus the
+   declared Intel and AMD graphics lanes, networking, applications,
+   diagnostics, crash recovery, updates, rollback, and clean shutdown.
+
+Each step becomes a small, reviewable branch and PR. A milestone moves to
+complete only when its quality-gate evidence is current, reproducible, and
+documented; interactive success on one session is useful evidence but is not
+itself a release claim. The branch, validation, squash-merge, and cleanup
+workflow is defined in [`docs/QUALITY_GATES.md`](QUALITY_GATES.md).
 
 ## M0: Reproducible development desktop
 
@@ -86,7 +132,7 @@ Support x86-64 UEFI systems with SATA, NVMe, and virtio disks; QEMU/Proxmox; one
 
 Alpha requires install, boot, login, Qt/Xwayland/browser applications, file management, settings, update, rollback, diagnostics, shell crash recovery, and clean shutdown.
 
-## First eight implementation pull requests
+## Historical first eight implementation pull requests
 
 1. Charter and architecture (this repository foundation).
 2. FreeBSD host validation and bootstrap.
@@ -100,3 +146,7 @@ Alpha requires install, boot, login, Qt/Xwayland/browser applications, file mana
 The Northstar-produced ISO is deliberately absent from the first eight pull
 requests. M0 may use a stock FreeBSD installer ISO as an external, ignored
 validation input; that media is not a Northstar release artifact.
+
+The current work continues with milestone-scoped slices rather than trying to
+land an ISO prematurely. The immediate product target is the M4 package-trust
+and update-safety sequence described above.
