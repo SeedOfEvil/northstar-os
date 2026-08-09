@@ -1,0 +1,55 @@
+# M3 Lunar desktop redesign
+
+The Lunar slice gives Northstar a cohesive modern desktop identity while
+preserving the existing FreeBSD, Qt 6, Layer Shell, and Wayfire boundaries.
+It is inspired by calm contemporary desktop interfaces, but it does not copy
+Apple-owned artwork, controls, or product branding.
+
+## Visual system
+
+`LunarPalette.qml` is the shell-wide source for dark/light colors, translucent
+panel approximations, border hierarchy, semantic status colors, spacing, and
+corner radii. The VM lane intentionally uses gradients, alpha surfaces,
+borders, and restrained motion instead of real-time blur. That keeps the UI
+responsive on the current Proxmox scfb/X11/pixman path and leaves native blur
+as a future DRM/GPU enhancement.
+
+The redesign includes:
+
+- a layered blue desktop background with the official Northstar mark;
+- a compact unified top bar with navigation, routed global search, status
+  controls, and clock;
+- a left-side system menu with grouped actions and a user identity card;
+- a centered searchable application launcher with pinned actions;
+- a centered icon-first dock with pinned apps, running-window state,
+  focus/minimize behavior, Files, and Trash;
+- glass-like Quick Settings and Notification Center panels;
+- rounded, movable, resizable Files, Settings, and Software Center surfaces
+  with consistent window controls;
+- coordinated Welcome and Text Editor colors and panel treatment.
+
+## Interaction contract
+
+Global search launches exact system actions for Settings, Software, Terminal,
+and Firefox. Matching application queries open the application launcher. A
+query with no application match is handed to Files as a home-scoped search.
+The existing path boundaries and application-launch validation remain in
+force.
+
+Files and Software Center expose minimize, maximize/restore, and close
+controls. The dock preserves running indicators and focus/minimize behavior;
+right-clicking a running app toggles its minimized state. These are shell
+controls over the existing Wayfire IPC integration, not a new compositor.
+
+## Acceptance
+
+At 1280x800 in NSTAR-DEV01, verify that the top bar does not overlap, the
+left menu remains fully visible, the application launcher is centered, and
+the dock stays within the screen. Validate global search routing, every dock
+shortcut, running-app focus/minimize, Files/Settings/Software window controls,
+light/dark appearance, text-file opening, and the existing Files mutation and
+Trash workflows.
+
+The current VM remains supplemental graphics evidence. Direct DRM/KMS,
+real-time background blur, multi-display placement, and GPU animation quality
+remain open for the future Intel/AMD hardware lane.

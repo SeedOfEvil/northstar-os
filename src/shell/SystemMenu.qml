@@ -4,6 +4,11 @@ import QtQuick.Controls
 Window {
     id: menu
 
+    LunarPalette {
+        id: lunar
+        darkMode: menu.state ? menu.state.darkMode : true
+    }
+
     property var launcherController
     property var powerController
     property var overviewWindow
@@ -19,11 +24,11 @@ Window {
     property int screenX: targetScreen ? targetScreen.geometry.x : 0
     property int screenY: targetScreen ? targetScreen.geometry.y : 0
     property int screenWidth: targetScreen ? targetScreen.geometry.width : 1280
-    property color surfaceBackground: state && state.darkMode ? "#171a21" : "#f4f6fb"
-    property color surfaceForeground: state && state.darkMode ? "#f5f7fb" : "#1e2430"
-    property color surfaceMuted: state && state.darkMode ? "#a9b1c2" : "#637083"
-    property color surfaceAccent: state && state.darkMode ? "#79b8ff" : "#1769aa"
-    property int menuRowHeight: 38
+    property color surfaceBackground: lunar.panelStrong
+    property color surfaceForeground: lunar.foreground
+    property color surfaceMuted: lunar.muted
+    property color surfaceAccent: lunar.accent
+    property int menuRowHeight: 40
     property int menuSeparatorHeight: 1
     property int menuContentHeight: (11 * menuRowHeight) + (3 * menuSeparatorHeight)
     property bool canLogout: sessionController !== null
@@ -41,9 +46,9 @@ Window {
     flags: Qt.Window | Qt.FramelessWindowHint
     title: "Northstar Menu"
 
-    width: 320
-    height: menuContentHeight + 46
-    x: screenX + screenWidth - width - desktopMargin
+    width: 292
+    height: menuContentHeight + 134
+    x: screenX + desktopMargin
     y: screenY + panelHeight + 8
 
     function openMenu() {
@@ -142,7 +147,7 @@ Window {
             color: menu.surfaceBackground
             border.color: menu.surfaceAccent
             border.width: 1
-            radius: 8
+            radius: lunar.radiusMedium
         }
 
         contentItem: Column {
@@ -191,7 +196,7 @@ Window {
             color: menu.surfaceBackground
             border.color: menu.surfaceAccent
             border.width: 1
-            radius: 8
+            radius: lunar.radiusMedium
         }
 
         contentItem: Column {
@@ -240,20 +245,26 @@ Window {
     Rectangle {
         anchors.fill: parent
         color: menu.surfaceBackground
-        border.color: menu.surfaceAccent
+        border.color: lunar.border
         border.width: 1
-        radius: 10
+        radius: lunar.radiusPanel
+
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: lunar.panelStrong }
+            GradientStop { position: 1.0; color: lunar.panel }
+        }
 
         Column {
             id: menuColumn
             anchors.fill: parent
-            anchors.margins: 10
-            spacing: 2
+            anchors.margins: 12
+            spacing: 4
 
             Text {
-                color: menu.surfaceMuted
-                font.pixelSize: 11
-                leftPadding: 8
+                color: menu.surfaceForeground
+                font.bold: true
+                font.pixelSize: 14
+                leftPadding: 10
                 text: "Northstar"
                 verticalAlignment: Text.AlignVCenter
                 width: parent.width
@@ -281,16 +292,16 @@ Window {
                     { kind: "action", id: "shutdown", label: "Shut Down FreeBSD" }
                 ]
                 width: parent.width
-                height: parent.height - 26
+                height: parent.height - 92
 
                 delegate: Rectangle {
                     required property var modelData
 
                     color: modelData.kind === "separator"
                         ? menu.surfaceMuted
-                        : menuItemMouse.containsMouse ? menu.surfaceAccent : "transparent"
+                        : menuItemMouse.containsMouse ? lunar.raisedHover : "transparent"
                     height: modelData.kind === "separator" ? menu.menuSeparatorHeight : menu.menuRowHeight
-                    radius: modelData.kind === "separator" ? 0 : 6
+                    radius: modelData.kind === "separator" ? 0 : lunar.radiusSmall
                     width: menuList.width
 
                     Text {
@@ -337,6 +348,59 @@ Window {
                         enabled: modelData.kind !== "separator"
                         hoverEnabled: true
                         onClicked: menu.triggerAction(modelData.id)
+                    }
+                }
+            }
+
+            Rectangle {
+                color: lunar.field
+                border.color: lunar.borderSoft
+                border.width: 1
+                height: 52
+                radius: lunar.radiusMedium
+                width: parent.width
+
+                Row {
+                    anchors.fill: parent
+                    anchors.leftMargin: 10
+                    anchors.rightMargin: 10
+                    spacing: 10
+
+                    Rectangle {
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: lunar.accentSoft
+                        height: 34
+                        radius: 17
+                        width: 34
+
+                        Image {
+                            anchors.centerIn: parent
+                            fillMode: Image.PreserveAspectFit
+                            height: 25
+                            mipmap: true
+                            smooth: true
+                            source: northstarLogoSource
+                            sourceClipRect: Qt.rect(270, 245, 485, 335)
+                            width: 25
+                        }
+                    }
+
+                    Column {
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 1
+
+                        Text {
+                            color: menu.surfaceForeground
+                            font.bold: true
+                            font.pixelSize: 12
+                            text: "Northstar User"
+                        }
+
+                        Text {
+                            color: menu.surfaceMuted
+                            font.pixelSize: 10
+                            text: "FreeBSD workspace"
+                        }
                     }
                 }
             }

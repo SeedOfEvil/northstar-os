@@ -4,6 +4,11 @@ import QtQuick.Controls
 Window {
     id: quickSettings
 
+    LunarPalette {
+        id: lunar
+        darkMode: quickSettings.state ? quickSettings.state.darkMode : true
+    }
+
     property var state
     property var targetScreen
     property int panelHeight: 44
@@ -11,11 +16,11 @@ Window {
     property int screenY: targetScreen ? targetScreen.geometry.y : 0
     property int screenWidth: targetScreen ? targetScreen.geometry.width : 1280
     property int screenHeight: targetScreen ? targetScreen.geometry.height : 800
-    property color surfaceBackground: state && state.darkMode ? "#172131" : "#f4f6fb"
-    property color surfaceForeground: state && state.darkMode ? "#f5f7fb" : "#1e2430"
-    property color surfaceMuted: state && state.darkMode ? "#a9b1c2" : "#637083"
-    property color surfaceAccent: state && state.darkMode ? "#79b8ff" : "#1769aa"
-    property color surfaceRaised: state && state.darkMode ? "#243149" : "#e8edf5"
+    property color surfaceBackground: lunar.panelStrong
+    property color surfaceForeground: lunar.foreground
+    property color surfaceMuted: lunar.muted
+    property color surfaceAccent: lunar.accent
+    property color surfaceRaised: lunar.raised
     property bool wifiEnabled: true
     property bool bluetoothEnabled: true
     property bool nightLightEnabled: false
@@ -27,8 +32,8 @@ Window {
     modality: Qt.NonModal
     title: "Northstar Quick Settings"
 
-    width: 342
-    height: 440
+    width: 354
+    height: 456
     x: screenX + screenWidth - width - 18
     y: screenY + panelHeight + 8
 
@@ -49,9 +54,14 @@ Window {
     Rectangle {
         anchors.fill: parent
         color: quickSettings.surfaceBackground
-        border.color: quickSettings.surfaceAccent
+        border.color: lunar.border
         border.width: 1
-        radius: 16
+        radius: lunar.radiusPanel
+
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: lunar.panelStrong }
+            GradientStop { position: 1.0; color: lunar.panel }
+        }
 
         Column {
             anchors.fill: parent
@@ -83,7 +93,7 @@ Window {
                     id: closeButton
                     color: closeMouse.containsMouse ? quickSettings.surfaceAccent : quickSettings.surfaceRaised
                     height: 30
-                    radius: 7
+                    radius: lunar.radiusSmall
                     width: 62
 
                     Text {
@@ -107,9 +117,11 @@ Window {
                 width: parent.width
 
                 Rectangle {
-                    color: quickSettings.wifiEnabled ? quickSettings.surfaceAccent : quickSettings.surfaceRaised
+                    color: quickSettings.wifiEnabled ? lunar.accentSoft : quickSettings.surfaceRaised
+                    border.color: quickSettings.wifiEnabled ? lunar.accentBright : lunar.borderSoft
+                    border.width: 1
                     height: 62
-                    radius: 10
+                    radius: lunar.radiusMedium
                     width: (parent.width - parent.spacing) / 2
 
                     Column {
@@ -139,9 +151,11 @@ Window {
                 }
 
                 Rectangle {
-                    color: quickSettings.bluetoothEnabled ? quickSettings.surfaceAccent : quickSettings.surfaceRaised
+                    color: quickSettings.bluetoothEnabled ? lunar.accentSoft : quickSettings.surfaceRaised
+                    border.color: quickSettings.bluetoothEnabled ? lunar.accentBright : lunar.borderSoft
+                    border.width: 1
                     height: 62
-                    radius: 10
+                    radius: lunar.radiusMedium
                     width: (parent.width - parent.spacing) / 2
 
                     Column {
@@ -176,9 +190,9 @@ Window {
                 width: parent.width
 
                 Rectangle {
-                    color: quickSettings.nightLightEnabled ? quickSettings.surfaceAccent : quickSettings.surfaceRaised
+                    color: quickSettings.nightLightEnabled ? lunar.accentSoft : quickSettings.surfaceRaised
                     height: 56
-                    radius: 10
+                    radius: lunar.radiusMedium
                     width: (parent.width - parent.spacing) / 2
 
                     Text {
@@ -195,9 +209,9 @@ Window {
                 }
 
                 Rectangle {
-                    color: quickSettings.doNotDisturbEnabled ? quickSettings.surfaceAccent : quickSettings.surfaceRaised
+                    color: quickSettings.doNotDisturbEnabled ? lunar.accentSoft : quickSettings.surfaceRaised
                     height: 56
-                    radius: 10
+                    radius: lunar.radiusMedium
                     width: (parent.width - parent.spacing) / 2
 
                     Text {
@@ -218,7 +232,9 @@ Window {
             Rectangle {
                 color: quickSettings.surfaceRaised
                 height: 82
-                radius: 10
+                radius: lunar.radiusMedium
+                border.color: lunar.borderSoft
+                border.width: 1
                 width: parent.width
 
                 Column {
@@ -291,7 +307,9 @@ Window {
             Rectangle {
                 color: quickSettings.surfaceRaised
                 height: 66
-                radius: 10
+                radius: lunar.radiusMedium
+                border.color: lunar.borderSoft
+                border.width: 1
                 width: parent.width
 
                 Row {

@@ -7,7 +7,7 @@ The project advances through user-visible milestones with explicit pass gates. A
 | M0 | Reproducible development desktop | Supplemental VM lane validated; direct DRM/KMS gate pending | A clean FreeBSD 15.1 amd64 VM becomes the approved development environment |
 | M1 | Shell seed | Single-display product slice validated; multi-display acceptance pending | Top bar and dock render correctly on every connected display |
 | M2 | Desktop session | Development session lane validated; production display-manager and service integration pending | Session, services, supervision, notifications, and lifecycle work coherently |
-| M3 | Core desktop | Files v3, Desktop Icons v1, and Dock v1 implemented; acceptance closure and remaining polish pending | Filer, branded desktop surface, responsive dock, settings, search, overview, associations, and project apps form a usable desktop |
+| M3 | Core desktop | Core workflows accepted; Lunar visual redesign under validation | Filer, branded desktop surface, responsive dock, settings, search, overview, associations, and project apps form a usable desktop |
 | M4 | Packages, updates, rollback | Package policy, fingerprint stores, provenance preview, publication signature verification, native `pkg` publication smoke, bounded helper contract, and broker staging merged; protected release publication and update/rollback remain | Signed packages and ZFS boot-environment rollback work end to end |
 | M5 | Reproducible image and installer | Not started | Pinned inputs produce a bootable UEFI root-on-ZFS image |
 | M6 | Alpha hardware release | Not started | The supported VM and narrow Intel/AMD hardware matrix meets the alpha definition |
@@ -15,15 +15,13 @@ The project advances through user-visible milestones with explicit pass gates. A
 ## Current baseline and clear path forward
 
 The current `main` line contains the merged Northstar shell, session, Files,
-application-bundle, notification, keyboard, read-only Software Center, and
-M4 package-trust slices. The consolidated sprint branch carries the current
-M3 desktop integration work for manual acceptance in the NSTAR-DEV01 FreeBSD
-15.1 development VM. Its latest isolated headless gate passed 17/17 Qt tests,
-the QML surface contract, the compiled QML startup smoke, the Welcome and
-Text Editor self-tests, and the session entry-point/supervisor checks. Draft
-integration PR #51 is intentionally held open until the noVNC acceptance
-gate is complete; `main` is not treated as containing those unaccepted
-changes yet.
+application-bundle, notification, keyboard, read-only Software Center, text
+editor, desktop-icon, search, association, and M4 package-trust foundations.
+The core M3 desktop workflows have passed iterative noVNC validation in the
+NSTAR-DEV01 FreeBSD 15.1 development VM. The active Lunar slice now modernizes
+the visual system without changing the established home-directory, launch,
+session, or privilege boundaries. Its design and acceptance contract are in
+[`docs/M3_LUNAR.md`](M3_LUNAR.md).
 
 The VM is intentionally not being treated as final graphics evidence. Its
 Proxmox basic-VGA/scfb path does not provide a guest DRM render device, so
@@ -40,13 +38,13 @@ noVNC items are recorded in
 
 The next work is ordered as follows:
 
-1. **Close the current desktop acceptance lane.** Run the expanded manual
-   checklist below from the separately synced VM checkout, record pass/fail
-   evidence, and fix any regression before promotion.
-2. **Promote the consolidated M3 work.** After manual acceptance, mark PR #51
-   ready, squash-merge it into `main`, synchronize the local checkout, and
-   close or reconcile the superseded feature PRs without losing their review
-   history.
+1. **Validate and promote the Lunar desktop.** Build and install the dedicated
+   redesign branch in the separate VM checkout, run the automated gate, then
+   exercise the visual and interaction checklist in `docs/M3_LUNAR.md` before
+   squash-merging its PR.
+2. **Close the remaining M3 hardware-sensitive evidence.** Repeat placement,
+   animation, multi-display, and direct compositor checks on the future
+   Intel/AMD DRM lane; keep the scfb/pixman observations supplemental.
 3. **Close the remaining M1/M2 development evidence.** Capture a multi-display
    Layer Shell run when hardware permits, and separately validate the branded
    display-manager session, controlled lifecycle actions, and the production

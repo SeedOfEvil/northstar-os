@@ -4,6 +4,11 @@ import QtQuick.Controls
 Window {
     id: notifications
 
+    LunarPalette {
+        id: lunar
+        darkMode: notifications.state ? notifications.state.darkMode : true
+    }
+
     property var center
     property var state
     property var targetScreen
@@ -13,11 +18,11 @@ Window {
     property int screenY: targetScreen ? targetScreen.geometry.y : 0
     property int screenWidth: targetScreen ? targetScreen.geometry.width : 1280
     property int screenHeight: targetScreen ? targetScreen.geometry.height : 800
-    property color surfaceBackground: state && state.darkMode ? "#171a21" : "#f4f6fb"
-    property color surfaceForeground: state && state.darkMode ? "#f5f7fb" : "#1e2430"
-    property color surfaceMuted: state && state.darkMode ? "#a9b1c2" : "#637083"
-    property color surfaceAccent: state && state.darkMode ? "#79b8ff" : "#1769aa"
-    property color surfaceRaised: state && state.darkMode ? "#252b36" : "#e8edf5"
+    property color surfaceBackground: lunar.panelStrong
+    property color surfaceForeground: lunar.foreground
+    property color surfaceMuted: lunar.muted
+    property color surfaceAccent: lunar.accent
+    property color surfaceRaised: lunar.raised
 
     visible: false
     color: "transparent"
@@ -53,9 +58,14 @@ Window {
     Rectangle {
         anchors.fill: parent
         color: notifications.surfaceBackground
-        border.color: notifications.surfaceAccent
+        border.color: lunar.border
         border.width: 1
-        radius: 12
+        radius: lunar.radiusPanel
+
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: lunar.panelStrong }
+            GradientStop { position: 1.0; color: lunar.panel }
+        }
 
         Column {
             anchors.fill: parent
@@ -106,11 +116,11 @@ Window {
             }
 
             Rectangle {
-                color: notifications.surfaceBackground
-                border.color: notifications.surfaceMuted
+                color: "transparent"
+                border.color: lunar.borderSoft
                 border.width: 1
                 height: parent.height - 54
-                radius: 8
+                radius: lunar.radiusMedium
                 width: parent.width
 
                 ListView {
@@ -124,9 +134,9 @@ Window {
                     delegate: Rectangle {
                         required property var modelData
 
-                        color: notificationMouse.containsMouse ? notifications.surfaceAccent : notifications.surfaceRaised
+                        color: notificationMouse.containsMouse ? lunar.raisedHover : notifications.surfaceRaised
                         height: 82
-                        radius: 8
+                        radius: lunar.radiusMedium
                         width: notificationList.width - 8
 
                         Rectangle {

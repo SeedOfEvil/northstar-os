@@ -4,6 +4,11 @@ import QtQuick.Controls
 Window {
     id: settings
 
+    LunarPalette {
+        id: lunar
+        darkMode: settings.state ? settings.state.darkMode : true
+    }
+
     property var state
     property var desktopLayoutController
     property var launcherController
@@ -32,11 +37,11 @@ Window {
     property point windowOrigin: Qt.point(0, 0)
     property point resizeOrigin: Qt.point(0, 0)
     property size resizeSize: Qt.size(0, 0)
-    property color surfaceBackground: state && state.darkMode ? "#171a21" : "#f4f6fb"
-    property color surfaceForeground: state && state.darkMode ? "#f5f7fb" : "#1e2430"
-    property color surfaceMuted: state && state.darkMode ? "#a9b1c2" : "#637083"
-    property color surfaceAccent: state && state.darkMode ? "#79b8ff" : "#1769aa"
-    property color surfaceRaised: state && state.darkMode ? "#252b36" : "#e8edf5"
+    property color surfaceBackground: lunar.panelStrong
+    property color surfaceForeground: lunar.foreground
+    property color surfaceMuted: lunar.muted
+    property color surfaceAccent: lunar.accent
+    property color surfaceRaised: lunar.raised
     property string catalogStatus: ""
 
     visible: false
@@ -196,9 +201,14 @@ Window {
     Rectangle {
         anchors.fill: parent
         color: settings.surfaceBackground
-        border.color: settings.surfaceAccent
+        border.color: lunar.border
         border.width: 1
-        radius: 12
+        radius: lunar.radiusPanel
+
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: lunar.panelStrong }
+            GradientStop { position: 1.0; color: lunar.panel }
+        }
 
         Column {
             anchors.fill: parent
@@ -247,7 +257,7 @@ Window {
                     Rectangle {
                         color: minimizeMouse.containsMouse ? settings.surfaceAccent : settings.surfaceRaised
                         height: 32
-                        radius: 5
+                        radius: 16
                         width: 34
 
                         Text {
@@ -268,7 +278,7 @@ Window {
                     Rectangle {
                         color: maximizeMouse.containsMouse ? settings.surfaceAccent : settings.surfaceRaised
                         height: 32
-                        radius: 5
+                        radius: 16
                         width: 34
 
                         Text {
@@ -287,16 +297,17 @@ Window {
                     }
 
                     Rectangle {
-                        color: closeMouse.containsMouse ? "#c34f65" : settings.surfaceRaised
+                        color: closeMouse.containsMouse ? lunar.danger : settings.surfaceRaised
                         height: 32
-                        radius: 5
-                        width: 58
+                        radius: 16
+                        width: 34
 
                         Text {
                             anchors.centerIn: parent
                             color: settings.surfaceForeground
-                            font.pixelSize: 12
-                            text: "Close"
+                            font.bold: true
+                            font.pixelSize: 15
+                            text: "×"
                         }
 
                         MouseArea {
@@ -315,9 +326,11 @@ Window {
                 spacing: 18
 
                 Rectangle {
-                    color: settings.surfaceRaised
+                    color: lunar.panel
+                    border.color: lunar.borderSoft
+                    border.width: 1
                     height: parent.height
-                    radius: 8
+                    radius: lunar.radiusLarge
                     width: 190
 
                     Column {
@@ -335,9 +348,10 @@ Window {
                             delegate: Rectangle {
                                 required property var modelData
 
-                                color: settings.selectedSection === modelData.id ? settings.surfaceAccent : "transparent"
+                                color: settings.selectedSection === modelData.id
+                                    ? lunar.accentSoft : sectionMouse.containsMouse ? lunar.raisedHover : "transparent"
                                 height: 40
-                                radius: 6
+                                radius: lunar.radiusSmall
                                 width: parent.width
 
                                 Text {
@@ -351,7 +365,9 @@ Window {
                                 }
 
                                 MouseArea {
+                                    id: sectionMouse
                                     anchors.fill: parent
+                                    hoverEnabled: true
                                     onClicked: settings.selectedSection = modelData.id
                                 }
                             }

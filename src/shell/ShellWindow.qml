@@ -4,6 +4,11 @@ import QtQuick.Controls
 Window {
     id: root
 
+    LunarPalette {
+        id: lunar
+        darkMode: shellState.darkMode
+    }
+
     visible: false
     color: "transparent"
     flags: Qt.FramelessWindowHint | Qt.Tool
@@ -11,10 +16,10 @@ Window {
     width: 1280
     title: "Northstar Shell"
 
-    property color panelBackground: shellState.darkMode ? "#171a21" : "#f4f6fb"
-    property color panelForeground: shellState.darkMode ? "#f5f7fb" : "#1e2430"
-    property color panelMuted: shellState.darkMode ? "#a9b1c2" : "#637083"
-    property color panelAccent: shellState.darkMode ? "#79b8ff" : "#1769aa"
+    property color panelBackground: lunar.panelStrong
+    property color panelForeground: lunar.foreground
+    property color panelMuted: lunar.muted
+    property color panelAccent: lunar.accent
     property date now: new Date()
 
     Timer {
@@ -138,8 +143,13 @@ Window {
     Rectangle {
         anchors.fill: parent
         color: root.panelBackground
-        border.color: root.panelAccent
+        border.color: lunar.borderSoft
         border.width: 1
+
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: lunar.panelStrong }
+            GradientStop { position: 1.0; color: lunar.panel }
+        }
 
         Rectangle {
             id: topBar
@@ -157,10 +167,10 @@ Window {
                 spacing: 7
 
                 Rectangle {
-                    color: systemMouse.containsMouse ? root.panelAccent : "transparent"
+                    color: systemMouse.containsMouse ? lunar.raisedHover : "transparent"
                     height: 32
-                    radius: 8
-                    width: 30
+                    radius: 10
+                    width: 34
 
                     Image {
                         anchors.centerIn: parent
@@ -185,7 +195,7 @@ Window {
                     anchors.verticalCenter: parent.verticalCenter
                     color: root.panelForeground
                     font.bold: true
-                    font.pixelSize: 15
+                    font.pixelSize: 14
                     text: "NorthStar"
                 }
 
@@ -209,10 +219,10 @@ Window {
                 }
 
                 Rectangle {
-                    color: filesNavMouse.containsMouse ? root.panelAccent : "transparent"
+                    color: filesNavMouse.containsMouse ? lunar.raisedHover : "transparent"
                     height: 32
-                    radius: 7
-                    width: 42
+                    radius: 9
+                    width: 58
 
                     Row {
                         anchors.centerIn: parent
@@ -242,10 +252,10 @@ Window {
                 }
 
                 Rectangle {
-                    color: appsNavMouse.containsMouse ? root.panelAccent : "transparent"
+                    color: appsNavMouse.containsMouse ? lunar.raisedHover : "transparent"
                     height: 32
-                    radius: 7
-                    width: 42
+                    radius: 9
+                    width: 58
 
                     Row {
                         anchors.centerIn: parent
@@ -278,17 +288,21 @@ Window {
             Rectangle {
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.verticalCenter: parent.verticalCenter
-                color: shellState.darkMode ? "#252d3c" : "#e8edf5"
-                height: 30
-                radius: 9
-                width: Math.min(300, root.width - 500)
+                color: lunar.field
+                border.color: globalSearchField.activeFocus ? lunar.accent : lunar.borderSoft
+                border.width: 1
+                height: 32
+                radius: 12
+                width: Math.min(360, root.width - 560)
 
                 TextField {
                     id: globalSearchField
                     anchors.fill: parent
                     color: root.panelForeground
                     font.pixelSize: 11
-                    placeholderText: "Search Northstar apps..."
+                    leftPadding: 34
+                    rightPadding: 58
+                    placeholderText: "Search apps, files, and actions"
                     placeholderTextColor: root.panelMuted
                     selectByMouse: true
 
@@ -296,10 +310,35 @@ Window {
                         color: "transparent"
                     }
 
+                    onTextChanged: launcher.setApplicationQuery(text)
+
                     onAccepted: {
-                        applicationOverview.openWithQuery(text)
+                        const query = text.trim()
+                        const action = query.toLowerCase()
+                        if (action === "settings" || action === "preferences") {
+                            settingsWindow.openSettings()
+                        } else if (action === "software" || action === "software center") {
+                            softwareCenterWindow.openSoftware()
+                        } else if (action === "terminal") {
+                            launcher.launchTerminal()
+                        } else if (action === "firefox" || action === "browser") {
+                            launcher.launchBrowser()
+                        } else if (query.length > 0 && launcher.matchingApplications.length === 0) {
+                            fileBrowserWindow.openWithSearch(query)
+                        } else {
+                            applicationOverview.openWithQuery(query)
+                        }
                         globalSearchField.text = ""
                     }
+                }
+
+                NorthstarIcon {
+                    anchors.left: parent.left
+                    anchors.leftMargin: 9
+                    anchors.verticalCenter: parent.verticalCenter
+                    height: 18
+                    iconName: "search"
+                    width: 18
                 }
 
                 Text {
@@ -308,7 +347,7 @@ Window {
                     anchors.verticalCenter: parent.verticalCenter
                     color: root.panelMuted
                     font.pixelSize: 10
-                    text: "Super+K"
+                    text: "⌘K"
                 }
             }
 
@@ -319,9 +358,9 @@ Window {
                 spacing: 5
 
                 Rectangle {
-                    color: notificationMouse.containsMouse ? root.panelAccent : "transparent"
+                    color: notificationMouse.containsMouse ? lunar.raisedHover : "transparent"
                     height: 30
-                    radius: 7
+                    radius: 9
                     width: 34
 
                     NorthstarIcon {
@@ -334,7 +373,7 @@ Window {
                     Rectangle {
                         anchors.right: parent.right
                         anchors.top: parent.top
-                        color: "#c34f65"
+                    color: lunar.danger
                         height: 12
                         radius: 6
                         visible: northstarNotificationCenter && northstarNotificationCenter.unreadCount > 0
@@ -350,9 +389,9 @@ Window {
                 }
 
                 Rectangle {
-                    color: quickSettingsMouse.containsMouse ? root.panelAccent : "transparent"
+                    color: quickSettingsMouse.containsMouse ? lunar.raisedHover : "transparent"
                     height: 30
-                    radius: 7
+                    radius: 9
                     width: 34
 
                     NorthstarIcon {
@@ -373,7 +412,7 @@ Window {
                 Text {
                     color: root.panelForeground
                     font.pixelSize: 11
-                    text: Qt.formatDateTime(root.now, "ddd MMM d  hh:mm")
+                    text: Qt.formatDateTime(root.now, "ddd MMM d   hh:mm")
                 }
             }
         }
@@ -384,9 +423,9 @@ Window {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: parent.top
         anchors.topMargin: 5
-        color: launcher.lastLaunchSucceeded ? root.panelAccent : "#c34f65"
+        color: launcher.lastLaunchSucceeded ? lunar.accentSoft : lunar.danger
         height: 34
-        radius: 7
+        radius: 12
         visible: launcher.launchMessage.length > 0
         width: Math.min(360, root.width - 40)
         z: 20
@@ -421,6 +460,7 @@ Window {
     ApplicationOverview {
         id: applicationOverview
         applicationLauncher: launcher
+        state: shellState
         targetScreen: targetScreen
         panelHeight: root.height
         surfaceBackground: root.panelBackground
