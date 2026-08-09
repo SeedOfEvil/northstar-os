@@ -48,6 +48,15 @@ QUrl northstarIconsSource()
     return path.isEmpty() ? QUrl() : QUrl::fromLocalFile(path);
 }
 
+QUrl northstarGeneratedIconsDirectory()
+{
+    const QString path = QStandardPaths::locate(
+        QStandardPaths::GenericDataLocation,
+        QStringLiteral("northstar/icons/generated"),
+        QStandardPaths::LocateDirectory);
+    return path.isEmpty() ? QUrl() : QUrl::fromLocalFile(path + QLatin1Char('/'));
+}
+
 } // namespace
 
 int main(int argc, char *argv[])
@@ -88,6 +97,7 @@ int main(int argc, char *argv[])
     });
     const QUrl logoSource = northstarLogoSource();
     const QUrl iconsSource = northstarIconsSource();
+    const QUrl generatedIconsDirectory = northstarGeneratedIconsDirectory();
     QQmlComponent backgroundComponent(&engine, QUrl(QStringLiteral("qrc:/Northstar/Shell/DesktopBackground.qml")));
     QQmlComponent component(&engine, QUrl(QStringLiteral("qrc:/Northstar/Shell/ShellWindow.qml")));
     QQmlComponent dockComponent(&engine, QUrl(QStringLiteral("qrc:/Northstar/Shell/DockWindow.qml")));
@@ -119,6 +129,7 @@ int main(int argc, char *argv[])
         auto *backgroundContext = new QQmlContext(engine.rootContext());
         backgroundContext->setContextProperty(QStringLiteral("northstarLogoSource"), logoSource);
         backgroundContext->setContextProperty(QStringLiteral("northstarIconsSource"), iconsSource);
+        backgroundContext->setContextProperty(QStringLiteral("northstarGeneratedIconsDirectory"), generatedIconsDirectory);
         backgroundContext->setContextProperty(QStringLiteral("shellState"), &shellState);
         backgroundContext->setContextProperty(QStringLiteral("targetScreen"), screen);
         backgroundContext->setContextProperty(QStringLiteral("displayIndex"), index);
@@ -150,6 +161,7 @@ int main(int argc, char *argv[])
         context->setContextProperty(QStringLiteral("northstarWindowController"), &windowController);
         context->setContextProperty(QStringLiteral("northstarLogoSource"), logoSource);
         context->setContextProperty(QStringLiteral("northstarIconsSource"), iconsSource);
+        context->setContextProperty(QStringLiteral("northstarGeneratedIconsDirectory"), generatedIconsDirectory);
         context->setContextProperty(QStringLiteral("targetScreen"), screen);
         context->setContextProperty(QStringLiteral("displayIndex"), index);
 
@@ -172,6 +184,7 @@ int main(int argc, char *argv[])
         dockContext->setContextProperty(QStringLiteral("northstarWindowController"), &windowController);
         dockContext->setContextProperty(QStringLiteral("northstarLogoSource"), logoSource);
         dockContext->setContextProperty(QStringLiteral("northstarIconsSource"), iconsSource);
+        dockContext->setContextProperty(QStringLiteral("northstarGeneratedIconsDirectory"), generatedIconsDirectory);
         dockContext->setContextProperty(QStringLiteral("targetScreen"), screen);
         dockContext->setContextProperty(QStringLiteral("displayIndex"), index);
 

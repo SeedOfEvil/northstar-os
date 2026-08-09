@@ -5,8 +5,14 @@ Item {
 
     property string iconName: "northstar"
     property url iconSource: northstarIconsSource
+    property url generatedIconsDirectory: northstarGeneratedIconsDirectory
     property int tileSize: 362
     property int tileIndex: iconTileIndex(root.iconName)
+    property bool usesGeneratedIcon: String(root.generatedIconsDirectory).length > 0
+        && (root.iconName === "welcome"
+            || root.iconName === "software"
+            || root.iconName === "notifications"
+            || root.iconName === "power")
 
     function iconTileIndex(name) {
         switch (name) {
@@ -50,11 +56,13 @@ Item {
         fillMode: Image.PreserveAspectFit
         mipmap: true
         smooth: true
-        source: root.iconSource
+        source: root.usesGeneratedIcon
+            ? root.generatedIconsDirectory + "northstar-" + root.iconName + ".png"
+            : root.iconSource
         sourceClipRect: Qt.rect(
-            (root.tileIndex % 4) * root.tileSize,
-            Math.floor(root.tileIndex / 4) * root.tileSize,
-            root.tileSize,
-            root.tileSize)
+            root.usesGeneratedIcon ? 0 : (root.tileIndex % 4) * root.tileSize,
+            root.usesGeneratedIcon ? 0 : Math.floor(root.tileIndex / 4) * root.tileSize,
+            root.usesGeneratedIcon ? 0 : root.tileSize,
+            root.usesGeneratedIcon ? 0 : root.tileSize)
     }
 }

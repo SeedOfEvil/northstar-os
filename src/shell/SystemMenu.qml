@@ -76,7 +76,7 @@ Window {
         case "logout":
         case "restart":
         case "shutdown":
-            return "northstar"
+            return "power"
         default:
             return "info"
         }

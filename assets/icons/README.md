@@ -20,3 +20,19 @@ the shell surfaces. It uses a transparent 4-by-3 layout with 362-pixel tiles:
 
 The source render is retained as `northstar-icons-source.png` for provenance;
 the shell consumes only the alpha-processed PNG.
+
+## Generated application and control icons
+
+The project-owned `generated/` directory contains four derived raster icons
+for surfaces that need a richer identity than the original sheet:
+
+| File | Surface |
+| --- | --- |
+| `northstar-welcome.png` | Northstar Welcome |
+| `northstar-software.png` | Software Center |
+| `northstar-notifications.png` | Notification Center |
+| `northstar-power.png` | Logout, restart, and shutdown |
+
+Each processed PNG has a matching `*-source.png` chroma-key render retained
+for provenance. The source renders are not installed; the shell installs only
+the validated alpha assets.
