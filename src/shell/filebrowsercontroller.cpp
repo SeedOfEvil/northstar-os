@@ -192,6 +192,22 @@ bool FileBrowserController::openLocation(const QString &path, const QString &lab
     return true;
 }
 
+QString FileBrowserController::homeChildPath(const QString &relativePath) const
+{
+    const QString trimmedPath = relativePath.trimmed();
+    if (trimmedPath.isEmpty() || QFileInfo(trimmedPath).isAbsolute()) {
+        return {};
+    }
+
+    const QString candidatePath = canonicalOrNormalizedPath(QDir(m_rootPath).filePath(trimmedPath));
+    if (candidatePath.isEmpty() || !isWithinRoot(candidatePath)) {
+        return {};
+    }
+
+    const QFileInfo candidateInfo(candidatePath);
+    return candidateInfo.exists() && candidateInfo.isDir() ? candidatePath : QString();
+}
+
 bool FileBrowserController::navigateUp()
 {
     if (!canNavigateUp()) {

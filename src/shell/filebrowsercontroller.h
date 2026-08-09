@@ -47,6 +47,7 @@ public:
 
     Q_INVOKABLE bool navigateTo(const QString &path);
     Q_INVOKABLE bool openLocation(const QString &path, const QString &label = {});
+    Q_INVOKABLE QString homeChildPath(const QString &relativePath) const;
     Q_INVOKABLE bool navigateUp();
     Q_INVOKABLE bool goHome();
     Q_INVOKABLE bool showTrash();

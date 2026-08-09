@@ -17,6 +17,7 @@ private slots:
     void searchesHomeTreeAndClearsOnNavigation();
     void opensFilesThroughInjectedHandler();
     void rejectsPathsOutsideHomeFolder();
+    void resolvesSafeHomeChildPaths();
     void createsAndRenamesEntries();
     void createsFiles();
     void movesEntriesToTrashWithMetadata();
@@ -139,6 +140,20 @@ void FileBrowserControllerTest::rejectsPathsOutsideHomeFolder()
     QVERIFY(!controller.navigateTo(QDir(temporaryDirectory.path()).filePath(QStringLiteral(".."))));
     QVERIFY(!controller.errorMessage().isEmpty());
     QCOMPARE(controller.currentPath(), QDir::cleanPath(QDir::fromNativeSeparators(temporaryDirectory.path())));
+}
+
+void FileBrowserControllerTest::resolvesSafeHomeChildPaths()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    QVERIFY(QDir(temporaryDirectory.path()).mkdir(QStringLiteral("Desktop")));
+
+    FileBrowserController controller(nullptr, temporaryDirectory.path());
+    QCOMPARE(controller.homeChildPath(QStringLiteral("Desktop")),
+             QFileInfo(QDir(temporaryDirectory.path()).filePath(QStringLiteral("Desktop"))).canonicalFilePath());
+    QVERIFY(controller.homeChildPath(QStringLiteral("Missing")).isEmpty());
+    QVERIFY(controller.homeChildPath(QStringLiteral("../outside")).isEmpty());
+    QVERIFY(controller.homeChildPath(QDir(temporaryDirectory.path()).filePath(QStringLiteral("Desktop"))).isEmpty());
 }
 
 void FileBrowserControllerTest::createsAndRenamesEntries()
