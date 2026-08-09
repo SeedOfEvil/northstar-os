@@ -37,7 +37,21 @@ Window {
     x: screenX + screenWidth - width - 18
     y: screenY + panelHeight + 8
 
+    WindowDragController {
+        id: quickSettingsDrag
+        window: quickSettings
+        screenX: quickSettings.screenX
+        screenY: quickSettings.screenY
+        screenWidth: quickSettings.screenWidth
+        screenHeight: quickSettings.screenHeight
+        topInset: quickSettings.panelHeight
+        bottomInset: 12
+        defaultX: quickSettings.screenX + quickSettings.screenWidth - quickSettings.width - 18
+        defaultY: quickSettings.screenY + quickSettings.panelHeight + 8
+    }
+
     function openPanel() {
+        quickSettingsDrag.prepareForOpen()
         show()
         raise()
         requestActivate()
@@ -71,21 +85,31 @@ Window {
             Row {
                 width: parent.width
 
-                Column {
-                    spacing: 2
+                Item {
+                    id: quickSettingsDragHandle
+                    height: 34
                     width: parent.width - closeButton.width - 8
 
-                    Text {
-                        color: quickSettings.surfaceForeground
-                        font.bold: true
-                        font.pixelSize: 18
-                        text: "Quick settings"
+                    Column {
+                        anchors.fill: parent
+                        spacing: 2
+
+                        Text {
+                            color: quickSettings.surfaceForeground
+                            font.bold: true
+                            font.pixelSize: 18
+                            text: "Quick settings"
+                        }
+
+                        Text {
+                            color: quickSettings.surfaceMuted
+                            font.pixelSize: 11
+                            text: "Northstar controls"
+                        }
                     }
 
-                    Text {
-                        color: quickSettings.surfaceMuted
-                        font.pixelSize: 11
-                        text: "Northstar controls"
+                    NativeWindowMoveHandler {
+                        window: quickSettings
                     }
                 }
 

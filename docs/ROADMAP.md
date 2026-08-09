@@ -7,7 +7,7 @@ The project advances through user-visible milestones with explicit pass gates. A
 | M0 | Reproducible development desktop | Supplemental VM lane validated; direct DRM/KMS gate pending | A clean FreeBSD 15.1 amd64 VM becomes the approved development environment |
 | M1 | Shell seed | Single-display product slice validated; multi-display acceptance pending | Top bar and dock render correctly on every connected display |
 | M2 | Desktop session | Development session lane validated; production display-manager and service integration pending | Session, services, supervision, notifications, and lifecycle work coherently |
-| M3 | Core desktop | Core workflows accepted; Lunar visual redesign under validation | Filer, branded desktop surface, responsive dock, settings, search, overview, associations, and project apps form a usable desktop |
+| M3 | Core desktop | Core workflows and initial Lunar redesign accepted; interaction polish in progress | Filer, branded desktop surface, responsive dock, settings, search, overview, associations, and project apps form a usable desktop |
 | M4 | Packages, updates, rollback | Package policy, fingerprint stores, provenance preview, publication signature verification, native `pkg` publication smoke, bounded helper contract, and broker staging merged; protected release publication and update/rollback remain | Signed packages and ZFS boot-environment rollback work end to end |
 | M5 | Reproducible image and installer | Not started | Pinned inputs produce a bootable UEFI root-on-ZFS image |
 | M6 | Alpha hardware release | Not started | The supported VM and narrow Intel/AMD hardware matrix meets the alpha definition |
@@ -17,10 +17,12 @@ The project advances through user-visible milestones with explicit pass gates. A
 The current `main` line contains the merged Northstar shell, session, Files,
 application-bundle, notification, keyboard, read-only Software Center, text
 editor, desktop-icon, search, association, and M4 package-trust foundations.
-The core M3 desktop workflows have passed iterative noVNC validation in the
-NSTAR-DEV01 FreeBSD 15.1 development VM. The active Lunar slice now modernizes
-the visual system without changing the established home-directory, launch,
-session, or privilege boundaries. Its design and acceptance contract are in
+The core M3 desktop workflows and initial Lunar redesign have passed iterative
+noVNC validation in the NSTAR-DEV01 FreeBSD 15.1 development VM. The current
+interaction-polish slice extends the wallpaper behind the dock and adds
+bounded movement to shell panels without changing the established
+home-directory, launch, session, or privilege boundaries. Its design and
+acceptance contract are in
 [`docs/M3_LUNAR.md`](M3_LUNAR.md).
 
 The VM is intentionally not being treated as final graphics evidence. Its
@@ -38,10 +40,9 @@ noVNC items are recorded in
 
 The next work is ordered as follows:
 
-1. **Validate and promote the Lunar desktop.** Build and install the dedicated
-   redesign branch in the separate VM checkout, run the automated gate, then
-   exercise the visual and interaction checklist in `docs/M3_LUNAR.md` before
-   squash-merging its PR.
+1. **Complete Lunar interaction polish.** Validate full-output wallpaper,
+   floating-dock transparency, bounded draggable shell panels, and resolution-
+   change recovery in the VM before promoting the focused follow-up PR.
 2. **Close the remaining M3 hardware-sensitive evidence.** Repeat placement,
    animation, multi-display, and direct compositor checks on the future
    Intel/AMD DRM lane; keep the scfb/pixman observations supplemental.

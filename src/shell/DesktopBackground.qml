@@ -59,6 +59,22 @@ Window {
         }
     }
 
+    function restoreSavedDesktopPositions() {
+        for (let itemIndex = 0; itemIndex < desktopRepeater.count; ++itemIndex) {
+            const desktopItem = desktopRepeater.itemAt(itemIndex)
+            if (desktopItem) {
+                desktopItem.applySavedPosition()
+            }
+        }
+    }
+
+    Timer {
+        id: desktopPositionRestoreTimer
+        interval: 0
+        repeat: false
+        onTriggered: desktopBackground.restoreSavedDesktopPositions()
+    }
+
     function openSelectedEntry() {
         if (!desktopBackground.fileBrowserController
                 || desktopBackground.selectedPath.length === 0) {
@@ -317,6 +333,13 @@ Window {
             clip: true
             visible: desktopBackground.displayIndex === 0
             z: 2
+
+            // Delegates are created before LayerShellSurface assigns the
+            // output geometry. Reapply persisted coordinates after the real
+            // desktop size arrives; otherwise the startup clamp sees 0x0 and
+            // collapses every icon to the top-left corner.
+            onWidthChanged: desktopPositionRestoreTimer.restart()
+            onHeightChanged: desktopPositionRestoreTimer.restart()
 
             Repeater {
                 id: desktopRepeater

@@ -34,10 +34,25 @@ Window {
     x: screenX + screenWidth - width - desktopMargin
     y: screenY + panelHeight + desktopMargin
 
+    WindowDragController {
+        id: notificationDrag
+        window: notifications
+        screenX: notifications.screenX
+        screenY: notifications.screenY
+        screenWidth: notifications.screenWidth
+        screenHeight: notifications.screenHeight
+        topInset: notifications.panelHeight
+        bottomInset: notifications.desktopMargin
+        defaultX: notifications.screenX + notifications.screenWidth
+                  - notifications.width - notifications.desktopMargin
+        defaultY: notifications.screenY + notifications.panelHeight + notifications.desktopMargin
+    }
+
     function openPanel() {
         if (center) {
             center.markAllRead()
         }
+        notificationDrag.prepareForOpen()
         show()
         raise()
         requestActivate()
@@ -73,6 +88,7 @@ Window {
             spacing: 12
 
             Item {
+                id: notificationDragHandle
                 height: 42
                 width: parent.width
 
@@ -98,6 +114,7 @@ Window {
                 }
 
                 Row {
+                    id: notificationActions
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 6
@@ -111,6 +128,18 @@ Window {
                     Button {
                         text: "Close"
                         onClicked: notifications.closePanel()
+                    }
+                }
+
+                Item {
+                    anchors.left: parent.left
+                    anchors.right: notificationActions.left
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    anchors.rightMargin: 8
+
+                    NativeWindowMoveHandler {
+                        window: notifications
                     }
                 }
             }

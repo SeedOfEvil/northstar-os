@@ -89,6 +89,10 @@ Window {
         if (settings.maximized) {
             return
         }
+        if (settings.startSystemMove()) {
+            settings.dragging = false
+            return
+        }
         settings.dragging = true
         settings.dragOrigin = Qt.point(mouseX, mouseY)
         settings.windowOrigin = Qt.point(settings.x, settings.y)
@@ -220,12 +224,9 @@ Window {
                 width: parent.width
                 height: 48
 
-                MouseArea {
-                    anchors.fill: parent
-                    onPressed: settings.beginDrag(mouse.x, mouse.y)
-                    onPositionChanged: settings.updateDrag(mouse.x, mouse.y)
-                    onReleased: settings.endDrag()
-                    onCanceled: settings.endDrag()
+                NativeWindowMoveHandler {
+                    enabled: !settings.maximized
+                    window: settings
                 }
 
                 Column {

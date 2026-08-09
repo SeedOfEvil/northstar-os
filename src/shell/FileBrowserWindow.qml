@@ -449,6 +449,10 @@ Window {
         if (files.maximized) {
             return
         }
+        if (files.startSystemMove()) {
+            files.dragging = false
+            return
+        }
         files.dragging = true
         files.dragOrigin = Qt.point(mouseX, mouseY)
         files.windowOrigin = Qt.point(files.x, files.y)
@@ -709,12 +713,9 @@ Window {
                 height: 44
                 width: parent.width
 
-                MouseArea {
-                    anchors.fill: parent
-                    onPressed: files.beginDrag(mouse.x, mouse.y)
-                    onPositionChanged: files.updateDrag(mouse.x, mouse.y)
-                    onReleased: files.endDrag()
-                    onCanceled: files.endDrag()
+                NativeWindowMoveHandler {
+                    enabled: !files.maximized
+                    window: files
                 }
 
                 Column {

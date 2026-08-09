@@ -24,6 +24,7 @@ Window {
     property int screenX: targetScreen ? targetScreen.geometry.x : 0
     property int screenY: targetScreen ? targetScreen.geometry.y : 0
     property int screenWidth: targetScreen ? targetScreen.geometry.width : 1280
+    property int screenHeight: targetScreen ? targetScreen.geometry.height : 800
     property color surfaceBackground: lunar.panelStrong
     property color surfaceForeground: lunar.foreground
     property color surfaceMuted: lunar.muted
@@ -51,7 +52,21 @@ Window {
     x: screenX + desktopMargin
     y: screenY + panelHeight + 8
 
+    WindowDragController {
+        id: menuDrag
+        window: menu
+        screenX: menu.screenX
+        screenY: menu.screenY
+        screenWidth: menu.screenWidth
+        screenHeight: menu.screenHeight
+        topInset: menu.panelHeight
+        bottomInset: 12
+        defaultX: menu.screenX + menu.desktopMargin
+        defaultY: menu.screenY + menu.panelHeight + 8
+    }
+
     function openMenu() {
+        menuDrag.prepareForOpen()
         show()
         raise()
         requestActivate()
@@ -155,6 +170,7 @@ Window {
             width: logoutDialog.width - (2 * logoutDialog.padding)
 
             Text {
+                id: menuDragHandle
                 color: menu.surfaceForeground
                 text: "This ends the Northstar shell and its supervised compositor. Other user applications are not targeted."
                 wrapMode: Text.WordWrap
@@ -269,6 +285,10 @@ Window {
                 verticalAlignment: Text.AlignVCenter
                 width: parent.width
                 height: 24
+
+                NativeWindowMoveHandler {
+                    window: menu
+                }
             }
 
             ListView {

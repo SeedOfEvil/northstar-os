@@ -35,6 +35,9 @@ done
 
 contains src/shell/DesktopBackground.qml "setPosition("
 contains src/shell/DesktopBackground.qml "nearestFreePosition("
+contains src/shell/DesktopBackground.qml "restoreSavedDesktopPositions()"
+contains src/shell/DesktopBackground.qml "onWidthChanged: desktopPositionRestoreTimer.restart()"
+contains src/shell/DesktopBackground.qml "onHeightChanged: desktopPositionRestoreTimer.restart()"
 contains src/shell/DesktopBackground.qml "anchors.right: parent.right"
 contains src/shell/DesktopBackground.qml "mapToItem("
 contains src/shell/DesktopBackground.qml "onDoubleClicked: desktopBackground.openDesktopEntry"
@@ -42,11 +45,25 @@ contains src/shell/DesktopBackground.qml 'text: "Refresh Desktop"'
 contains src/shell/DesktopBackground.qml "Qt.Key_Return"
 contains src/shell/DesktopBackground.qml "northstarLogoSource"
 contains src/shell/DesktopBackground.qml 'GradientStop { position: 1.0; color: lunar.desktopBottom }'
+contains src/shell/layershellsurface.cpp 'surface->setExclusiveZone(-1)'
 contains src/shell/DockWindow.qml "northstarWindowController.windows"
 contains src/shell/DockWindow.qml "toggleMinimize(modelData.viewId)"
 contains src/shell/DockWindow.qml 'anchors.horizontalCenter: parent.horizontalCenter'
 contains src/shell/DockWindow.qml 'Behavior on scale'
 contains src/shell/DockWindow.qml 'text: "Trash"'
+contains src/shell/DockWindow.qml 'lunar.dockGlass'
+contains src/shell/WindowDragController.qml 'function clampedX(candidate)'
+contains src/shell/WindowDragController.qml 'function prepareForOpen()'
+contains src/shell/WindowDragController.qml 'property bool hasCustomPosition: false'
+contains src/shell/WindowDragController.qml 'window.startSystemMove()'
+contains src/shell/QuickSettings.qml 'WindowDragController {'
+contains src/shell/NativeWindowMoveHandler.qml 'DragHandler {'
+contains src/shell/NativeWindowMoveHandler.qml 'window.startSystemMove()'
+contains src/shell/NativeWindowMoveHandler.qml 'PointerHandler.CanTakeOverFromAnything'
+contains src/shell/QuickSettings.qml 'NativeWindowMoveHandler {'
+contains src/shell/SystemMenu.qml 'NativeWindowMoveHandler {'
+contains src/shell/NotificationCenterWindow.qml 'NativeWindowMoveHandler {'
+contains src/shell/ApplicationOverview.qml 'NativeWindowMoveHandler {'
 contains src/shell/FileBrowserWindow.qml 'text: "New File"'
 contains src/shell/FileBrowserWindow.qml 'text: "Delete"'
 contains src/shell/FileBrowserWindow.qml 'title: "Open with an application"'
@@ -58,6 +75,8 @@ contains src/shell/FileBrowserWindow.qml 'searchDebounceTimer.restart()'
 contains src/shell/FileBrowserWindow.qml 'function launchFilePath(path)'
 contains src/shell/FileBrowserWindow.qml 'function openWithSearch(query)'
 contains src/shell/FileBrowserWindow.qml 'function toggleMaximize()'
+contains src/shell/FileBrowserWindow.qml 'files.startSystemMove()'
+contains src/shell/FileBrowserWindow.qml 'NativeWindowMoveHandler {'
 contains src/shell/FileBrowserWindow.qml 'function openDesktopEntry(path, isDirectory, isLaunchable)'
 contains src/shell/FileBrowserWindow.qml 'files.launchFilePath(path)'
 contains src/shell/FileBrowserWindow.qml 'compatibleApplications.length !== 1'
@@ -67,7 +86,11 @@ contains apps/text-editor/TextEditorWindow.qml 'requestActivate()'
 contains src/shell/SettingsWindow.qml 'text: "Reset Desktop Icon Layout"'
 contains src/shell/SettingsWindow.qml 'text: "Restart Northstar Shell"'
 contains src/shell/SettingsWindow.qml 'requestShellRestart()'
+contains src/shell/SettingsWindow.qml 'settings.startSystemMove()'
+contains src/shell/SettingsWindow.qml 'NativeWindowMoveHandler {'
 contains src/shell/SoftwareCenterWindow.qml 'function toggleMaximize()'
+contains src/shell/SoftwareCenterWindow.qml 'software.startSystemMove()'
+contains src/shell/SoftwareCenterWindow.qml 'NativeWindowMoveHandler {'
 contains src/shell/ShellWindow.qml 'fileBrowserWindow.openWithSearch(query)'
 contains src/shell/LunarPalette.qml 'readonly property color accentBright'
 contains src/shell/SoftwareCenterWindow.qml 'Read-only inventory'
