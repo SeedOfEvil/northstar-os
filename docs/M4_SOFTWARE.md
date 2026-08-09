@@ -11,6 +11,8 @@ pkg query -a '%n|%v|%c'
 The surface supports:
 
 - a searchable installed-package list with name, version, and description;
+- selectable package rows with a details view showing the installed version and
+  the explicit mutation gate;
 - an explicit refresh action and bounded status feedback;
 - a clear package-manager availability state; and
 - the Northstar visual language, movable/resizable window behavior, and
@@ -20,6 +22,11 @@ This is an inventory slice, not an update implementation. It never invokes
 `pkg install`, `pkg upgrade`, repository mutation, privileged helpers, or
 `bectl`. Authorized update execution, pre-upgrade boot environments, and
 rollback remain protected M4 work.
+
+Selecting a package is intentionally useful even while mutation is gated: the
+details view identifies the installed package and explains why Install and
+Remove remain disabled. This keeps the surface honest and testable instead of
+presenting buttons that silently do nothing.
 
 ## M4-A package-trust boundary
 
@@ -180,7 +187,9 @@ sudo -n make update-broker-smoke
 After restarting the shell, open **Software Center** from the Northstar menu
 or press **Meta+U**. Confirm that **Refresh** populates installed packages,
 that package-name/version/description search is case-insensitive, and that the
-surface clearly labels itself read-only. Confirm that **Repository policy**
+surface clearly labels itself read-only. Select a package row and confirm its
+details view shows the installed version and explains why **Install** and
+**Remove** are disabled. Confirm that **Repository policy**
 reports **Not configured** on a default development VM and that **Plan Update**
 reports a blocked, non-mutating plan. If a test publication manifest is placed
 at the user configuration path, confirm that Software Center reports its

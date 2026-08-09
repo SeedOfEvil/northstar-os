@@ -19,6 +19,7 @@ Window {
     property int minimumSurfaceWidth: 700
     property int minimumSurfaceHeight: 500
     property bool dragging: false
+    property var selectedPackage: null
     property point dragOrigin: Qt.point(0, 0)
     property point windowOrigin: Qt.point(0, 0)
     property point resizeOrigin: Qt.point(0, 0)
@@ -79,6 +80,11 @@ Window {
         raise()
         requestActivate()
         Qt.callLater(software.activateSearchField)
+    }
+
+    function showPackageDetails(packageInfo) {
+        software.selectedPackage = packageInfo
+        packageDetailsDialog.open()
     }
 
     function beginDrag(mouseX, mouseY) {
@@ -631,6 +637,7 @@ Window {
                             id: packageMouse
                             anchors.fill: parent
                             hoverEnabled: true
+                            onClicked: software.showPackageDetails(modelData)
                         }
                     }
 
@@ -652,6 +659,117 @@ Window {
                 text: "Read-only inventory and provenance-aware update preview. Update authorization, package mutation, and ZFS rollback remain protected M4 work."
                 width: parent.width
                 wrapMode: Text.WordWrap
+            }
+        }
+    }
+
+    Dialog {
+        id: packageDetailsDialog
+        title: software.selectedPackage ? software.selectedPackage.name : "Package details"
+        modal: true
+        standardButtons: Dialog.Close
+        width: Math.min(560, software.width - 48)
+        x: (software.width - width) / 2
+        y: (software.height - height) / 2
+
+        background: Rectangle {
+            color: software.surfaceBackground
+            border.color: software.surfaceAccent
+            border.width: 1
+            radius: 10
+        }
+
+        contentItem: Column {
+            spacing: 14
+            width: packageDetailsDialog.width - (2 * packageDetailsDialog.padding)
+
+            Row {
+                spacing: 12
+                width: parent.width
+
+                NorthstarIcon {
+                    anchors.verticalCenter: parent.verticalCenter
+                    height: 42
+                    width: 42
+                    iconName: "software"
+                }
+
+                Column {
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 3
+                    width: parent.width - 54
+
+                    Text {
+                        color: software.surfaceForeground
+                        elide: Text.ElideRight
+                        font.bold: true
+                        font.pixelSize: 18
+                        text: software.selectedPackage ? software.selectedPackage.name : "Package details"
+                        width: parent.width
+                    }
+
+                    Text {
+                        color: software.surfaceMuted
+                        elide: Text.ElideRight
+                        font.pixelSize: 12
+                        text: software.selectedPackage
+                            ? "Installed version " + software.selectedPackage.version
+                            : ""
+                        width: parent.width
+                    }
+                }
+            }
+
+            Text {
+                color: software.surfaceForeground
+                font.pixelSize: 13
+                text: software.selectedPackage && software.selectedPackage.comment
+                    ? software.selectedPackage.comment
+                    : "No package description provided."
+                width: parent.width
+                wrapMode: Text.WordWrap
+            }
+
+            Rectangle {
+                color: software.surfaceRaised
+                radius: 8
+                width: parent.width
+                height: 76
+
+                Column {
+                    anchors.fill: parent
+                    anchors.margins: 12
+                    spacing: 5
+
+                    Text {
+                        color: "#55c58a"
+                        font.bold: true
+                        font.pixelSize: 12
+                        text: "Installed on this system"
+                    }
+
+                    Text {
+                        color: software.surfaceMuted
+                        font.pixelSize: 11
+                        text: "Install, remove, and upgrade actions remain disabled until the signed repository and privileged update gates are complete."
+                        width: parent.width
+                        wrapMode: Text.WordWrap
+                    }
+                }
+            }
+
+            Row {
+                spacing: 8
+
+                Button {
+                    enabled: false
+                    text: "Install"
+                }
+
+                Button {
+                    enabled: false
+                    text: "Remove"
+                }
             }
         }
     }
