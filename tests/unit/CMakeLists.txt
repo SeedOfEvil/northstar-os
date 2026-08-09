@@ -170,3 +170,14 @@ add_test(NAME northstar-welcome-gui COMMAND northstar-welcome-gui --self-test)
 set_tests_properties(northstar-welcome-gui PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
+qt_add_executable(test-texteditorcontroller
+    test-texteditorcontroller.cpp
+)
+
+target_link_libraries(test-texteditorcontroller
+    PRIVATE
+        northstar-text-editor-core
+        Qt6::Test
+)
+
+add_test(NAME northstar-texteditorcontroller COMMAND test-texteditorcontroller)

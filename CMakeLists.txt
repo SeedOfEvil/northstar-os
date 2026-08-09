@@ -15,6 +15,7 @@ find_package(Qt6 6.6 REQUIRED COMPONENTS Core Gui Network Qml Quick QuickControl
 include(CTest)
 
 add_subdirectory(apps/welcome)
+add_subdirectory(apps/text-editor)
 add_subdirectory(src/session)
 add_subdirectory(src/launcher)
 add_subdirectory(src/shell)

@@ -148,6 +148,11 @@ also exposes safe selection, opening, rename, Trash, and Properties actions;
 verified execution of application-like `.desktop` and `.app` entries remains
 part of the application-discovery follow-on slice.
 
+The first editable first-party app, `NorthstarTextEditor.app`, now accepts a
+file argument from the Open With flow and provides bounded UTF-8 editing with
+atomic user-owned saves. This closes the first practical file-association loop
+without claiming broad macOS application compatibility.
+
 Third-party global menus and full macOS compatibility remain out of scope.
 
 The Dock v1 surface is documented in [`docs/M3_DOCK.md`](M3_DOCK.md). It

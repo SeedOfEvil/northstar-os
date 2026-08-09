@@ -13,3 +13,9 @@ native `northstar-welcome-gui` surface with Home, Desktop, and Explore actions.
 In a recovery or terminal-only session it retains the qterminal/xterm text
 fallback, so the bundle remains useful without pretending that a GUI exists.
 The native target supports `--self-test` for headless CI and VM validation.
+
+`NorthstarTextEditor.app` is the first editable first-party app. It accepts a
+text-file path from Files/Open With, loads UTF-8 documents up to 8 MiB, and
+saves changes through an atomic user-owned write. It is deliberately a small
+text editor, not a general document suite; unsupported or oversized files are
+rejected with a visible status message.
