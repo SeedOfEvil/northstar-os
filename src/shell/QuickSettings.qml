@@ -108,19 +108,8 @@ Window {
                         }
                     }
 
-                    MouseArea {
-                        anchors.fill: parent
-                        cursorShape: Qt.SizeAllCursor
-                        onPressed: function(mouse) {
-                            const point = quickSettingsDragHandle.mapToGlobal(mouse.x, mouse.y)
-                            quickSettingsDrag.begin(point.x, point.y)
-                        }
-                        onPositionChanged: function(mouse) {
-                            const point = quickSettingsDragHandle.mapToGlobal(mouse.x, mouse.y)
-                            quickSettingsDrag.update(point.x, point.y)
-                        }
-                        onReleased: quickSettingsDrag.end()
-                        onCanceled: quickSettingsDrag.end()
+                    NativeWindowMoveHandler {
+                        window: quickSettings
                     }
                 }
 

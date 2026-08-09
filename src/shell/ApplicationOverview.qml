@@ -164,19 +164,8 @@ Window {
                         }
                     }
 
-                    MouseArea {
-                        anchors.fill: parent
-                        cursorShape: Qt.SizeAllCursor
-                        onPressed: function(mouse) {
-                            const point = overviewDragHandle.mapToGlobal(mouse.x, mouse.y)
-                            overviewDrag.begin(point.x, point.y)
-                        }
-                        onPositionChanged: function(mouse) {
-                            const point = overviewDragHandle.mapToGlobal(mouse.x, mouse.y)
-                            overviewDrag.update(point.x, point.y)
-                        }
-                        onReleased: overviewDrag.end()
-                        onCanceled: overviewDrag.end()
+                    NativeWindowMoveHandler {
+                        window: overview
                     }
                 }
 

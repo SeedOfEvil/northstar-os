@@ -713,12 +713,9 @@ Window {
                 height: 44
                 width: parent.width
 
-                MouseArea {
-                    anchors.fill: parent
-                    onPressed: files.beginDrag(mouse.x, mouse.y)
-                    onPositionChanged: files.updateDrag(mouse.x, mouse.y)
-                    onReleased: files.endDrag()
-                    onCanceled: files.endDrag()
+                NativeWindowMoveHandler {
+                    enabled: !files.maximized
+                    window: files
                 }
 
                 Column {

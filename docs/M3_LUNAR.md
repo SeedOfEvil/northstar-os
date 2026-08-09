@@ -56,6 +56,10 @@ move request; coordinate assignment is retained only as the X11 fallback.
 Files, Settings, and Software Center use the same native movement contract
 from their title bars, while Welcome and Text Editor retain their compositor-
 provided native window frames.
+The shared title-bar `DragHandler` begins movement only after deliberate
+pointer travel and can take the grab from non-interactive title content,
+avoiding intermittent missed starts without interfering with a normal button
+click.
 
 ## Acceptance
 

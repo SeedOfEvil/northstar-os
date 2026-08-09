@@ -131,23 +131,16 @@ Window {
                     }
                 }
 
-                MouseArea {
+                Item {
                     anchors.left: parent.left
                     anchors.right: notificationActions.left
                     anchors.top: parent.top
                     anchors.bottom: parent.bottom
                     anchors.rightMargin: 8
-                    cursorShape: Qt.SizeAllCursor
-                    onPressed: function(mouse) {
-                        const point = notificationDragHandle.mapToGlobal(mouse.x, mouse.y)
-                        notificationDrag.begin(point.x, point.y)
+
+                    NativeWindowMoveHandler {
+                        window: notifications
                     }
-                    onPositionChanged: function(mouse) {
-                        const point = notificationDragHandle.mapToGlobal(mouse.x, mouse.y)
-                        notificationDrag.update(point.x, point.y)
-                    }
-                    onReleased: notificationDrag.end()
-                    onCanceled: notificationDrag.end()
                 }
             }
 

@@ -211,12 +211,9 @@ Window {
                 height: 54
                 width: parent.width
 
-                MouseArea {
-                    anchors.fill: parent
-                    onPressed: software.beginDrag(mouse.x, mouse.y)
-                    onPositionChanged: software.updateDrag(mouse.x, mouse.y)
-                    onReleased: software.endDrag()
-                    onCanceled: software.endDrag()
+                NativeWindowMoveHandler {
+                    enabled: !software.maximized
+                    window: software
                 }
 
                 Row {

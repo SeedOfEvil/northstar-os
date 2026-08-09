@@ -286,19 +286,8 @@ Window {
                 width: parent.width
                 height: 24
 
-                MouseArea {
-                    anchors.fill: parent
-                    cursorShape: Qt.SizeAllCursor
-                    onPressed: function(mouse) {
-                        const point = menuDragHandle.mapToGlobal(mouse.x, mouse.y)
-                        menuDrag.begin(point.x, point.y)
-                    }
-                    onPositionChanged: function(mouse) {
-                        const point = menuDragHandle.mapToGlobal(mouse.x, mouse.y)
-                        menuDrag.update(point.x, point.y)
-                    }
-                    onReleased: menuDrag.end()
-                    onCanceled: menuDrag.end()
+                NativeWindowMoveHandler {
+                    window: menu
                 }
             }
 
