@@ -249,6 +249,13 @@ workflow plus the clean reboot repeat. Direct DRM/KMS, native multi-display,
 and physical Intel/AMD acceptance remain separate hardware gates even when
 this entire VM matrix passes.
 
+For an unattended or extended sprint, use the more granular
+[`docs/OVERNIGHT_SPRINT.md`](OVERNIGHT_SPRINT.md). It expands the matrix into
+96 micro-steps across eight branch/PR slices, defines a checkpoint after each
+slice, and specifies what remains open when noVNC or native graphics evidence
+is unavailable. The micro-steps are deliberately grouped into cohesive PRs;
+they are not an instruction to create dozens of trivial branches.
+
 ## M4: Packages, updates, and rollback
 
 The first Software Center foundation is documented in [`docs/M4_SOFTWARE.md`](M4_SOFTWARE.md). It reads and searches the installed FreeBSD package inventory without mutating the host. The merged M4 package-trust work validates a FreeBSD `pkg`-aligned UCL policy, fingerprint stores, a provenance-aware publication manifest, catalogue integrity, a read-only RSA publication-signature envelope, the native `pkg repo`/client publication smoke contract, a bounded root-owned update-helper request protocol, and independent broker-side revalidation; it also exposes a read-only update-authorization preflight. It does not close M4: an actual signed development/stable repository built from protected Poudriere inputs, reviewed privileged deployment, boot-environment creation before upgrades, rollback documentation, and N-1 compatibility tests are still required.
