@@ -12,6 +12,7 @@ ApplicationWindow {
     property color mutedColor: "#a9b8cf"
     property color accentColor: "#79b8ff"
     property bool syncingText: false
+    property bool closeConfirmed: false
 
     color: editor.backgroundColor
     height: 680
@@ -22,6 +23,63 @@ ApplicationWindow {
         : "Northstar Text Editor"
     visible: true
     width: 920
+
+    onClosing: function(close) {
+        if (editor.closeConfirmed || !editor.documentController || !editor.documentController.dirty) {
+            close.accepted = true
+            return
+        }
+        close.accepted = false
+        unsavedDialog.open()
+    }
+
+    Dialog {
+        id: unsavedDialog
+        modal: true
+        title: "Save changes?"
+        standardButtons: Dialog.NoButton
+
+        contentItem: Column {
+            spacing: 14
+            width: 360
+
+            Text {
+                color: editor.foregroundColor
+                text: "This document has unsaved changes."
+                wrapMode: Text.WordWrap
+                width: parent.width
+            }
+
+            Row {
+                spacing: 8
+
+                Button {
+                    text: "Save"
+                    onClicked: {
+                        if (editor.documentController.save()) {
+                            editor.closeConfirmed = true
+                            unsavedDialog.close()
+                            editor.close()
+                        }
+                    }
+                }
+
+                Button {
+                    text: "Discard"
+                    onClicked: {
+                        editor.closeConfirmed = true
+                        unsavedDialog.close()
+                        editor.close()
+                    }
+                }
+
+                Button {
+                    text: "Cancel"
+                    onClicked: unsavedDialog.close()
+                }
+            }
+        }
+    }
 
     Connections {
         target: editor.documentController
