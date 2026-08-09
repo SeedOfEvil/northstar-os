@@ -44,6 +44,27 @@ user-scoped extension association store. Package provenance is complete for
 the current `.app` contract; the project-owned global menu remains outside
 the application-level shortcut slice.
 
+## Files v3 Finder-style surface
+
+The Files v3 surface keeps the v2 safety and mutation contracts while giving
+the window a more familiar Finder-style hierarchy:
+
+- a persistent sidebar separates Favorites from the current location;
+- Home, Desktop, Documents, Downloads, and Trash are presented as direct
+  destinations when those home-scoped folders exist;
+- the content canvas is wider on normal displays and collapses the sidebar on
+  narrow displays so the file grid remains usable;
+- Open With includes an application search field and resets its query when the
+  chooser closes, while the reversible per-extension default remains explicit;
+- sidebar destinations resolve through the controller's home-boundary check,
+  so visual navigation cannot bypass the existing symlink and mounted-volume
+  restrictions.
+
+This is a visual and navigation layer over the v2 controller, not a claim of
+system-wide Finder compatibility. Trash remains the recoverable FreeDesktop
+path, mounted volumes remain read-only, and application associations remain
+user-scoped.
+
 ## VM validation
 
 From the FreeBSD development checkout:
@@ -71,3 +92,9 @@ confirm the selected application receives it;
 folders and Trash entries should not start a drag operation. In **Locations**,
 open each mounted volume, navigate into a folder, verify the read-only label
 and disabled mutation/search controls, then return to **Home**.
+
+For the v3 surface, confirm that the sidebar highlights the active location,
+that existing Desktop/Documents/Downloads folders open directly, that a
+missing favorite is visibly disabled, and that the Open With search narrows the
+application list without changing the saved default until the user selects an
+application.

@@ -15,7 +15,7 @@ Window {
     property int screenY: targetScreen ? targetScreen.geometry.y : 0
     property int screenWidth: targetScreen ? targetScreen.geometry.width : 1280
     property int screenHeight: targetScreen ? targetScreen.geometry.height : 800
-    property int minimumSurfaceWidth: 620
+    property int minimumSurfaceWidth: files.sidebarVisible ? 900 : 620
     property int minimumSurfaceHeight: 460
     property bool dragging: false
     property point dragOrigin: Qt.point(0, 0)
@@ -28,6 +28,9 @@ Window {
     property color surfaceAccent: state && state.darkMode ? "#79b8ff" : "#1769aa"
     property color surfaceRaised: state && state.darkMode ? "#252b36" : "#e8edf5"
     property bool gridView: true
+    property bool sidebarVisible: files.screenWidth >= 1000
+    property int sidebarWidth: 194
+    property int sidebarRefreshToken: 0
     property int selectedIndex: -1
     property var selectedEntry: files.fileBrowserController
         && files.selectedIndex >= 0
@@ -37,6 +40,13 @@ Window {
     property string selectedName: files.selectedEntry ? files.selectedEntry.name : ""
     property bool hasSelection: !!files.selectedEntry && files.selectedPath.length > 0
     property bool showingTrash: files.fileBrowserController && files.fileBrowserController.showingTrash
+    property var sidebarFavorites: [
+        { label: "Home", iconName: "desktop", kind: "home", relativePath: "" },
+        { label: "Desktop", iconName: "desktop", kind: "folder", relativePath: "Desktop" },
+        { label: "Documents", iconName: "files", kind: "folder", relativePath: "Documents" },
+        { label: "Downloads", iconName: "files", kind: "folder", relativePath: "Downloads" },
+        { label: "Trash", iconName: "trash", kind: "trash", relativePath: "" }
+    ]
 
     visible: false
     color: "transparent"
@@ -52,11 +62,15 @@ Window {
                 searchField.text = files.fileBrowserController.searchQuery
             }
         }
+
+        function onEntriesChanged() {
+            files.sidebarRefreshToken++
+        }
     }
 
     minimumWidth: files.minimumSurfaceWidth
     minimumHeight: files.minimumSurfaceHeight
-    width: Math.min(920, Math.max(files.minimumSurfaceWidth, files.screenWidth - (files.desktopMargin * 2)))
+    width: Math.min(1120, Math.max(files.minimumSurfaceWidth, files.screenWidth - (files.desktopMargin * 2)))
     height: Math.min(680, Math.max(files.minimumSurfaceHeight, files.screenHeight - files.panelHeight - (files.desktopMargin * 2)))
     x: files.screenX + Math.max(files.desktopMargin, (files.screenWidth - files.width) / 2)
     y: files.screenY + files.panelHeight + Math.max(files.desktopMargin, (files.screenHeight - files.panelHeight - files.height) / 2)
@@ -86,6 +100,41 @@ Window {
         show()
         raise()
         requestActivate()
+    }
+
+    function openSidebarItem(item) {
+        if (!files.fileBrowserController || !item) {
+            return
+        }
+
+        if (item.kind === "trash") {
+            files.openTrash()
+            return
+        }
+        if (item.kind === "home") {
+            if (files.fileBrowserController.goHome()) {
+                files.clearSelection()
+            }
+            return
+        }
+
+        const childPath = files.fileBrowserController.homeChildPath(item.relativePath)
+        if (childPath.length > 0 && files.fileBrowserController.navigateTo(childPath)) {
+            files.clearSelection()
+        } else if (childPath.length === 0) {
+            // Let the controller provide its normal availability/boundary error.
+            files.fileBrowserController.navigateTo(
+                files.fileBrowserController.homePath + "/" + item.relativePath)
+        }
+    }
+
+    function sidebarItemAvailable(item) {
+        if (!files.fileBrowserController || !item) {
+            return false
+        }
+        return item.kind === "home"
+            || item.kind === "trash"
+            || files.fileBrowserController.homeChildPath(item.relativePath).length > 0
     }
 
     function openNameDialog(mode) {
@@ -297,10 +346,188 @@ Window {
         border.width: 1
         radius: 12
 
+        Rectangle {
+            id: sidebar
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 18
+            anchors.left: parent.left
+            anchors.leftMargin: 18
+            anchors.top: parent.top
+            anchors.topMargin: 18
+            color: files.surfaceRaised
+            border.color: files.surfaceMuted
+            border.width: 1
+            radius: 10
+            visible: files.sidebarVisible
+            width: files.sidebarWidth
+            z: 2
+
+            Column {
+                anchors.fill: parent
+                anchors.margins: 14
+                spacing: 10
+
+                Row {
+                    spacing: 8
+                    width: parent.width
+
+                    NorthstarIcon {
+                        anchors.verticalCenter: parent.verticalCenter
+                        height: 28
+                        width: 28
+                        iconName: "files"
+                    }
+
+                    Column {
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 1
+
+                        Text {
+                            color: files.surfaceForeground
+                            font.bold: true
+                            font.pixelSize: 15
+                            text: "Northstar Files"
+                        }
+
+                        Text {
+                            color: files.surfaceMuted
+                            font.pixelSize: 10
+                            text: "Favorites"
+                        }
+                    }
+                }
+
+                Rectangle {
+                    color: files.surfaceMuted
+                    height: 1
+                    opacity: 0.35
+                    width: parent.width
+                }
+
+                Text {
+                    color: files.surfaceMuted
+                    font.bold: true
+                    font.pixelSize: 10
+                    text: "FAVORITES"
+                    width: parent.width
+                }
+
+                ListView {
+                    id: sidebarFavoritesList
+                    clip: true
+                    interactive: false
+                    model: files.sidebarFavorites
+                    spacing: 4
+                    width: parent.width
+                    height: contentHeight
+
+                    delegate: Rectangle {
+                        required property var modelData
+                        property bool available: files.sidebarRefreshToken >= 0
+                            && files.sidebarItemAvailable(modelData)
+                        property bool active: modelData.kind === "trash"
+                            ? files.showingTrash
+                            : modelData.kind === "home"
+                                ? files.fileBrowserController && files.fileBrowserController.homeLocation
+                                    && !files.showingTrash
+                                : files.fileBrowserController
+                                    && files.fileBrowserController.currentPath
+                                        === files.fileBrowserController.homeChildPath(modelData.relativePath)
+                        color: active || sidebarItemMouse.containsMouse
+                            ? files.surfaceAccent : "transparent"
+                        height: 36
+                        opacity: available ? 1 : 0.4
+                        radius: 6
+                        width: sidebarFavoritesList.width
+
+                        Row {
+                            anchors.fill: parent
+                            anchors.leftMargin: 10
+                            anchors.rightMargin: 8
+                            spacing: 9
+
+                            NorthstarIcon {
+                                anchors.verticalCenter: parent.verticalCenter
+                                height: 24
+                                width: 24
+                                iconName: modelData.iconName
+                            }
+
+                            Text {
+                                anchors.verticalCenter: parent.verticalCenter
+                                color: files.surfaceForeground
+                                elide: Text.ElideRight
+                                font.pixelSize: 12
+                                text: modelData.label
+                                width: parent.width - 34
+                            }
+                        }
+
+                        MouseArea {
+                            id: sidebarItemMouse
+                            anchors.fill: parent
+                            enabled: available
+                            hoverEnabled: true
+                            onClicked: files.openSidebarItem(modelData)
+                        }
+                    }
+                }
+
+                Rectangle {
+                    color: files.surfaceMuted
+                    height: 1
+                    opacity: 0.35
+                    width: parent.width
+                }
+
+                Text {
+                    color: files.surfaceMuted
+                    font.bold: true
+                    font.pixelSize: 10
+                    text: "LOCATIONS"
+                    width: parent.width
+                }
+
+                Text {
+                    color: files.surfaceMuted
+                    font.pixelSize: 11
+                    text: files.fileBrowserController && files.fileBrowserController.readOnlyLocation
+                        ? "Mounted volume"
+                        : "This Mac"
+                    width: parent.width
+                }
+
+                Text {
+                    color: files.surfaceMuted
+                    elide: Text.ElideMiddle
+                    font.pixelSize: 10
+                    text: files.fileBrowserController
+                        ? files.fileBrowserController.displayPath : "~"
+                    width: parent.width
+                }
+
+                Item { height: 1; width: 1 }
+
+                Text {
+                    color: files.surfaceMuted
+                    font.pixelSize: 10
+                    text: "Northstar home-scoped storage"
+                    wrapMode: Text.WordWrap
+                    width: parent.width
+                }
+            }
+        }
+
         Column {
-            anchors.fill: parent
-            anchors.margins: 18
+            anchors.bottom: parent.bottom
+            anchors.left: parent.left
+            anchors.leftMargin: files.sidebarVisible ? files.sidebarWidth + 30 : 18
+            anchors.right: parent.right
+            anchors.rightMargin: 18
+            anchors.top: parent.top
+            anchors.topMargin: 18
             spacing: 12
+            z: 1
 
             Item {
                 id: titleBar
@@ -1132,6 +1359,21 @@ Window {
         x: (files.width - width) / 2
         y: (files.height - height) / 2
 
+        onOpened: {
+            associationSearch.text = ""
+            if (files.applicationLauncher) {
+                files.applicationLauncher.setApplicationQuery("")
+            }
+            associationSearch.forceActiveFocus()
+        }
+
+        onClosed: {
+            associationSearch.text = ""
+            if (files.applicationLauncher) {
+                files.applicationLauncher.setApplicationQuery("")
+            }
+        }
+
         background: Rectangle {
             color: files.surfaceBackground
             border.color: files.surfaceAccent
@@ -1159,6 +1401,28 @@ Window {
                 width: parent.width
             }
 
+            TextField {
+                id: associationSearch
+                background: Rectangle {
+                    color: files.surfaceBackground
+                    border.color: files.surfaceMuted
+                    border.width: 1
+                    radius: 6
+                }
+                color: files.surfaceForeground
+                placeholderText: "Search applications"
+                placeholderTextColor: files.surfaceMuted
+                selectByMouse: true
+                width: parent.width
+
+                onTextChanged: {
+                    if (files.applicationLauncher
+                            && files.applicationLauncher.applicationQuery !== text) {
+                        files.applicationLauncher.setApplicationQuery(text)
+                    }
+                }
+            }
+
             Rectangle {
                 color: files.surfaceBackground
                 border.color: files.surfaceMuted
@@ -1171,7 +1435,11 @@ Window {
                     anchors.fill: parent
                     anchors.margins: 6
                     clip: true
-                    model: files.applicationLauncher ? files.applicationLauncher.applications : []
+                    model: files.applicationLauncher
+                        ? files.applicationLauncher.applicationQuery.length > 0
+                            ? files.applicationLauncher.matchingApplications
+                            : files.applicationLauncher.applications
+                        : []
 
                     delegate: Rectangle {
                         required property var modelData
