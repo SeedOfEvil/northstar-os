@@ -85,6 +85,7 @@ private:
     bool launchSpec(const QString &desktopId, QString *program, QStringList *arguments) const;
     QStringList applicationIds() const;
     static QString associationExtension(const QString &filePath);
+    static QString associationKey(const QString &filePath);
     bool ensureAssociationSettingsDirectory() const;
 
     ApplicationCatalog m_catalog;
