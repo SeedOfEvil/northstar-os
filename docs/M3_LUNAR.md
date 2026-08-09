@@ -76,3 +76,8 @@ Trash workflows.
 The current VM remains supplemental graphics evidence. Direct DRM/KMS,
 real-time background blur, multi-display placement, and GPU animation quality
 remain open for the future Intel/AMD hardware lane.
+
+Desktop icon positions are loaded from the persistent user configuration only
+after the layer-shell background receives its real output geometry. Validate
+this by moving multiple icons, logging out, logging back in, and confirming
+that their snapped positions survive the new shell process.

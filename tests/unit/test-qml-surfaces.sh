@@ -35,6 +35,9 @@ done
 
 contains src/shell/DesktopBackground.qml "setPosition("
 contains src/shell/DesktopBackground.qml "nearestFreePosition("
+contains src/shell/DesktopBackground.qml "restoreSavedDesktopPositions()"
+contains src/shell/DesktopBackground.qml "onWidthChanged: desktopPositionRestoreTimer.restart()"
+contains src/shell/DesktopBackground.qml "onHeightChanged: desktopPositionRestoreTimer.restart()"
 contains src/shell/DesktopBackground.qml "anchors.right: parent.right"
 contains src/shell/DesktopBackground.qml "mapToItem("
 contains src/shell/DesktopBackground.qml "onDoubleClicked: desktopBackground.openDesktopEntry"
