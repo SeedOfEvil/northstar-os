@@ -31,15 +31,17 @@ The next slice adds a read-only repository policy contract at
 - a repository name;
 - a `pkg+https` repository URL and `mirror_type`;
 - `signature_type=fingerprints` and an absolute `fingerprints_path` containing
-  the trusted/revoked fingerprint files; and
+  the `trusted/` and `revoked/` fingerprint files; and
 - `trust_mode=required`.
 
 The shell can validate this structure from the user configuration path
 `$XDG_CONFIG_HOME/northstar/repository-policy.conf` (or the platform's
 equivalent Qt application-config path). Software Center reports whether the
-policy is absent, rejected, or structurally valid. **Plan Update** remains a
+policy is absent, rejected, or structurally valid, and whether its trusted and
+revoked fingerprint store is structurally valid. **Plan Update** remains a
 non-mutating safety boundary: it explicitly reports that repository signature
-verification is not connected yet, even when the policy structure is valid.
+verification is not connected yet, even when the policy and fingerprint store
+are valid.
 For a valid policy, the controller also exposes a preview of the corresponding
 FreeBSD `pkg` repository UCL without writing it to `/etc/pkg` or
 `/usr/local/etc/pkg/repos`.
