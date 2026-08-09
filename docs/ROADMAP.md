@@ -32,9 +32,9 @@ The next work is ordered as follows:
 1. **Close the current desktop acceptance lane.** Re-run the M3 acceptance
    matrix on a clean install: Files operations and Trash recovery, Open With
    and reversible associations, home search, mounted-volume boundaries,
-   Files-to-Apps launching, keyboard mappings, settings persistence, and the
-   Software Center search/refresh flow. Record the exact VM commit and manual
-   results.
+   Files-to-Apps launching, Desktop-folder icon projection, keyboard mappings,
+   settings persistence, and the Software Center search/refresh flow. Record
+   the exact VM commit and manual results.
 2. **Close the remaining M1/M2 development evidence.** Capture a multi-display
    Layer Shell run when hardware permits, and separately validate the branded
    display-manager session, controlled lifecycle actions, and the production
@@ -117,6 +117,12 @@ source/package/revision provenance record. Cryptographic signing, package
 repository verification, and compositor-wide/global third-party menu
 integration remain follow-on slices. File opening now supports reversible,
 user-scoped extension defaults with an explicit Open With escape hatch.
+
+The Desktop surface now projects entries from the home `Desktop` folder into
+the primary desktop as directly activated folder/file icons. Folder activation
+opens the corresponding Files location; file activation enters the same
+association chooser used by Files. This remains home-scoped and does not claim
+to replace a full desktop-file or icon-position service.
 
 Third-party global menus and full macOS compatibility remain out of scope.
 

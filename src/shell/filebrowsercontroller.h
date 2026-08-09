@@ -2,9 +2,11 @@
 
 #include <functional>
 
+#include <QFileSystemWatcher>
 #include <QObject>
 #include <QString>
 #include <QStringList>
+#include <QTimer>
 #include <QUrl>
 #include <QVariantList>
 
@@ -23,6 +25,7 @@ class FileBrowserController final : public QObject
     Q_PROPERTY(bool searching READ searching NOTIFY searchQueryChanged)
     Q_PROPERTY(QString errorMessage READ errorMessage NOTIFY errorMessageChanged)
     Q_PROPERTY(bool showingTrash READ showingTrash NOTIFY locationChanged)
+    Q_PROPERTY(QVariantList desktopEntries READ desktopEntries NOTIFY desktopEntriesChanged)
 
 public:
     using OpenFunction = std::function<bool(const QUrl &url)>;
@@ -44,6 +47,7 @@ public:
     bool searching() const;
     QString errorMessage() const;
     bool showingTrash() const;
+    QVariantList desktopEntries() const;
 
     Q_INVOKABLE bool navigateTo(const QString &path);
     Q_INVOKABLE bool openLocation(const QString &path, const QString &label = {});
@@ -69,6 +73,7 @@ signals:
     void locationChanged();
     void searchQueryChanged();
     void errorMessageChanged();
+    void desktopEntriesChanged();
 
 private:
     static QString normalizedPath(const QString &path);
@@ -88,6 +93,7 @@ private:
     bool writeTrashInfo(const QString &infoPath, const QString &originalPath) const;
     void clearSearchQuery();
     void refreshSearchResults();
+    void refreshDesktopEntries();
     void setErrorMessage(const QString &message);
 
     QString m_rootPath;
@@ -97,7 +103,10 @@ private:
     QString m_currentPath;
     QString m_searchQuery;
     QVariantList m_entries;
+    QVariantList m_desktopEntries;
     OpenFunction m_openFunction;
     QString m_errorMessage;
     bool m_showingTrash = false;
+    QFileSystemWatcher *m_desktopWatcher = nullptr;
+    QTimer *m_desktopRefreshTimer = nullptr;
 };

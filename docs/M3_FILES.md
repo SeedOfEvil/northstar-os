@@ -35,11 +35,15 @@ small and safe for the development desktop:
 - Regular files can be dragged from the Files explorer onto an application
   tile in Apps; the existing launcher validates the file and passes it as the
   selected application's argument.
+- Items in the home `Desktop` folder are surfaced on the Northstar desktop as
+  project-owned folder/file icons. Double-clicking an icon opens the matching
+  Files location; files enter the same Open With flow as the Files window, so
+  desktop-created files do not silently bypass the association chooser.
 
 The controller is covered by a native Qt test for ordering, navigation, file
 opening, path-boundary rejection, creation, renaming, Trash metadata, restore,
-empty-Trash behavior, bounded home-folder search, and read-only mounted-volume
-navigation. The launcher also tests persistence and validation of the
+empty-Trash behavior, bounded home-folder search, read-only mounted-volume
+navigation, and Desktop-surface entry projection. The launcher also tests persistence and validation of the
 user-scoped extension association store. Package provenance is complete for
 the current `.app` contract; the project-owned global menu remains outside
 the application-level shortcut slice.
@@ -98,3 +102,10 @@ that existing Desktop/Documents/Downloads folders open directly, that a
 missing favorite is visibly disabled, and that the Open With search narrows the
 application list without changing the saved default until the user selects an
 application.
+
+For the desktop surface, create or copy a file and folder below `~/Desktop`,
+return to the desktop, and confirm that both appear in the left icon column.
+Double-click the folder to open it in Files, then double-click the file and
+confirm that the Open With chooser is shown. Delete the item from Files,
+refresh, and confirm that the desktop icon disappears; restore it from Trash
+and confirm that it returns.
