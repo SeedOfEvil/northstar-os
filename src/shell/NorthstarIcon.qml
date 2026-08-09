@@ -5,7 +5,8 @@ Item {
 
     property string iconName: "northstar"
     property url iconSource: northstarIconsSource
-    property url generatedIconsDirectory: northstarGeneratedIconsDirectory
+    property url generatedIconsDirectory: typeof northstarGeneratedIconsDirectory !== "undefined"
+        ? northstarGeneratedIconsDirectory : ""
     property int tileSize: 362
     property int tileIndex: iconTileIndex(root.iconName)
     property bool usesGeneratedIcon: String(root.generatedIconsDirectory).length > 0
