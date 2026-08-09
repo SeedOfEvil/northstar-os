@@ -12,3 +12,11 @@ repository endpoint, the mirror mode, the `fingerprints` signature type, and
 the absolute `pkg` fingerprints directory. `UNSET` values are intentional
 build blockers; the template must not be installed as an active repository
 policy or treated as signed metadata.
+
+`repository-metadata.json` is the companion publication-manifest template. A
+release builder fills its ABI, resolved source revision, package provenance,
+repository revision, and signing fingerprint after producing the actual
+FreeBSD `pkg` catalogue. The manifest is a Northstar provenance and planning
+sidecar; it does not replace `meta.conf`, `data.pkg`, or `pkg`'s own signature
+verification. Its unresolved values intentionally prevent it from being used
+as an active update input.

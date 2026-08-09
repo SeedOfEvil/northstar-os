@@ -118,6 +118,18 @@ target_link_libraries(test-packagetrustcontroller
 
 add_test(NAME northstar-packagetrustcontroller COMMAND test-packagetrustcontroller)
 
+qt_add_executable(test-updateplancontroller
+    test-updateplancontroller.cpp
+)
+
+target_link_libraries(test-updateplancontroller
+    PRIVATE
+        northstar-shell-core
+        Qt6::Test
+)
+
+add_test(NAME northstar-updateplancontroller COMMAND test-updateplancontroller)
+
 qt_add_executable(test-volumecatalog
     test-volumecatalog.cpp
 )

@@ -18,12 +18,12 @@ The surface supports:
 
 This is an inventory slice, not an update implementation. It never invokes
 `pkg install`, `pkg upgrade`, repository mutation, privileged helpers, or
-`bectl`. Signed repository metadata, update planning, pre-upgrade boot
-environments, and rollback remain the M4 acceptance work ahead.
+`bectl`. Signed repository metadata, authorized update execution, pre-upgrade
+boot environments, and rollback remain protected M4 work.
 
 ## M4-A package-trust boundary
 
-The next slice adds a read-only repository policy contract at
+The M4-A slice adds a read-only repository policy contract at
 `packaging/manifests/repository-policy.conf`. A configured policy contains:
 
 - `channel=development` or `channel=stable`;
@@ -51,6 +51,27 @@ Structural validation is not cryptographic verification and does not authorize
 FreeBSD repository metadata, a narrow update authorization boundary, and the
 pre-upgrade `bectl`/rollback flow before package mutation is exposed.
 
+## M4-C publication metadata and update preview
+
+The companion template at
+`packaging/manifests/repository-metadata.json` defines the Northstar
+publication sidecar used by the next release-tooling step. It records:
+
+- the manifest schema, repository tag, channel, and target FreeBSD ABI;
+- the repository catalogue revision and resolved Northstar source revision;
+- the claimed signing status and public-key fingerprint; and
+- each Northstar package's name, target version, FreeBSD origin, source input,
+  and project revision.
+
+This sidecar describes the output of a signed FreeBSD `pkg` repository; it does
+not replace the repository's `meta.conf`, `data.pkg`, or `pkg` verification
+path. The shell strictly parses the manifest, checks package provenance and
+policy/channel identity, and compares its target package set with the loaded
+installed inventory. Software Center can therefore show update and install
+candidates as a read-only preview. The signature field remains an untrusted
+claim until a verifier consumes the actual repository catalogue, so the plan
+is always blocked from execution in this slice.
+
 ## VM validation
 
 From the FreeBSD development checkout:
@@ -65,5 +86,8 @@ or press **Meta+U**. Confirm that **Refresh** populates installed packages,
 that package-name/version/description search is case-insensitive, and that the
 surface clearly labels itself read-only. Confirm that **Repository policy**
 reports **Not configured** on a default development VM and that **Plan Update**
-reports a blocked, non-mutating plan. No package should be installed, removed,
-or upgraded during this validation.
+reports a blocked, non-mutating plan. If a test publication manifest is placed
+at the user configuration path, confirm that Software Center reports its
+provenance as parsed but not verified, previews candidate counts, and still
+does not invoke package mutation. No package should be installed, removed, or
+upgraded during this validation.

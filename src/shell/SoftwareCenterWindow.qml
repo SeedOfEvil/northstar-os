@@ -6,6 +6,7 @@ Window {
 
     property var packageCatalog
     property var packageTrust
+    property var updatePlan
     property var state
     property var targetScreen
     property int panelHeight: 44
@@ -198,6 +199,10 @@ Window {
                                 if (software.packageTrust) {
                                     software.packageTrust.planUpdate()
                                 }
+                                if (software.updatePlan && software.packageCatalog) {
+                                    software.updatePlan.reload()
+                                    software.updatePlan.preview(software.packageCatalog.packages)
+                                }
                             }
                         }
                     }
@@ -221,7 +226,12 @@ Window {
                             anchors.fill: parent
                             enabled: software.packageCatalog && !software.packageCatalog.refreshing
                             hoverEnabled: true
-                            onClicked: software.packageCatalog.refresh()
+                            onClicked: {
+                                software.packageCatalog.refresh()
+                                if (software.updatePlan) {
+                                    software.updatePlan.preview(software.packageCatalog.packages)
+                                }
+                            }
                         }
                     }
 
@@ -254,7 +264,7 @@ Window {
                     color: software.surfaceRaised
                     height: 72
                     radius: 8
-                    width: (parent.width - 24) / 3
+                    width: (parent.width - 36) / 4
 
                     Column {
                         anchors.centerIn: parent
@@ -279,7 +289,7 @@ Window {
                     color: software.surfaceRaised
                     height: 72
                     radius: 8
-                    width: (parent.width - 24) / 3
+                    width: (parent.width - 36) / 4
 
                     Column {
                         anchors.centerIn: parent
@@ -306,7 +316,7 @@ Window {
                     color: software.surfaceRaised
                     height: 72
                     radius: 8
-                    width: (parent.width - 24) / 3
+                    width: (parent.width - 36) / 4
 
                     Column {
                         anchors.centerIn: parent
@@ -332,6 +342,35 @@ Window {
                                         ? software.packageTrust.policyValid
                                             ? "Trust store incomplete" : "Rejected"
                                         : "Not configured"
+                        }
+                    }
+                }
+
+                Rectangle {
+                    color: software.surfaceRaised
+                    height: 72
+                    radius: 8
+                    width: (parent.width - 36) / 4
+
+                    Column {
+                        anchors.centerIn: parent
+                        spacing: 4
+
+                        Text {
+                            color: software.surfaceMuted
+                            font.pixelSize: 11
+                            text: "Publication metadata"
+                        }
+
+                        Text {
+                            color: software.updatePlan && software.updatePlan.metadataValid
+                                ? "#f0b45a" : "#c34f65"
+                            font.bold: true
+                            font.pixelSize: 13
+                            text: !software.updatePlan
+                                ? "Unavailable"
+                                : software.updatePlan.metadataValid
+                                    ? "Parsed / not verified" : "Not configured"
                         }
                     }
                 }
@@ -408,6 +447,33 @@ Window {
                         font.pixelSize: 11
                         text: software.packageTrust
                             ? software.packageTrust.updatePlanStatus : "Update planning is unavailable."
+                        width: parent.width
+                    }
+
+                    Text {
+                        color: software.surfaceMuted
+                        elide: Text.ElideRight
+                        font.pixelSize: 11
+                        text: software.updatePlan
+                            ? software.updatePlan.metadataStatus : "Repository metadata is unavailable."
+                        width: parent.width
+                    }
+
+                    Text {
+                        color: software.surfaceMuted
+                        elide: Text.ElideRight
+                        font.pixelSize: 11
+                        text: software.updatePlan
+                            ? software.updatePlan.planStatus : "Update preview is unavailable."
+                        width: parent.width
+                    }
+
+                    Text {
+                        color: software.surfaceMuted
+                        elide: Text.ElideRight
+                        font.pixelSize: 11
+                        text: software.updatePlan ? software.updatePlan.planPreview : ""
+                        visible: text.length > 0
                         width: parent.width
                     }
                 }
@@ -507,7 +573,7 @@ Window {
             Text {
                 color: software.surfaceMuted
                 font.pixelSize: 11
-                text: "Read-only inventory and update-plan boundary. Package mutation, signature verification, and ZFS rollback remain protected M4 work."
+                text: "Read-only inventory and provenance-aware update preview. Package mutation, signature verification, and ZFS rollback remain protected M4 work."
                 width: parent.width
                 wrapMode: Text.WordWrap
             }

@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "repository_tag": "northstar-development",
+  "channel": "development",
+  "abi": "UNSET",
+  "revision": 0,
+  "generated_at": "GENERATED_AT_BUILD_TIME",
+  "source_revision": "UNSET",
+  "signature_status": "unverified",
+  "signature_fingerprint": "UNSET",
+  "packages": [
+    {
+      "name": "northstar-shell",
+      "version": "RESOLVED_BY_BUILDER",
+      "origin": "desk/northstar-shell",
+      "source": "ports/northstar",
+      "project_revision": "UNSET"
+    }
+  ]
+}
