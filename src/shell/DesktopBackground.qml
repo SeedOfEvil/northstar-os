@@ -45,6 +45,29 @@ Window {
         desktopBackground.selectedPath = entry ? entry.path : ""
     }
 
+    function refreshDesktop() {
+        if (desktopBackground.fileBrowserController) {
+            desktopBackground.fileBrowserController.refresh()
+        }
+        if (desktopBackground.desktopItems) {
+            desktopBackground.desktopItems.refresh()
+        }
+    }
+
+    function openSelectedEntry() {
+        if (!desktopBackground.fileBrowserController
+                || desktopBackground.selectedPath.length === 0) {
+            return
+        }
+        const entries = desktopBackground.fileBrowserController.desktopEntries
+        for (let entryIndex = 0; entryIndex < entries.length; ++entryIndex) {
+            if (entries[entryIndex].path === desktopBackground.selectedPath) {
+                desktopBackground.openDesktopEntry(entries[entryIndex])
+                return
+            }
+        }
+    }
+
     function openEntry(entry) {
         if (!entry) {
             return
@@ -197,9 +220,33 @@ Window {
 
         MouseArea {
             anchors.fill: parent
-            acceptedButtons: Qt.LeftButton
+            acceptedButtons: Qt.LeftButton | Qt.RightButton
             z: 1
-            onClicked: desktopBackground.selectedPath = ""
+            onClicked: function(mouse) {
+                desktopKeyboardSurface.forceActiveFocus()
+                desktopBackground.selectedPath = ""
+                if (mouse.button === Qt.RightButton) {
+                    desktopMenu.item = null
+                    desktopMenu.popup()
+                }
+            }
+        }
+
+        Item {
+            id: desktopKeyboardSurface
+            anchors.fill: parent
+            activeFocusOnTab: true
+            focus: true
+            z: 0
+
+            Keys.onPressed: function(event) {
+                if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+                    desktopBackground.openSelectedEntry()
+                    event.accepted = true
+                }
+            }
+
+            Component.onCompleted: forceActiveFocus()
         }
         Item {
             id: desktopIconSurface
@@ -319,6 +366,7 @@ Window {
                     }
 
                     onClicked: function(mouse) {
+                        desktopKeyboardSurface.forceActiveFocus()
                         desktopBackground.selectEntry(modelData)
                         if (mouse.button === Qt.RightButton) {
                             desktopMenu.item = modelData
@@ -384,6 +432,14 @@ Window {
             text: "Properties"
             enabled: !!desktopMenu.item
             onTriggered: desktopBackground.showProperties(desktopMenu.item)
+        }
+
+        MenuSeparator {}
+
+        MenuItem {
+            text: "Refresh Desktop"
+            enabled: !!desktopBackground.fileBrowserController || !!desktopBackground.desktopItems
+            onTriggered: desktopBackground.refreshDesktop()
         }
     }
 
