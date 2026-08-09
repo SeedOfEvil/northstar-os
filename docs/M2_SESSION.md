@@ -68,6 +68,13 @@ presents short success/failure feedback, and exposes a bounded in-shell
 Notification Center without expanding supervisor ownership to those
 applications.
 
+Session persistence also covers the user-facing Files view preference. The
+tile/list choice is written through `ShellState` to the same user-private
+preferences file as appearance, so restarting the shell or logging in again
+does not silently reset the user's preferred Files presentation. This is a
+preference-restore guarantee, not a claim that open windows or arbitrary
+third-party application state survive a compositor restart.
+
 The system menu now exposes a confirmed `Log Out of Northstar` action while a
 supervised session is running. It reuses the exact-parent supervisor request
 and therefore ends only Northstar's shell/compositor. In an unmanaged shell,

@@ -44,6 +44,11 @@ bool ShellState::darkMode() const
     return m_darkMode;
 }
 
+bool ShellState::filesGridView() const
+{
+    return m_filesGridView;
+}
+
 void ShellState::setActiveWindowTitle(const QString &title)
 {
     const QString normalized = title.trimmed().isEmpty() ? QStringLiteral("Desktop") : title.trimmed();
@@ -66,6 +71,17 @@ void ShellState::setDarkMode(bool enabled)
     emit darkModeChanged();
 }
 
+void ShellState::setFilesGridView(bool enabled)
+{
+    if (m_filesGridView == enabled) {
+        return;
+    }
+
+    m_filesGridView = enabled;
+    savePreferences();
+    emit filesGridViewChanged();
+}
+
 void ShellState::toggleDarkMode()
 {
     setDarkMode(!m_darkMode);
@@ -76,6 +92,9 @@ void ShellState::loadPreferences()
     QSettings settings(m_settingsPath, QSettings::IniFormat);
     if (settings.contains(QStringLiteral("appearance/darkMode"))) {
         m_darkMode = settings.value(QStringLiteral("appearance/darkMode"), true).toBool();
+    }
+    if (settings.contains(QStringLiteral("files/gridView"))) {
+        m_filesGridView = settings.value(QStringLiteral("files/gridView"), true).toBool();
     }
 }
 
@@ -88,5 +107,6 @@ void ShellState::savePreferences() const
 
     QSettings settings(m_settingsPath, QSettings::IniFormat);
     settings.setValue(QStringLiteral("appearance/darkMode"), m_darkMode);
+    settings.setValue(QStringLiteral("files/gridView"), m_filesGridView);
     settings.sync();
 }
