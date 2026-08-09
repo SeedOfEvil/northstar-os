@@ -32,6 +32,17 @@ QVariantMap entryAt(const DesktopItemsController &controller, int index)
     return controller.entries().at(index).toMap();
 }
 
+QVariantMap entryNamed(const DesktopItemsController &controller, const QString &name)
+{
+    for (const QVariant &entry : controller.entries()) {
+        const QVariantMap map = entry.toMap();
+        if (map.value(QStringLiteral("name")).toString() == name) {
+            return map;
+        }
+    }
+    return {};
+}
+
 } // namespace
 
 void DesktopItemsControllerTest::listsDesktopItemsWithStableMetadata()
@@ -50,12 +61,15 @@ void DesktopItemsControllerTest::listsDesktopItemsWithStableMetadata()
     QCOMPARE(controller.entries().size(), 3);
     QCOMPARE(entryAt(controller, 0).value(QStringLiteral("name")).toString(), QStringLiteral("Documents"));
     QVERIFY(entryAt(controller, 0).value(QStringLiteral("isDirectory")).toBool());
-    QCOMPARE(entryAt(controller, 1).value(QStringLiteral("name")).toString(), QStringLiteral("notes.txt"));
-    QVERIFY(!entryAt(controller, 1).value(QStringLiteral("isDirectory")).toBool());
-    QVERIFY(!entryAt(controller, 1).value(QStringLiteral("isLaunchable")).toBool());
-    QCOMPARE(entryAt(controller, 2).value(QStringLiteral("kind")).toString(), QStringLiteral("Application"));
-    QVERIFY(entryAt(controller, 2).value(QStringLiteral("isLaunchable")).toBool());
-    QCOMPARE(entryAt(controller, 2).value(QStringLiteral("path")).toString(),
+    const QVariantMap notesEntry = entryNamed(controller, QStringLiteral("notes.txt"));
+    QVERIFY(!notesEntry.isEmpty());
+    QVERIFY(!notesEntry.value(QStringLiteral("isDirectory")).toBool());
+    QVERIFY(!notesEntry.value(QStringLiteral("isLaunchable")).toBool());
+
+    const QVariantMap applicationEntry = entryNamed(controller, QStringLiteral("Northstar.desktop"));
+    QCOMPARE(applicationEntry.value(QStringLiteral("kind")).toString(), QStringLiteral("Application"));
+    QVERIFY(applicationEntry.value(QStringLiteral("isLaunchable")).toBool());
+    QCOMPARE(applicationEntry.value(QStringLiteral("path")).toString(),
              QFileInfo(QDir(desktopPath).filePath(QStringLiteral("Northstar.desktop"))).canonicalFilePath());
 }
 
