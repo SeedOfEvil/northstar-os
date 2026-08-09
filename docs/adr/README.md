@@ -23,3 +23,4 @@ Accepted records in the initial foundation:
 - [0003: Qt 6 shell toolkit](0003-qt6-shell.md)
 - [0004: Package and update model](0004-package-and-update-model.md)
 - [0005: Project application bundle layout](0005-project-app-bundle-layout.md)
+- [0006: Narrow update-helper boundary](0006-update-helper-boundary.md)

@@ -8,7 +8,7 @@ The project advances through user-visible milestones with explicit pass gates. A
 | M1 | Shell seed | Single-display product slice validated; multi-display acceptance pending | Top bar and dock render correctly on every connected display |
 | M2 | Desktop session | Development session lane validated; production display-manager and service integration pending | Session, services, supervision, notifications, and lifecycle work coherently |
 | M3 | Core desktop | Most user-facing slices implemented; acceptance closure and remaining polish pending | Filer, settings, search, overview, associations, and project apps form a usable desktop |
-| M4 | Packages, updates, rollback | Package policy, fingerprint stores, provenance preview, publication signature verification, and native `pkg` publication smoke merged; protected release publication and update/rollback remain | Signed packages and ZFS boot-environment rollback work end to end |
+| M4 | Packages, updates, rollback | Package policy, fingerprint stores, provenance preview, publication signature verification, native `pkg` publication smoke, and bounded helper contract merged; protected release publication and update/rollback remain | Signed packages and ZFS boot-environment rollback work end to end |
 | M5 | Reproducible image and installer | Not started | Pinned inputs produce a bootable UEFI root-on-ZFS image |
 | M6 | Alpha hardware release | Not started | The supported VM and narrow Intel/AMD hardware matrix meets the alpha definition |
 
@@ -45,10 +45,11 @@ The next work is ordered as follows:
    merged. The remaining trust evidence is an actual signed development/stable
    `pkg` repository publication built from pinned Ports/Poudriere inputs with
    protected key custody and recorded provenance.
-4. **Build safe update and rollback.** Establish a narrow authorization
-   boundary, preflight a named `bectl` boot environment before upgrades,
-   validate N-1 to N upgrades and rollback, and prove that home data survives
-   both paths. No package mutation is exposed before these gates pass.
+4. **Build safe update and rollback.** The bounded root-owned helper request
+   contract is now defined and tested. Next establish its privileged broker,
+   preflight a named `bectl` boot environment before upgrades, validate N-1 to
+   N upgrades and rollback, and prove that home data survives both paths. No
+   package mutation is exposed before these gates pass.
 5. **Produce the reproducible image and installer.** Only after M4 has current
    evidence, pin the image inputs, build QCOW2 first, validate UEFI GPT/root-on-
    ZFS installation and first boot, then add raw/USB/ISO outputs.
@@ -120,7 +121,7 @@ Third-party global menus and full macOS compatibility remain out of scope.
 
 ## M4: Packages, updates, and rollback
 
-The first Software Center foundation is documented in [`docs/M4_SOFTWARE.md`](M4_SOFTWARE.md). It reads and searches the installed FreeBSD package inventory without mutating the host. The merged M4 package-trust work validates a FreeBSD `pkg`-aligned UCL policy, fingerprint stores, a provenance-aware publication manifest, catalogue integrity, a read-only RSA publication-signature envelope, and the native `pkg repo`/client publication smoke contract; it also exposes a read-only update-authorization preflight. It does not close M4: an actual signed development/stable repository built from protected Poudriere inputs, a privileged authorization helper, boot-environment creation before upgrades, rollback documentation, and N-1 compatibility tests are still required.
+The first Software Center foundation is documented in [`docs/M4_SOFTWARE.md`](M4_SOFTWARE.md). It reads and searches the installed FreeBSD package inventory without mutating the host. The merged M4 package-trust work validates a FreeBSD `pkg`-aligned UCL policy, fingerprint stores, a provenance-aware publication manifest, catalogue integrity, a read-only RSA publication-signature envelope, the native `pkg repo`/client publication smoke contract, and a bounded root-owned update-helper request protocol; it also exposes a read-only update-authorization preflight. It does not close M4: an actual signed development/stable repository built from protected Poudriere inputs, a privileged broker, boot-environment creation before upgrades, rollback documentation, and N-1 compatibility tests are still required.
 
 Pass only when project components install through `pkg`, repository metadata is signed, N-1 to N upgrades work, rollback restores the prior shell and package set, and user documents survive.
 
