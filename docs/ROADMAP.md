@@ -38,9 +38,11 @@ The next work is ordered as follows:
    Layer Shell run when hardware permits, and separately validate the branded
    display-manager session, controlled lifecycle actions, and the production
    privilege boundary. The current Proxmox fallback remains supplemental.
-3. **Build the M4 package-trust foundation.** Define the Northstar Ports and
-   Poudriere inputs, signed development/stable repository metadata, package
-   provenance, and a non-mutating update plan surfaced by Software Center.
+3. **Build the M4 package-trust foundation.** Validate the repository policy
+   contract against FreeBSD `pkg` UCL and fingerprint-directory semantics,
+   then define the Northstar Ports and Poudriere inputs, signed
+   development/stable repository metadata, package provenance, and a
+   non-mutating update plan surfaced by Software Center.
 4. **Build safe update and rollback.** Add a narrow authorization boundary,
    create a named `bectl` boot environment before upgrades, validate N-1 to N
    upgrades and rollback, and prove that home data survives both paths. No
@@ -116,7 +118,7 @@ Third-party global menus and full macOS compatibility remain out of scope.
 
 ## M4: Packages, updates, and rollback
 
-The first Software Center foundation is documented in [`docs/M4_SOFTWARE.md`](M4_SOFTWARE.md). It reads and searches the installed FreeBSD package inventory without mutating the host. It does not close M4: Ports overlays, Poudriere configuration, signed development/stable repositories, an upgrade command, boot-environment creation before upgrades, rollback documentation, and compatibility tests are still required.
+The first Software Center foundation is documented in [`docs/M4_SOFTWARE.md`](M4_SOFTWARE.md). It reads and searches the installed FreeBSD package inventory without mutating the host. The M4-A package-trust slice now validates a FreeBSD `pkg`-aligned UCL policy contract and renders a read-only repository configuration preview without claiming cryptographic verification. It does not close M4: Ports overlays, Poudriere configuration, signed development/stable repositories, an upgrade command, boot-environment creation before upgrades, rollback documentation, and compatibility tests are still required.
 
 Pass only when project components install through `pkg`, repository metadata is signed, N-1 to N upgrades work, rollback restores the prior shell and package set, and user documents survive.
 

@@ -106,6 +106,18 @@ target_link_libraries(test-packagecatalog
 
 add_test(NAME northstar-packagecatalog COMMAND test-packagecatalog)
 
+qt_add_executable(test-packagetrustcontroller
+    test-packagetrustcontroller.cpp
+)
+
+target_link_libraries(test-packagetrustcontroller
+    PRIVATE
+        northstar-shell-core
+        Qt6::Test
+)
+
+add_test(NAME northstar-packagetrustcontroller COMMAND test-packagetrustcontroller)
+
 qt_add_executable(test-volumecatalog
     test-volumecatalog.cpp
 )

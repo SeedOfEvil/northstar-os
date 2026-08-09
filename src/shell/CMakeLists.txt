@@ -3,6 +3,7 @@ add_library(northstar-shell-core STATIC
     filebrowsercontroller.cpp
     notificationcenter.cpp
     packagecatalog.cpp
+    packagetrustcontroller.cpp
     powercontroller.cpp
     sessioncontroller.cpp
     shellstate.cpp

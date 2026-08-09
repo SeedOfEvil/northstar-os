@@ -5,6 +5,7 @@ Window {
     id: software
 
     property var packageCatalog
+    property var packageTrust
     property var state
     property var targetScreen
     property int panelHeight: 44
@@ -177,6 +178,31 @@ Window {
                     spacing: 8
 
                     Rectangle {
+                        color: planMouse.containsMouse ? software.surfaceAccent : software.surfaceRaised
+                        height: 34
+                        radius: 6
+                        width: 124
+
+                        Text {
+                            anchors.centerIn: parent
+                            color: software.surfaceForeground
+                            font.pixelSize: 12
+                            text: "Plan Update"
+                        }
+
+                        MouseArea {
+                            id: planMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            onClicked: {
+                                if (software.packageTrust) {
+                                    software.packageTrust.planUpdate()
+                                }
+                            }
+                        }
+                    }
+
+                    Rectangle {
                         color: refreshMouse.containsMouse ? software.surfaceAccent : software.surfaceRaised
                         height: 34
                         radius: 6
@@ -289,14 +315,23 @@ Window {
                         Text {
                             color: software.surfaceMuted
                             font.pixelSize: 11
-                            text: "Updates"
+                            text: "Repository policy"
                         }
 
                         Text {
-                            color: software.surfaceForeground
+                            color: software.packageTrust && software.packageTrust.policyValid
+                                && software.packageTrust.trustStoreValid
+                                ? "#55c58a" : "#c34f65"
                             font.bold: true
-                            font.pixelSize: 14
-                            text: "Coming in M4"
+                            font.pixelSize: 13
+                            text: !software.packageTrust
+                                ? "Unavailable"
+                                : software.packageTrust.policyValid && software.packageTrust.trustStoreValid
+                                    ? "Ready"
+                                    : software.packageTrust.policyPresent
+                                        ? software.packageTrust.policyValid
+                                            ? "Trust store incomplete" : "Rejected"
+                                        : "Not configured"
                         }
                     }
                 }
@@ -344,14 +379,37 @@ Window {
                         ? "info" : "northstar"
                 }
 
-                Text {
+                Column {
                     anchors.verticalCenter: parent.verticalCenter
-                    color: software.surfaceMuted
-                    elide: Text.ElideRight
-                    font.pixelSize: 12
-                    text: software.packageCatalog
-                        ? software.packageCatalog.statusMessage : "Package inventory is unavailable."
+                    spacing: 3
                     width: parent.width - 34
+
+                    Text {
+                        color: software.surfaceMuted
+                        elide: Text.ElideRight
+                        font.pixelSize: 12
+                        text: software.packageCatalog
+                            ? software.packageCatalog.statusMessage : "Package inventory is unavailable."
+                        width: parent.width
+                    }
+
+                    Text {
+                        color: software.surfaceMuted
+                        elide: Text.ElideRight
+                        font.pixelSize: 11
+                        text: software.packageTrust
+                            ? software.packageTrust.trustStatus : "Signed repository policy is unavailable."
+                        width: parent.width
+                    }
+
+                    Text {
+                        color: software.surfaceMuted
+                        elide: Text.ElideRight
+                        font.pixelSize: 11
+                        text: software.packageTrust
+                            ? software.packageTrust.updatePlanStatus : "Update planning is unavailable."
+                        width: parent.width
+                    }
                 }
             }
 
@@ -449,7 +507,7 @@ Window {
             Text {
                 color: software.surfaceMuted
                 font.pixelSize: 11
-                text: "Read-only inventory. Installing, signed updates, and ZFS rollback remain protected M4 work."
+                text: "Read-only inventory and update-plan boundary. Package mutation, signature verification, and ZFS rollback remain protected M4 work."
                 width: parent.width
                 wrapMode: Text.WordWrap
             }

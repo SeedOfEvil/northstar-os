@@ -435,6 +435,7 @@ Window {
     SoftwareCenterWindow {
         id: softwareCenterWindow
         packageCatalog: northstarPackageCatalog
+        packageTrust: northstarPackageTrustController
         state: shellState
         targetScreen: targetScreen
         panelHeight: root.height
