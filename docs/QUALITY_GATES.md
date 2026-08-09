@@ -98,6 +98,35 @@ status. A plain GUI test over SSH is not valid if Qt selected XCB without
 `DISPLAY`; use the offscreen environment for headless checks and noVNC for
 interactive checks.
 
+### Extended-sprint checkpoint gate
+
+When a long-running goal is used, the broad checklist is executed as cohesive
+checkpoints rather than as one unbounded change set. The detailed sequence is
+in [`docs/OVERNIGHT_SPRINT.md`](OVERNIGHT_SPRINT.md). At each checkpoint the
+agent must have a focused diff, a targeted test result, a VM install result,
+and a written pass/open/fail observation before starting the next dependent
+slice. A micro-step may be grouped with its neighboring steps in one branch
+and PR; only cohesive user-visible slices receive cloud PRs.
+
+The checkpoint states have strict meanings:
+
+- `PASS`: the stated behavior was observed on the declared environment and
+  the supporting command completed successfully.
+- `OPEN`: the behavior still needs an interactive or hardware gate; no claim
+  is made from an unrelated headless or SSH result.
+- `FAIL`: the behavior regressed or the command failed; promotion is blocked
+  for that slice until it is repaired or explicitly parked with a follow-up.
+- `N/A`: the check is outside the current environment, with the reason and
+  future gate recorded.
+
+Before moving between slices, record the source commit, VM checkout, install
+prefix, exact command, result, and next action. Before cloud promotion, run
+the full automated gate again, review the diff for generated or secret files,
+and confirm that every required manual item is `PASS` or explicitly deferred
+by a documented environment limitation. The complete unattended-sprint
+sequence and fast-failure policy are maintained in
+[`docs/OVERNIGHT_SPRINT.md`](OVERNIGHT_SPRINT.md).
+
 ### Manual noVNC gate
 
 Record each item as pass, fail, or not-applicable with a short observation:
