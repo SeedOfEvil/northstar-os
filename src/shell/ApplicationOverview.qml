@@ -60,6 +60,12 @@ Window {
                 || descriptor.indexOf("console") >= 0) {
             return "terminal"
         }
+        if (descriptor.indexOf("welcome") >= 0 || descriptor.indexOf("onboarding") >= 0) {
+            return "welcome"
+        }
+        if (descriptor.indexOf("software") >= 0 || descriptor.indexOf("package") >= 0) {
+            return "software"
+        }
         if (descriptor.indexOf("firefox") >= 0 || descriptor.indexOf("browser") >= 0
                 || descriptor.indexOf("web") >= 0) {
             return "browser"
@@ -223,7 +229,10 @@ Window {
                                 elide: Text.ElideRight
                                 font.pixelSize: 9
                                 horizontalAlignment: Text.AlignHCenter
-                                text: modelData.genericName || "Application"
+                                text: modelData.genericName
+                                    || (modelData.sourceType === "bundle"
+                                        ? "Northstar .app"
+                                        : (modelData.launchable === false ? "Unavailable" : "Desktop app"))
                                 width: parent.width
                             }
                         }

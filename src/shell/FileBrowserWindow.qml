@@ -3,6 +3,7 @@ import QtQuick.Controls
 
 Window {
     id: files
+    objectName: "fileBrowserWindow"
 
     property var fileBrowserController
     property var applicationLauncher
@@ -27,7 +28,7 @@ Window {
     property color surfaceMuted: state && state.darkMode ? "#a9b1c2" : "#637083"
     property color surfaceAccent: state && state.darkMode ? "#79b8ff" : "#1769aa"
     property color surfaceRaised: state && state.darkMode ? "#252b36" : "#e8edf5"
-    property bool gridView: true
+    property bool gridView: files.state ? files.state.filesGridView : true
     property bool sidebarVisible: files.screenWidth >= 1000
     property int sidebarWidth: 194
     property int sidebarRefreshToken: 0
@@ -40,6 +41,7 @@ Window {
     property string selectedName: files.selectedEntry ? files.selectedEntry.name : ""
     property bool hasSelection: !!files.selectedEntry && files.selectedPath.length > 0
     property bool showingTrash: files.fileBrowserController && files.fileBrowserController.showingTrash
+    property var sortModes: ["name", "type", "size", "modified"]
     property var sidebarFavorites: [
         { label: "Home", iconName: "desktop", kind: "home", relativePath: "" },
         { label: "Desktop", iconName: "desktop", kind: "folder", relativePath: "Desktop" },
@@ -89,6 +91,90 @@ Window {
         show()
         raise()
         requestActivate()
+    }
+
+    function setGridView(enabled) {
+        if (files.state) {
+            files.state.setFilesGridView(enabled)
+        } else {
+            files.gridView = enabled
+        }
+    }
+
+    function openPath(path, isDirectory, isLaunchable) {
+        if (!files.fileBrowserController || !path) {
+            return
+        }
+
+        if (isDirectory) {
+            if (!files.fileBrowserController.navigateTo(path)) {
+                return
+            }
+            files.clearSelection()
+            show()
+            raise()
+            requestActivate()
+            return
+        }
+
+        const preferredDesktopId = files.applicationLauncher
+            ? files.applicationLauncher.preferredApplicationForFile(path) : ""
+        if (preferredDesktopId
+                && files.applicationLauncher.launchApplicationWithFile(preferredDesktopId, path)) {
+            return
+        }
+
+        // Keep desktop files in the same user-visible Open With flow as Files.
+        // The launchable flag is retained for the application-discovery slice,
+        // where verified desktop-entry execution will be added.
+        files.openAssociationForPath(path)
+    }
+
+    function sortModeIndex() {
+        if (!files.fileBrowserController) {
+            return 0
+        }
+        const index = files.sortModes.indexOf(files.fileBrowserController.sortMode)
+        return index >= 0 ? index : 0
+    }
+
+    function setSortMode(index) {
+        if (!files.fileBrowserController || index < 0 || index >= files.sortModes.length) {
+            return
+        }
+        files.clearSelection()
+        files.fileBrowserController.setSortMode(files.sortModes[index])
+    }
+
+    function openDesktopEntry(path) {
+        if (!files.fileBrowserController || !path) {
+            return
+        }
+
+        const desktopPath = files.fileBrowserController.homeChildPath("Desktop")
+        if (desktopPath.length === 0 || !files.fileBrowserController.navigateTo(desktopPath)) {
+            return
+        }
+
+        const entries = files.fileBrowserController.entries
+        for (let index = 0; index < entries.length; ++index) {
+            if (entries[index].path !== path) {
+                continue
+            }
+
+            files.selectedIndex = index
+            show()
+            raise()
+            requestActivate()
+            if (entries[index].isDirectory) {
+                openSelectedEntry()
+            } else {
+                openAssociationDialog()
+            }
+            return
+        }
+
+        files.clearSelection()
     }
 
     function openVolume(path, label) {
@@ -173,15 +259,27 @@ Window {
         if (!files.hasSelection || files.selectedEntry.isDirectory) {
             return
         }
-        associationDialog.itemPath = files.selectedPath
-        associationDialog.itemName = files.selectedName
-        associationDialog.extension = files.fileExtension(files.selectedPath)
+        files.openAssociationForPath(files.selectedPath)
+    }
+
+    function openAssociationForPath(path) {
+        if (!files.fileBrowserController || !path) {
+            return
+        }
+
+        const normalizedPath = String(path).replace(/\\/g, "/")
+        associationDialog.itemPath = path
+        associationDialog.itemName = normalizedPath.slice(normalizedPath.lastIndexOf("/") + 1)
+        associationDialog.extension = files.fileExtension(path)
         associationDialog.preferredDesktopId = files.applicationLauncher
-            ? files.applicationLauncher.preferredApplicationForFile(files.selectedPath) : ""
+            ? files.applicationLauncher.preferredApplicationForFile(path) : ""
         associationDialog.rememberChoice.checked = false
         if (files.applicationLauncher) {
             files.applicationLauncher.setApplicationQuery("")
         }
+        show()
+        raise()
+        requestActivate()
         associationDialog.open()
     }
 
@@ -190,7 +288,7 @@ Window {
             return
         }
         if (files.applicationLauncher.launchApplicationWithFile(desktopId, associationDialog.itemPath)) {
-            if (associationDialog.rememberChoice.checked && associationDialog.extension.length > 0) {
+            if (associationDialog.rememberChoice.checked) {
                 files.applicationLauncher.setPreferredApplicationForFile(associationDialog.itemPath, desktopId)
                 associationDialog.preferredDesktopId = desktopId
             }
@@ -859,7 +957,7 @@ Window {
                         id: tilesMouse
                         anchors.fill: parent
                         hoverEnabled: true
-                        onClicked: files.gridView = true
+                        onClicked: files.setGridView(true)
                     }
                 }
 
@@ -882,7 +980,47 @@ Window {
                         id: listViewMouse
                         anchors.fill: parent
                         hoverEnabled: true
-                        onClicked: files.gridView = false
+                        onClicked: files.setGridView(false)
+                    }
+                }
+
+                ComboBox {
+                    id: sortSelector
+                    anchors.verticalCenter: parent.verticalCenter
+                    currentIndex: files.sortModeIndex()
+                    height: 34
+                    model: ["Name", "Type", "Size", "Modified"]
+                    width: 112
+
+                    onActivated: files.setSortMode(index)
+                }
+
+                Rectangle {
+                    id: sortOrderButton
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: sortOrderMouse.containsMouse ? files.surfaceAccent : files.surfaceRaised
+                    height: 34
+                    radius: 5
+                    width: 36
+
+                    Text {
+                        anchors.centerIn: parent
+                        color: files.surfaceForeground
+                        font.bold: true
+                        font.pixelSize: 15
+                        text: files.fileBrowserController && files.fileBrowserController.sortAscending
+                            ? "↑" : "↓"
+                    }
+
+                    MouseArea {
+                        id: sortOrderMouse
+                        anchors.fill: parent
+                        enabled: !!files.fileBrowserController
+                        hoverEnabled: true
+                        onClicked: {
+                            files.clearSelection()
+                            files.fileBrowserController.toggleSortOrder()
+                        }
                     }
                 }
 
@@ -892,7 +1030,7 @@ Window {
                     elide: Text.ElideMiddle
                     font.pixelSize: 13
                     text: files.fileBrowserController ? files.fileBrowserController.displayPath : "~"
-                    width: Math.max(80, parent.width - 306)
+                    width: Math.max(80, parent.width - 462)
                 }
             }
 
@@ -1350,6 +1488,7 @@ Window {
         property string itemName: ""
         property string extension: ""
         property string preferredDesktopId: ""
+        property bool showAllApplications: false
 
         title: "Open with an application"
         modal: true
@@ -1360,6 +1499,7 @@ Window {
         y: (files.height - height) / 2
 
         onOpened: {
+            associationDialog.showAllApplications = false
             associationSearch.text = ""
             if (files.applicationLauncher) {
                 files.applicationLauncher.setApplicationQuery("")
@@ -1368,6 +1508,7 @@ Window {
         }
 
         onClosed: {
+            associationDialog.showAllApplications = false
             associationSearch.text = ""
             if (files.applicationLauncher) {
                 files.applicationLauncher.setApplicationQuery("")
@@ -1423,6 +1564,28 @@ Window {
                 }
             }
 
+            Row {
+                spacing: 10
+                width: parent.width
+
+                Text {
+                    color: files.surfaceMuted
+                    elide: Text.ElideRight
+                    text: associationDialog.showAllApplications
+                        ? "Showing all registered applications."
+                        : "Showing applications that declare support for this file type."
+                    verticalAlignment: Text.AlignVCenter
+                    width: parent.width - showAllApplicationsButton.width - parent.spacing
+                }
+
+                Button {
+                    id: showAllApplicationsButton
+                    text: "Show All"
+                    visible: !associationDialog.showAllApplications
+                    onClicked: associationDialog.showAllApplications = true
+                }
+            }
+
             Rectangle {
                 color: files.surfaceBackground
                 border.color: files.surfaceMuted
@@ -1438,7 +1601,9 @@ Window {
                     model: files.applicationLauncher
                         ? files.applicationLauncher.applicationQuery.length > 0
                             ? files.applicationLauncher.matchingApplications
-                            : files.applicationLauncher.applications
+                            : associationDialog.showAllApplications
+                                ? files.applicationLauncher.applications
+                                : files.applicationLauncher.applicationsForFile(associationDialog.itemPath)
                         : []
 
                     delegate: Rectangle {
@@ -1514,7 +1679,9 @@ Window {
                 Text {
                     anchors.centerIn: parent
                     color: files.surfaceMuted
-                    text: "No registered applications were found."
+                    text: associationDialog.showAllApplications
+                        ? "No registered applications were found."
+                        : "No compatible applications found. Use Show All to choose manually."
                     visible: associationList.count === 0
                 }
             }
@@ -1523,8 +1690,8 @@ Window {
                 id: rememberChoice
                 text: associationDialog.extension.length > 0
                     ? "Remember this choice for ." + associationDialog.extension + " files"
-                    : "Remember this choice"
-                visible: associationList.count > 0 && associationDialog.extension.length > 0
+                    : "Remember this choice for files of this type"
+                visible: associationList.count > 0
                 width: parent.width
 
                 contentItem: Text {

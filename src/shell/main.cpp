@@ -1,4 +1,6 @@
 #include "applicationlauncher.h"
+#include "desktopitemscontroller.h"
+#include "desktoplayoutcontroller.h"
 #include "filebrowsercontroller.h"
 #include "layershellsurface.h"
 #include "notificationcenter.h"
@@ -22,6 +24,7 @@
 #include <QQmlEngine>
 #include <QScreen>
 #include <QStandardPaths>
+#include <QVariant>
 #include <QUrl>
 #include <QWindow>
 
@@ -48,6 +51,15 @@ QUrl northstarIconsSource()
     return path.isEmpty() ? QUrl() : QUrl::fromLocalFile(path);
 }
 
+QUrl northstarGeneratedIconsDirectory()
+{
+    const QString path = QStandardPaths::locate(
+        QStandardPaths::GenericDataLocation,
+        QStringLiteral("northstar/icons/generated"),
+        QStandardPaths::LocateDirectory);
+    return path.isEmpty() ? QUrl() : QUrl::fromLocalFile(path + QLatin1Char('/'));
+}
+
 } // namespace
 
 int main(int argc, char *argv[])
@@ -65,7 +77,9 @@ int main(int argc, char *argv[])
     UpdatePlanController updatePlanController(&packageTrustController);
     UpdateAuthorizationController updateAuthorizationController(&packageTrustController,
                                                                   &updatePlanController);
+    DesktopItemsController desktopItemsController;
     FileBrowserController fileBrowserController;
+    DesktopLayoutController desktopLayoutController;
     PowerController powerController;
     SessionController sessionController;
     ShortcutCatalog shortcutCatalog;
@@ -88,6 +102,9 @@ int main(int argc, char *argv[])
     });
     const QUrl logoSource = northstarLogoSource();
     const QUrl iconsSource = northstarIconsSource();
+    const QUrl generatedIconsDirectory = northstarGeneratedIconsDirectory();
+    engine.rootContext()->setContextProperty(QStringLiteral("northstarGeneratedIconsDirectory"),
+                                             generatedIconsDirectory);
     QQmlComponent backgroundComponent(&engine, QUrl(QStringLiteral("qrc:/Northstar/Shell/DesktopBackground.qml")));
     QQmlComponent component(&engine, QUrl(QStringLiteral("qrc:/Northstar/Shell/ShellWindow.qml")));
     QQmlComponent dockComponent(&engine, QUrl(QStringLiteral("qrc:/Northstar/Shell/DockWindow.qml")));
@@ -119,6 +136,12 @@ int main(int argc, char *argv[])
         auto *backgroundContext = new QQmlContext(engine.rootContext());
         backgroundContext->setContextProperty(QStringLiteral("northstarLogoSource"), logoSource);
         backgroundContext->setContextProperty(QStringLiteral("northstarIconsSource"), iconsSource);
+        backgroundContext->setContextProperty(QStringLiteral("northstarDesktopItemsController"),
+                                              &desktopItemsController);
+        backgroundContext->setContextProperty(QStringLiteral("northstarFileBrowserController"),
+                                              &fileBrowserController);
+        backgroundContext->setContextProperty(QStringLiteral("northstarGeneratedIconsDirectory"), generatedIconsDirectory);
+        backgroundContext->setContextProperty(QStringLiteral("northstarDesktopLayoutController"), &desktopLayoutController);
         backgroundContext->setContextProperty(QStringLiteral("shellState"), &shellState);
         backgroundContext->setContextProperty(QStringLiteral("targetScreen"), screen);
         backgroundContext->setContextProperty(QStringLiteral("displayIndex"), index);
@@ -142,7 +165,10 @@ int main(int argc, char *argv[])
         context->setContextProperty(QStringLiteral("northstarUpdatePlanController"), &updatePlanController);
         context->setContextProperty(QStringLiteral("northstarUpdateAuthorizationController"),
                                     &updateAuthorizationController);
+        context->setContextProperty(QStringLiteral("northstarDesktopLayoutController"), &desktopLayoutController);
         context->setContextProperty(QStringLiteral("northstarFileBrowserController"), &fileBrowserController);
+        context->setContextProperty(QStringLiteral("northstarDesktopItemsController"),
+                                    &desktopItemsController);
         context->setContextProperty(QStringLiteral("northstarPowerController"), &powerController);
         context->setContextProperty(QStringLiteral("northstarSessionController"), &sessionController);
         context->setContextProperty(QStringLiteral("northstarShortcutCatalog"), &shortcutCatalog);
@@ -150,10 +176,15 @@ int main(int argc, char *argv[])
         context->setContextProperty(QStringLiteral("northstarWindowController"), &windowController);
         context->setContextProperty(QStringLiteral("northstarLogoSource"), logoSource);
         context->setContextProperty(QStringLiteral("northstarIconsSource"), iconsSource);
+        context->setContextProperty(QStringLiteral("northstarGeneratedIconsDirectory"), generatedIconsDirectory);
         context->setContextProperty(QStringLiteral("targetScreen"), screen);
         context->setContextProperty(QStringLiteral("displayIndex"), index);
 
         QObject *object = component.create(context);
+        if (backgroundObject != nullptr && object != nullptr) {
+            auto *filesWindow = object->findChild<QObject *>(QStringLiteral("fileBrowserWindow"));
+            backgroundObject->setProperty("fileBrowserWindow", QVariant::fromValue(filesWindow));
+        }
         auto *window = qobject_cast<QWindow *>(object);
         if (window == nullptr || !LayerShellSurface::configurePanel(window, screen, PanelHeight, index)) {
             qWarning() << "Unable to configure Northstar shell surface for display" << index;
@@ -172,6 +203,7 @@ int main(int argc, char *argv[])
         dockContext->setContextProperty(QStringLiteral("northstarWindowController"), &windowController);
         dockContext->setContextProperty(QStringLiteral("northstarLogoSource"), logoSource);
         dockContext->setContextProperty(QStringLiteral("northstarIconsSource"), iconsSource);
+        dockContext->setContextProperty(QStringLiteral("northstarGeneratedIconsDirectory"), generatedIconsDirectory);
         dockContext->setContextProperty(QStringLiteral("targetScreen"), screen);
         dockContext->setContextProperty(QStringLiteral("displayIndex"), index);
 

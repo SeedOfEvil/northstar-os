@@ -5,15 +5,19 @@ Window {
     id: settings
 
     property var state
+    property var desktopLayoutController
     property var launcherController
     property var sessionController
     property bool hasSessionController: sessionController !== null && sessionController !== undefined
+    property bool sessionFailed: settings.hasSessionController
+        && settings.sessionController.state === "failed"
     property var targetScreen
     property string shellApplicationName: "northstar-shell"
     property string shellApplicationVersion: "0.1.0"
     property int panelHeight: 44
     property int desktopMargin: 24
     property string selectedSection: "appearance"
+    property string layoutStatus: ""
     property int screenX: targetScreen ? targetScreen.geometry.x : 0
     property int screenY: targetScreen ? targetScreen.geometry.y : 0
     property int screenWidth: targetScreen ? targetScreen.geometry.width : 1280
@@ -134,6 +138,12 @@ Window {
         onTriggered: settings.catalogStatus = ""
     }
 
+    Timer {
+        id: layoutStatusTimer
+        interval: 2500
+        onTriggered: settings.layoutStatus = ""
+    }
+
     Dialog {
         id: endSessionDialog
         modal: true
@@ -152,6 +162,31 @@ Window {
 
         onAccepted: {
             const requested = settings.hasSessionController && settings.sessionController.requestEndSession()
+            if (requested) {
+                settings.hide()
+            }
+        }
+    }
+
+    Dialog {
+        id: restartShellDialog
+        modal: true
+        title: "Restart Northstar shell?"
+        standardButtons: Dialog.Cancel | Dialog.Ok
+        width: 420
+        x: (settings.width - width) / 2
+        y: (settings.height - height) / 2
+
+        contentItem: Text {
+            color: settings.surfaceForeground
+            text: "This restarts only the supervised Northstar shell. The compositor and other user applications are not targeted."
+            wrapMode: Text.WordWrap
+            width: 360
+        }
+
+        onAccepted: {
+            const requested = settings.hasSessionController
+                && settings.sessionController.requestShellRestart()
             if (requested) {
                 settings.hide()
             }
@@ -399,6 +434,25 @@ Window {
                             }
                         }
 
+                        Button {
+                            enabled: !!settings.desktopLayoutController
+                            text: "Reset Desktop Icon Layout"
+                            onClicked: {
+                                settings.desktopLayoutController.reset()
+                                settings.layoutStatus = "Desktop icon layout reset to the default column."
+                                layoutStatusTimer.restart()
+                            }
+                        }
+
+                        Text {
+                            color: settings.surfaceMuted
+                            font.pixelSize: 12
+                            text: settings.layoutStatus
+                            visible: text.length > 0
+                            wrapMode: Text.WordWrap
+                            width: parent.width
+                        }
+
                         Text {
                             color: settings.surfaceMuted
                             font.pixelSize: 12
@@ -457,7 +511,7 @@ Window {
                                     Text {
                                         color: settings.surfaceForeground
                                         font.pixelSize: 13
-                                        text: settings.hasSessionController && settings.sessionController.available
+                                        text: settings.hasSessionController && settings.sessionController.state.length > 0
                                             ? settings.sessionController.state : "Not supervised"
                                     }
                                 }
@@ -654,6 +708,33 @@ Window {
                             font.pixelSize: 12
                             text: settings.catalogStatus
                             visible: text.length > 0
+                        }
+
+                        Rectangle {
+                            color: settings.state && settings.state.darkMode ? "#3b2328" : "#fff0f0"
+                            border.color: settings.state && settings.state.darkMode ? "#d96c7a" : "#c7465b"
+                            border.width: 1
+                            height: sessionRecoveryMessage.implicitHeight + 24
+                            radius: 8
+                            visible: settings.sessionFailed
+                            width: parent.width
+
+                            Text {
+                                id: sessionRecoveryMessage
+                                anchors.fill: parent
+                                anchors.margins: 12
+                                color: settings.state && settings.state.darkMode ? "#ffd9de" : "#7f1d2d"
+                                font.pixelSize: 12
+                                text: "The supervised session reached a terminal failure. Save your work and restart Northstar from the console or login session before testing again."
+                                wrapMode: Text.WordWrap
+                            }
+                        }
+
+                        Button {
+                            enabled: settings.hasSessionController
+                                && settings.sessionController.restartable
+                            text: "Restart Northstar Shell"
+                            onClicked: restartShellDialog.open()
                         }
 
                         Button {

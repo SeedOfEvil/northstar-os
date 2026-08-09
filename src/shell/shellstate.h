@@ -9,6 +9,7 @@ class ShellState final : public QObject
     Q_PROPERTY(QStringList pinnedApplications READ pinnedApplications CONSTANT)
     Q_PROPERTY(QString activeWindowTitle READ activeWindowTitle WRITE setActiveWindowTitle NOTIFY activeWindowTitleChanged)
     Q_PROPERTY(bool darkMode READ darkMode WRITE setDarkMode NOTIFY darkModeChanged)
+    Q_PROPERTY(bool filesGridView READ filesGridView WRITE setFilesGridView NOTIFY filesGridViewChanged)
 
 public:
     explicit ShellState(QObject *parent = nullptr, QString settingsPath = {});
@@ -16,15 +17,18 @@ public:
     QStringList pinnedApplications() const;
     QString activeWindowTitle() const;
     bool darkMode() const;
+    bool filesGridView() const;
 
 public slots:
     void setActiveWindowTitle(const QString &title);
     void setDarkMode(bool enabled);
+    void setFilesGridView(bool enabled);
     void toggleDarkMode();
 
 signals:
     void activeWindowTitleChanged();
     void darkModeChanged();
+    void filesGridViewChanged();
 
 private:
     void loadPreferences();
@@ -34,4 +38,5 @@ private:
     QString m_settingsPath;
     QString m_activeWindowTitle;
     bool m_darkMode = true;
+    bool m_filesGridView = true;
 };

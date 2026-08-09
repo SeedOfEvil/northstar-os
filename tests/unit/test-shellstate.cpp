@@ -14,6 +14,7 @@ private slots:
     void activeWindowTitleFallsBackToDesktop();
     void themeToggleEmitsOncePerChange();
     void persistsDarkMode();
+    void persistsFilesViewMode();
     void launcherUsesPinnedPrograms();
 };
 
@@ -26,6 +27,7 @@ void ShellStateTest::defaultsAreStable()
     QCOMPARE(state.pinnedApplications(), QStringList({QStringLiteral("qterminal"), QStringLiteral("firefox")}));
     QCOMPARE(state.activeWindowTitle(), QStringLiteral("Desktop"));
     QVERIFY(state.darkMode());
+    QVERIFY(state.filesGridView());
 }
 
 void ShellStateTest::activeWindowTitleFallsBackToDesktop()
@@ -78,6 +80,29 @@ void ShellStateTest::persistsDarkMode()
 
     ShellState restoredState(nullptr, settingsPath);
     QVERIFY(!restoredState.darkMode());
+}
+
+void ShellStateTest::persistsFilesViewMode()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    const QString settingsPath = temporaryDirectory.filePath(QStringLiteral("preferences.ini"));
+
+    {
+        ShellState state(nullptr, settingsPath);
+        QVERIFY(state.filesGridView());
+        QSignalSpy spy(&state, &ShellState::filesGridViewChanged);
+
+        state.setFilesGridView(false);
+
+        QVERIFY(!state.filesGridView());
+        QCOMPARE(spy.count(), 1);
+        state.setFilesGridView(false);
+        QCOMPARE(spy.count(), 1);
+    }
+
+    ShellState restoredState(nullptr, settingsPath);
+    QVERIFY(!restoredState.filesGridView());
 }
 
 void ShellStateTest::launcherUsesPinnedPrograms()

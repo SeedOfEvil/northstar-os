@@ -13,6 +13,10 @@ class FileBrowserControllerTest final : public QObject
 
 private slots:
     void listsFoldersBeforeFiles();
+    void sortsEntriesByMetadata();
+    void listsDesktopEntriesForTheDesktopSurface();
+    void classifiesLaunchableDesktopEntries();
+    void watchesForDesktopFolderCreation();
     void navigatesWithinHomeFolder();
     void searchesHomeTreeAndClearsOnNavigation();
     void opensFilesThroughInjectedHandler();
@@ -62,6 +66,111 @@ void FileBrowserControllerTest::listsFoldersBeforeFiles()
     QCOMPARE(entryName(entries.at(2)), QStringLiteral("z-last.txt"));
     QVERIFY(entries.at(0).toMap().value(QStringLiteral("isDirectory")).toBool());
     QVERIFY(!entries.at(1).toMap().value(QStringLiteral("isDirectory")).toBool());
+}
+
+void FileBrowserControllerTest::sortsEntriesByMetadata()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    QVERIFY(QDir(temporaryDirectory.path()).mkdir(QStringLiteral("folder")));
+    QVERIFY(writeFile(QDir(temporaryDirectory.path()).filePath(QStringLiteral("small.txt")), "1"));
+    QVERIFY(writeFile(QDir(temporaryDirectory.path()).filePath(QStringLiteral("large.txt")), "1234"));
+
+    FileBrowserController controller(nullptr, temporaryDirectory.path());
+    controller.setSortMode(QStringLiteral("size"));
+    QCOMPARE(entryName(controller.entries().at(0)), QStringLiteral("folder"));
+    QCOMPARE(entryName(controller.entries().at(1)), QStringLiteral("small.txt"));
+    QCOMPARE(entryName(controller.entries().at(2)), QStringLiteral("large.txt"));
+
+    controller.toggleSortOrder();
+    QCOMPARE(controller.sortMode(), QStringLiteral("size"));
+    QVERIFY(!controller.sortAscending());
+    QCOMPARE(entryName(controller.entries().at(0)), QStringLiteral("folder"));
+    QCOMPARE(entryName(controller.entries().at(1)), QStringLiteral("large.txt"));
+    QCOMPARE(entryName(controller.entries().at(2)), QStringLiteral("small.txt"));
+
+    controller.setSortMode(QStringLiteral("type"));
+    QCOMPARE(controller.sortMode(), QStringLiteral("type"));
+    QVERIFY(!controller.sortAscending());
+    controller.setSortMode(QStringLiteral("unsafe"));
+    QCOMPARE(controller.sortMode(), QStringLiteral("type"));
+}
+
+void FileBrowserControllerTest::listsDesktopEntriesForTheDesktopSurface()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    const QString desktopPath = QDir(temporaryDirectory.path()).filePath(QStringLiteral("Desktop"));
+    QVERIFY(QDir().mkpath(desktopPath));
+    QVERIFY(QDir(desktopPath).mkdir(QStringLiteral("Projects")));
+    QVERIFY(writeFile(QDir(desktopPath).filePath(QStringLiteral("notes.txt")), "notes"));
+
+    FileBrowserController controller(nullptr, temporaryDirectory.path());
+    const QVariantList entries = controller.desktopEntries();
+
+    QCOMPARE(entries.size(), 2);
+    QCOMPARE(entryName(entries.at(0)), QStringLiteral("Projects"));
+    QCOMPARE(entryName(entries.at(1)), QStringLiteral("notes.txt"));
+    QCOMPARE(entries.at(0).toMap().value(QStringLiteral("path")).toString(),
+             QFileInfo(QDir(desktopPath).filePath(QStringLiteral("Projects"))).canonicalFilePath());
+    QVERIFY(entries.at(0).toMap().value(QStringLiteral("isDirectory")).toBool());
+    QVERIFY(!entries.at(1).toMap().value(QStringLiteral("isDirectory")).toBool());
+}
+
+void FileBrowserControllerTest::classifiesLaunchableDesktopEntries()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    const QString desktopPath = QDir(temporaryDirectory.path()).filePath(QStringLiteral("Desktop"));
+    QVERIFY(QDir().mkpath(desktopPath));
+    QVERIFY(writeFile(QDir(desktopPath).filePath(QStringLiteral("Northstar.desktop")),
+                      "[Desktop Entry]\nName=Northstar\nType=Application\n"));
+    QVERIFY(QDir(desktopPath).mkdir(QStringLiteral("Example.app")));
+
+    FileBrowserController controller(nullptr, temporaryDirectory.path());
+    const QVariantList entries = controller.desktopEntries();
+    QCOMPARE(entries.size(), 2);
+
+    QVariantMap desktopFile;
+    QVariantMap appDirectory;
+    for (const QVariant &entry : entries) {
+        const QVariantMap map = entry.toMap();
+        if (map.value(QStringLiteral("name")).toString() == QStringLiteral("Northstar.desktop")) {
+            desktopFile = map;
+        } else if (map.value(QStringLiteral("name")).toString() == QStringLiteral("Example.app")) {
+            appDirectory = map;
+        }
+    }
+    QVERIFY(!desktopFile.isEmpty());
+    QVERIFY(!appDirectory.isEmpty());
+    QCOMPARE(desktopFile.value(QStringLiteral("name")).toString(),
+             QStringLiteral("Northstar.desktop"));
+    QVERIFY(desktopFile.value(QStringLiteral("isLaunchable")).toBool());
+    QVERIFY(!desktopFile.value(QStringLiteral("isDirectory")).toBool());
+    QCOMPARE(desktopFile.value(QStringLiteral("kind")).toString(),
+             QStringLiteral("Application"));
+    QCOMPARE(appDirectory.value(QStringLiteral("name")).toString(),
+             QStringLiteral("Example.app"));
+    QVERIFY(appDirectory.value(QStringLiteral("isLaunchable")).toBool());
+    QVERIFY(!appDirectory.value(QStringLiteral("isDirectory")).toBool());
+    QCOMPARE(appDirectory.value(QStringLiteral("kind")).toString(),
+             QStringLiteral("Application"));
+}
+
+void FileBrowserControllerTest::watchesForDesktopFolderCreation()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+
+    FileBrowserController controller(nullptr, temporaryDirectory.path());
+    QVERIFY(controller.desktopEntries().isEmpty());
+
+    const QString desktopPath = QDir(temporaryDirectory.path()).filePath(QStringLiteral("Desktop"));
+    QVERIFY(QDir().mkpath(desktopPath));
+    QVERIFY(writeFile(QDir(desktopPath).filePath(QStringLiteral("created-later.txt")), "later"));
+
+    QTRY_COMPARE_WITH_TIMEOUT(controller.desktopEntries().size(), 1, 2000);
+    QCOMPARE(entryName(controller.desktopEntries().first()), QStringLiteral("created-later.txt"));
 }
 
 void FileBrowserControllerTest::navigatesWithinHomeFolder()

@@ -125,10 +125,22 @@ QString desktopIdForPath(const QDir &root, const QString &path)
 ApplicationCatalog::ApplicationCatalog(QStringList applicationDirectories, QObject *parent)
     : QObject(parent)
     , m_applicationDirectories(std::move(applicationDirectories))
+    , m_watcher(this)
+    , m_refreshTimer(this)
 {
     if (m_applicationDirectories.isEmpty()) {
         m_applicationDirectories = defaultApplicationDirectories();
     }
+
+    m_refreshTimer.setInterval(150);
+    m_refreshTimer.setSingleShot(true);
+    connect(&m_watcher, &QFileSystemWatcher::directoryChanged,
+            this, &ApplicationCatalog::scheduleReload);
+    connect(&m_watcher, &QFileSystemWatcher::fileChanged,
+            this, &ApplicationCatalog::scheduleReload);
+    connect(&m_refreshTimer, &QTimer::timeout, this, [this]() {
+        reload();
+    });
 
     reload();
 }
@@ -182,6 +194,11 @@ QVariantList ApplicationCatalog::toVariantList(const QList<DesktopApplication> &
         item.insert(QStringLiteral("genericName"), application.genericName);
         item.insert(QStringLiteral("icon"), application.icon);
         item.insert(QStringLiteral("categories"), application.categories);
+        item.insert(QStringLiteral("sourceType"), QStringLiteral("desktop"));
+        item.insert(QStringLiteral("sourcePath"), application.sourcePath);
+        item.insert(QStringLiteral("exec"), application.exec);
+        item.insert(QStringLiteral("launchable"), application.launchable);
+        item.insert(QStringLiteral("mimeTypes"), application.mimeTypes);
         result.append(item);
     }
 
@@ -247,6 +264,8 @@ bool ApplicationCatalog::reload()
         }
         return QString::compare(left.desktopId, right.desktopId, Qt::CaseInsensitive) < 0;
     });
+
+    refreshWatchPaths();
 
     if (discovered == m_entries) {
         return false;
@@ -372,6 +391,7 @@ bool ApplicationCatalog::readDesktopEntry(const QString &path, const QString &de
     parsed.exec = values.value(QStringLiteral("Exec")).trimmed();
     parsed.icon = unescapeDesktopValue(values.value(QStringLiteral("Icon"))).trimmed();
     parsed.categories = desktopList(values.value(QStringLiteral("Categories")));
+    parsed.mimeTypes = desktopList(values.value(QStringLiteral("MimeType")));
     parsed.sourcePath = path;
 
     if (parsed.name.isEmpty() || parsed.exec.isEmpty()
@@ -379,12 +399,52 @@ bool ApplicationCatalog::readDesktopEntry(const QString &path, const QString &de
         return false;
     }
 
-    if (expandExec(parsed).isEmpty()) {
+    const QStringList command = expandExec(parsed);
+    if (command.isEmpty()) {
         return false;
     }
 
+    parsed.launchable = tryExecutable(command.constFirst());
+
     *application = std::move(parsed);
     return true;
+}
+
+void ApplicationCatalog::scheduleReload()
+{
+    if (!m_refreshTimer.isActive()) {
+        m_refreshTimer.start();
+    }
+}
+
+void ApplicationCatalog::refreshWatchPaths()
+{
+    const QStringList watchedPaths = m_watcher.directories();
+    if (!watchedPaths.isEmpty()) {
+        m_watcher.removePaths(watchedPaths);
+    }
+
+    QStringList paths;
+    for (const QString &directoryPath : std::as_const(m_applicationDirectories)) {
+        const QDir directory(directoryPath);
+        if (!directory.exists()) {
+            continue;
+        }
+
+        paths.append(directory.absolutePath());
+        QDirIterator iterator(
+            directory.absolutePath(),
+            QDir::Dirs | QDir::NoDotAndDotDot,
+            QDirIterator::Subdirectories);
+        while (iterator.hasNext()) {
+            paths.append(iterator.next());
+        }
+    }
+
+    paths.removeDuplicates();
+    if (!paths.isEmpty()) {
+        m_watcher.addPaths(paths);
+    }
 }
 
 QStringList ApplicationCatalog::tokenizeExec(const QString &exec)

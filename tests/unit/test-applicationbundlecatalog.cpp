@@ -5,6 +5,7 @@
 #include <QFile>
 #include <QFileDevice>
 #include <QFileInfo>
+#include <QList>
 #include <QTemporaryDir>
 #include <QUrl>
 #include <QtTest/QtTest>
@@ -39,7 +40,8 @@ bool writeFile(const QString &path, const QByteArray &contents, QFileDevice::Per
 QByteArray manifest(const QByteArray &bundleId,
                     const QByteArray &executable = "northstar-welcome",
                     const QByteArray &icon = "northstar-welcome.svg",
-                    bool includeProvenance = true)
+                    bool includeProvenance = true,
+                    const QList<QByteArray> &documentExtensions = {})
 {
     QByteArray result = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
            "<plist version=\"1.0\"><dict>\n"
@@ -50,6 +52,13 @@ QByteArray manifest(const QByteArray &bundleId,
            "<key>Icon</key><string>" + icon + "</string>\n"
            "<key>Categories</key><array><string>Utility</string></array>\n"
            ;
+    if (!documentExtensions.isEmpty()) {
+        result += "<key>DocumentExtensions</key><array>";
+        for (const QByteArray &extension : documentExtensions) {
+            result += "<string>" + extension + "</string>";
+        }
+        result += "</array>\n";
+    }
     if (includeProvenance) {
         result += "<key>Provenance</key><dict>\n"
                   "<key>Source</key><string>northstar-project</string>\n"
@@ -64,7 +73,9 @@ QByteArray manifest(const QByteArray &bundleId,
 bool createBundle(const QString &directory,
                   const QByteArray &bundleId,
                   const QByteArray &executable = "northstar-welcome",
-                  const QByteArray &icon = "northstar-welcome.svg")
+                  const QByteArray &icon = "northstar-welcome.svg",
+                  bool includeProvenance = true,
+                  const QList<QByteArray> &documentExtensions = {})
 {
     const QString root = bundlePath(directory, QString::fromUtf8(bundleId));
     const QString contents = QDir(root).filePath(QStringLiteral("Contents"));
@@ -77,7 +88,7 @@ bool createBundle(const QString &directory,
     const QFileDevice::Permissions regularFilePermissions = QFileDevice::ReadOwner | QFileDevice::WriteOwner;
     const QFileDevice::Permissions executablePermissions = regularFilePermissions | QFileDevice::ExeOwner;
     return writeFile(QDir(contents).filePath(QStringLiteral("Info.plist")),
-                     manifest(bundleId, executable, icon),
+                     manifest(bundleId, executable, icon, includeProvenance, documentExtensions),
                      regularFilePermissions)
         && writeFile(QDir(executableRoot).filePath(QString::fromUtf8(executable)),
                      "#!/bin/sh\nexit 0\n",
@@ -95,8 +106,10 @@ class ApplicationBundleCatalogTest final : public QObject
 
 private slots:
     void discoversValidBundleAndLaunchSpec();
+    void autoRefreshesBundleDirectories();
     void rejectsMalformedTraversalAndWritableBundles();
     void launcherMergesBundleApplicationsAndPassesFiles();
+    void filtersApplicationsByDeclaredDocumentType();
 };
 
 void ApplicationBundleCatalogTest::discoversValidBundleAndLaunchSpec()
@@ -127,6 +140,21 @@ void ApplicationBundleCatalogTest::discoversValidBundleAndLaunchSpec()
     QVERIFY(catalog.launchSpec(QStringLiteral("bundle:org.northstar.Welcome"), &program, &arguments));
     QCOMPARE(program, QFileInfo(catalog.entries().first().executablePath).canonicalFilePath());
     QVERIFY(arguments.isEmpty());
+}
+
+void ApplicationBundleCatalogTest::autoRefreshesBundleDirectories()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    const QString apps = bundleDirectory(temporaryDirectory);
+    ApplicationBundleCatalog catalog({apps});
+    QSignalSpy changedSpy(&catalog, &ApplicationBundleCatalog::applicationsChanged);
+
+    QVERIFY(createBundle(apps, "org.northstar.Live"));
+
+    QTRY_VERIFY_WITH_TIMEOUT(
+        catalog.applicationIds().contains(QStringLiteral("bundle:org.northstar.Live")), 3000);
+    QVERIFY(changedSpy.count() >= 1);
 }
 
 void ApplicationBundleCatalogTest::rejectsMalformedTraversalAndWritableBundles()
@@ -227,6 +255,41 @@ void ApplicationBundleCatalogTest::launcherMergesBundleApplicationsAndPassesFile
     QVERIFY(writeFile(documentPath, "Northstar", QFileDevice::ReadOwner | QFileDevice::WriteOwner));
     QVERIFY(launcher.launchApplicationWithFile(QStringLiteral("bundle:org.northstar.Welcome"), documentPath));
     QCOMPARE(launchedArguments, QStringList({QFileInfo(documentPath).absoluteFilePath()}));
+}
+
+void ApplicationBundleCatalogTest::filtersApplicationsByDeclaredDocumentType()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    const QString desktopDirectory = QDir(temporaryDirectory.path()).filePath(QStringLiteral("desktop"));
+    const QString apps = bundleDirectory(temporaryDirectory);
+    QVERIFY(QDir().mkpath(desktopDirectory));
+    QVERIFY(createBundle(apps, "org.northstar.Welcome"));
+    QVERIFY(createBundle(apps,
+                         "org.northstar.TextEditor",
+                         "northstar-text-editor",
+                         "northstar-text-editor.svg",
+                         true,
+                         {"txt", "md"}));
+
+    ApplicationLauncher launcher(
+        nullptr,
+        {},
+        {desktopDirectory},
+        QDir(temporaryDirectory.path()).filePath(QStringLiteral("launch.log")),
+        {apps},
+        QDir(temporaryDirectory.path()).filePath(QStringLiteral("associations.ini")));
+
+    const QString documentPath = QDir(temporaryDirectory.path()).filePath(QStringLiteral("notes.txt"));
+    QVERIFY(writeFile(documentPath, "Northstar", QFileDevice::ReadOwner | QFileDevice::WriteOwner));
+    const QVariantList compatible = launcher.applicationsForFile(documentPath);
+    QCOMPARE(compatible.size(), 1);
+    QCOMPARE(compatible.first().toMap().value(QStringLiteral("desktopId")).toString(),
+             QStringLiteral("bundle:org.northstar.TextEditor"));
+
+    const QString imagePath = QDir(temporaryDirectory.path()).filePath(QStringLiteral("image.png"));
+    QVERIFY(writeFile(imagePath, "PNG", QFileDevice::ReadOwner | QFileDevice::WriteOwner));
+    QVERIFY(launcher.applicationsForFile(imagePath).isEmpty());
 }
 
 QTEST_MAIN(ApplicationBundleCatalogTest)

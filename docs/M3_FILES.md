@@ -11,6 +11,10 @@ small and safe for the development desktop:
 - The content area defaults to a tile-style explorer view and can be switched
   to a compact list view; folders and files open on double-click in either
   mode.
+- The selected tile/list presentation is stored in the user-private Northstar
+  preferences and restored after a shell restart.
+- The content toolbar can sort by name, type, size, or modification time and
+  can reverse the order while keeping folders ahead of regular files.
 - Empty files and folders can be created, and entries can be renamed from the
   current folder.
 - A selected entry has an explicit Open action; files can be opened with a
@@ -19,6 +23,9 @@ small and safe for the development desktop:
 - The Open With chooser can remember one user-scoped application per file
   extension and can forget that choice later; it never changes system-wide
   desktop associations.
+- Open With prioritizes applications that declare the file's MIME type or
+  extension and retains a **Show All** escape hatch for an intentional manual
+  choice.
 - Entries can be moved to the per-user FreeDesktop Trash with `.trashinfo`
   metadata; operations stay inside the Northstar home-folder boundary.
 - Trash is a first-class Files location with restore and confirmed empty
@@ -35,11 +42,15 @@ small and safe for the development desktop:
 - Regular files can be dragged from the Files explorer onto an application
   tile in Apps; the existing launcher validates the file and passes it as the
   selected application's argument.
+- Items in the home `Desktop` folder are surfaced on the Northstar desktop as
+  project-owned folder/file icons. Double-clicking an icon opens the matching
+  Files location; files enter the same Open With flow as the Files window, so
+  desktop-created files do not silently bypass the association chooser.
 
 The controller is covered by a native Qt test for ordering, navigation, file
 opening, path-boundary rejection, creation, renaming, Trash metadata, restore,
-empty-Trash behavior, bounded home-folder search, and read-only mounted-volume
-navigation. The launcher also tests persistence and validation of the
+empty-Trash behavior, bounded home-folder search, read-only mounted-volume
+navigation, and Desktop-surface entry projection. The launcher also tests persistence and validation of the
 user-scoped extension association store. Package provenance is complete for
 the current `.app` contract; the project-owned global menu remains outside
 the application-level shortcut slice.
@@ -97,4 +108,20 @@ For the v3 surface, confirm that the sidebar highlights the active location,
 that existing Desktop/Documents/Downloads folders open directly, that a
 missing favorite is visibly disabled, and that the Open With search narrows the
 application list without changing the saved default until the user selects an
-application.
+application. Use the sort selector to switch between Name, Type, Size, and
+Modified, reverse the order, and verify that folders remain ahead of files in
+both directions.
+
+For the desktop surface, create or copy a file and folder below `~/Desktop`,
+return to the desktop, and confirm that both appear in the left icon column.
+Also create the `Desktop` folder after the shell has started and confirm that
+the projection appears without a manual catalog refresh.
+Double-click the folder to open it in Files, then double-click the file and
+confirm that the Open With chooser is shown. Delete the item from Files,
+refresh, and confirm that the desktop icon disappears; restore it from Trash
+and confirm that it returns. Drag a Desktop icon to a new position, restart the
+shell, and confirm that its position is retained. Use Settings > Appearance >
+Reset Desktop Icon Layout and confirm that the default column returns. Move several icons without
+allowing them to overlap each other, the panel, or the dock; release positions
+snap to the nearest free cell. The current layout is intentionally
+primary-display-only until multi-display acceptance is available.

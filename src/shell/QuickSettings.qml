@@ -228,16 +228,20 @@ Window {
                     anchors.topMargin: 10
                     spacing: 3
 
-                    Row {
+                    Item {
+                        height: 18
                         width: parent.width
 
                         Text {
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
                             color: quickSettings.surfaceForeground
                             font.pixelSize: 11
                             text: "Display"
                         }
 
                         Text {
+                            anchors.verticalCenter: parent.verticalCenter
                             anchors.right: parent.right
                             color: quickSettings.surfaceMuted
                             font.pixelSize: 10
@@ -253,16 +257,20 @@ Window {
                         width: parent.width
                     }
 
-                    Row {
+                    Item {
+                        height: 18
                         width: parent.width
 
                         Text {
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
                             color: quickSettings.surfaceForeground
                             font.pixelSize: 11
                             text: "Sound"
                         }
 
                         Text {
+                            anchors.verticalCenter: parent.verticalCenter
                             anchors.right: parent.right
                             color: quickSettings.surfaceMuted
                             font.pixelSize: 10
@@ -293,11 +301,11 @@ Window {
                     spacing: 12
 
                     Rectangle {
-                        anchors.verticalCenter: parent.verticalCenter
                         color: quickSettings.surfaceAccent
                         height: 34
                         radius: 8
                         width: 34
+                        y: (parent.height - height) / 2
 
                         Text {
                             anchors.centerIn: parent
@@ -309,8 +317,8 @@ Window {
                     }
 
                     Column {
-                        anchors.verticalCenter: parent.verticalCenter
                         spacing: 2
+                        y: (parent.height - height) / 2
 
                         Text {
                             color: quickSettings.surfaceForeground

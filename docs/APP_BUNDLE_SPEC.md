@@ -62,7 +62,48 @@ Unknown keys are ignored by older launchers but must not weaken validation. Path
 
 Bundles are installed by FreeBSD packages or a future project package integration. They are not copied manually into system directories by the shell. A package owns every installed file, supplies licence/notice metadata, and records its source/package/revision identity in the manifest provenance block.
 
-The launcher prefers a valid `.desktop` entry when one is available, then discovers project bundles from declared application roots. The first development roots are the user-local `XDG_DATA_HOME/northstar/apps` directory followed by `/usr/local/share/northstar/apps` and `/usr/share/northstar/apps`. A bundle can expose a `.desktop` entry for compatibility with existing FreeBSD tools. The repository includes a small `NorthstarWelcome.app` sample installed by the development CMake target; package integration remains a later milestone.
+The launcher prefers a valid `.desktop` entry when one is available, then discovers project bundles from declared application roots. The first development roots are the user-local `XDG_DATA_HOME/northstar/apps` directory followed by `/usr/local/share/northstar/apps` and `/usr/share/northstar/apps`. A bundle can expose a `.desktop` entry for compatibility with existing FreeBSD tools. The repository includes a small `NorthstarWelcome.app` sample and the editable `NorthstarTextEditor.app` installed by the development CMake target; package integration remains a later milestone.
+
+`NorthstarTextEditor.app` demonstrates a first-party bundle receiving a file
+argument from Open With and performing an atomic user-owned save. The editor
+is intentionally bounded to UTF-8 text documents up to 8 MiB.
+
+## Desktop application compatibility contract
+
+Northstar presents applications through one catalog regardless of whether the
+source is a FreeBSD `.desktop` entry or a validated Northstar `.app` bundle.
+The same catalog is consumed by the menu, overview, Dock, desktop icons,
+Files Open With, Welcome, and Software Center. A discovered entry must expose
+an honest launchability state; a missing executable, invalid icon, unsafe
+manifest, or unsupported document type is shown as unavailable instead of
+silently failing.
+
+The compatibility layers are intentionally narrow and composable:
+
+1. **Native FreeBSD applications** are the primary support path. They may be
+   installed by `pkg`, launched through a validated `.desktop` entry, and use
+   Xwayland when they are X11 applications.
+2. **Northstar-owned bundles** provide a drag-and-drop-friendly presentation
+   with explicit metadata, provenance, icons, and file arguments. They are
+   packages in the user experience, not a second privileged package manager.
+3. **Ported or wrapped applications** may be integrated later when a FreeBSD
+   port, native build, or reviewed wrapper defines the executable, resources,
+   environment, and document contract. The wrapper must remain visible in
+   provenance and must not evaluate untrusted metadata through a shell.
+
+Arbitrary macOS `.app` directories, Mach-O binaries, Apple frameworks,
+Swift/Objective-C runtime assumptions, and proprietary bundle metadata are not
+accepted as runnable applications. “Mac-inspired” describes Northstar's
+desktop interaction and presentation; it is not a claim of binary
+compatibility. Any future compatibility layer must be a separately designed,
+licensed, sandboxed product slice with its own security and hardware gates.
+
+The current first-party compatibility proof is deliberately small: Welcome
+provides an actionable orientation surface, Files can route a text document to
+Northstar Text Editor, and the editor performs bounded UTF-8 editing with an
+atomic user-owned save. The Software Center remains read-only until signed
+package publication, authorization, and rollback gates are closed; it must not
+pretend that a catalog entry has been installed.
 
 ## Security and compatibility
 

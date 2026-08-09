@@ -40,6 +40,18 @@ Window {
         }
     }
 
+    Connections {
+        target: northstarDesktopItemsController
+
+        function onOpenPathRequested(path, isDirectory, isLaunchable) {
+            fileBrowserWindow.openPath(path, isDirectory, isLaunchable)
+        }
+
+        function onOpenWithRequested(path) {
+            fileBrowserWindow.openAssociationForPath(path)
+        }
+    }
+
     function closeTransientSurfaces() {
         if (systemMenu.visible) {
             systemMenu.closeMenu()
@@ -435,6 +447,7 @@ Window {
     SoftwareCenterWindow {
         id: softwareCenterWindow
         packageCatalog: northstarPackageCatalog
+        applicationLauncher: launcher
         packageTrust: northstarPackageTrustController
         updatePlan: northstarUpdatePlanController
         updateAuthorization: northstarUpdateAuthorizationController
@@ -456,6 +469,7 @@ Window {
     SettingsWindow {
         id: settingsWindow
         state: shellState
+        desktopLayoutController: northstarDesktopLayoutController
         launcherController: launcher
         sessionController: northstarSessionController
         targetScreen: targetScreen

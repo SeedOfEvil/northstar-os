@@ -23,6 +23,12 @@ bool pathMatchesRoot(const QString &path, const QString &root)
     return path == root || path.startsWith(root + QLatin1Char('/'));
 }
 
+bool isLaunchableDesktopEntry(const QFileInfo &info)
+{
+    const QString suffix = info.suffix().toLower();
+    return suffix == QStringLiteral("desktop") || suffix == QStringLiteral("app");
+}
+
 } // namespace
 
 FileBrowserController::FileBrowserController(QObject *parent,
@@ -37,6 +43,18 @@ FileBrowserController::FileBrowserController(QObject *parent,
     , m_currentPath(m_rootPath)
     , m_openFunction(std::move(openFunction))
 {
+    m_desktopWatcher = new QFileSystemWatcher(this);
+    m_desktopRefreshTimer = new QTimer(this);
+    m_desktopRefreshTimer->setInterval(100);
+    m_desktopRefreshTimer->setSingleShot(true);
+    connect(m_desktopWatcher, &QFileSystemWatcher::directoryChanged,
+            this, [this](const QString &) {
+        if (m_desktopRefreshTimer != nullptr) {
+            m_desktopRefreshTimer->start();
+        }
+    });
+    connect(m_desktopRefreshTimer, &QTimer::timeout,
+            this, &FileBrowserController::refreshDesktopEntries);
     refresh();
 }
 
@@ -121,6 +139,21 @@ QString FileBrowserController::errorMessage() const
 bool FileBrowserController::showingTrash() const
 {
     return m_showingTrash;
+}
+
+QString FileBrowserController::sortMode() const
+{
+    return m_sortMode;
+}
+
+bool FileBrowserController::sortAscending() const
+{
+    return m_sortAscending;
+}
+
+QVariantList FileBrowserController::desktopEntries() const
+{
+    return m_desktopEntries;
 }
 
 bool FileBrowserController::navigateTo(const QString &path)
@@ -612,6 +645,8 @@ bool FileBrowserController::emptyTrash()
 
 void FileBrowserController::refresh()
 {
+    refreshDesktopEntries();
+
     if (searching()) {
         refreshSearchResults();
         return;
@@ -662,9 +697,94 @@ void FileBrowserController::refresh()
         refreshedEntries.append(entry);
     }
 
+    sortEntries(&refreshedEntries);
     m_entries = refreshedEntries;
     emit entriesChanged();
     setErrorMessage({});
+}
+
+void FileBrowserController::setSortMode(const QString &mode)
+{
+    const QString normalizedMode = mode.trimmed().toLower();
+    if (normalizedMode != QStringLiteral("name")
+        && normalizedMode != QStringLiteral("type")
+        && normalizedMode != QStringLiteral("size")
+        && normalizedMode != QStringLiteral("modified")) {
+        setErrorMessage(QStringLiteral("That Files sort mode is not available."));
+        return;
+    }
+
+    if (m_sortMode == normalizedMode) {
+        return;
+    }
+
+    m_sortMode = normalizedMode;
+    emit sortChanged();
+    refresh();
+}
+
+void FileBrowserController::toggleSortOrder()
+{
+    m_sortAscending = !m_sortAscending;
+    emit sortChanged();
+    refresh();
+}
+
+void FileBrowserController::refreshDesktopEntries()
+{
+    QVariantList refreshedEntries;
+    const QString homePath = normalizedPath(m_rootPath);
+    const QString desktopPath = normalizedPath(QDir(m_rootPath).filePath(QStringLiteral("Desktop")));
+    if (m_desktopWatcher != nullptr && !m_desktopWatcher->directories().contains(homePath)) {
+        m_desktopWatcher->addPath(homePath);
+    }
+
+    const QDir desktopDirectory(desktopPath);
+    if (!desktopDirectory.exists()) {
+        if (m_desktopWatcher != nullptr) {
+            m_desktopWatcher->removePath(desktopPath);
+        }
+        if (!m_desktopEntries.isEmpty()) {
+            m_desktopEntries.clear();
+            emit desktopEntriesChanged();
+        }
+        return;
+    }
+
+    if (m_desktopWatcher != nullptr && !m_desktopWatcher->directories().contains(desktopPath)) {
+        m_desktopWatcher->addPath(desktopPath);
+    }
+
+    const QFileInfoList fileInfos = desktopDirectory.entryInfoList(
+        QDir::AllEntries | QDir::Hidden | QDir::NoDotAndDotDot,
+        QDir::DirsFirst | QDir::IgnoreCase | QDir::Name);
+    for (const QFileInfo &info : fileInfos) {
+        const QString resolvedPath = canonicalOrNormalizedPath(info.absoluteFilePath());
+        if (resolvedPath.isEmpty() || !isWithinRoot(resolvedPath)) {
+            continue;
+        }
+
+        const bool launchable = isLaunchableDesktopEntry(info);
+        refreshedEntries.append(QVariantMap{
+            {QStringLiteral("name"), info.fileName()},
+            {QStringLiteral("path"), resolvedPath},
+            {QStringLiteral("isDirectory"), info.isDir() && !launchable},
+            {QStringLiteral("isLaunchable"), launchable},
+            {QStringLiteral("kind"), launchable
+                    ? QStringLiteral("Application")
+                    : (info.isDir() ? QStringLiteral("Folder") : QStringLiteral("File"))},
+            {QStringLiteral("size"), info.isDir() ? qint64(0) : info.size()},
+            {QStringLiteral("modified"), info.lastModified().toString(Qt::ISODate)},
+            {QStringLiteral("readOnly"), false},
+        });
+    }
+
+    if (m_desktopEntries == refreshedEntries) {
+        return;
+    }
+
+    m_desktopEntries = refreshedEntries;
+    emit desktopEntriesChanged();
 }
 
 void FileBrowserController::clearSearchQuery()
@@ -747,9 +867,59 @@ void FileBrowserController::refreshSearchResults()
         });
     }
 
+    sortEntries(&refreshedEntries);
     m_entries = refreshedEntries;
     emit entriesChanged();
     setErrorMessage({});
+}
+
+void FileBrowserController::sortEntries(QVariantList *entries) const
+{
+    if (entries == nullptr) {
+        return;
+    }
+
+    std::stable_sort(entries->begin(), entries->end(), [this](const QVariant &left, const QVariant &right) {
+        const QVariantMap leftMap = left.toMap();
+        const QVariantMap rightMap = right.toMap();
+        const bool leftDirectory = leftMap.value(QStringLiteral("isDirectory")).toBool();
+        const bool rightDirectory = rightMap.value(QStringLiteral("isDirectory")).toBool();
+
+        if (leftDirectory != rightDirectory) {
+            return leftDirectory;
+        }
+
+        int comparison = 0;
+        if (m_sortMode == QStringLiteral("type")) {
+            comparison = QString::compare(
+                leftMap.value(QStringLiteral("kind")).toString(),
+                rightMap.value(QStringLiteral("kind")).toString(),
+                Qt::CaseInsensitive);
+        } else if (m_sortMode == QStringLiteral("size")) {
+            const qint64 leftSize = leftMap.value(QStringLiteral("size")).toLongLong();
+            const qint64 rightSize = rightMap.value(QStringLiteral("size")).toLongLong();
+            comparison = leftSize < rightSize ? -1 : leftSize > rightSize ? 1 : 0;
+        } else if (m_sortMode == QStringLiteral("modified")) {
+            comparison = QString::compare(
+                leftMap.value(QStringLiteral("modified")).toString(),
+                rightMap.value(QStringLiteral("modified")).toString(),
+                Qt::CaseInsensitive);
+        } else {
+            comparison = QString::compare(
+                leftMap.value(QStringLiteral("name")).toString(),
+                rightMap.value(QStringLiteral("name")).toString(),
+                Qt::CaseInsensitive);
+        }
+
+        if (comparison == 0) {
+            comparison = QString::compare(
+                leftMap.value(QStringLiteral("name")).toString(),
+                rightMap.value(QStringLiteral("name")).toString(),
+                Qt::CaseInsensitive);
+        }
+
+        return m_sortAscending ? comparison < 0 : comparison > 0;
+    });
 }
 
 QString FileBrowserController::normalizedPath(const QString &path)

@@ -35,13 +35,21 @@ The supervisor:
   that socket to the shell;
 - restarts a crashed shell up to a bounded limit;
 - stops only the compositor and shell PIDs it started;
-- records non-secret lifecycle messages.
+- records non-secret lifecycle messages;
+- preserves terminal failure state and the failure event when startup or the
+  bounded shell-restart policy fails, instead of overwriting it as a normal
+  stop during cleanup;
+- refuses duplicate sessions without clobbering the active session's status or
+  control contract.
 
 While the shell is supervised, the supervisor writes a user-private
 `session.status` contract below its state directory and exports the status and
 control paths to the shell. The shell's Settings > Session page reads that
 contract to show the session state, Wayland display, owned process IDs, and
-restart count. A confirmed End Northstar Session request writes an
+restart count, including a terminal `failed` state and its last event. A failed
+state is intentionally not presented as an active session: Settings shows the
+recovery warning and the user must restart Northstar from the console or login
+session after saving work. A confirmed End Northstar Session request writes an
 `end-session` marker and signals the exact parent supervisor; the supervisor's
 existing cleanup path then terminates only the compositor and shell it owns.
 
@@ -60,6 +68,13 @@ presents short success/failure feedback, and exposes a bounded in-shell
 Notification Center without expanding supervisor ownership to those
 applications.
 
+Session persistence also covers the user-facing Files view preference. The
+tile/list choice is written through `ShellState` to the same user-private
+preferences file as appearance, so restarting the shell or logging in again
+does not silently reset the user's preferred Files presentation. This is a
+preference-restore guarantee, not a claim that open windows or arbitrary
+third-party application state survive a compositor restart.
+
 The system menu now exposes a confirmed `Log Out of Northstar` action while a
 supervised session is running. It reuses the exact-parent supervisor request
 and therefore ends only Northstar's shell/compositor. In an unmanaged shell,
@@ -73,6 +88,12 @@ VM's non-interactive sudo policy. The shell never constructs or executes an
 arbitrary privileged command. Production packaging must replace that wrapper
 with a root-owned helper and a narrow authorization rule for only the restart
 and shutdown operations.
+
+Settings > Session also exposes a confirmed **Restart Northstar Shell** action
+when the shell can prove that it is the exact supervised child recorded in the
+session status contract. The action signals only that shell PID and lets the
+existing supervisor perform its bounded restart; it refuses to run from an
+unmanaged shell or when the recorded parent identity does not match.
 
 For the current Proxmox console lane, the opt-in console-login hook can start
 the supervised nested session automatically after a local `ttyv0` through
@@ -109,7 +130,8 @@ basic-VGA lane remains insufficient for native Wayland/DRM acceptance.
 
 The fake-compositor/fake-shell test runs as an unprivileged user and verifies
 bounded shell restart, compositor cleanup, duplicate-session rejection, the
-D-Bus wrapper handoff, and preservation of an unrelated sentinel process:
+D-Bus wrapper handoff, preservation of an unrelated sentinel process, and
+failure-status retention:
 
 ```sh
 make test

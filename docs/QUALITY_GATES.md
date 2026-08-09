@@ -55,10 +55,127 @@ make shell-smoke
 make shell-restart-smoke
 ```
 
+`make qml-surface-test` is a fast supplemental check for the product-critical
+Desktop, Dock, Files, Settings, Software Center, and system-menu wiring. It
+does not replace interactive noVNC acceptance or graphics-path evidence.
+
 Run the relevant manual acceptance flow in the VM after restarting the
 installed shell. Record the FreeBSD release, VM identity, source commit,
 commands, test count, and any deliberately deferred gate. Documentation-only
 changes still require `git diff --check` and link/heading inspection.
+
+## Consolidated sprint acceptance checklist
+
+The current desktop integration is a broad M3 acceptance candidate, so the
+checks are deliberately split into repeatable headless evidence and a short
+manual noVNC gate. The headless lane is already green on the isolated
+NSTAR-DEV01 validation checkout: 17/17 Qt tests passed, the QML surface
+contract passed, compiled QML startup produced no reference or syntax errors,
+and the Welcome/Text Editor self-tests plus session supervisor/entry-point
+checks passed. The offscreen Layer Shell notices are expected because that
+lane has no real Wayland compositor; they are not direct DRM/KMS evidence.
+
+### Automated gate
+
+Run the following after the final source is installed in the VM. If a shell or
+QML file changed, rebuild the target and install it again; do not rely on an
+earlier installed binary or build-tree smoke.
+
+```sh
+env QT_QPA_PLATFORM=offscreen ctest --test-dir build --output-on-failure
+make qml-surface-test
+make shell-smoke
+make shell-restart-smoke
+sh tests/unit/test-session-script.sh
+sh tests/unit/test-session-entrypoint.sh build
+env QT_QPA_PLATFORM=offscreen "$HOME/.local/share/northstar/apps/NorthstarWelcome.app/Contents/Executable/northstar-welcome-gui" --self-test
+env QT_QPA_PLATFORM=offscreen "$HOME/.local/share/northstar/apps/NorthstarTextEditor.app/Contents/Executable/northstar-text-editor" --self-test
+```
+
+The exact target names may be inspected with `make help` on the declared VM;
+the evidence record must include the commands actually run and their exit
+status. A plain GUI test over SSH is not valid if Qt selected XCB without
+`DISPLAY`; use the offscreen environment for headless checks and noVNC for
+interactive checks.
+
+### Extended-sprint checkpoint gate
+
+When a long-running goal is used, the broad checklist is executed as cohesive
+checkpoints rather than as one unbounded change set. The detailed sequence is
+in [`docs/OVERNIGHT_SPRINT.md`](OVERNIGHT_SPRINT.md). At each checkpoint the
+agent must have a focused diff, a targeted test result, a VM install result,
+and a written pass/open/fail observation before starting the next dependent
+slice. A micro-step may be grouped with its neighboring steps in one branch
+and PR; only cohesive user-visible slices receive cloud PRs.
+
+The checkpoint states have strict meanings:
+
+- `PASS`: the stated behavior was observed on the declared environment and
+  the supporting command completed successfully.
+- `OPEN`: the behavior still needs an interactive or hardware gate; no claim
+  is made from an unrelated headless or SSH result.
+- `FAIL`: the behavior regressed or the command failed; promotion is blocked
+  for that slice until it is repaired or explicitly parked with a follow-up.
+- `N/A`: the check is outside the current environment, with the reason and
+  future gate recorded.
+
+Before moving between slices, record the source commit, VM checkout, install
+prefix, exact command, result, and next action. Before cloud promotion, run
+the full automated gate again, review the diff for generated or secret files,
+and confirm that every required manual item is `PASS` or explicitly deferred
+by a documented environment limitation. The complete unattended-sprint
+sequence and fast-failure policy are maintained in
+[`docs/OVERNIGHT_SPRINT.md`](OVERNIGHT_SPRINT.md).
+
+### Manual noVNC gate
+
+Record each item as pass, fail, or not-applicable with a short observation:
+
+- The installed shell starts from the supported console/session path, displays
+  the Northstar logo/background, and does not auto-launch Terminal.
+- Menu/logo button, top bar, Dock, Files, Apps, Settings, Welcome, Software
+  Center, and Text Editor open and close without a dead click target.
+- Desktop-folder creation and external changes appear in the desktop projection;
+  folder icons open Files and file icons use the association chooser.
+- Desktop icon selection, double-click, rename, Delete, Properties, drag,
+  snap-to-grid, restart persistence, and Appearance reset behave correctly.
+- Files creates folders and text files, renames them, searches them, switches
+  list/grid views, sorts in both directions, navigates Home/Desktop/Documents,
+  and rejects paths outside the allowed home boundary.
+- Delete sends a disposable item to Trash and Restore returns it to its
+  original path with contents intact. There must not be two competing labels
+  for the same destructive action in one surface.
+- Open With filters by MIME/extension, allows Northstar Text Editor to edit and
+  save a text file, preserves the user-scoped default, and permits changing or
+  forgetting that default. Firefox must not open every file automatically.
+- Application discovery refreshes, known `.desktop`/`.app` entries launch, and
+  Software Center search/details/unsupported mutation messaging are usable.
+- Dock shortcuts align at the VM resolution, running indicators are accurate,
+  focus/minimize/restore/close work, and the desktop uses the available area.
+- Settings preference changes persist, diagnostics show session state, and
+  light/dark appearance plus keyboard mappings do not break the shell.
+- Logout, graceful restart, and shutdown follow confirmation and ownership
+  rules; after reboot the shell starts once and the core file path still works.
+
+Interactive noVNC success closes the current M3 manual gate only. It does not
+close direct DRM/KMS, native multi-display, display-manager, or Intel/AMD
+hardware gates, which require the declared graphics hardware later.
+
+### Evidence record and promotion gate
+
+The validation note should contain the VM identity and FreeBSD release, source
+commit, VM checkout path, install prefix, exact commands, automated counts,
+manual results, screenshots or sanitized logs for failures, and the explicit
+graphics limitation. Only after that note is complete may the author mark the
+integration PR ready, squash-merge it, synchronize `main`, and remove merged
+feature refs. If any manual item fails, keep the PR draft, make a focused fix,
+repeat the relevant test and full automated gate, and update the note before
+promotion.
+
+The latest sprint evidence is recorded in
+[`docs/validation/M4_SPRINT_2026-08-09.md`](validation/M4_SPRINT_2026-08-09.md).
+It records PRs #56-#59 as automated-green integration slices while keeping
+the noVNC/manual session observations explicitly open.
 
 ### 3. Publish the cloud branch and draft PR
 
@@ -109,8 +226,8 @@ state, validation result, and any gate that remains open.
 | Transition | Required evidence before marking complete |
 | --- | --- |
 | M1 shell acceptance | Single-display smoke and restart evidence, plus multi-display Layer Shell evidence on the declared graphics path |
-| M2 session acceptance | Exactly one supervised session, bounded shell recovery, controlled logout/restart/shutdown, display-manager entry-point evidence, and sanitized logs |
-| M3 desktop acceptance | Files mutation and Trash recovery, associations/Open With, search, mounted-volume boundaries, overview, keyboard mappings, Files-to-Apps launch, app-bundle provenance, and settings persistence |
+| M2 session acceptance | Exactly one supervised session, bounded shell recovery with visible terminal-failure diagnostics, controlled logout/restart/shutdown, display-manager entry-point evidence, and sanitized logs |
+| M3 desktop acceptance | Files mutation and Trash recovery, live Desktop Icons create/delete/rename/open/restore, Desktop-folder icon projection and position persistence, responsive Dock alignment and focus/minimize/restore behavior, associations/Open With, search, sorting and view modes, mounted-volume boundaries, overview, live desktop/bundle application discovery, keyboard mappings, Files-to-Apps launch, app-bundle provenance, and settings persistence |
 | M4 package trust | Pinned Ports/Poudriere inputs, an actual signed repository publication, package provenance, read-only/update-preview behavior, and no unauthorized mutation; policy, fingerprint-store, catalogue-integrity, publication-signature verification, and native `pkg` publication/client smoke foundations are implemented |
 | M4 update/rollback | Read-only authorization preflight, independent broker verification, bounded root-owned update-helper request contract, N-1 to N upgrade, pre-upgrade `bectl` environment, rollback to the prior environment, package/shell recovery, and home-data preservation |
 | M5 image | Reproducible clean builder, checksums, UEFI GPT/root-on-ZFS installation, first boot, and update/rollback from the produced image |
@@ -125,7 +242,7 @@ Hold a change when it depends on an unpinned dependency, requires broad root acc
 | M0 host | Exact FreeBSD 15.1 amd64, clean VM bootstrap, idempotent second run, package versions, Wayland and Xwayland smoke tests |
 | M1 shell | Multi-monitor Layer Shell behavior, unprivileged launch, app launch, shell-only restart, Qt unit tests |
 | M2 session | Exactly one session, controlled lifecycle, service restart, launch identity, bounded notification feedback, sanitized logs |
-| M3 desktop | File operations, settings persistence, user-scoped file associations, home search, mounted-volume locations, overview, Files-to-Apps drag-and-drop, project-owned menu, validated app-bundle provenance |
+| M3 desktop | File operations, live branded Desktop Icons, responsive Dock and window controls, settings persistence, user-scoped file associations, home search, sorting and view modes, mounted-volume locations, overview, live desktop/bundle application discovery, Files-to-Apps drag-and-drop, project-owned menu, validated app-bundle provenance |
 | M4 update | Signed repository, N-1 to N upgrade, pre-upgrade `bectl` environment, rollback, home-data preservation |
 | M5 image | Clean builder, pinned inputs, checksums, UEFI GPT/root-on-ZFS install, first boot, update/rollback |
 | M6 alpha | Supported VM and physical hardware matrix, diagnostics, crash recovery, shutdown, application coverage |

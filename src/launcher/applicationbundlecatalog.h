@@ -1,8 +1,10 @@
 #pragma once
 
 #include <QList>
+#include <QFileSystemWatcher>
 #include <QObject>
 #include <QStringList>
+#include <QTimer>
 #include <QVariantList>
 
 struct BundleProvenance
@@ -28,6 +30,7 @@ struct BundleApplication
     QString executable;
     QString icon;
     QStringList categories;
+    QStringList documentExtensions;
     QString bundlePath;
     QString executablePath;
     QString iconPath;
@@ -43,6 +46,7 @@ inline bool operator==(const BundleApplication &left, const BundleApplication &r
         && left.executable == right.executable
         && left.icon == right.icon
         && left.categories == right.categories
+        && left.documentExtensions == right.documentExtensions
         && left.bundlePath == right.bundlePath
         && left.executablePath == right.executablePath
         && left.iconPath == right.iconPath
@@ -72,7 +76,11 @@ signals:
 
 private:
     static QVariantList toVariantList(const QList<BundleApplication> &entries);
+    void scheduleReload();
+    void refreshWatchPaths();
 
     QStringList m_bundleDirectories;
     QList<BundleApplication> m_entries;
+    QFileSystemWatcher m_watcher;
+    QTimer m_refreshTimer;
 };

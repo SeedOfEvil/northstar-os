@@ -2,6 +2,11 @@
 
 welcome_message='Northstar Welcome\n\nThis is a project-defined Northstar .app bundle.\nThe bundle was validated by the shell before launch.\n'
 
+gui_executable=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)/northstar-welcome-gui
+if [ -x "$gui_executable" ] && { [ -n "${WAYLAND_DISPLAY:-}" ] || [ -n "${DISPLAY:-}" ]; }; then
+    exec "$gui_executable" "$@"
+fi
+
 if command -v qterminal >/dev/null 2>&1; then
     exec qterminal -e sh -c "printf '%b' '$welcome_message'; exec sh"
 fi

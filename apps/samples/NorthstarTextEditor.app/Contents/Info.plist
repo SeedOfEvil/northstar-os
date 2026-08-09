@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+    <key>BundleIdentifier</key>
+    <string>org.northstar.TextEditor</string>
+    <key>DisplayName</key>
+    <string>Northstar Text Editor</string>
+    <key>Version</key>
+    <string>0.1.0</string>
+    <key>Executable</key>
+    <string>northstar-text-editor</string>
+    <key>Icon</key>
+    <string>northstar-text-editor.svg</string>
+    <key>Categories</key>
+    <array>
+        <string>Utility</string>
+        <string>TextEditor</string>
+        <string>Northstar</string>
+    </array>
+    <key>DocumentExtensions</key>
+    <array>
+        <string>conf</string>
+        <string>log</string>
+        <string>md</string>
+        <string>txt</string>
+    </array>
+    <key>Provenance</key>
+    <dict>
+        <key>Source</key>
+        <string>northstar-project</string>
+        <key>Package</key>
+        <string>northstar-text-editor</string>
+        <key>Revision</key>
+        <string>development</string>
+    </dict>
+</dict>
+</plist>

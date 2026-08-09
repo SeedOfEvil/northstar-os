@@ -168,6 +168,8 @@ export NORTHSTAR_SESSION_LOCK_DIR=$TMP_DIR/limit-lock
 run_expect 7 sh "$ROOT/src/session/northstar-session"
 [ "$(cat "$SHELL_COUNT")" = 2 ] || fail 'restart limit did not bound shell attempts'
 grep -F 'restart limit reached' "$LOG_DIR/session.log" >/dev/null || fail 'restart limit was not recorded'
+grep -F 'state=failed' "$LOG_DIR/session.status" >/dev/null || fail 'failed session state was overwritten during cleanup'
+grep -F 'last_event=shell-restart-limit-reached' "$LOG_DIR/session.status" >/dev/null || fail 'failed session event was not preserved'
 pass 'session enforces the shell crash restart limit'
 
 unset NORTHSTAR_TEST_SHELL_ALWAYS_FAIL
@@ -191,8 +193,11 @@ done
 [ -f "$TMP_DIR/live-logs/session.status" ] || fail 'live session status file was not created'
 grep -F 'state=running' "$TMP_DIR/live-logs/session.status" >/dev/null || fail 'live session status did not reach running state'
 grep -F 'wayland_display=test-wayland' "$TMP_DIR/live-logs/session.status" >/dev/null || fail 'live session status has wrong Wayland display'
+printf '%s\n' 'active-control-sentinel' > "$TMP_DIR/live-logs/session.control"
 run_expect 1 sh "$ROOT/src/session/northstar-session"
 grep -F 'already running' "$ERROR_OUTPUT" >/dev/null || fail 'duplicate session was not rejected'
+grep -F 'state=running' "$TMP_DIR/live-logs/session.status" >/dev/null || fail 'duplicate session clobbered the active status'
+grep -F 'active-control-sentinel' "$TMP_DIR/live-logs/session.control" >/dev/null || fail 'duplicate session removed the active control file'
 kill -TERM "$SESSION_PID"
 if wait "$SESSION_PID"; then
     :

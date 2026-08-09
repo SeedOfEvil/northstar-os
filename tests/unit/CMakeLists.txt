@@ -82,6 +82,18 @@ target_link_libraries(test-filebrowsercontroller
 
 add_test(NAME northstar-filebrowsercontroller COMMAND test-filebrowsercontroller)
 
+qt_add_executable(test-desktopitemscontroller
+    test-desktopitemscontroller.cpp
+)
+
+target_link_libraries(test-desktopitemscontroller
+    PRIVATE
+        northstar-shell-core
+        Qt6::Test
+)
+
+add_test(NAME northstar-desktopitemscontroller COMMAND test-desktopitemscontroller)
+
 qt_add_executable(test-notificationcenter
     test-notificationcenter.cpp
 )
@@ -153,3 +165,30 @@ target_link_libraries(test-windowcontroller
 )
 
 add_test(NAME northstar-windowcontroller COMMAND test-windowcontroller)
+
+add_test(NAME northstar-welcome-gui COMMAND northstar-welcome-gui --self-test)
+set_tests_properties(northstar-welcome-gui PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+qt_add_executable(test-texteditorcontroller
+    test-texteditorcontroller.cpp
+)
+
+target_link_libraries(test-texteditorcontroller
+    PRIVATE
+        northstar-text-editor-core
+        Qt6::Test
+)
+
+add_test(NAME northstar-texteditorcontroller COMMAND test-texteditorcontroller)
+qt_add_executable(test-desktoplayoutcontroller
+    test-desktoplayoutcontroller.cpp
+)
+
+target_link_libraries(test-desktoplayoutcontroller
+    PRIVATE
+        northstar-shell-core
+        Qt6::Test
+)
+
+add_test(NAME northstar-desktoplayoutcontroller COMMAND test-desktoplayoutcontroller)
