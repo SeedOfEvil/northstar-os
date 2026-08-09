@@ -468,6 +468,7 @@ Window {
     SettingsWindow {
         id: settingsWindow
         state: shellState
+        desktopLayoutController: northstarDesktopLayoutController
         launcherController: launcher
         sessionController: northstarSessionController
         targetScreen: targetScreen
