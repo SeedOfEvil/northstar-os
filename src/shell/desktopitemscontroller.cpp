@@ -96,7 +96,7 @@ void DesktopItemsController::refresh()
         setErrorMessage({});
     }
 
-    const bool entriesChanged = m_entries != refreshedEntries;
+    const bool entriesDiffer = m_entries != refreshedEntries;
     const bool availabilityChanged = m_available != desktopAvailable;
     m_available = desktopAvailable;
     m_entries = std::move(refreshedEntries);
@@ -105,7 +105,7 @@ void DesktopItemsController::refresh()
     if (availabilityChanged) {
         emit availableChanged();
     }
-    if (entriesChanged) {
+    if (entriesDiffer) {
         emit entriesChanged();
     }
 }
