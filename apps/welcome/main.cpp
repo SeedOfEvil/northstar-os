@@ -2,6 +2,7 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QGuiApplication>
+#include <QSysInfo>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QUrl>
@@ -26,6 +27,21 @@ int main(int argc, char *argv[])
 
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty(QStringLiteral("northstarHomePath"), QDir::homePath());
+    const QString waylandDisplay = qEnvironmentVariable("WAYLAND_DISPLAY");
+    const QString x11Display = qEnvironmentVariable("DISPLAY");
+    const QString sessionStatus = !waylandDisplay.isEmpty()
+        ? QStringLiteral("Wayland (%1)").arg(waylandDisplay)
+        : (!x11Display.isEmpty()
+            ? QStringLiteral("X11 (%1)").arg(x11Display)
+            : QStringLiteral("Session display not detected"));
+    engine.rootContext()->setContextProperty(QStringLiteral("northstarVersion"),
+                                             application.applicationVersion());
+    engine.rootContext()->setContextProperty(QStringLiteral("northstarBuild"),
+                                             QStringLiteral("development"));
+    engine.rootContext()->setContextProperty(QStringLiteral("northstarSessionStatus"),
+                                             sessionStatus);
+    engine.rootContext()->setContextProperty(QStringLiteral("northstarPlatform"),
+                                             QSysInfo::prettyProductName());
     engine.load(QUrl(QStringLiteral("qrc:/qt/qml/Northstar/Welcome/WelcomeWindow.qml")));
     if (engine.rootObjects().isEmpty()) {
         return 1;
