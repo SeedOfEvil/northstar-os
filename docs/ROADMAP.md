@@ -258,7 +258,7 @@ this entire VM matrix passes.
 
 For an unattended or extended sprint, use the more granular
 [`docs/OVERNIGHT_SPRINT.md`](OVERNIGHT_SPRINT.md). It expands the matrix into
-96 micro-steps across eight branch/PR slices, defines a checkpoint after each
+97 micro-steps across eight branch/PR slices, defines a checkpoint after each
 slice, and specifies what remains open when noVNC or native graphics evidence
 is unavailable. The micro-steps are deliberately grouped into cohesive PRs;
 they are not an instruction to create dozens of trivial branches.

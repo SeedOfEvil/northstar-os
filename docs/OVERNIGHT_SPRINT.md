@@ -241,36 +241,39 @@ not become an accidental host-control API.
 
 81. Rebuild the final combined source in the separate validation checkout and
     install it into `/home/northstar/.local`.
-82. Run the complete automated gate: Qt tests, QML surface test, shell smoke,
+82. From a fresh validation checkout, build the complete configured target
+    graph (`cmake --build build`) before invoking CTest; building only one or
+    two named targets can leave registered tests as `Not Run`.
+83. Run the complete automated gate: Qt tests, QML surface test, shell smoke,
     session scripts, and first-party self-tests.
-83. Run compiled offscreen shell startup smoke and distinguish expected
+84. Run compiled offscreen shell startup smoke and distinguish expected
     Layer Shell notices from real QML errors.
-84. If noVNC is available, perform a short end-to-end acceptance pass: login,
+85. If noVNC is available, perform a short end-to-end acceptance pass: login,
     logo/background, Desktop, Files, association/edit/save, Trash restore,
     Apps/Software Center, Dock, Settings, logout.
-85. If noVNC is unavailable, record the manual items as `OPEN`; do not mark
+86. If noVNC is unavailable, record the manual items as `OPEN`; do not mark
     them passed from SSH or headless output.
-86. Gracefully reboot the VM and repeat the minimum login → Desktop → Files →
+87. Gracefully reboot the VM and repeat the minimum login → Desktop → Files →
     app path to catch stale installs and autostart regressions.
-87. Capture source commit, VM checkout, install prefix, FreeBSD version,
+88. Capture source commit, VM checkout, install prefix, FreeBSD version,
     commands, counts, screenshots/log excerpts, and explicit graphics limits.
-88. Convert every failure into either a focused fix or a documented follow-up;
+89. Convert every failure into either a focused fix or a documented follow-up;
     rerun the affected test and then the full automated gate.
-89. Run `git diff --check`, inspect the final diff, and confirm no generated
+90. Run `git diff --check`, inspect the final diff, and confirm no generated
     archives, secrets, VM state, or unrelated changes are included.
-90. Update `docs/ROADMAP.md`, `docs/QUALITY_GATES.md`, and the validation note
+91. Update `docs/ROADMAP.md`, `docs/QUALITY_GATES.md`, and the validation note
     with current evidence rather than optimistic status language.
-91. Mark only validated draft PRs ready; keep PRs draft when a required manual
+92. Mark only validated draft PRs ready; keep PRs draft when a required manual
     gate is still open.
-92. Squash-merge the completed slice PRs in dependency order and verify the
+93. Squash-merge the completed slice PRs in dependency order and verify the
     resulting `main` commit on GitHub.
-93. Fetch/prune, switch local `main` to the verified remote commit, and confirm
+94. Fetch/prune, switch local `main` to the verified remote commit, and confirm
     a clean worktree.
-94. Delete only feature refs whose PRs are verified merged; preserve PR records
+95. Delete only feature refs whose PRs are verified merged; preserve PR records
     for review history and leave unrelated/open work untouched.
-95. Create the next `codex/` branch from clean `main` with a one-sentence
+96. Create the next `codex/` branch from clean `main` with a one-sentence
     objective and the exact next validation command.
-96. Leave a handoff containing merged PRs, squash commits, open gates,
+97. Leave a handoff containing merged PRs, squash commits, open gates,
     deferred DRM/KMS limitations, and the next three product slices.
 
 **S7 checkpoint:** the result is either cleanly promoted with evidence or
