@@ -7,3 +7,9 @@ the project-owned `Contents/Info.plist`, `Contents/Executable`, and
 `Contents/Resources` layout. The launcher validates it before exposing it in
 Apps and Open With; release bundles still require FreeBSD package ownership
 and provenance integration.
+
+`NorthstarTextEditor.app` is the first editable first-party app. It accepts a
+text-file path from Files/Open With, loads UTF-8 documents up to 8 MiB, and
+saves changes through an atomic user-owned write. It is deliberately a small
+text editor, not a general document suite; unsupported or oversized files are
+rejected with a visible status message.

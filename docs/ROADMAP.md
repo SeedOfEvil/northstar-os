@@ -118,6 +118,11 @@ repository verification, and compositor-wide/global third-party menu
 integration remain follow-on slices. File opening now supports reversible,
 user-scoped extension defaults with an explicit Open With escape hatch.
 
+The first editable first-party app, `NorthstarTextEditor.app`, now accepts a
+file argument from the Open With flow and provides bounded UTF-8 editing with
+atomic user-owned saves. This closes the first practical file-association loop
+without claiming broad macOS application compatibility.
+
 Third-party global menus and full macOS compatibility remain out of scope.
 
 ## M4: Packages, updates, and rollback

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">Northstar Text Editor</title>
+  <desc id="desc">A Northstar blue document with a compass star.</desc>
+  <rect width="128" height="128" rx="24" fill="#182b4b"/>
+  <path d="M32 17h48l17 17v77H32z" fill="#dbe8f7" stroke="#79b8ff" stroke-width="4"/>
+  <path d="M80 17v19h19" fill="#8db7e8"/>
+  <path d="M64 47 69 60l13 5-13 5-5 13-5-13-13-5 13-5z" fill="#1769aa" stroke="#0d2a50" stroke-width="2"/>
+  <path d="M45 93h38M45 102h27" stroke="#1769aa" stroke-linecap="round" stroke-width="5"/>
+</svg>

@@ -153,3 +153,15 @@ target_link_libraries(test-windowcontroller
 )
 
 add_test(NAME northstar-windowcontroller COMMAND test-windowcontroller)
+
+qt_add_executable(test-texteditorcontroller
+    test-texteditorcontroller.cpp
+)
+
+target_link_libraries(test-texteditorcontroller
+    PRIVATE
+        northstar-text-editor-core
+        Qt6::Test
+)
+
+add_test(NAME northstar-texteditorcontroller COMMAND test-texteditorcontroller)
