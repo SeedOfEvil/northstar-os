@@ -108,6 +108,8 @@ application.
 
 For the desktop surface, create or copy a file and folder below `~/Desktop`,
 return to the desktop, and confirm that both appear in the left icon column.
+Also create the `Desktop` folder after the shell has started and confirm that
+the projection appears without a manual catalog refresh.
 Double-click the folder to open it in Files, then double-click the file and
 confirm that the Open With chooser is shown. Delete the item from Files,
 refresh, and confirm that the desktop icon disappears; restore it from Trash
