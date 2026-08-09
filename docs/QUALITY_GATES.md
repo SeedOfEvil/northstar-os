@@ -64,6 +64,85 @@ installed shell. Record the FreeBSD release, VM identity, source commit,
 commands, test count, and any deliberately deferred gate. Documentation-only
 changes still require `git diff --check` and link/heading inspection.
 
+## Consolidated sprint acceptance checklist
+
+The current desktop integration is a broad M3 acceptance candidate, so the
+checks are deliberately split into repeatable headless evidence and a short
+manual noVNC gate. The headless lane is already green on the isolated
+NSTAR-DEV01 validation checkout: 17/17 Qt tests passed, the QML surface
+contract passed, compiled QML startup produced no reference or syntax errors,
+and the Welcome/Text Editor self-tests plus session supervisor/entry-point
+checks passed. The offscreen Layer Shell notices are expected because that
+lane has no real Wayland compositor; they are not direct DRM/KMS evidence.
+
+### Automated gate
+
+Run the following after the final source is installed in the VM. If a shell or
+QML file changed, rebuild the target and install it again; do not rely on an
+earlier installed binary or build-tree smoke.
+
+```sh
+env QT_QPA_PLATFORM=offscreen ctest --test-dir build --output-on-failure
+make qml-surface-test
+make shell-smoke
+make shell-restart-smoke
+sh tests/unit/test-session-script.sh
+sh tests/unit/test-session-entrypoint.sh build
+"$HOME/.local/bin/NorthstarWelcome.app/Contents/MacOS/northstar-welcome" --self-test
+"$HOME/.local/bin/NorthstarTextEditor.app/Contents/MacOS/northstar-text-editor" --self-test
+```
+
+The exact target names may be inspected with `make help` on the declared VM;
+the evidence record must include the commands actually run and their exit
+status. A plain GUI test over SSH is not valid if Qt selected XCB without
+`DISPLAY`; use the offscreen environment for headless checks and noVNC for
+interactive checks.
+
+### Manual noVNC gate
+
+Record each item as pass, fail, or not-applicable with a short observation:
+
+- The installed shell starts from the supported console/session path, displays
+  the Northstar logo/background, and does not auto-launch Terminal.
+- Menu/logo button, top bar, Dock, Files, Apps, Settings, Welcome, Software
+  Center, and Text Editor open and close without a dead click target.
+- Desktop-folder creation and external changes appear in the desktop projection;
+  folder icons open Files and file icons use the association chooser.
+- Desktop icon selection, double-click, rename, Delete, Properties, drag,
+  snap-to-grid, restart persistence, and Appearance reset behave correctly.
+- Files creates folders and text files, renames them, searches them, switches
+  list/grid views, sorts in both directions, navigates Home/Desktop/Documents,
+  and rejects paths outside the allowed home boundary.
+- Delete sends a disposable item to Trash and Restore returns it to its
+  original path with contents intact. There must not be two competing labels
+  for the same destructive action in one surface.
+- Open With filters by MIME/extension, allows Northstar Text Editor to edit and
+  save a text file, preserves the user-scoped default, and permits changing or
+  forgetting that default. Firefox must not open every file automatically.
+- Application discovery refreshes, known `.desktop`/`.app` entries launch, and
+  Software Center search/details/unsupported mutation messaging are usable.
+- Dock shortcuts align at the VM resolution, running indicators are accurate,
+  focus/minimize/restore/close work, and the desktop uses the available area.
+- Settings preference changes persist, diagnostics show session state, and
+  light/dark appearance plus keyboard mappings do not break the shell.
+- Logout, graceful restart, and shutdown follow confirmation and ownership
+  rules; after reboot the shell starts once and the core file path still works.
+
+Interactive noVNC success closes the current M3 manual gate only. It does not
+close direct DRM/KMS, native multi-display, display-manager, or Intel/AMD
+hardware gates, which require the declared graphics hardware later.
+
+### Evidence record and promotion gate
+
+The validation note should contain the VM identity and FreeBSD release, source
+commit, VM checkout path, install prefix, exact commands, automated counts,
+manual results, screenshots or sanitized logs for failures, and the explicit
+graphics limitation. Only after that note is complete may the author mark the
+integration PR ready, squash-merge it, synchronize `main`, and remove merged
+feature refs. If any manual item fails, keep the PR draft, make a focused fix,
+repeat the relevant test and full automated gate, and update the note before
+promotion.
+
 ### 3. Publish the cloud branch and draft PR
 
 After validation, commit only the intended files with a terse message and

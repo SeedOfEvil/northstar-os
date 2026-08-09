@@ -16,10 +16,14 @@ The project advances through user-visible milestones with explicit pass gates. A
 
 The current `main` line contains the merged Northstar shell, session, Files,
 application-bundle, notification, keyboard, read-only Software Center, and
-M4 package-trust slices. The NSTAR-DEV01 FreeBSD 15.1 development VM is the
-active validation environment. Its nested X11/pixman lane is working and the
-latest recorded native suite passed 13/13 Qt tests plus the script/session
-checks.
+M4 package-trust slices. The consolidated sprint branch carries the current
+M3 desktop integration work for manual acceptance in the NSTAR-DEV01 FreeBSD
+15.1 development VM. Its latest isolated headless gate passed 17/17 Qt tests,
+the QML surface contract, the compiled QML startup smoke, the Welcome and
+Text Editor self-tests, and the session entry-point/supervisor checks. Draft
+integration PR #51 is intentionally held open until the noVNC acceptance
+gate is complete; `main` is not treated as containing those unaccepted
+changes yet.
 
 The VM is intentionally not being treated as final graphics evidence. Its
 Proxmox basic-VGA/scfb path does not provide a guest DRM render device, so
@@ -29,39 +33,33 @@ product work moving while preserving honest release gates.
 
 The next work is ordered as follows:
 
-1. **Close the current desktop acceptance lane.** Re-run the M3 acceptance
-   matrix on a clean install: Files operations and Trash recovery, Open With
-   and reversible associations, home search, mounted-volume boundaries,
-   Files-to-Apps launching, keyboard mappings, settings persistence, and the
-   Software Center search/refresh flow. Also verify the Desktop Icons v1
-   create/delete/rename/open/restore flow documented in
-   [`docs/M3_DESKTOP.md`](M3_DESKTOP.md). Record the exact VM commit and
-   manual results.
-   Files-to-Apps launching, Desktop-folder icon projection, keyboard mappings,
-   settings persistence, and the Software Center search/refresh flow. Also
-   verify the Desktop Icons v1 create/delete/rename/open/restore flow
-   documented in [`docs/M3_DESKTOP.md`](M3_DESKTOP.md). Record the exact VM
-   commit and manual results.
-2. **Close the remaining M1/M2 development evidence.** Capture a multi-display
+1. **Close the current desktop acceptance lane.** Run the expanded manual
+   checklist below from the separately synced VM checkout, record pass/fail
+   evidence, and fix any regression before promotion.
+2. **Promote the consolidated M3 work.** After manual acceptance, mark PR #51
+   ready, squash-merge it into `main`, synchronize the local checkout, and
+   close or reconcile the superseded feature PRs without losing their review
+   history.
+3. **Close the remaining M1/M2 development evidence.** Capture a multi-display
    Layer Shell run when hardware permits, and separately validate the branded
    display-manager session, controlled lifecycle actions, and the production
    privilege boundary. The current Proxmox fallback remains supplemental.
-3. **Close M4 publication evidence.** The policy, fingerprint-store,
+4. **Close M4 publication evidence.** The policy, fingerprint-store,
    publication-provenance, catalogue-integrity, read-only signature
    verification, and native `pkg` publication/client smoke foundations are
    merged. The remaining trust evidence is an actual signed development/stable
    `pkg` repository publication built from pinned Ports/Poudriere inputs with
    protected key custody and recorded provenance.
-4. **Build safe update and rollback.** The bounded root-owned helper request
-   contract and independent verified-plan broker are now defined and tested.
-   Next establish the reviewed privileged deployment, preflight a named
-   `bectl` boot environment before upgrades, validate N-1 to N upgrades and
-   rollback, and prove that home data survives both paths. No package mutation
-   is exposed before these gates pass.
-5. **Produce the reproducible image and installer.** Only after M4 has current
+5. **Build safe update and rollback.** The bounded root-owned helper request
+   contract and independent verified-plan broker are defined and tested. Next
+   establish the reviewed privileged deployment, preflight a named `bectl` boot
+   environment before upgrades, validate N-1 to N upgrades and rollback, and
+   prove that home data survives both paths. No package mutation is exposed
+   before these gates pass.
+6. **Produce the reproducible image and installer.** Only after M4 has current
    evidence, pin the image inputs, build QCOW2 first, validate UEFI GPT/root-on-
    ZFS installation and first boot, then add raw/USB/ISO outputs.
-6. **Run the alpha hardware matrix.** Validate the supported VM plus the
+7. **Run the alpha hardware matrix.** Validate the supported VM plus the
    declared Intel and AMD graphics lanes, networking, applications,
    diagnostics, crash recovery, updates, rollback, and clean shutdown.
 
@@ -152,15 +150,14 @@ part of the application-discovery follow-on slice.
 The first editable first-party app, `NorthstarTextEditor.app`, now accepts a
 file argument from the Open With flow and provides bounded UTF-8 editing with
 atomic user-owned saves. This closes the first practical file-association loop
-without claiming broad macOS application compatibility.
-association chooser used by Files. User-scoped icon positions can be dragged
-and are persisted with bounded coordinates; release positions snap to the
-nearest free cell, while reset falls back to the default column layout through
-Settings > Appearance. The projection also watches the home directory so a
-Desktop folder created after shell startup appears without a manual refresh.
-This remains home-scoped
-and primary-display-only; it does not claim to replace a full desktop-file or
-multi-display icon-position service.
+without claiming broad macOS application compatibility. The Desktop surface
+uses the same association chooser as Files. User-scoped icon positions can be
+dragged and are persisted with bounded coordinates; release positions snap to
+the nearest free cell, while reset falls back to the default column layout
+through Settings > Appearance. The projection also watches the home directory
+so a Desktop folder created after shell startup appears without a manual
+refresh. This remains home-scoped and primary-display-only; it does not claim
+to replace a full desktop-file or multi-display icon-position service.
 
 Third-party global menus and full macOS compatibility remain out of scope.
 
@@ -212,6 +209,45 @@ Every slice must have a focused implementation, native/unit coverage where
 feasible, a reproducible VM build/test record, a manual gate when UI behavior
 is involved, and a documented limitation when the current nested graphics
 path cannot prove direct DRM/KMS behavior.
+
+### Expanded seven-hour execution matrix
+
+This is the working order for a long Northstar sprint. The timeboxes are
+guidance, not permission to mark an interactive gate complete without seeing
+the result. A failed manual step becomes the next focused fix, followed by the
+targeted test and the full regression gate before continuing.
+
+| Timebox | Step | Expected output | State |
+| --- | --- | --- | --- |
+| 00:00-00:15 | Branch and PR audit | Confirm clean `codex/` branch, `origin/main` base, open integration PR, and no unrelated worktree changes | Complete |
+| 00:15-00:35 | VM source sync and install | Copy the exact branch archive to the separate VM checkout, build, and install into `$HOME/.local` | Complete |
+| 00:35-00:55 | Automated regression gate | Run 17/17 Qt tests, QML surface contracts, session entry-point/supervisor checks, and app self-tests | Complete |
+| 00:55-01:10 | Compiled startup smoke | Start the built shell with the offscreen QPA and confirm no QML reference, binding, or syntax errors; record expected Layer Shell notices | Complete |
+| 01:10-01:35 | noVNC launch and shell restart | Start the installed session from the supported console path, confirm the branded desktop appears, restart only the shell, and verify the desktop returns | Open: manual |
+| 01:35-01:55 | Desktop-folder projection | Create `Desktop` if absent, create a folder and text file, refresh/watch the desktop, open both icons, and verify the Files location | Open: manual |
+| 01:55-02:20 | Desktop icon operations | Double-click, select, rename, delete, Properties, and empty/error states; confirm invalid paths stay inside the home boundary | Open: manual |
+| 02:20-02:40 | Icon layout behavior | Drag icons, verify bounds and nearest-free-cell snapping, restart, confirm positions persist, then test Settings > Appearance reset | Open: manual |
+| 02:40-03:05 | Files mutations | Create a folder and text file, rename each, navigate Home/Desktop/Documents, sort ascending/descending, switch grid/list views, and search | Open: manual |
+| 03:05-03:25 | Trash recovery | Delete a disposable file/folder with the single `Delete` action, inspect Trash, restore it, and verify the original path and contents | Open: manual |
+| 03:25-03:50 | Associations and editor | Use Open With, confirm typed MIME/extension filtering, open in Northstar Text Editor, edit/save, reopen, and verify Firefox is not forced for every file | Open: manual |
+| 03:50-04:10 | Apps, Welcome, and Software Center | Refresh application discovery, launch a known `.desktop`/`.app`, exercise Welcome actions, search Software Center, and confirm unsupported mutations explain themselves | Open: manual |
+| 04:10-04:35 | Dock and window controls | Confirm full-width alignment, Files/Apps shortcuts, running indicators, focus, minimize/restore, close, and no automatic Terminal launch | Open: manual |
+| 04:35-04:55 | Settings and visual system | Check logo/background, menu icon, light/dark appearance, settings navigation, diagnostics, keyboard mappings, and responsive layout at the VM size | Open: manual |
+| 04:55-05:15 | Session lifecycle | Test confirmed logout, then a graceful restart and shutdown path; verify the supervisor owns only its session children | Open: manual |
+| 05:15-05:30 | Recovery diagnostics | Trigger or inspect a safe shell-failure/restart state, confirm restart count and terminal failure are visible, and ensure duplicate sessions are rejected | Open: manual or log |
+| 05:30-05:50 | Clean reboot repeat | Reboot the VM gracefully, log in again, repeat the minimum desktop/file/app path, and confirm no stale installed binary or auto-start regression | Open: manual |
+| 05:50-06:10 | Evidence pack | Capture commit, VM checkout, install prefix, commands, screenshots/log excerpts, pass/fail notes, and deferred DRM/KMS limitation | Pending |
+| 06:10-06:30 | Review and hardening | Convert any failure into a focused fix, rerun affected tests plus the full gate, update roadmap/quality documentation, and inspect `git diff --check` | Pending |
+| 06:30-06:45 | Cloud promotion | Mark the integration PR ready only when manual gates pass, squash-merge in dependency order, and verify the resulting `main` commit | Pending |
+| 06:45-07:00 | Branch cleanup and handoff | Delete merged local/remote feature refs after verification, prune stale refs, create the next `codex/` branch, and leave exact next tests | Pending |
+
+The minimum automated rerun after any shell/QML change is `env
+QT_QPA_PLATFORM=offscreen ctest --test-dir build --output-on-failure`,
+`make qml-surface-test`, and the compiled startup smoke. The minimum manual
+rerun after any Files, Dock, association, or session change is the affected
+workflow plus the clean reboot repeat. Direct DRM/KMS, native multi-display,
+and physical Intel/AMD acceptance remain separate hardware gates even when
+this entire VM matrix passes.
 
 ## M4: Packages, updates, and rollback
 
