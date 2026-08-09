@@ -14,6 +14,7 @@ QtObject {
     property real defaultX: screenX + edgeMargin
     property real defaultY: screenY + topInset + edgeMargin
     property bool dragging: false
+    property bool nativeSystemMove: false
     property bool hasCustomPosition: false
     property point pointerOrigin: Qt.point(0, 0)
     property point windowOrigin: Qt.point(0, 0)
@@ -67,8 +68,18 @@ QtObject {
     }
 
     function begin(globalX, globalY) {
-        controller.dragging = true
         controller.hasCustomPosition = true
+        // Wayland deliberately prevents clients from assigning top-level
+        // window coordinates. startSystemMove() hands the pointer serial to
+        // the compositor, which is the only portable way to move a surface.
+        // Keep the coordinate path below as the X11 fallback.
+        if (controller.window.startSystemMove()) {
+            controller.nativeSystemMove = true
+            controller.dragging = false
+            return
+        }
+        controller.nativeSystemMove = false
+        controller.dragging = true
         controller.pointerOrigin = Qt.point(globalX, globalY)
         controller.windowOrigin = Qt.point(controller.window.x, controller.window.y)
     }
@@ -84,6 +95,10 @@ QtObject {
     }
 
     function end() {
+        if (controller.nativeSystemMove) {
+            controller.nativeSystemMove = false
+            return
+        }
         controller.dragging = false
         keepVisible()
     }

@@ -51,6 +51,8 @@ overview can be moved by dragging their title areas. Their positions are
 clamped below the top panel and inside the active display. A moved panel keeps
 its position for the current shell session, is brought back on-screen after a
 resolution change, and uses its standard placement until the user moves it.
+Wayland movement is delegated to the compositor through Qt's native system-
+move request; coordinate assignment is retained only as the X11 fallback.
 
 ## Acceptance
 
