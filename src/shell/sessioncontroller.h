@@ -16,6 +16,7 @@ class SessionController final : public QObject
     Q_PROPERTY(qint64 shellPid READ shellPid NOTIFY statusChanged)
     Q_PROPERTY(int restartCount READ restartCount NOTIFY statusChanged)
     Q_PROPERTY(QString lastEvent READ lastEvent NOTIFY statusChanged)
+    Q_PROPERTY(bool restartable READ restartable NOTIFY statusChanged)
 
 public:
     using SignalFunction = std::function<int(qint64 pid, int signal)>;
@@ -35,9 +36,11 @@ public:
     qint64 shellPid() const;
     int restartCount() const;
     QString lastEvent() const;
+    bool restartable() const;
 
     Q_INVOKABLE void refresh();
     Q_INVOKABLE bool requestEndSession();
+    Q_INVOKABLE bool requestShellRestart();
 
 signals:
     void statusChanged();

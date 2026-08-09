@@ -17,6 +17,7 @@ private slots:
     void missingStatusIsUnavailable();
     void rejectsEndRequestFromUnexpectedParent();
     void requestsEndSessionThroughExactParent();
+    void requestsShellRestartThroughExactIdentity();
 };
 
 void SessionControllerTest::readsStatusContract()
@@ -141,6 +142,44 @@ void SessionControllerTest::requestsEndSessionThroughExactParent()
     QFile controlFile(controlPath);
     QVERIFY(controlFile.open(QIODevice::ReadOnly | QIODevice::Text));
     QCOMPARE(controlFile.readAll(), QByteArray("end-session\n"));
+}
+
+void SessionControllerTest::requestsShellRestartThroughExactIdentity()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+
+    const qint64 expectedSupervisorPid = static_cast<qint64>(::getppid());
+    const qint64 expectedShellPid = static_cast<qint64>(::getpid());
+    const QString statusPath = temporaryDirectory.filePath(QStringLiteral("session.status"));
+    QFile statusFile(statusPath);
+    QVERIFY(statusFile.open(QIODevice::WriteOnly | QIODevice::Text));
+    statusFile.write("state=running\nsupervisor_pid=");
+    statusFile.write(QByteArray::number(expectedSupervisorPid));
+    statusFile.write("\nshell_pid=");
+    statusFile.write(QByteArray::number(expectedShellPid));
+    statusFile.write("\nwayland_display=wayland-1\n");
+    statusFile.close();
+
+    qint64 signaledPid = 0;
+    int signaledSignal = 0;
+    SessionController controller(
+        statusPath,
+        temporaryDirectory.filePath(QStringLiteral("session.control")),
+        expectedSupervisorPid,
+        nullptr,
+        [&signaledPid, &signaledSignal](qint64 pid, int signal) {
+            signaledPid = pid;
+            signaledSignal = signal;
+            return 0;
+        });
+
+    QVERIFY(controller.restartable());
+    QVERIFY(controller.requestShellRestart());
+    QCOMPARE(signaledPid, expectedShellPid);
+    QCOMPARE(signaledSignal, SIGTERM);
+    QCOMPARE(controller.state(), QStringLiteral("restarting"));
+    QCOMPARE(controller.lastEvent(), QStringLiteral("shell-restart-requested"));
 }
 
 QTEST_MAIN(SessionControllerTest)

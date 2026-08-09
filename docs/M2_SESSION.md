@@ -89,6 +89,12 @@ arbitrary privileged command. Production packaging must replace that wrapper
 with a root-owned helper and a narrow authorization rule for only the restart
 and shutdown operations.
 
+Settings > Session also exposes a confirmed **Restart Northstar Shell** action
+when the shell can prove that it is the exact supervised child recorded in the
+session status contract. The action signals only that shell PID and lets the
+existing supervisor perform its bounded restart; it refuses to run from an
+unmanaged shell or when the recorded parent identity does not match.
+
 For the current Proxmox console lane, the opt-in console-login hook can start
 the supervised nested session automatically after a local `ttyv0` through
 `ttyv7` login:
