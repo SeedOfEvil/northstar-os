@@ -103,6 +103,8 @@ int main(int argc, char *argv[])
     const QUrl logoSource = northstarLogoSource();
     const QUrl iconsSource = northstarIconsSource();
     const QUrl generatedIconsDirectory = northstarGeneratedIconsDirectory();
+    engine.rootContext()->setContextProperty(QStringLiteral("northstarGeneratedIconsDirectory"),
+                                             generatedIconsDirectory);
     QQmlComponent backgroundComponent(&engine, QUrl(QStringLiteral("qrc:/Northstar/Shell/DesktopBackground.qml")));
     QQmlComponent component(&engine, QUrl(QStringLiteral("qrc:/Northstar/Shell/ShellWindow.qml")));
     QQmlComponent dockComponent(&engine, QUrl(QStringLiteral("qrc:/Northstar/Shell/DockWindow.qml")));

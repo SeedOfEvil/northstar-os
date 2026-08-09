@@ -301,11 +301,11 @@ Window {
                     spacing: 12
 
                     Rectangle {
-                        anchors.verticalCenter: parent.verticalCenter
                         color: quickSettings.surfaceAccent
                         height: 34
                         radius: 8
                         width: 34
+                        y: (parent.height - height) / 2
 
                         Text {
                             anchors.centerIn: parent
@@ -317,8 +317,8 @@ Window {
                     }
 
                     Column {
-                        anchors.verticalCenter: parent.verticalCenter
                         spacing: 2
+                        y: (parent.height - height) / 2
 
                         Text {
                             color: quickSettings.surfaceForeground
