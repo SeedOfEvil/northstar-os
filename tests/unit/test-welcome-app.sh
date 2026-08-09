@@ -31,7 +31,7 @@ chmod +x "$tmp_dir/bin/qterminal" "$tmp_dir/bin/xterm"
 
 QTERMINAL_ARGS="$tmp_dir/qterminal.args" \
 XTERM_ARGS="$tmp_dir/xterm.args" \
-PATH="$tmp_dir/bin:/bin" \
+PATH="$tmp_dir/bin:$PATH" \
 sh "$welcome_script" >/dev/null 2>&1
 
 if ! grep -Fx -- '-e' "$tmp_dir/qterminal.args" >/dev/null; then
@@ -52,7 +52,7 @@ fi
 rm -f "$tmp_dir/bin/qterminal" "$tmp_dir/qterminal.args"
 
 XTERM_ARGS="$tmp_dir/xterm.args" \
-PATH="$tmp_dir/bin:$PATH" \
+PATH="$tmp_dir/bin:/bin" \
 sh "$welcome_script" >/dev/null 2>&1
 
 if ! grep -Fx -- '-T' "$tmp_dir/xterm.args" >/dev/null || \
