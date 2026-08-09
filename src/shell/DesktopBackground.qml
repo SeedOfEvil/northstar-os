@@ -18,6 +18,8 @@ Window {
     property int dockHeight: 72
     property int desktopMargin: 18
     property string selectedPath: ""
+    property int layoutCellWidth: 112
+    property int layoutCellHeight: 112
     property color surfaceBackground: state && state.darkMode ? "#0f1218" : "#e8edf5"
     property color surfaceForeground: state && state.darkMode ? "#f5f7fb" : "#1e2430"
     property color surfaceMuted: state && state.darkMode ? "#a9b1c2" : "#637083"
@@ -133,6 +135,51 @@ Window {
         desktopBackground.fileBrowserWindow.openDesktopEntry(entry.path)
     }
 
+    function nearestFreePosition(icon, candidateX, candidateY) {
+        const maximumX = Math.max(0, desktopIconSurface.width - icon.width)
+        const maximumY = Math.max(0, desktopIconSurface.height - icon.height)
+        const maximumColumn = Math.max(0, Math.floor(maximumX / desktopBackground.layoutCellWidth))
+        const maximumRow = Math.max(0, Math.floor(maximumY / desktopBackground.layoutCellHeight))
+        const requestedColumn = Math.max(0, Math.min(
+            maximumColumn, Math.round(candidateX / desktopBackground.layoutCellWidth)))
+        const requestedRow = Math.max(0, Math.min(
+            maximumRow, Math.round(candidateY / desktopBackground.layoutCellHeight)))
+        const occupied = function(x, y) {
+            for (let itemIndex = 0; itemIndex < desktopRepeater.count; ++itemIndex) {
+                const other = desktopRepeater.itemAt(itemIndex)
+                if (!other || other === icon) {
+                    continue
+                }
+                if (other.itemX < x + icon.width && x < other.itemX + other.width
+                        && other.itemY < y + icon.height && y < other.itemY + other.height) {
+                    return true
+                }
+            }
+            return false
+        }
+
+        let bestX = Math.max(0, Math.min(maximumX, candidateX))
+        let bestY = Math.max(0, Math.min(maximumY, candidateY))
+        let bestDistance = Number.MAX_VALUE
+        for (let row = 0; row <= maximumRow; ++row) {
+            for (let column = 0; column <= maximumColumn; ++column) {
+                const x = Math.min(maximumX, column * desktopBackground.layoutCellWidth)
+                const y = Math.min(maximumY, row * desktopBackground.layoutCellHeight)
+                if (occupied(x, y)) {
+                    continue
+                }
+                const distance = Math.pow(column - requestedColumn, 2)
+                    + Math.pow(row - requestedRow, 2)
+                if (distance < bestDistance) {
+                    bestDistance = distance
+                    bestX = x
+                    bestY = y
+                }
+            }
+        }
+        return Qt.point(bestX, bestY)
+    }
+
     Rectangle {
         anchors.fill: parent
         color: desktopBackground.surfaceBackground
@@ -168,12 +215,13 @@ Window {
             z: 2
 
             Repeater {
-            model: desktopBackground.fileBrowserController
-                ? desktopBackground.fileBrowserController.desktopEntries : []
+                id: desktopRepeater
+                model: desktopBackground.fileBrowserController
+                    ? desktopBackground.fileBrowserController.desktopEntries : []
                 delegate: Rectangle {
                     id: desktopIcon
                     property real itemX: 0
-                    property real itemY: index * 112
+                    property real itemY: index * desktopBackground.layoutCellHeight
                     property point dragOrigin: Qt.point(0, 0)
                     property point itemOrigin: Qt.point(0, 0)
 
@@ -192,7 +240,7 @@ Window {
 
                     function applySavedPosition() {
                         desktopIcon.itemX = 0
-                        desktopIcon.itemY = index * 112
+                        desktopIcon.itemY = index * desktopBackground.layoutCellHeight
                         if (!desktopBackground.layoutController) {
                             return
                         }
@@ -210,6 +258,7 @@ Window {
                         function onPositionsChanged() {
                             desktopIcon.applySavedPosition()
                         }
+                    }
                 }
 
                 NorthstarIcon {
@@ -259,6 +308,10 @@ Window {
                     }
 
                     onReleased: {
+                        const snapped = desktopBackground.nearestFreePosition(
+                            desktopIcon, desktopIcon.itemX, desktopIcon.itemY)
+                        desktopIcon.itemX = snapped.x
+                        desktopIcon.itemY = snapped.y
                         if (desktopBackground.layoutController) {
                             desktopBackground.layoutController.setPosition(
                                 modelData.path, desktopIcon.itemX, desktopIcon.itemY)
