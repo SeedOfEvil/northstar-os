@@ -8,6 +8,7 @@ Window {
     property var packageTrust
     property var updatePlan
     property var updateAuthorization
+    property var applicationLauncher
     property var state
     property var targetScreen
     property int panelHeight: 44
@@ -20,6 +21,7 @@ Window {
     property int minimumSurfaceHeight: 500
     property bool dragging: false
     property var selectedPackage: null
+    property var selectedApplication: null
     property point dragOrigin: Qt.point(0, 0)
     property point windowOrigin: Qt.point(0, 0)
     property point resizeOrigin: Qt.point(0, 0)
@@ -74,6 +76,10 @@ Window {
             return
         }
         software.packageCatalog.setQuery("")
+        if (software.applicationLauncher) {
+            software.applicationLauncher.setApplicationQuery("")
+            software.applicationLauncher.refreshApplications()
+        }
         searchField.text = ""
         software.packageCatalog.refresh()
         show()
@@ -85,6 +91,11 @@ Window {
     function showPackageDetails(packageInfo) {
         software.selectedPackage = packageInfo
         packageDetailsDialog.open()
+    }
+
+    function showApplicationDetails(applicationInfo) {
+        software.selectedApplication = applicationInfo
+        applicationDetailsDialog.open()
     }
 
     function beginDrag(mouseX, mouseY) {
@@ -389,6 +400,97 @@ Window {
 
             Rectangle {
                 color: software.surfaceRaised
+                height: visible ? 108 : 0
+                radius: 8
+                visible: !!software.applicationLauncher
+                    && software.applicationLauncher.matchingApplications.length > 0
+                width: parent.width
+                clip: true
+
+                Column {
+                    anchors.fill: parent
+                    anchors.margins: 12
+                    spacing: 6
+
+                    Text {
+                        color: software.surfaceForeground
+                        font.bold: true
+                        font.pixelSize: 13
+                        text: "Northstar application catalog"
+                    }
+
+                    ListView {
+                        id: applicationList
+                        height: 70
+                        spacing: 8
+                        width: parent.width
+                        clip: true
+                        orientation: ListView.Horizontal
+                        model: software.applicationLauncher
+                            ? software.applicationLauncher.matchingApplications : []
+
+                        delegate: Rectangle {
+                            required property var modelData
+
+                            color: applicationMouse.containsMouse
+                                ? software.surfaceAccent : software.surfaceBackground
+                            height: 70
+                            radius: 7
+                            width: 220
+
+                            Row {
+                                anchors.fill: parent
+                                anchors.leftMargin: 10
+                                anchors.rightMargin: 10
+                                spacing: 8
+
+                                NorthstarIcon {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    height: 34
+                                    width: 34
+                                    iconName: modelData.sourceType === "bundle"
+                                        ? "welcome" : "applications"
+                                }
+
+                                Column {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    spacing: 2
+                                    width: parent.width - 42
+
+                                    Text {
+                                        color: software.surfaceForeground
+                                        elide: Text.ElideRight
+                                        font.bold: true
+                                        font.pixelSize: 12
+                                        text: modelData.name
+                                        width: parent.width
+                                    }
+
+                                    Text {
+                                        color: software.surfaceMuted
+                                        elide: Text.ElideRight
+                                        font.pixelSize: 10
+                                        text: modelData.version
+                                            || modelData.genericName
+                                            || "Desktop application"
+                                        width: parent.width
+                                    }
+                                }
+                            }
+
+                            MouseArea {
+                                id: applicationMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                onClicked: software.showApplicationDetails(modelData)
+                            }
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                color: software.surfaceRaised
                 height: 72
                 radius: 8
                 width: parent.width
@@ -455,7 +557,7 @@ Window {
                 color: software.surfaceForeground
                 focus: true
                 font.pixelSize: 13
-                placeholderText: "Search installed packages..."
+                placeholderText: "Search packages and applications..."
                 placeholderTextColor: software.surfaceMuted
                 selectByMouse: true
                 width: parent.width
@@ -475,6 +577,10 @@ Window {
                 onTextChanged: {
                     if (software.packageCatalog && software.packageCatalog.query !== text) {
                         software.packageCatalog.setQuery(text)
+                    }
+                    if (software.applicationLauncher
+                            && software.applicationLauncher.applicationQuery !== text) {
+                        software.applicationLauncher.setApplicationQuery(text)
                     }
                 }
             }
@@ -769,6 +875,121 @@ Window {
                 Button {
                     enabled: false
                     text: "Remove"
+                }
+            }
+        }
+    }
+
+    Dialog {
+        id: applicationDetailsDialog
+        property var application
+
+        title: applicationDetailsDialog.application
+            ? applicationDetailsDialog.application.name : "Application details"
+        modal: true
+        standardButtons: Dialog.Close
+        width: Math.min(560, software.width - 48)
+        x: (software.width - width) / 2
+        y: (software.height - height) / 2
+
+        onOpened: applicationDetailsDialog.application = software.selectedApplication
+
+        background: Rectangle {
+            color: software.surfaceBackground
+            border.color: software.surfaceAccent
+            border.width: 1
+            radius: 10
+        }
+
+        contentItem: Column {
+            spacing: 12
+            width: applicationDetailsDialog.width - (2 * applicationDetailsDialog.padding)
+
+            Row {
+                spacing: 12
+                width: parent.width
+
+                NorthstarIcon {
+                    anchors.verticalCenter: parent.verticalCenter
+                    height: 44
+                    width: 44
+                    iconName: applicationDetailsDialog.application
+                        && applicationDetailsDialog.application.sourceType === "bundle"
+                        ? "welcome" : "applications"
+                }
+
+                Column {
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 3
+                    width: parent.width - 56
+
+                    Text {
+                        color: software.surfaceForeground
+                        elide: Text.ElideRight
+                        font.bold: true
+                        font.pixelSize: 18
+                        text: applicationDetailsDialog.application
+                            ? applicationDetailsDialog.application.name : "Application details"
+                        width: parent.width
+                    }
+
+                    Text {
+                        color: software.surfaceMuted
+                        elide: Text.ElideRight
+                        font.pixelSize: 12
+                        text: applicationDetailsDialog.application
+                            ? (applicationDetailsDialog.application.version
+                                || applicationDetailsDialog.application.genericName
+                                || "Northstar application") : ""
+                        width: parent.width
+                    }
+                }
+            }
+
+            Text {
+                color: software.surfaceForeground
+                font.pixelSize: 13
+                text: applicationDetailsDialog.application
+                    ? (applicationDetailsDialog.application.comment
+                        || applicationDetailsDialog.application.genericName
+                        || "No application description provided.")
+                    : ""
+                width: parent.width
+                wrapMode: Text.WordWrap
+            }
+
+            Text {
+                color: applicationDetailsDialog.application
+                    && applicationDetailsDialog.application.launchable === false
+                    ? "#c34f65" : "#55c58a"
+                font.bold: true
+                font.pixelSize: 12
+                text: applicationDetailsDialog.application
+                    && applicationDetailsDialog.application.launchable === false
+                    ? "Unavailable: the declared executable is missing or unsafe."
+                    : "Available through the Northstar application catalog."
+                width: parent.width
+                wrapMode: Text.WordWrap
+            }
+
+            Text {
+                color: software.surfaceMuted
+                font.pixelSize: 11
+                text: "Launching uses the same validated catalog and user permissions as Apps and Open With."
+                width: parent.width
+                wrapMode: Text.WordWrap
+            }
+
+            Button {
+                enabled: !!applicationDetailsDialog.application
+                    && applicationDetailsDialog.application.launchable !== false
+                text: "Launch"
+                onClicked: {
+                    if (software.applicationLauncher) {
+                        software.applicationLauncher.launchApplication(
+                            applicationDetailsDialog.application.desktopId)
+                    }
+                    applicationDetailsDialog.close()
                 }
             }
         }

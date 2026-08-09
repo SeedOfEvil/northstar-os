@@ -447,6 +447,7 @@ Window {
     SoftwareCenterWindow {
         id: softwareCenterWindow
         packageCatalog: northstarPackageCatalog
+        applicationLauncher: launcher
         packageTrust: northstarPackageTrustController
         updatePlan: northstarUpdatePlanController
         updateAuthorization: northstarUpdateAuthorizationController
