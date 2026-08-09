@@ -327,6 +327,8 @@ void UpdatePlanControllerTest::verifiesTrustedRsaSignature()
     QVERIFY(controller.signatureVerified());
     QVERIFY(!controller.previewReady());
     QCOMPARE(controller.signatureStatus(), QStringLiteral("verified"));
+    QCOMPARE(controller.signatureFingerprint(), fingerprint);
+    QCOMPARE(controller.catalogueSha256(), catalogueDigest);
     QVERIFY(controller.metadataStatus().contains(QStringLiteral("verified"), Qt::CaseInsensitive));
     QVERIFY(controller.preview({installedPackage(QStringLiteral("northstar-shell"), QStringLiteral("0.1.0"))}));
     QVERIFY(controller.previewReady());

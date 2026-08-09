@@ -24,3 +24,4 @@ Accepted records in the initial foundation:
 - [0004: Package and update model](0004-package-and-update-model.md)
 - [0005: Project application bundle layout](0005-project-app-bundle-layout.md)
 - [0006: Narrow update-helper boundary](0006-update-helper-boundary.md)
+- [0007: Independent verified-plan update broker](0007-update-broker-verification.md)

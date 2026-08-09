@@ -17,6 +17,7 @@ include(CTest)
 add_subdirectory(src/session)
 add_subdirectory(src/launcher)
 add_subdirectory(src/shell)
+add_subdirectory(src/update)
 
 if(BUILD_TESTING)
     add_subdirectory(tests/unit)
