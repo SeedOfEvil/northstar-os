@@ -13,6 +13,7 @@ struct DesktopApplication
     QString exec;
     QString icon;
     QStringList categories;
+    QStringList mimeTypes;
     QString sourcePath;
 };
 
@@ -24,6 +25,7 @@ inline bool operator==(const DesktopApplication &left, const DesktopApplication 
         && left.exec == right.exec
         && left.icon == right.icon
         && left.categories == right.categories
+        && left.mimeTypes == right.mimeTypes
         && left.sourcePath == right.sourcePath;
 }
 

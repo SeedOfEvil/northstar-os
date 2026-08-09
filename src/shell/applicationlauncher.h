@@ -50,6 +50,7 @@ public:
     Q_INVOKABLE bool launchBrowser();
     Q_INVOKABLE bool launchApplication(const QString &desktopId);
     Q_INVOKABLE bool launchApplicationWithFile(const QString &desktopId, const QString &filePath);
+    Q_INVOKABLE QVariantList applicationsForFile(const QString &filePath) const;
     Q_INVOKABLE QString preferredApplicationForFile(const QString &filePath) const;
     Q_INVOKABLE bool setPreferredApplicationForFile(const QString &filePath, const QString &desktopId);
     Q_INVOKABLE bool clearPreferredApplicationForFile(const QString &filePath);
@@ -84,6 +85,8 @@ private:
     QString applicationNameFor(const QString &desktopId) const;
     bool launchSpec(const QString &desktopId, QString *program, QStringList *arguments) const;
     QStringList applicationIds() const;
+    static bool supportsFile(const DesktopApplication &application, const QString &mimeType);
+    static bool supportsFile(const BundleApplication &application, const QString &extension);
     static QString associationExtension(const QString &filePath);
     static QString associationKey(const QString &filePath);
     bool ensureAssociationSettingsDirectory() const;

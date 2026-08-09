@@ -24,6 +24,7 @@ struct BundleManifest
     QString executable;
     QString icon;
     QStringList categories;
+    QStringList documentExtensions;
     BundleProvenance provenance;
 };
 
@@ -127,6 +128,22 @@ bool validProvenanceValue(const QString &value)
     return true;
 }
 
+bool validDocumentExtension(const QString &value)
+{
+    if (value.isEmpty() || value.size() > 32 || value != value.trimmed()) {
+        return false;
+    }
+
+    for (const QChar character : value) {
+        if (!(character.isLetterOrNumber()
+              || character == QLatin1Char('-')
+              || character == QLatin1Char('_'))) {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool readManifest(const QString &path, BundleManifest *manifest)
 {
     if (manifest == nullptr) {
@@ -194,6 +211,20 @@ bool readManifest(const QString &path, BundleManifest *manifest)
     }
     if (parsed.categories.isEmpty()) {
         return false;
+    }
+
+    const QVariant extensionsValue = values.value(QStringLiteral("DocumentExtensions"));
+    if (extensionsValue.isValid()) {
+        if (extensionsValue.typeId() != QMetaType::QVariantList) {
+            return false;
+        }
+        for (const QVariant &extension : extensionsValue.toList()) {
+            if (extension.typeId() != QMetaType::QString
+                || !validDocumentExtension(extension.toString())) {
+                return false;
+            }
+            parsed.documentExtensions.append(extension.toString().toLower());
+        }
     }
 
     const QVariant provenanceValue = values.value(QStringLiteral("Provenance"));
@@ -379,6 +410,7 @@ bool readBundle(const QString &path, BundleApplication *application)
     parsed.executable = manifest.executable;
     parsed.icon = manifest.icon;
     parsed.categories = manifest.categories;
+    parsed.documentExtensions = manifest.documentExtensions;
     parsed.bundlePath = bundlePath;
     parsed.executablePath = executableInfo.canonicalFilePath();
     parsed.iconPath = iconInfo.canonicalFilePath();
@@ -396,7 +428,8 @@ bool matchesQuery(const BundleApplication &application, const QStringList &terms
         application.categories.join(QLatin1Char(' ')),
         application.provenance.source,
         application.provenance.package,
-        application.provenance.revision
+        application.provenance.revision,
+        application.documentExtensions.join(QLatin1Char(' '))
     }.join(QLatin1Char(' '));
 
     return std::all_of(terms.cbegin(), terms.cend(), [&searchText](const QString &term) {
@@ -456,6 +489,7 @@ QVariantList ApplicationBundleCatalog::toVariantList(const QList<BundleApplicati
         item.insert(QStringLiteral("icon"), application.icon);
         item.insert(QStringLiteral("iconSource"), QUrl::fromLocalFile(application.iconPath));
         item.insert(QStringLiteral("categories"), application.categories);
+        item.insert(QStringLiteral("documentExtensions"), application.documentExtensions);
         item.insert(QStringLiteral("sourceType"), QStringLiteral("bundle"));
         item.insert(QStringLiteral("provenanceSource"), application.provenance.source);
         item.insert(QStringLiteral("provenancePackage"), application.provenance.package);
