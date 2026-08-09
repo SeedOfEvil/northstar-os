@@ -172,6 +172,11 @@ feature refs. If any manual item fails, keep the PR draft, make a focused fix,
 repeat the relevant test and full automated gate, and update the note before
 promotion.
 
+The latest sprint evidence is recorded in
+[`docs/validation/M4_SPRINT_2026-08-09.md`](validation/M4_SPRINT_2026-08-09.md).
+It records PRs #56-#59 as automated-green integration slices while keeping
+the noVNC/manual session observations explicitly open.
+
 ### 3. Publish the cloud branch and draft PR
 
 After validation, commit only the intended files with a terse message and

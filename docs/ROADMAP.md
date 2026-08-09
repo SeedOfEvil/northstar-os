@@ -31,6 +31,13 @@ direct DRM/KMS, multi-display, and native display-manager claims remain open
 until the appropriate hardware or graphics path is available. This keeps the
 product work moving while preserving honest release gates.
 
+Since the earlier baseline, the sprint integration head has promoted PRs #56
+through #59: the shared Software Center application catalog, read-only update
+plan review, Files view-mode persistence, and an identity-checked supervised
+shell restart action. The current automated evidence and the remaining manual
+noVNC items are recorded in
+[`docs/validation/M4_SPRINT_2026-08-09.md`](validation/M4_SPRINT_2026-08-09.md).
+
 The next work is ordered as follows:
 
 1. **Close the current desktop acceptance lane.** Run the expanded manual
