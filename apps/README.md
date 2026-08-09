@@ -20,6 +20,7 @@ The native target supports `--self-test` for headless CI and VM validation.
 
 `NorthstarTextEditor.app` is the first editable first-party app. It accepts a
 text-file path from Files/Open With, loads UTF-8 documents up to 8 MiB, and
-saves changes through an atomic user-owned write. It is deliberately a small
-text editor, not a general document suite; unsupported or oversized files are
+saves changes through an atomic user-owned write. New documents use Save As and
+are stored in the user's Documents folder. It is deliberately a small text
+editor, not a general document suite; unsupported or oversized files are
 rejected with a visible status message.

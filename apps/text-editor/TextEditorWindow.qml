@@ -13,6 +13,7 @@ ApplicationWindow {
     property color accentColor: "#79b8ff"
     property bool syncingText: false
     property bool closeConfirmed: false
+    property bool closeAfterSave: false
 
     color: editor.backgroundColor
     height: 680
@@ -31,6 +32,93 @@ ApplicationWindow {
         }
         close.accepted = false
         unsavedDialog.open()
+    }
+
+    function saveDocument() {
+        if (!editor.documentController || !editor.documentController.dirty) {
+            return
+        }
+        if (editor.documentController.filePath.length > 0) {
+            editor.documentController.save()
+        } else {
+            openSaveAsDialog()
+        }
+    }
+
+    function openSaveAsDialog() {
+        saveAsDialog.validationMessage = ""
+        saveAsDialog.open()
+    }
+
+    Dialog {
+        id: saveAsDialog
+        modal: true
+        padding: 16
+        standardButtons: Dialog.Cancel | Dialog.Ok
+        title: "Save new document"
+        width: 420
+
+        property string validationMessage: ""
+
+        contentItem: Column {
+            spacing: 12
+            width: saveAsDialog.width - (2 * saveAsDialog.padding)
+
+            Text {
+                color: editor.foregroundColor
+                text: "New documents are saved in ~/Documents."
+                wrapMode: Text.WordWrap
+                width: parent.width
+            }
+
+            TextField {
+                id: saveAsNameField
+                placeholderText: "File name"
+                selectByMouse: true
+                width: parent.width
+                onAccepted: saveAsDialog.accept()
+            }
+
+            Text {
+                color: "#ff9b9b"
+                text: saveAsDialog.validationMessage
+                visible: text.length > 0
+                wrapMode: Text.WordWrap
+                width: parent.width
+            }
+        }
+
+        onOpened: {
+            saveAsNameField.forceActiveFocus()
+            saveAsNameField.selectAll()
+        }
+
+        onAccepted: {
+            const fileName = saveAsNameField.text.trim()
+            if (fileName.length === 0 || fileName.indexOf("/") >= 0
+                || fileName.indexOf("\\") >= 0) {
+                validationMessage = "Enter a file name without folder separators."
+                Qt.callLater(function() { saveAsDialog.open() })
+                return
+            }
+
+            const directory = editor.documentController.defaultSaveDirectory
+            const separator = directory.endsWith("/") ? "" : "/"
+            const saved = editor.documentController.saveAs(directory + separator + fileName)
+            if (saved) {
+                saveAsDialog.close()
+                if (editor.closeAfterSave) {
+                    editor.closeAfterSave = false
+                    editor.closeConfirmed = true
+                    editor.close()
+                }
+            } else {
+                validationMessage = editor.documentController.statusMessage
+                Qt.callLater(function() { saveAsDialog.open() })
+            }
+        }
+
+        onRejected: editor.closeAfterSave = false
     }
 
     Dialog {
@@ -56,13 +144,19 @@ ApplicationWindow {
                 spacing: 8
 
                 Button {
-                    text: "Save"
+                    text: editor.documentController && editor.documentController.filePath.length > 0
+                        ? "Save" : "Save As..."
                     onClicked: {
-                        if (editor.documentController.save()) {
+                        if (editor.documentController.filePath.length > 0
+                            && editor.documentController.save()) {
                             editor.closeConfirmed = true
                             unsavedDialog.close()
                             editor.close()
-                        }
+                } else if (editor.documentController.filePath.length === 0) {
+                    editor.closeAfterSave = true
+                    unsavedDialog.close()
+                    editor.openSaveAsDialog()
+                }
                     }
                 }
 
@@ -148,8 +242,9 @@ ApplicationWindow {
             Button {
                 id: saveButton
                 enabled: editor.documentController && editor.documentController.canSave
-                text: "Save"
-                onClicked: editor.documentController.save()
+                text: editor.documentController && editor.documentController.filePath.length > 0
+                    ? "Save" : "Save As..."
+                onClicked: editor.saveDocument()
             }
         }
 

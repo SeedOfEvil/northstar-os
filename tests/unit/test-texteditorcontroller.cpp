@@ -1,6 +1,7 @@
 #include "texteditorcontroller.h"
 
 #include <QFile>
+#include <QFileInfo>
 #include <QTemporaryDir>
 #include <QtTest/QtTest>
 
@@ -10,6 +11,7 @@ class TextEditorControllerTest final : public QObject
 
 private slots:
     void loadsAndSavesText();
+    void savesNewDocument();
     void rejectsMissingFiles();
 };
 
@@ -46,6 +48,25 @@ void TextEditorControllerTest::rejectsMissingFiles()
     TextEditorController controller;
     QVERIFY(!controller.loadFile(QStringLiteral("/tmp/northstar-text-editor-missing.txt")));
     QVERIFY(controller.statusMessage().contains(QStringLiteral("no longer available")));
+}
+
+void TextEditorControllerTest::savesNewDocument()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    const QString path = temporaryDirectory.filePath(QStringLiteral("new-document.txt"));
+
+    TextEditorController controller;
+    controller.setText(QStringLiteral("A new Northstar document"));
+    QVERIFY(controller.dirty());
+    QVERIFY(controller.canSave());
+    QVERIFY(controller.saveAs(path));
+    QCOMPARE(controller.filePath(), QFileInfo(path).absoluteFilePath());
+
+    QFile saved(path);
+    QVERIFY(saved.open(QIODevice::ReadOnly));
+    QCOMPARE(saved.readAll(), QByteArray("A new Northstar document"));
+    QVERIFY(!controller.dirty());
 }
 
 QTEST_MAIN(TextEditorControllerTest)

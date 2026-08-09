@@ -65,8 +65,9 @@ Bundles are installed by FreeBSD packages or a future project package integratio
 The launcher prefers a valid `.desktop` entry when one is available, then discovers project bundles from declared application roots. The first development roots are the user-local `XDG_DATA_HOME/northstar/apps` directory followed by `/usr/local/share/northstar/apps` and `/usr/share/northstar/apps`. A bundle can expose a `.desktop` entry for compatibility with existing FreeBSD tools. The repository includes a small `NorthstarWelcome.app` sample and the editable `NorthstarTextEditor.app` installed by the development CMake target; package integration remains a later milestone.
 
 `NorthstarTextEditor.app` demonstrates a first-party bundle receiving a file
-argument from Open With and performing an atomic user-owned save. The editor
-is intentionally bounded to UTF-8 text documents up to 8 MiB.
+argument from Open With and performing an atomic user-owned save. New documents
+can be saved through Save As into the user's Documents folder. The editor is
+intentionally bounded to UTF-8 text documents up to 8 MiB.
 
 ## Desktop application compatibility contract
 
