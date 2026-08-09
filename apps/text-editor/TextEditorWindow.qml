@@ -38,10 +38,12 @@ ApplicationWindow {
         modal: true
         title: "Save changes?"
         standardButtons: Dialog.NoButton
+        padding: 16
+        width: 420
 
         contentItem: Column {
             spacing: 14
-            width: 360
+            width: unsavedDialog.width - (2 * unsavedDialog.padding)
 
             Text {
                 color: editor.foregroundColor
@@ -116,7 +118,7 @@ ApplicationWindow {
             Image {
                 anchors.verticalCenter: parent.verticalCenter
                 height: 42
-                source: "qrc:/qt/qml/Northstar/TextEditor/northstar-text-editor.svg"
+                source: "qrc:/Northstar/TextEditor/northstar-text-editor.svg"
                 width: 42
             }
 

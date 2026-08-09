@@ -21,9 +21,6 @@ int main(int argc, char *argv[])
                                        QStringLiteral("validate the installed Welcome application without opening a window"));
     parser.addOption(selfTestOption);
     parser.process(application);
-    if (parser.isSet(selfTestOption)) {
-        return 0;
-    }
 
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty(QStringLiteral("northstarHomePath"), QDir::homePath());
@@ -42,9 +39,13 @@ int main(int argc, char *argv[])
                                              sessionStatus);
     engine.rootContext()->setContextProperty(QStringLiteral("northstarPlatform"),
                                              QSysInfo::prettyProductName());
-    engine.load(QUrl(QStringLiteral("qrc:/qt/qml/Northstar/Welcome/WelcomeWindow.qml")));
+    engine.load(QUrl(QStringLiteral("qrc:/Northstar/Welcome/WelcomeWindow.qml")));
     if (engine.rootObjects().isEmpty()) {
         return 1;
+    }
+
+    if (parser.isSet(selfTestOption)) {
+        return 0;
     }
 
     return application.exec();

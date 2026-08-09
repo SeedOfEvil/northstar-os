@@ -35,6 +35,8 @@ done
 
 contains src/shell/DesktopBackground.qml "setPosition("
 contains src/shell/DesktopBackground.qml "nearestFreePosition("
+contains src/shell/DesktopBackground.qml "anchors.right: parent.right"
+contains src/shell/DesktopBackground.qml "mapToItem("
 contains src/shell/DesktopBackground.qml "onDoubleClicked: desktopBackground.openDesktopEntry"
 contains src/shell/DesktopBackground.qml 'text: "Refresh Desktop"'
 contains src/shell/DesktopBackground.qml "Qt.Key_Return"
@@ -60,9 +62,15 @@ contains src/shell/SoftwareCenterWindow.qml 'Apply Update (protected)'
 contains src/shell/SoftwareCenterWindow.qml 'updateAuthorization.refresh()'
 contains src/shell/SystemMenu.qml 'Log Out of Northstar'
 contains apps/welcome/WelcomeWindow.qml 'text: "Getting Started"'
+contains apps/welcome/WelcomeWindow.qml 'qrc:/Northstar/Welcome/northstar-welcome.svg'
 contains apps/welcome/WelcomeWindow.qml 'informational'
 contains apps/welcome/WelcomeWindow.qml 'northstarSessionStatus'
 contains apps/welcome/main.cpp 'northstarSessionStatus'
+contains apps/welcome/main.cpp 'qrc:/Northstar/Welcome/WelcomeWindow.qml'
+contains apps/text-editor/TextEditorWindow.qml 'qrc:/Northstar/TextEditor/northstar-text-editor.svg'
+contains apps/text-editor/main.cpp 'qrc:/Northstar/TextEditor/TextEditorWindow.qml'
+contains apps/text-editor/CMakeLists.txt 'QT_RESOURCE_ALIAS "northstar-text-editor.svg"'
+contains apps/text-editor/TextEditorWindow.qml 'width: unsavedDialog.width - (2 * unsavedDialog.padding)'
 
 [ -r "$ROOT/apps/samples/NorthstarTextEditor.app/Contents/Info.plist" ] \
     || fail 'Text Editor bundle manifest is missing'

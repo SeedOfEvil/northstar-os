@@ -2,6 +2,11 @@ add_library(northstar-text-editor-core STATIC
     texteditorcontroller.cpp
 )
 
+set(NORTHSTAR_TEXT_EDITOR_ICON
+    ${PROJECT_SOURCE_DIR}/apps/text-editor/resources/northstar-text-editor.svg)
+set_source_files_properties(${NORTHSTAR_TEXT_EDITOR_ICON}
+    PROPERTIES QT_RESOURCE_ALIAS "northstar-text-editor.svg")
+
 target_include_directories(northstar-text-editor-core
     PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}
@@ -23,7 +28,7 @@ qt_add_qml_module(northstar-text-editor
     QML_FILES
         TextEditorWindow.qml
     RESOURCES
-        resources/northstar-text-editor.svg
+        ${NORTHSTAR_TEXT_EDITOR_ICON}
 )
 
 target_link_libraries(northstar-text-editor
