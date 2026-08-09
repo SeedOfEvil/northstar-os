@@ -2,7 +2,7 @@ SHELL := /bin/sh
 
 .DEFAULT_GOAL := help
 
-.PHONY: help check-host bootstrap configure build test run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
+.PHONY: help check-host bootstrap configure build test run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package pkg-repository-smoke vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
 
 MANIFEST ?= packaging/manifests/bootstrap-packages.txt
 NORTHSTAR_USER ?=
@@ -12,6 +12,7 @@ BUILD_DIR ?= build
 CMAKE_BUILD_TYPE ?= Debug
 NORTHSTAR_PREFIX ?= $(HOME)/.local
 NORTHSTAR_SHELL_BIN ?= $(NORTHSTAR_PREFIX)/bin/northstar-shell
+NORTHSTAR_PKG_CLIENT ?= 0
 
 help:
 	@printf '%s\n' 'Northstar development commands:'
@@ -29,6 +30,7 @@ help:
 	@printf '%s\n' '  make install-sddm-fallback Enable the branded SDDM Proxmox fallback policy (root)'
 	@printf '%s\n' '  make disable-sddm-fallback Disable the branded SDDM Proxmox fallback policy (root)'
 	@printf '%s\n' '  make package      Build Northstar packages'
+	@printf '%s\n' '  make pkg-repository-smoke  Validate a disposable signed pkg repository'
 	@printf '%s\n' '  make vm-smoke     Run the M0 native smoke preflight'
 	@printf '%s\n' '  make nested-wayfire Build the supplemental X11/pixman Wayfire lane'
 	@printf '%s\n' '  make nested-wayfire-session Build and install the supplemental user session'
@@ -64,6 +66,13 @@ vm-smoke:
 		NORTHSTAR_WAYFIRE_BIN="$(NORTHSTAR_WAYFIRE_BIN)" sh tests/vm/m0-smoke.sh; \
 	else \
 		sh tests/vm/m0-smoke.sh; \
+	fi
+
+pkg-repository-smoke:
+	@if [ "$(NORTHSTAR_PKG_CLIENT)" = 1 ]; then \
+		sh tests/vm/pkg-repository-smoke.sh --client; \
+	else \
+		sh tests/vm/pkg-repository-smoke.sh; \
 	fi
 
 nested-wayfire:

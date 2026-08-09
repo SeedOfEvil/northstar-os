@@ -113,6 +113,24 @@ user-confirmation contract are implemented. The next gate must prove that the
 helper creates the named environment before an N-1 to N transaction and can
 select the prior environment for rollback without touching home data.
 
+## M4-F native `pkg` publication smoke gate
+
+`tests/vm/pkg-repository-smoke.sh` closes the first native publication-contract
+gap without claiming a release repository. It selects one installed fixture
+package, creates a FreeBSD v2 repository with `pkg repo`, signs the catalogue
+through the external-command interface, checks `meta.conf` and the signed
+`data.pkg` members (`data`, `data.sig`, and `data.pub`), and records the
+temporary public-key fingerprint in a FreeBSD-style trusted store. With the
+explicit `--client` mode, an isolated root-owned `file://` client runs
+`pkg update -f` using `SIGNATURE_TYPE=FINGERPRINTS` and temporary package DB and
+cache paths.
+
+The smoke gate creates no project package repository, persists no key, and
+does not install, upgrade, remove, or configure packages. It proves the
+FreeBSD publication/signature/client contract only. Protected Poudriere
+inputs, development/stable repository hosting, key custody, package
+provenance, and the update/rollback helper remain open M4 release gates.
+
 ## VM validation
 
 From the FreeBSD development checkout:
@@ -120,6 +138,8 @@ From the FreeBSD development checkout:
 ```sh
 env QT_QPA_PLATFORM=offscreen make test
 make install-user NORTHSTAR_PREFIX="$HOME/.local"
+make pkg-repository-smoke
+sudo -n make pkg-repository-smoke NORTHSTAR_PKG_CLIENT=1
 ```
 
 After restarting the shell, open **Software Center** from the Northstar menu
