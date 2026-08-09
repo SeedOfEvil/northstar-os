@@ -116,7 +116,7 @@ ApplicationWindow {
             Image {
                 anchors.verticalCenter: parent.verticalCenter
                 height: 42
-                source: "qrc:/qt/qml/Northstar/TextEditor/northstar-text-editor.svg"
+                source: "qrc:/Northstar/TextEditor/northstar-text-editor.svg"
                 width: 42
             }
 

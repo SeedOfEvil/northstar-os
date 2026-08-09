@@ -53,7 +53,7 @@ ApplicationWindow {
                 anchors.verticalCenter: parent.verticalCenter
                 fillMode: Image.PreserveAspectFit
                 height: 82
-                source: "qrc:/qt/qml/Northstar/Welcome/northstar-welcome.svg"
+                source: "qrc:/Northstar/Welcome/northstar-welcome.svg"
                 width: 82
             }
 

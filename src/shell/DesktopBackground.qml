@@ -254,11 +254,12 @@ Window {
             anchors.bottomMargin: 94
             anchors.left: parent.left
             anchors.leftMargin: 24
+            anchors.right: parent.right
+            anchors.rightMargin: 24
             anchors.top: parent.top
             anchors.topMargin: 62
             clip: true
             visible: desktopBackground.displayIndex === 0
-            width: Math.min(360, parent.width * 0.32)
             z: 2
 
             Repeater {
@@ -267,6 +268,7 @@ Window {
                     ? desktopBackground.fileBrowserController.desktopEntries : []
                 delegate: Rectangle {
                     id: desktopIcon
+                    property bool dragging: false
                     property real itemX: 0
                     property real itemY: index * desktopBackground.layoutCellHeight
                     property point dragOrigin: Qt.point(0, 0)
@@ -337,24 +339,34 @@ Window {
                     cursorShape: Qt.PointingHandCursor
                     hoverEnabled: true
 
-                    onPressed: {
+                    onPressed: function(mouse) {
+                        desktopIcon.dragging = mouse.button === Qt.LeftButton
+                        if (!desktopIcon.dragging) {
+                            return
+                        }
                         desktopIcon.dragOrigin = Qt.point(mouse.x, mouse.y)
                         desktopIcon.itemOrigin = Qt.point(desktopIcon.itemX, desktopIcon.itemY)
                     }
 
-                    onPositionChanged: {
-                        if (!pressed) {
+                    onPositionChanged: function(mouse) {
+                        if (!desktopIcon.dragging) {
                             return
                         }
+                        const pointer = desktopItemMouse.mapToItem(
+                            desktopIconSurface, mouse.x, mouse.y)
                         desktopIcon.itemX = Math.max(0, Math.min(
                             desktopIconSurface.width - desktopIcon.width,
-                            desktopIcon.itemOrigin.x + mouse.x - desktopIcon.dragOrigin.x))
+                            pointer.x - desktopIcon.dragOrigin.x))
                         desktopIcon.itemY = Math.max(0, Math.min(
                             desktopIconSurface.height - desktopIcon.height,
-                            desktopIcon.itemOrigin.y + mouse.y - desktopIcon.dragOrigin.y))
+                            pointer.y - desktopIcon.dragOrigin.y))
                     }
 
-                    onReleased: {
+                    onReleased: function(mouse) {
+                        if (!desktopIcon.dragging) {
+                            return
+                        }
+                        desktopIcon.dragging = false
                         const snapped = desktopBackground.nearestFreePosition(
                             desktopIcon, desktopIcon.itemX, desktopIcon.itemY)
                         desktopIcon.itemX = snapped.x

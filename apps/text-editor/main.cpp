@@ -24,7 +24,8 @@ int main(int argc, char *argv[])
     parser.addPositionalArgument(QStringLiteral("file"), QStringLiteral("text file to open"));
     parser.process(application);
 
-    if (parser.isSet(selfTestOption)) {
+    const bool selfTest = parser.isSet(selfTestOption);
+    if (selfTest) {
         QTemporaryDir temporaryDirectory;
         if (!temporaryDirectory.isValid()) {
             return 1;
@@ -59,9 +60,13 @@ int main(int argc, char *argv[])
 
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty(QStringLiteral("northstarTextEditorController"), &controller);
-    engine.load(QUrl(QStringLiteral("qrc:/qt/qml/Northstar/TextEditor/TextEditorWindow.qml")));
+    engine.load(QUrl(QStringLiteral("qrc:/Northstar/TextEditor/TextEditorWindow.qml")));
     if (engine.rootObjects().isEmpty()) {
         return 1;
+    }
+
+    if (selfTest) {
+        return 0;
     }
 
     return application.exec();
