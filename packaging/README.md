@@ -18,3 +18,25 @@ an actual signed `pkg` repository, narrow privileged authorization, and
 `bectl` rollback remain required before any package mutation is exposed.
 
 Do not commit package repositories, signing keys, or unsigned release claims.
+
+## Native publication smoke gate
+
+On FreeBSD, `make pkg-repository-smoke` creates a temporary repository from an
+already-installed fixture package, invokes `pkg repo` with a disposable
+external RSA signer, and checks the v2 `meta.conf` plus signed `data.pkg`
+members. It removes the temporary package, repository, key, and fingerprint
+store on exit. This is publication-contract evidence only; it is not a
+development or stable release repository and does not use Poudriere inputs.
+
+To include the client-side trust check, run the explicit root-scoped target:
+
+```sh
+sudo -n make pkg-repository-smoke NORTHSTAR_PKG_CLIENT=1
+```
+
+The client path uses only a temporary root-owned `file://` repository and
+isolated `PKG_DBDIR`/`PKG_CACHEDIR` values. It runs `pkg update -f` to prove
+that `SIGNATURE_TYPE=FINGERPRINTS` accepts the catalogue, but never invokes
+`pkg install`, `pkg upgrade`, repository configuration writes, or a system
+package-database operation. The root requirement is a FreeBSD `pkg` ownership
+check for local `file://` repositories, not a product authorization boundary.
