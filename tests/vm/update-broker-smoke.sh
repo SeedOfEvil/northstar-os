@@ -50,7 +50,7 @@ printf '%s\n' \
 
 printf '%s\n' 'catalogue-fixture' > "$TMP_DIR/publication/data.pkg"
 catalogue_sha256=$(sha256 -q "$TMP_DIR/publication/data.pkg")
-printf '%s\n' "$catalogue_sha256" > "$TMP_DIR/publication/payload"
+printf '%s' "$catalogue_sha256" > "$TMP_DIR/publication/payload"
 
 openssl genrsa -out "$TMP_DIR/repo.key" 2048 >/dev/null 2>&1
 openssl rsa -in "$TMP_DIR/repo.key" -pubout -out "$TMP_DIR/repo.pub" >/dev/null 2>&1
