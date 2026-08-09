@@ -3,7 +3,7 @@
 welcome_message='Northstar Welcome\n\nThis is a project-defined Northstar .app bundle.\nThe bundle was validated by the shell before launch.\n'
 
 if command -v qterminal >/dev/null 2>&1; then
-    exec qterminal --title "Northstar Welcome" -e sh -c "printf '%b' '$welcome_message'; exec sh"
+    exec qterminal -e sh -c "printf '%b' '$welcome_message'; exec sh"
 fi
 
 exec xterm -T "Northstar Welcome" -e sh -c "printf '%b' '$welcome_message'; exec sh"

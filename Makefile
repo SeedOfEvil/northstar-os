@@ -2,7 +2,7 @@ SHELL := /bin/sh
 
 .DEFAULT_GOAL := help
 
-.PHONY: help check-host bootstrap configure build test update-helper-test update-broker-smoke run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package pkg-repository-smoke vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
+.PHONY: help check-host bootstrap configure build test welcome-app-test update-helper-test update-broker-smoke run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package pkg-repository-smoke vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
 
 MANIFEST ?= packaging/manifests/bootstrap-packages.txt
 NORTHSTAR_USER ?=
@@ -22,6 +22,7 @@ help:
 	@printf '%s\n' '  make configure    Configure the CMake build'
 	@printf '%s\n' '  make build        Build project components'
 	@printf '%s\n' '  make test         Run unit and integration tests'
+	@printf '%s\n' '  make welcome-app-test  Test the bundled Northstar Welcome launcher'
 	@printf '%s\n' '  make update-helper-test  Test the bounded update-helper request contract'
 	@printf '%s\n' '  make update-broker-smoke  Verify and stage a disposable update request (root)'
 	@printf '%s\n' '  make run-shell    Start the Northstar shell session'
@@ -55,6 +56,7 @@ bootstrap:
 
 test:
 	@sh tests/unit/test-m0-scripts.sh
+	@$(MAKE) welcome-app-test
 	@sh tests/unit/test-nested-wayfire-session.sh
 	@sh tests/unit/test-console-autostart.sh
 	@sh tests/unit/test-sddm-theme.sh
@@ -64,6 +66,9 @@ test:
 	@$(MAKE) build
 	@sh tests/unit/test-session-entrypoint.sh "$(BUILD_DIR)"
 	@ctest --test-dir "$(BUILD_DIR)" --output-on-failure
+
+welcome-app-test:
+	@sh tests/unit/test-welcome-app.sh
 
 update-helper-test:
 	@sh tests/unit/test-update-helper.sh
