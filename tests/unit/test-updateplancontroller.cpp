@@ -1,0 +1,223 @@
+#include "packagetrustcontroller.h"
+#include "updateplancontroller.h"
+
+#include <QDir>
+#include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QTemporaryDir>
+#include <QTest>
+#include <QVariantMap>
+
+namespace {
+
+bool writeFile(const QString &path, const QByteArray &contents)
+{
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        return false;
+    }
+    return file.write(contents) == contents.size();
+}
+
+bool writeFingerprint(const QString &directory, const QString &name, const QByteArray &fingerprint)
+{
+    return writeFile(QDir(directory).filePath(name),
+                     QByteArray("function: sha256\n")
+                         + QByteArray("fingerprint: ")
+                         + fingerprint
+                         + QByteArray("\n"));
+}
+
+QByteArray policyForStore(const QString &storePath)
+{
+    return QByteArray("channel=development\n")
+        + QByteArray("repository_tag=northstar-development\n")
+        + QByteArray("repository_name=Northstar Development\n")
+        + QByteArray("repository_url=pkg+https://packages.example.test/northstar\n")
+        + QByteArray("mirror_type=srv\n")
+        + QByteArray("signature_type=fingerprints\n")
+        + QByteArray("fingerprints_path=")
+        + storePath.toUtf8()
+        + QByteArray("\ntrust_mode=required\n");
+}
+
+QByteArray validMetadata(const QString &repositoryTag = QStringLiteral("northstar-development"),
+                         const QString &signatureStatus = QStringLiteral("unverified"))
+{
+    QJsonObject firstPackage;
+    firstPackage.insert(QStringLiteral("name"), QStringLiteral("northstar-shell"));
+    firstPackage.insert(QStringLiteral("version"), QStringLiteral("0.2.0"));
+    firstPackage.insert(QStringLiteral("origin"), QStringLiteral("desk/northstar-shell"));
+    firstPackage.insert(QStringLiteral("source"), QStringLiteral("ports/northstar"));
+    firstPackage.insert(QStringLiteral("project_revision"), QStringLiteral("1234567"));
+
+    QJsonObject secondPackage;
+    secondPackage.insert(QStringLiteral("name"), QStringLiteral("northstar-welcome"));
+    secondPackage.insert(QStringLiteral("version"), QStringLiteral("1.0.0"));
+    secondPackage.insert(QStringLiteral("origin"), QStringLiteral("desk/northstar-welcome"));
+    secondPackage.insert(QStringLiteral("source"), QStringLiteral("apps/northstar"));
+    secondPackage.insert(QStringLiteral("project_revision"), QStringLiteral("89abcde"));
+
+    QJsonObject metadata;
+    metadata.insert(QStringLiteral("schema_version"), 1);
+    metadata.insert(QStringLiteral("repository_tag"), repositoryTag);
+    metadata.insert(QStringLiteral("channel"), QStringLiteral("development"));
+    metadata.insert(QStringLiteral("abi"), QStringLiteral("FreeBSD:15:amd64"));
+    metadata.insert(QStringLiteral("revision"), 42);
+    metadata.insert(QStringLiteral("generated_at"), QStringLiteral("2026-08-09T12:00:00Z"));
+    metadata.insert(QStringLiteral("source_revision"), QStringLiteral("abcdef1"));
+    metadata.insert(QStringLiteral("signature_status"), signatureStatus);
+    metadata.insert(QStringLiteral("signature_fingerprint"), QString(64, QLatin1Char('a')));
+    metadata.insert(QStringLiteral("packages"), QJsonArray{firstPackage, secondPackage});
+    return QJsonDocument(metadata).toJson(QJsonDocument::Compact);
+}
+
+QVariantMap installedPackage(const QString &name, const QString &version)
+{
+    return QVariantMap{
+        {QStringLiteral("name"), name},
+        {QStringLiteral("version"), version},
+        {QStringLiteral("comment"), QStringLiteral("test package")},
+    };
+}
+
+} // namespace
+
+class UpdatePlanControllerTest final : public QObject
+{
+    Q_OBJECT
+
+private slots:
+    void acceptsValidMetadata();
+    void rejectsMalformedAndUnknownMetadata();
+    void rejectsUnresolvedAndDuplicateProvenance();
+    void blocksWithoutMetadata();
+    void previewsCandidatesButKeepsExecutionBlocked();
+    void blocksPolicyMismatch();
+};
+
+void UpdatePlanControllerTest::acceptsValidMetadata()
+{
+    RepositoryMetadata metadata;
+    QString errorMessage;
+    QVERIFY2(UpdatePlanController::parseMetadata(validMetadata(), metadata, &errorMessage),
+             qPrintable(errorMessage));
+    QCOMPARE(metadata.schemaVersion, 1);
+    QCOMPARE(metadata.repositoryTag, QStringLiteral("northstar-development"));
+    QCOMPARE(metadata.channel, QStringLiteral("development"));
+    QCOMPARE(metadata.abi, QStringLiteral("FreeBSD:15:amd64"));
+    QCOMPARE(metadata.revision, 42);
+    QCOMPARE(metadata.signatureStatus, QStringLiteral("unverified"));
+    QCOMPARE(metadata.packages.size(), 2);
+    QCOMPARE(metadata.packages.first().origin, QStringLiteral("desk/northstar-shell"));
+    QCOMPARE(metadata.packages.first().projectRevision, QStringLiteral("1234567"));
+}
+
+void UpdatePlanControllerTest::rejectsMalformedAndUnknownMetadata()
+{
+    RepositoryMetadata metadata;
+    QString errorMessage;
+
+    QByteArray unknown = validMetadata();
+    unknown.replace("\"packages\":", "\"unexpected\":true,\"packages\":");
+    QVERIFY(!UpdatePlanController::parseMetadata(unknown, metadata, &errorMessage));
+    QVERIFY(errorMessage.contains(QStringLiteral("not part of the repository metadata contract")));
+
+    QVERIFY(!UpdatePlanController::parseMetadata(QByteArray("not-json"), metadata, &errorMessage));
+    QVERIFY(errorMessage.contains(QStringLiteral("JSON object")));
+}
+
+void UpdatePlanControllerTest::rejectsUnresolvedAndDuplicateProvenance()
+{
+    RepositoryMetadata metadata;
+    QString errorMessage;
+
+    QByteArray unresolved = validMetadata();
+    unresolved.replace("\"project_revision\":\"1234567\"", "\"project_revision\":\"RESOLVED_BY_BUILDER\"");
+    QVERIFY(!UpdatePlanController::parseMetadata(unresolved, metadata, &errorMessage));
+    QVERIFY(errorMessage.contains(QStringLiteral("resolved")));
+
+    QByteArray duplicate = validMetadata();
+    duplicate.replace("northstar-welcome", "northstar-shell");
+    QVERIFY(!UpdatePlanController::parseMetadata(duplicate, metadata, &errorMessage));
+    QVERIFY(errorMessage.contains(QStringLiteral("duplicated")));
+}
+
+void UpdatePlanControllerTest::blocksWithoutMetadata()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+
+    UpdatePlanController controller(nullptr, directory.filePath(QStringLiteral("missing.json")));
+    QVERIFY(!controller.metadataPresent());
+    QVERIFY(!controller.metadataValid());
+    QVERIFY(!controller.preview({installedPackage(QStringLiteral("qterminal"), QStringLiteral("1.0"))}));
+    QVERIFY(controller.planStatus().contains(QStringLiteral("blocked"), Qt::CaseInsensitive));
+}
+
+void UpdatePlanControllerTest::previewsCandidatesButKeepsExecutionBlocked()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString storePath = directory.filePath(QStringLiteral("fingerprints"));
+    QVERIFY(QDir().mkpath(QDir(storePath).filePath(QStringLiteral("trusted"))));
+    QVERIFY(QDir().mkpath(QDir(storePath).filePath(QStringLiteral("revoked"))));
+    QVERIFY(writeFingerprint(QDir(storePath).filePath(QStringLiteral("trusted")),
+                             QStringLiteral("northstar.pub"), QByteArray(64, 'a')));
+    QVERIFY(writeFingerprint(QDir(storePath).filePath(QStringLiteral("revoked")),
+                             QStringLiteral("old.pub"), QByteArray(64, 'b')));
+
+    const QString policyPath = directory.filePath(QStringLiteral("repository-policy.conf"));
+    QVERIFY(writeFile(policyPath, policyForStore(storePath)));
+    PackageTrustController trustController(policyPath);
+    QVERIFY(trustController.policyValid());
+    QVERIFY(trustController.trustStoreValid());
+
+    const QString metadataPath = directory.filePath(QStringLiteral("repository-metadata.json"));
+    QVERIFY(writeFile(metadataPath, validMetadata()));
+    UpdatePlanController controller(&trustController, metadataPath);
+    QVERIFY(controller.metadataPresent());
+    QVERIFY(controller.metadataValid());
+
+    const QVariantList installed{
+        installedPackage(QStringLiteral("northstar-shell"), QStringLiteral("0.1.0")),
+        installedPackage(QStringLiteral("qterminal"), QStringLiteral("1.0")),
+    };
+    QVERIFY(controller.preview(installed));
+    QCOMPARE(controller.updateCount(), 1);
+    QCOMPARE(controller.installCount(), 1);
+    QCOMPARE(controller.unmanagedCount(), 1);
+    QVERIFY(controller.planPreview().contains(QStringLiteral("1 update candidate")));
+    QVERIFY(controller.planPreview().contains(QStringLiteral("1 new package candidate")));
+    QVERIFY(controller.planStatus().contains(QStringLiteral("blocked"), Qt::CaseInsensitive));
+    QVERIFY(controller.planStatus().contains(QStringLiteral("signature"), Qt::CaseInsensitive));
+    QVERIFY(controller.metadataStatus().contains(QStringLiteral("not connected"), Qt::CaseInsensitive));
+}
+
+void UpdatePlanControllerTest::blocksPolicyMismatch()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString storePath = directory.filePath(QStringLiteral("fingerprints"));
+    QVERIFY(QDir().mkpath(QDir(storePath).filePath(QStringLiteral("trusted"))));
+    QVERIFY(QDir().mkpath(QDir(storePath).filePath(QStringLiteral("revoked"))));
+    QVERIFY(writeFingerprint(QDir(storePath).filePath(QStringLiteral("trusted")),
+                             QStringLiteral("northstar.pub"), QByteArray(64, 'a')));
+    QVERIFY(writeFile(directory.filePath(QStringLiteral("repository-policy.conf")), policyForStore(storePath)));
+    PackageTrustController trustController(directory.filePath(QStringLiteral("repository-policy.conf")));
+    QVERIFY(trustController.policyValid());
+    QVERIFY(trustController.trustStoreValid());
+
+    const QString metadataPath = directory.filePath(QStringLiteral("repository-metadata.json"));
+    QVERIFY(writeFile(metadataPath, validMetadata(QStringLiteral("northstar-stable"))));
+    UpdatePlanController controller(&trustController, metadataPath);
+    QVERIFY(controller.metadataValid());
+    QVERIFY(!controller.preview({}));
+    QVERIFY(controller.planStatus().contains(QStringLiteral("do not match")));
+}
+
+QTEST_MAIN(UpdatePlanControllerTest)
+
+#include "test-updateplancontroller.moc"

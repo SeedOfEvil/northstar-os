@@ -12,7 +12,7 @@ Use the official FreeBSD update mechanism for the base system and kernel. Use pi
 
 ## Consequences
 
-Northstar inherits existing package and boot-environment behavior and does not need a new package manager. Repository signing, package provenance, channel compatibility, and clean-jail builds become release requirements. Packaged-base preview features are not required for the first release.
+Northstar inherits existing package and boot-environment behavior and does not need a new package manager. Repository signing, package provenance, channel compatibility, and clean-jail builds become release requirements. Northstar may carry a provenance-aware publication sidecar for read-only planning, but that sidecar does not replace `pkg` catalogue files or signature verification. Packaged-base preview features are not required for the first release.
 
 ## Alternatives considered
 
