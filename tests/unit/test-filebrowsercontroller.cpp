@@ -15,6 +15,7 @@ private slots:
     void listsFoldersBeforeFiles();
     void sortsEntriesByMetadata();
     void listsDesktopEntriesForTheDesktopSurface();
+    void classifiesLaunchableDesktopEntries();
     void watchesForDesktopFolderCreation();
     void navigatesWithinHomeFolder();
     void searchesHomeTreeAndClearsOnNavigation();
@@ -114,6 +115,46 @@ void FileBrowserControllerTest::listsDesktopEntriesForTheDesktopSurface()
              QFileInfo(QDir(desktopPath).filePath(QStringLiteral("Projects"))).canonicalFilePath());
     QVERIFY(entries.at(0).toMap().value(QStringLiteral("isDirectory")).toBool());
     QVERIFY(!entries.at(1).toMap().value(QStringLiteral("isDirectory")).toBool());
+}
+
+void FileBrowserControllerTest::classifiesLaunchableDesktopEntries()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    const QString desktopPath = QDir(temporaryDirectory.path()).filePath(QStringLiteral("Desktop"));
+    QVERIFY(QDir().mkpath(desktopPath));
+    QVERIFY(writeFile(QDir(desktopPath).filePath(QStringLiteral("Northstar.desktop")),
+                      "[Desktop Entry]\nName=Northstar\nType=Application\n"));
+    QVERIFY(QDir(desktopPath).mkdir(QStringLiteral("Example.app")));
+
+    FileBrowserController controller(nullptr, temporaryDirectory.path());
+    const QVariantList entries = controller.desktopEntries();
+    QCOMPARE(entries.size(), 2);
+
+    QVariantMap desktopFile;
+    QVariantMap appDirectory;
+    for (const QVariant &entry : entries) {
+        const QVariantMap map = entry.toMap();
+        if (map.value(QStringLiteral("name")).toString() == QStringLiteral("Northstar.desktop")) {
+            desktopFile = map;
+        } else if (map.value(QStringLiteral("name")).toString() == QStringLiteral("Example.app")) {
+            appDirectory = map;
+        }
+    }
+    QVERIFY(!desktopFile.isEmpty());
+    QVERIFY(!appDirectory.isEmpty());
+    QCOMPARE(desktopFile.value(QStringLiteral("name")).toString(),
+             QStringLiteral("Northstar.desktop"));
+    QVERIFY(desktopFile.value(QStringLiteral("isLaunchable")).toBool());
+    QVERIFY(!desktopFile.value(QStringLiteral("isDirectory")).toBool());
+    QCOMPARE(desktopFile.value(QStringLiteral("kind")).toString(),
+             QStringLiteral("Application"));
+    QCOMPARE(appDirectory.value(QStringLiteral("name")).toString(),
+             QStringLiteral("Example.app"));
+    QVERIFY(appDirectory.value(QStringLiteral("isLaunchable")).toBool());
+    QVERIFY(!appDirectory.value(QStringLiteral("isDirectory")).toBool());
+    QCOMPARE(appDirectory.value(QStringLiteral("kind")).toString(),
+             QStringLiteral("Application"));
 }
 
 void FileBrowserControllerTest::watchesForDesktopFolderCreation()

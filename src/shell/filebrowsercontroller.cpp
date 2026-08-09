@@ -23,6 +23,12 @@ bool pathMatchesRoot(const QString &path, const QString &root)
     return path == root || path.startsWith(root + QLatin1Char('/'));
 }
 
+bool isLaunchableDesktopEntry(const QFileInfo &info)
+{
+    const QString suffix = info.suffix().toLower();
+    return suffix == QStringLiteral("desktop") || suffix == QStringLiteral("app");
+}
+
 } // namespace
 
 FileBrowserController::FileBrowserController(QObject *parent,
@@ -758,11 +764,15 @@ void FileBrowserController::refreshDesktopEntries()
             continue;
         }
 
+        const bool launchable = isLaunchableDesktopEntry(info);
         refreshedEntries.append(QVariantMap{
             {QStringLiteral("name"), info.fileName()},
             {QStringLiteral("path"), resolvedPath},
-            {QStringLiteral("isDirectory"), info.isDir()},
-            {QStringLiteral("kind"), info.isDir() ? QStringLiteral("Folder") : QStringLiteral("File")},
+            {QStringLiteral("isDirectory"), info.isDir() && !launchable},
+            {QStringLiteral("isLaunchable"), launchable},
+            {QStringLiteral("kind"), launchable
+                    ? QStringLiteral("Application")
+                    : (info.isDir() ? QStringLiteral("Folder") : QStringLiteral("File"))},
             {QStringLiteral("size"), info.isDir() ? qint64(0) : info.size()},
             {QStringLiteral("modified"), info.lastModified().toString(Qt::ISODate)},
             {QStringLiteral("readOnly"), false},
