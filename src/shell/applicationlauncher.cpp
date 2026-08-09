@@ -5,6 +5,8 @@
 #include <QFile>
 #include <QFileDevice>
 #include <QFileInfo>
+#include <QMimeDatabase>
+#include <QMimeType>
 #include <QProcess>
 #include <QSettings>
 #include <QStandardPaths>
@@ -185,14 +187,14 @@ bool ApplicationLauncher::launchApplicationWithFile(const QString &desktopId, co
 
 QString ApplicationLauncher::preferredApplicationForFile(const QString &filePath) const
 {
-    const QString extension = associationExtension(filePath);
-    if (extension.isEmpty()) {
+    const QString key = associationKey(filePath);
+    if (key.isEmpty()) {
         return {};
     }
 
     QSettings settings(m_associationSettingsPath, QSettings::IniFormat);
     const QString desktopId = settings.value(
-        QStringLiteral("fileAssociations/%1").arg(extension)).toString().trimmed();
+        QStringLiteral("fileAssociations/%1").arg(key)).toString().trimmed();
     if (desktopId.isEmpty() || !applicationIds().contains(desktopId)) {
         return {};
     }
@@ -202,16 +204,16 @@ QString ApplicationLauncher::preferredApplicationForFile(const QString &filePath
 bool ApplicationLauncher::setPreferredApplicationForFile(const QString &filePath,
                                                           const QString &desktopId)
 {
-    const QString extension = associationExtension(filePath);
+    const QString key = associationKey(filePath);
     const QString normalizedDesktopId = desktopId.trimmed();
-    if (extension.isEmpty() || normalizedDesktopId.isEmpty()
+    if (key.isEmpty() || normalizedDesktopId.isEmpty()
         || !applicationIds().contains(normalizedDesktopId)
         || !ensureAssociationSettingsDirectory()) {
         return false;
     }
 
     QSettings settings(m_associationSettingsPath, QSettings::IniFormat);
-    settings.setValue(QStringLiteral("fileAssociations/%1").arg(extension), normalizedDesktopId);
+    settings.setValue(QStringLiteral("fileAssociations/%1").arg(key), normalizedDesktopId);
     settings.sync();
     if (settings.status() != QSettings::NoError) {
         return false;
@@ -223,13 +225,13 @@ bool ApplicationLauncher::setPreferredApplicationForFile(const QString &filePath
 
 bool ApplicationLauncher::clearPreferredApplicationForFile(const QString &filePath)
 {
-    const QString extension = associationExtension(filePath);
-    if (extension.isEmpty()) {
+    const QString key = associationKey(filePath);
+    if (key.isEmpty()) {
         return false;
     }
 
     QSettings settings(m_associationSettingsPath, QSettings::IniFormat);
-    settings.remove(QStringLiteral("fileAssociations/%1").arg(extension));
+    settings.remove(QStringLiteral("fileAssociations/%1").arg(key));
     settings.sync();
     if (settings.status() != QSettings::NoError) {
         return false;
@@ -379,6 +381,30 @@ QString ApplicationLauncher::associationExtension(const QString &filePath)
         }
     }
     return extension;
+}
+
+QString ApplicationLauncher::associationKey(const QString &filePath)
+{
+    const QString extension = associationExtension(filePath);
+    if (!extension.isEmpty()) {
+        // Keep the original extension key format compatible with existing
+        // user-scoped association files.
+        return extension;
+    }
+
+    const QMimeType mimeType = QMimeDatabase().mimeTypeForFile(
+        filePath, QMimeDatabase::MatchContent);
+    const QString mimeName = mimeType.name().trimmed().toLower();
+    if (mimeName.isEmpty()) {
+        return {};
+    }
+
+    QString encoded;
+    encoded.reserve(mimeName.size());
+    for (const QChar character : mimeName) {
+        encoded.append(character.isLetterOrNumber() ? character : QLatin1Char('_'));
+    }
+    return QStringLiteral("mime_%1").arg(encoded);
 }
 
 bool ApplicationLauncher::ensureAssociationSettingsDirectory() const

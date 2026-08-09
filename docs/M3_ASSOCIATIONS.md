@@ -29,3 +29,9 @@ case-normalized extension lookup, persistence across launcher instances, and
 clearing a saved association. The Files VM check should create an
 `association-test.txt`, remember an application, verify direct reopening,
 then use **Open With...** and **Forget Default** to restore chooser behavior.
+
+Files with a conventional extension continue to use a lowercase extension
+key. Extensionless files now use their detected Qt MIME type as a fallback,
+so the chooser can remember a type-level default without changing the system
+MIME database. The dialog labels this case as “files of this type”; unknown
+types still remain user-scoped and never modify package-owned associations.

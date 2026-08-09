@@ -190,7 +190,7 @@ Window {
             return
         }
         if (files.applicationLauncher.launchApplicationWithFile(desktopId, associationDialog.itemPath)) {
-            if (associationDialog.rememberChoice.checked && associationDialog.extension.length > 0) {
+            if (associationDialog.rememberChoice.checked) {
                 files.applicationLauncher.setPreferredApplicationForFile(associationDialog.itemPath, desktopId)
                 associationDialog.preferredDesktopId = desktopId
             }
@@ -1523,8 +1523,8 @@ Window {
                 id: rememberChoice
                 text: associationDialog.extension.length > 0
                     ? "Remember this choice for ." + associationDialog.extension + " files"
-                    : "Remember this choice"
-                visible: associationList.count > 0 && associationDialog.extension.length > 0
+                    : "Remember this choice for files of this type"
+                visible: associationList.count > 0
                 width: parent.width
 
                 contentItem: Text {
