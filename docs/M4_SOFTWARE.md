@@ -60,17 +60,19 @@ publication sidecar used by the next release-tooling step. It records:
 - the manifest schema, repository tag, channel, and target FreeBSD ABI;
 - the repository catalogue revision and resolved Northstar source revision;
 - the claimed signing status and public-key fingerprint; and
+- the relative catalogue filename and its SHA-256 content digest; and
 - each Northstar package's name, target version, FreeBSD origin, source input,
   and project revision.
 
 This sidecar describes the output of a signed FreeBSD `pkg` repository; it does
 not replace the repository's `meta.conf`, `data.pkg`, or `pkg` verification
 path. The shell strictly parses the manifest, checks package provenance and
-policy/channel identity, and compares its target package set with the loaded
-installed inventory. Software Center can therefore show update and install
-candidates as a read-only preview. The signature field remains an untrusted
-claim until a verifier consumes the actual repository catalogue, so the plan
-is always blocked from execution in this slice.
+policy/channel identity, verifies the referenced catalogue file's SHA-256
+digest, and compares its target package set with the loaded installed
+inventory. Software Center can therefore show update and install candidates as
+a read-only preview. The signature field remains an untrusted claim until a
+verifier consumes the actual repository catalogue, so the plan is always
+blocked from execution in this slice.
 
 ## VM validation
 

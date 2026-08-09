@@ -8,6 +8,8 @@
   "source_revision": "UNSET",
   "signature_status": "unverified",
   "signature_fingerprint": "UNSET",
+  "catalogue_file": "data.pkg",
+  "catalogue_sha256": "UNSET",
   "packages": [
     {
       "name": "northstar-shell",

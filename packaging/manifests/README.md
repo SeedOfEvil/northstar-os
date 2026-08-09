@@ -18,5 +18,6 @@ release builder fills its ABI, resolved source revision, package provenance,
 repository revision, and signing fingerprint after producing the actual
 FreeBSD `pkg` catalogue. The manifest is a Northstar provenance and planning
 sidecar; it does not replace `meta.conf`, `data.pkg`, or `pkg`'s own signature
-verification. Its unresolved values intentionally prevent it from being used
-as an active update input.
+verification. Its catalogue filename and SHA-256 bind the sidecar to a staged
+catalogue file before planning. Its unresolved values intentionally prevent
+it from being used as an active update input.

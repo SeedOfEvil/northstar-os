@@ -4,6 +4,7 @@
 
 #include <QDateTime>
 #include <QDir>
+#include <QCryptographicHash>
 #include <QFile>
 #include <QFileInfo>
 #include <QHash>
@@ -97,6 +98,16 @@ bool UpdatePlanController::metadataValid() const
     return m_metadataValid;
 }
 
+bool UpdatePlanController::cataloguePresent() const
+{
+    return m_cataloguePresent;
+}
+
+bool UpdatePlanController::catalogueDigestValid() const
+{
+    return m_catalogueDigestValid;
+}
+
 QString UpdatePlanController::signatureStatus() const
 {
     return m_signatureStatus;
@@ -127,6 +138,16 @@ QString UpdatePlanController::metadataPath() const
     return m_metadataPath;
 }
 
+QString UpdatePlanController::catalogueFile() const
+{
+    return m_catalogueFile;
+}
+
+QString UpdatePlanController::catalogueStatus() const
+{
+    return m_catalogueStatus;
+}
+
 QString UpdatePlanController::metadataStatus() const
 {
     return m_metadataStatus;
@@ -146,8 +167,12 @@ bool UpdatePlanController::reload()
 {
     m_metadata = {};
     m_signatureStatus.clear();
+    m_catalogueFile.clear();
+    m_catalogueStatus.clear();
     m_metadataPresent = QFileInfo::exists(m_metadataPath);
     m_metadataValid = false;
+    m_cataloguePresent = false;
+    m_catalogueDigestValid = false;
     resetPlan();
 
     if (!m_metadataPresent) {
@@ -174,8 +199,18 @@ bool UpdatePlanController::reload()
         return false;
     }
 
-    m_metadataValid = true;
     m_signatureStatus = m_metadata.signatureStatus;
+    m_catalogueFile = m_metadata.catalogueFile;
+    QString catalogueError;
+    if (!verifyCatalogueIntegrity(&catalogueError)) {
+        m_metadataStatus = QStringLiteral("Repository publication manifest rejected: %1")
+            .arg(catalogueError);
+        setBlockedPlan(QStringLiteral("the repository catalogue failed its content-addressed integrity check"));
+        emit stateChanged();
+        return false;
+    }
+
+    m_metadataValid = true;
     if (m_signatureStatus == QStringLiteral("verified")) {
         m_metadataStatus = QStringLiteral(
             "Metadata parsed; its verified-signature field is only a claim until Northstar verifies it.");
@@ -194,7 +229,7 @@ bool UpdatePlanController::preview(const QVariantList &installedPackages)
 {
     resetPlan();
     if (!m_metadataValid) {
-        setBlockedPlan(QStringLiteral("a valid repository publication manifest is required"));
+        setBlockedPlan(QStringLiteral("a valid publication manifest and catalogue digest are required"));
         emit stateChanged();
         return false;
     }
@@ -277,6 +312,7 @@ bool UpdatePlanController::parseMetadata(const QByteArray &contents,
                       QStringLiteral("channel"), QStringLiteral("abi"), QStringLiteral("revision"),
                       QStringLiteral("generated_at"), QStringLiteral("source_revision"),
                       QStringLiteral("signature_status"), QStringLiteral("signature_fingerprint"),
+                      QStringLiteral("catalogue_file"), QStringLiteral("catalogue_sha256"),
                       QStringLiteral("packages")},
                      errorMessage,
                      QStringLiteral("repository metadata"))) {
@@ -296,13 +332,17 @@ bool UpdatePlanController::parseMetadata(const QByteArray &contents,
     QString sourceRevision;
     QString signatureStatus;
     QString signatureFingerprint;
+    QString catalogueFile;
+    QString catalogueSha256;
     if (!readString(object, QStringLiteral("repository_tag"), repositoryTag, errorMessage)
         || !readString(object, QStringLiteral("channel"), channel, errorMessage)
         || !readString(object, QStringLiteral("abi"), abi, errorMessage)
         || !readString(object, QStringLiteral("generated_at"), generatedAt, errorMessage)
         || !readString(object, QStringLiteral("source_revision"), sourceRevision, errorMessage)
         || !readString(object, QStringLiteral("signature_status"), signatureStatus, errorMessage)
-        || !readString(object, QStringLiteral("signature_fingerprint"), signatureFingerprint, errorMessage)) {
+        || !readString(object, QStringLiteral("signature_fingerprint"), signatureFingerprint, errorMessage)
+        || !readString(object, QStringLiteral("catalogue_file"), catalogueFile, errorMessage)
+        || !readString(object, QStringLiteral("catalogue_sha256"), catalogueSha256, errorMessage)) {
         return false;
     }
 
@@ -335,6 +375,17 @@ bool UpdatePlanController::parseMetadata(const QByteArray &contents,
     }
     if (!QRegularExpression(QStringLiteral("^[0-9A-Fa-f]{64}$")).match(signatureFingerprint).hasMatch()) {
         setError(errorMessage, QStringLiteral("signature_fingerprint must contain 64 hexadecimal characters"));
+        return false;
+    }
+    const QStringList catalogueParts = catalogueFile.split(QLatin1Char('/'), Qt::SkipEmptyParts);
+    if (catalogueFile.startsWith(QLatin1Char('/')) || catalogueFile.contains(QRegularExpression(QStringLiteral("\\s")))
+        || catalogueParts.contains(QStringLiteral(".."))
+        || !QRegularExpression(QStringLiteral("^[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)*$")).match(catalogueFile).hasMatch()) {
+        setError(errorMessage, QStringLiteral("catalogue_file must be a safe relative path"));
+        return false;
+    }
+    if (!QRegularExpression(QStringLiteral("^[0-9A-Fa-f]{64}$")).match(catalogueSha256).hasMatch()) {
+        setError(errorMessage, QStringLiteral("catalogue_sha256 must contain 64 hexadecimal characters"));
         return false;
     }
 
@@ -416,8 +467,55 @@ bool UpdatePlanController::parseMetadata(const QByteArray &contents,
         sourceRevision,
         signatureStatus,
         signatureFingerprint.toLower(),
+        catalogueFile,
+        catalogueSha256.toLower(),
         packages,
     };
+    return true;
+}
+
+bool UpdatePlanController::verifyCatalogueIntegrity(QString *errorMessage)
+{
+    m_cataloguePresent = false;
+    m_catalogueDigestValid = false;
+
+    const QFileInfo metadataInfo(m_metadataPath);
+    const QString cataloguePath = QDir(metadataInfo.absolutePath()).filePath(m_metadata.catalogueFile);
+    const QFileInfo catalogueInfo(cataloguePath);
+    if (!catalogueInfo.exists() || !catalogueInfo.isFile() || catalogueInfo.isSymLink()) {
+        m_catalogueStatus = QStringLiteral("Catalogue file is missing or is not a regular file.");
+        setError(errorMessage, m_catalogueStatus);
+        return false;
+    }
+    m_cataloguePresent = true;
+
+    QFile catalogue(catalogueInfo.absoluteFilePath());
+    if (!catalogue.open(QIODevice::ReadOnly)) {
+        m_catalogueStatus = QStringLiteral("Catalogue file could not be read.");
+        setError(errorMessage, m_catalogueStatus);
+        return false;
+    }
+
+    QCryptographicHash hash(QCryptographicHash::Sha256);
+    while (!catalogue.atEnd()) {
+        const QByteArray chunk = catalogue.read(1024 * 1024);
+        if (chunk.isEmpty() && !catalogue.atEnd()) {
+            m_catalogueStatus = QStringLiteral("Catalogue file could not be hashed.");
+            setError(errorMessage, m_catalogueStatus);
+            return false;
+        }
+        hash.addData(chunk);
+    }
+
+    const QString actualDigest = QString::fromLatin1(hash.result().toHex());
+    if (actualDigest != m_metadata.catalogueSha256) {
+        m_catalogueStatus = QStringLiteral("Catalogue SHA-256 does not match the publication manifest.");
+        setError(errorMessage, m_catalogueStatus);
+        return false;
+    }
+
+    m_catalogueDigestValid = true;
+    m_catalogueStatus = QStringLiteral("Catalogue SHA-256 matches the publication manifest.");
     return true;
 }
 
