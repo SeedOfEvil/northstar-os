@@ -4,12 +4,12 @@ import QtQuick.Controls
 ApplicationWindow {
     id: welcome
 
-    property color backgroundColor: "#101724"
-    property color panelColor: "#192235"
-    property color raisedColor: "#222f45"
-    property color foregroundColor: "#f5f7fb"
-    property color mutedColor: "#a9b8cf"
-    property color accentColor: "#79b8ff"
+    property color backgroundColor: "#07172f"
+    property color panelColor: "#e61a3153"
+    property color raisedColor: "#d926436c"
+    property color foregroundColor: "#f6f9ff"
+    property color mutedColor: "#a9bdd8"
+    property color accentColor: "#63adff"
     property string statusMessage: "Choose a starting point for your Northstar desktop."
 
     color: welcome.backgroundColor
@@ -23,11 +23,18 @@ ApplicationWindow {
     background: Rectangle {
         color: welcome.backgroundColor
 
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: "#07172f" }
+            GradientStop { position: 1.0; color: "#0c2c5a" }
+        }
+
         Rectangle {
             anchors.fill: parent
             anchors.margins: 18
             color: welcome.panelColor
-            radius: 18
+            border.color: "#58779e"
+            border.width: 1
+            radius: 24
 
             Rectangle {
                 anchors.left: parent.left
@@ -91,7 +98,9 @@ ApplicationWindow {
             Rectangle {
                 color: homeMouse.containsMouse ? welcome.accentColor : welcome.raisedColor
                 height: 132
-                radius: 12
+                border.color: homeMouse.containsMouse ? "#82c9ff" : "#355373"
+                border.width: 1
+                radius: 16
                 width: (parent.width - 28) / 3
 
                 Column {
@@ -124,7 +133,9 @@ ApplicationWindow {
             Rectangle {
                 color: desktopMouse.containsMouse ? welcome.accentColor : welcome.raisedColor
                 height: 132
-                radius: 12
+                border.color: desktopMouse.containsMouse ? "#82c9ff" : "#355373"
+                border.width: 1
+                radius: 16
                 width: (parent.width - 28) / 3
 
                 Column {
@@ -157,7 +168,9 @@ ApplicationWindow {
             Rectangle {
                 color: guideMouse.containsMouse ? welcome.accentColor : welcome.raisedColor
                 height: 132
-                radius: 12
+                border.color: guideMouse.containsMouse ? "#82c9ff" : "#355373"
+                border.width: 1
+                radius: 16
                 width: (parent.width - 28) / 3
 
                 Column {
@@ -188,7 +201,9 @@ ApplicationWindow {
         Rectangle {
             color: welcome.raisedColor
             height: 92
-            radius: 12
+            border.color: "#355373"
+            border.width: 1
+            radius: 16
             width: parent.width
 
             Row {
@@ -223,7 +238,9 @@ ApplicationWindow {
         Rectangle {
             color: welcome.raisedColor
             height: 126
-            radius: 12
+            border.color: "#355373"
+            border.width: 1
+            radius: 16
             width: parent.width
 
             Row {

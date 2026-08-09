@@ -4,7 +4,13 @@ import QtQuick.Controls
 Window {
     id: overview
 
+    LunarPalette {
+        id: lunar
+        darkMode: overview.state ? overview.state.darkMode : true
+    }
+
     property var applicationLauncher
+    property var state
     property var targetScreen
     property int panelHeight: 44
     property int desktopMargin: 24
@@ -12,10 +18,10 @@ Window {
     property int screenY: targetScreen ? targetScreen.geometry.y : 0
     property int screenWidth: targetScreen ? targetScreen.geometry.width : 1280
     property int screenHeight: targetScreen ? targetScreen.geometry.height : 800
-    property color surfaceBackground: "#171a21"
-    property color surfaceForeground: "#f5f7fb"
-    property color surfaceMuted: "#a9b1c2"
-    property color surfaceAccent: "#79b8ff"
+    property color surfaceBackground: lunar.panelStrong
+    property color surfaceForeground: lunar.foreground
+    property color surfaceMuted: lunar.muted
+    property color surfaceAccent: lunar.accent
 
     visible: false
     color: "transparent"
@@ -23,8 +29,8 @@ Window {
     modality: Qt.NonModal
     title: "Northstar Applications"
 
-    width: Math.min(780, screenWidth - 80)
-    height: Math.min(500, screenHeight - panelHeight - 80)
+    width: Math.min(820, screenWidth - 80)
+    height: Math.min(520, screenHeight - panelHeight - 80)
     x: screenX + (screenWidth - width) / 2
     y: screenY + panelHeight + (screenHeight - panelHeight - height) / 2
 
@@ -102,14 +108,19 @@ Window {
     Rectangle {
         anchors.fill: parent
         color: overview.surfaceBackground
-        border.color: overview.surfaceAccent
+        border.color: lunar.border
         border.width: 1
-        radius: 16
+        radius: lunar.radiusPanel
+
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: lunar.panelStrong }
+            GradientStop { position: 1.0; color: lunar.panel }
+        }
 
         Column {
             anchors.fill: parent
-            anchors.margins: 22
-            spacing: 14
+            anchors.margins: 24
+            spacing: 16
 
             Row {
                 width: parent.width
@@ -122,8 +133,8 @@ Window {
                     Text {
                         color: overview.surfaceForeground
                         font.bold: true
-                        font.pixelSize: 18
-                        text: "Apps"
+                        font.pixelSize: 20
+                        text: "Applications"
                     }
 
                     Text {
@@ -143,15 +154,16 @@ Window {
             TextField {
                 id: searchField
                 background: Rectangle {
-                    color: overview.surfaceBackground
-                    border.color: overview.surfaceAccent
+                    color: lunar.field
+                    border.color: searchField.activeFocus ? lunar.accentBright : lunar.borderSoft
                     border.width: 1
-                    radius: 8
+                    radius: lunar.radiusMedium
                 }
                 color: overview.surfaceForeground
-                height: 38
+                height: 42
                 width: parent.width
-                placeholderText: "Search by name, category, or desktop id"
+                leftPadding: 16
+                placeholderText: "Search applications"
                 placeholderTextColor: overview.surfaceMuted
                 selectByMouse: true
 
@@ -165,10 +177,11 @@ Window {
             }
 
             Rectangle {
-                color: overview.surfaceBackground
-                border.color: overview.surfaceMuted
+                color: "transparent"
+                border.color: lunar.borderSoft
                 border.width: 1
-                height: parent.height - searchField.height - 72
+                radius: lunar.radiusLarge
+                height: parent.height - searchField.height - 126
                 width: parent.width
 
                 GridView {
@@ -184,9 +197,9 @@ Window {
                         required property var modelData
 
                         color: applicationDropArea.containsDrag || applicationMouse.containsMouse
-                            ? overview.surfaceAccent : overview.surfaceBackground
+                            ? lunar.raisedHover : "transparent"
                         height: 102
-                        radius: 10
+                        radius: lunar.radiusMedium
                         width: 112
                         Column {
                             anchors.fill: parent
@@ -285,6 +298,80 @@ Window {
                     font.pixelSize: 13
                     text: "No matching applications"
                     visible: applicationList.count === 0
+                }
+            }
+
+            Row {
+                height: 38
+                spacing: 10
+                width: parent.width
+
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: overview.surfaceMuted
+                    font.bold: true
+                    font.pixelSize: 11
+                    text: "PINNED"
+                    width: 58
+                }
+
+                Rectangle {
+                    color: pinnedTerminalMouse.containsMouse ? lunar.raisedHover : lunar.raised
+                    height: 36
+                    radius: 12
+                    width: 112
+
+                    Row {
+                        anchors.centerIn: parent
+                        spacing: 7
+
+                        NorthstarIcon { height: 22; iconName: "terminal"; width: 22 }
+                        Text { color: overview.surfaceForeground; font.pixelSize: 11; text: "Terminal" }
+                    }
+
+                    MouseArea {
+                        id: pinnedTerminalMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onClicked: {
+                            overview.applicationLauncher.launchTerminal()
+                            overview.hide()
+                        }
+                    }
+                }
+
+                Rectangle {
+                    color: pinnedBrowserMouse.containsMouse ? lunar.raisedHover : lunar.raised
+                    height: 36
+                    radius: 12
+                    width: 104
+
+                    Row {
+                        anchors.centerIn: parent
+                        spacing: 7
+
+                        NorthstarIcon { height: 22; iconName: "browser"; width: 22 }
+                        Text { color: overview.surfaceForeground; font.pixelSize: 11; text: "Firefox" }
+                    }
+
+                    MouseArea {
+                        id: pinnedBrowserMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onClicked: {
+                            overview.applicationLauncher.launchBrowser()
+                            overview.hide()
+                        }
+                    }
+                }
+
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: overview.surfaceMuted
+                    font.pixelSize: 10
+                    horizontalAlignment: Text.AlignRight
+                    text: "Tip: drag a file onto a compatible app"
+                    width: parent.width - 294
                 }
             }
         }

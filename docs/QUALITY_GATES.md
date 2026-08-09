@@ -152,6 +152,10 @@ Record each item as pass, fail, or not-applicable with a short observation:
   Software Center search/details/unsupported mutation messaging are usable.
 - Dock shortcuts align at the VM resolution, running indicators are accurate,
   focus/minimize/restore/close work, and the desktop uses the available area.
+- Lunar top-bar navigation, routed global search, left-side system menu,
+  centered launcher, quick settings, notifications, and icon-first dock fit at
+  1280x800 without clipping or overlap. Files, Settings, Software Center,
+  Welcome, and Text Editor use the shared visual hierarchy in both themes.
 - Settings preference changes persist, diagnostics show session state, and
   light/dark appearance plus keyboard mappings do not break the shell.
 - Logout, graceful restart, and shutdown follow confirmation and ownership

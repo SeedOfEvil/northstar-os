@@ -5,12 +5,12 @@ ApplicationWindow {
     id: editor
 
     property var documentController: northstarTextEditorController
-    property color backgroundColor: "#101724"
-    property color panelColor: "#192235"
-    property color raisedColor: "#222f45"
-    property color foregroundColor: "#f5f7fb"
-    property color mutedColor: "#a9b8cf"
-    property color accentColor: "#79b8ff"
+    property color backgroundColor: "#07172f"
+    property color panelColor: "#e61a3153"
+    property color raisedColor: "#d926436c"
+    property color foregroundColor: "#f6f9ff"
+    property color mutedColor: "#a9bdd8"
+    property color accentColor: "#63adff"
     property bool syncingText: false
     property bool closeConfirmed: false
     property bool closeAfterSave: false
@@ -197,11 +197,18 @@ ApplicationWindow {
     background: Rectangle {
         color: editor.backgroundColor
 
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: "#07172f" }
+            GradientStop { position: 1.0; color: "#0c2c5a" }
+        }
+
         Rectangle {
             anchors.fill: parent
             anchors.margins: 18
             color: editor.panelColor
-            radius: 16
+            border.color: "#58779e"
+            border.width: 1
+            radius: 22
         }
     }
 
@@ -256,7 +263,9 @@ ApplicationWindow {
         Rectangle {
             color: editor.raisedColor
             height: parent.height - 120
-            radius: 10
+            border.color: "#355373"
+            border.width: 1
+            radius: 14
             width: parent.width
 
             TextArea {

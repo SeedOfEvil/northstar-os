@@ -4,6 +4,11 @@ import QtQuick.Controls
 Window {
     id: software
 
+    LunarPalette {
+        id: lunar
+        darkMode: software.state ? software.state.darkMode : true
+    }
+
     property var packageCatalog
     property var packageTrust
     property var updatePlan
@@ -20,17 +25,20 @@ Window {
     property int minimumSurfaceWidth: 700
     property int minimumSurfaceHeight: 500
     property bool dragging: false
+    property bool maximized: false
+    property point normalGeometryPosition: Qt.point(0, 0)
+    property size normalGeometrySize: Qt.size(0, 0)
     property var selectedPackage: null
     property var selectedApplication: null
     property point dragOrigin: Qt.point(0, 0)
     property point windowOrigin: Qt.point(0, 0)
     property point resizeOrigin: Qt.point(0, 0)
     property size resizeSize: Qt.size(0, 0)
-    property color surfaceBackground: state && state.darkMode ? "#171a21" : "#f4f6fb"
-    property color surfaceForeground: state && state.darkMode ? "#f5f7fb" : "#1e2430"
-    property color surfaceMuted: state && state.darkMode ? "#a9b1c2" : "#637083"
-    property color surfaceAccent: state && state.darkMode ? "#79b8ff" : "#1769aa"
-    property color surfaceRaised: state && state.darkMode ? "#252b36" : "#e8edf5"
+    property color surfaceBackground: lunar.panelStrong
+    property color surfaceForeground: lunar.foreground
+    property color surfaceMuted: lunar.muted
+    property color surfaceAccent: lunar.accent
+    property color surfaceRaised: lunar.raised
 
     visible: false
     color: "transparent"
@@ -113,13 +121,16 @@ Window {
     }
 
     function beginDrag(mouseX, mouseY) {
+        if (software.maximized) {
+            return
+        }
         software.dragging = true
         software.dragOrigin = Qt.point(mouseX, mouseY)
         software.windowOrigin = Qt.point(software.x, software.y)
     }
 
     function updateDrag(mouseX, mouseY) {
-        if (!software.dragging) {
+        if (!software.dragging || software.maximized) {
             return
         }
         const deltaX = mouseX - software.dragOrigin.x
@@ -136,11 +147,17 @@ Window {
     }
 
     function beginResize(mouseX, mouseY) {
+        if (software.maximized) {
+            return
+        }
         software.resizeOrigin = Qt.point(mouseX, mouseY)
         software.resizeSize = Qt.size(software.width, software.height)
     }
 
     function updateResize(mouseX, mouseY) {
+        if (software.maximized) {
+            return
+        }
         const deltaX = mouseX - software.resizeOrigin.x
         const deltaY = mouseY - software.resizeOrigin.y
         software.width = Math.min(software.screenX + software.screenWidth - software.x,
@@ -149,12 +166,36 @@ Window {
                                    Math.max(software.minimumSurfaceHeight, software.resizeSize.height + deltaY))
     }
 
+    function toggleMaximize() {
+        if (software.maximized) {
+            software.x = software.normalGeometryPosition.x
+            software.y = software.normalGeometryPosition.y
+            software.width = software.normalGeometrySize.width
+            software.height = software.normalGeometrySize.height
+            software.maximized = false
+            return
+        }
+        software.normalGeometryPosition = Qt.point(software.x, software.y)
+        software.normalGeometrySize = Qt.size(software.width, software.height)
+        software.x = software.screenX
+        software.y = software.screenY + software.panelHeight
+        software.width = software.screenWidth
+        software.height = Math.max(software.minimumSurfaceHeight,
+            software.screenHeight - software.panelHeight)
+        software.maximized = true
+    }
+
     Rectangle {
         anchors.fill: parent
         color: software.surfaceBackground
-        border.color: software.surfaceAccent
+        border.color: lunar.border
         border.width: 1
-        radius: 12
+        radius: lunar.radiusPanel
+
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: lunar.panelStrong }
+            GradientStop { position: 1.0; color: lunar.panel }
+        }
 
         Column {
             anchors.fill: parent
@@ -211,9 +252,52 @@ Window {
                     spacing: 8
 
                     Rectangle {
-                        color: planMouse.containsMouse ? software.surfaceAccent : software.surfaceRaised
+                        color: minimizeSoftwareMouse.containsMouse ? lunar.warning : software.surfaceRaised
                         height: 34
-                        radius: 6
+                        radius: 17
+                        width: 34
+
+                        Text {
+                            anchors.centerIn: parent
+                            color: software.surfaceForeground
+                            font.bold: true
+                            font.pixelSize: 14
+                            text: "−"
+                        }
+
+                        MouseArea {
+                            id: minimizeSoftwareMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            onClicked: software.hide()
+                        }
+                    }
+
+                    Rectangle {
+                        color: maximizeSoftwareMouse.containsMouse ? lunar.success : software.surfaceRaised
+                        height: 34
+                        radius: 17
+                        width: 34
+
+                        Text {
+                            anchors.centerIn: parent
+                            color: software.surfaceForeground
+                            font.pixelSize: 13
+                            text: software.maximized ? "❐" : "□"
+                        }
+
+                        MouseArea {
+                            id: maximizeSoftwareMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            onClicked: software.toggleMaximize()
+                        }
+                    }
+
+                    Rectangle {
+                        color: planMouse.containsMouse ? lunar.raisedHover : software.surfaceRaised
+                        height: 34
+                        radius: lunar.radiusSmall
                         width: 124
 
                         Text {
@@ -232,9 +316,9 @@ Window {
                     }
 
                     Rectangle {
-                        color: refreshMouse.containsMouse ? software.surfaceAccent : software.surfaceRaised
+                        color: refreshMouse.containsMouse ? lunar.raisedHover : software.surfaceRaised
                         height: 34
-                        radius: 6
+                        radius: lunar.radiusSmall
                         width: 108
 
                         Text {
@@ -260,20 +344,23 @@ Window {
                     }
 
                     Rectangle {
-                        color: software.surfaceRaised
+                        color: closeSoftwareMouse.containsMouse ? lunar.danger : software.surfaceRaised
                         height: 34
-                        radius: 6
-                        width: 76
+                        radius: 17
+                        width: 34
 
                         Text {
                             anchors.centerIn: parent
                             color: software.surfaceForeground
-                            font.pixelSize: 12
-                            text: "Close"
+                            font.bold: true
+                            font.pixelSize: 15
+                            text: "×"
                         }
 
                         MouseArea {
+                            id: closeSoftwareMouse
                             anchors.fill: parent
+                            hoverEnabled: true
                             onClicked: software.hide()
                         }
                     }
@@ -1163,6 +1250,7 @@ Window {
         color: software.surfaceAccent
         height: 18
         opacity: 0.8
+        visible: !software.maximized
         width: 18
 
         MouseArea {

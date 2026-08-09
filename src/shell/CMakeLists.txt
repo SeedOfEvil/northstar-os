@@ -45,6 +45,7 @@ qt_add_qml_module(northstar-shell
         ApplicationOverview.qml
         QuickSettings.qml
         NotificationCenterWindow.qml
+        LunarPalette.qml
         SoftwareCenterWindow.qml
         NorthstarIcon.qml
         FileBrowserWindow.qml

@@ -4,6 +4,11 @@ import QtQuick.Controls
 Window {
     id: desktopBackground
 
+    LunarPalette {
+        id: lunar
+        darkMode: desktopBackground.state ? desktopBackground.state.darkMode : true
+    }
+
     property url logoSource: northstarLogoSource
     property var state: shellState
     property var desktopItems: northstarDesktopItemsController
@@ -20,11 +25,11 @@ Window {
     property string selectedPath: ""
     property int layoutCellWidth: 112
     property int layoutCellHeight: 112
-    property color surfaceBackground: state && state.darkMode ? "#0f1218" : "#e8edf5"
-    property color surfaceForeground: state && state.darkMode ? "#f5f7fb" : "#1e2430"
-    property color surfaceMuted: state && state.darkMode ? "#a9b1c2" : "#637083"
-    property color surfaceAccent: state && state.darkMode ? "#79b8ff" : "#1769aa"
-    property color surfaceRaised: state && state.darkMode ? "#252b36" : "#f4f6fb"
+    property color surfaceBackground: lunar.backgroundDeep
+    property color surfaceForeground: lunar.foreground
+    property color surfaceMuted: lunar.muted
+    property color surfaceAccent: lunar.accent
+    property color surfaceRaised: lunar.raised
 
     visible: false
     color: "transparent"
@@ -208,16 +213,65 @@ Window {
     Rectangle {
         anchors.fill: parent
         color: desktopBackground.surfaceBackground
+        clip: true
+
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: lunar.desktopTop }
+            GradientStop { position: 0.52; color: lunar.background }
+            GradientStop { position: 1.0; color: lunar.desktopBottom }
+        }
+
+        Rectangle {
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.verticalCenterOffset: -80
+            border.color: lunar.accentBright
+            border.width: 44
+            color: "transparent"
+            height: 300
+            opacity: desktopBackground.state && desktopBackground.state.darkMode ? 0.13 : 0.18
+            radius: 150
+            rotation: -12
+            width: Math.max(980, parent.width * 0.92)
+        }
+
+        Rectangle {
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.horizontalCenterOffset: 260
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.verticalCenterOffset: 115
+            border.color: lunar.accent
+            border.width: 58
+            color: "transparent"
+            height: 250
+            opacity: desktopBackground.state && desktopBackground.state.darkMode ? 0.11 : 0.16
+            radius: 125
+            rotation: 18
+            width: Math.max(760, parent.width * 0.72)
+        }
+
+        Rectangle {
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.horizontalCenterOffset: -390
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.verticalCenterOffset: 190
+            color: lunar.accentSoft
+            height: 170
+            opacity: 0.12
+            radius: 85
+            rotation: -22
+            width: Math.max(620, parent.width * 0.56)
+        }
 
         Image {
             anchors.centerIn: parent
             fillMode: Image.PreserveAspectFit
             height: width
             mipmap: true
-            opacity: desktopBackground.state && desktopBackground.state.darkMode ? 0.28 : 0.18
+            opacity: desktopBackground.state && desktopBackground.state.darkMode ? 0.20 : 0.16
             smooth: true
             source: desktopBackground.logoSource
-            width: Math.min(460, desktopBackground.screenWidth * 0.42)
+            width: Math.min(390, desktopBackground.screenWidth * 0.34)
         }
 
         MouseArea {
@@ -277,17 +331,19 @@ Window {
                     property point itemOrigin: Qt.point(0, 0)
 
                     color: desktopBackground.selectedPath === modelData.path
-                        ? (desktopBackground.state && desktopBackground.state.darkMode
-                            ? "#3b5f89" : "#c9e1ff")
-                        : (desktopItemMouse.containsMouse ? "#4079b8" : "transparent")
+                        ? lunar.accentSoft
+                        : (desktopItemMouse.containsMouse ? lunar.raisedHover : "transparent")
                     border.color: desktopBackground.selectedPath === modelData.path
                         ? desktopBackground.surfaceAccent : "transparent"
                     border.width: 1
                     height: 104
-                    radius: 8
+                    radius: 16
+                    scale: desktopItemMouse.containsMouse && !desktopIcon.dragging ? 1.04 : 1.0
                     width: 104
                     x: desktopIcon.itemX
                     y: desktopIcon.itemY
+
+                    Behavior on scale { NumberAnimation { duration: 140 } }
 
                     function applySavedPosition() {
                         desktopIcon.itemX = 0
@@ -315,8 +371,8 @@ Window {
                     anchors.horizontalCenter: parent.horizontalCenter
                     anchors.top: parent.top
                     anchors.topMargin: 10
-                    height: 52
-                    width: 52
+                    height: 56
+                    width: 56
                     iconName: desktopBackground.iconNameFor(modelData)
                 }
 

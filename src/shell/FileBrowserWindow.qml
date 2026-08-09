@@ -5,6 +5,11 @@ Window {
     id: files
     objectName: "fileBrowserWindow"
 
+    LunarPalette {
+        id: lunar
+        darkMode: files.state ? files.state.darkMode : true
+    }
+
     property var fileBrowserController
     property var applicationLauncher
     property var volumeController
@@ -19,15 +24,18 @@ Window {
     property int minimumSurfaceWidth: files.sidebarVisible ? 900 : 620
     property int minimumSurfaceHeight: 460
     property bool dragging: false
+    property bool maximized: false
+    property point normalGeometryPosition: Qt.point(0, 0)
+    property size normalGeometrySize: Qt.size(0, 0)
     property point dragOrigin: Qt.point(0, 0)
     property point windowOrigin: Qt.point(0, 0)
     property point resizeOrigin: Qt.point(0, 0)
     property size resizeSize: Qt.size(0, 0)
-    property color surfaceBackground: state && state.darkMode ? "#171a21" : "#f4f6fb"
-    property color surfaceForeground: state && state.darkMode ? "#f5f7fb" : "#1e2430"
-    property color surfaceMuted: state && state.darkMode ? "#a9b1c2" : "#637083"
-    property color surfaceAccent: state && state.darkMode ? "#79b8ff" : "#1769aa"
-    property color surfaceRaised: state && state.darkMode ? "#252b36" : "#e8edf5"
+    property color surfaceBackground: lunar.panelStrong
+    property color surfaceForeground: lunar.foreground
+    property color surfaceMuted: lunar.muted
+    property color surfaceAccent: lunar.accent
+    property color surfaceRaised: lunar.raised
     property bool gridView: files.state ? files.state.filesGridView : true
     property bool sidebarVisible: files.screenWidth >= 1000
     property int sidebarWidth: 194
@@ -104,6 +112,17 @@ Window {
         show()
         raise()
         requestActivate()
+    }
+
+    function openWithSearch(query) {
+        files.openBrowser()
+        const requestedQuery = String(query || "").trim()
+        searchField.text = requestedQuery
+        if (files.fileBrowserController) {
+            files.fileBrowserController.setSearchQuery(requestedQuery)
+        }
+        searchField.forceActiveFocus()
+        searchField.selectAll()
     }
 
     function setGridView(enabled) {
@@ -427,13 +446,16 @@ Window {
     }
 
     function beginDrag(mouseX, mouseY) {
+        if (files.maximized) {
+            return
+        }
         files.dragging = true
         files.dragOrigin = Qt.point(mouseX, mouseY)
         files.windowOrigin = Qt.point(files.x, files.y)
     }
 
     function updateDrag(mouseX, mouseY) {
-        if (!files.dragging) {
+        if (!files.dragging || files.maximized) {
             return
         }
         const deltaX = mouseX - files.dragOrigin.x
@@ -449,11 +471,17 @@ Window {
     }
 
     function beginResize(mouseX, mouseY) {
+        if (files.maximized) {
+            return
+        }
         files.resizeOrigin = Qt.point(mouseX, mouseY)
         files.resizeSize = Qt.size(files.width, files.height)
     }
 
     function updateResize(mouseX, mouseY) {
+        if (files.maximized) {
+            return
+        }
         const deltaX = mouseX - files.resizeOrigin.x
         const deltaY = mouseY - files.resizeOrigin.y
         files.width = Math.min(files.screenX + files.screenWidth - files.x,
@@ -462,12 +490,36 @@ Window {
                                 Math.max(files.minimumSurfaceHeight, files.resizeSize.height + deltaY))
     }
 
+    function toggleMaximize() {
+        if (files.maximized) {
+            files.x = files.normalGeometryPosition.x
+            files.y = files.normalGeometryPosition.y
+            files.width = files.normalGeometrySize.width
+            files.height = files.normalGeometrySize.height
+            files.maximized = false
+            return
+        }
+        files.normalGeometryPosition = Qt.point(files.x, files.y)
+        files.normalGeometrySize = Qt.size(files.width, files.height)
+        files.x = files.screenX
+        files.y = files.screenY + files.panelHeight
+        files.width = files.screenWidth
+        files.height = Math.max(files.minimumSurfaceHeight,
+            files.screenHeight - files.panelHeight)
+        files.maximized = true
+    }
+
     Rectangle {
         anchors.fill: parent
         color: files.surfaceBackground
-        border.color: files.surfaceAccent
+        border.color: lunar.border
         border.width: 1
-        radius: 12
+        radius: lunar.radiusPanel
+
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: lunar.panelStrong }
+            GradientStop { position: 1.0; color: lunar.panel }
+        }
 
         Rectangle {
             id: sidebar
@@ -477,10 +529,10 @@ Window {
             anchors.leftMargin: 18
             anchors.top: parent.top
             anchors.topMargin: 18
-            color: files.surfaceRaised
-            border.color: files.surfaceMuted
+            color: lunar.panel
+            border.color: lunar.borderSoft
             border.width: 1
-            radius: 10
+            radius: lunar.radiusLarge
             visible: files.sidebarVisible
             width: files.sidebarWidth
             z: 2
@@ -615,8 +667,8 @@ Window {
                     color: files.surfaceMuted
                     font.pixelSize: 11
                     text: files.fileBrowserController && files.fileBrowserController.readOnlyLocation
-                        ? "Mounted volume"
-                        : "This Mac"
+                            ? "Mounted volume"
+                        : "Northstar"
                     width: parent.width
                 }
 
@@ -673,7 +725,7 @@ Window {
                     Text {
                         color: files.surfaceForeground
                         font.bold: true
-                        font.pixelSize: 22
+                    font.pixelSize: 24
                         text: "Files"
                     }
 
@@ -690,38 +742,86 @@ Window {
                     }
                 }
 
-                Rectangle {
-                    id: closeButton
+                Row {
+                    id: windowControls
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
-                    color: closeMouse.containsMouse ? "#c34f65" : files.surfaceRaised
-                    height: 32
-                    radius: 5
-                    width: 66
+                    spacing: 7
 
-                    Text {
-                        anchors.centerIn: parent
-                        color: files.surfaceForeground
-                        font.pixelSize: 12
-                        text: "Close"
+                    Rectangle {
+                        color: minimizeMouse.containsMouse ? lunar.warning : files.surfaceRaised
+                        height: 32
+                        radius: 16
+                        width: 32
+
+                        Text {
+                            anchors.centerIn: parent
+                            color: files.surfaceForeground
+                            font.bold: true
+                            font.pixelSize: 14
+                            text: "−"
+                        }
+
+                        MouseArea {
+                            id: minimizeMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            onClicked: files.hide()
+                        }
                     }
 
-                    MouseArea {
-                        id: closeMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        onClicked: files.hide()
+                    Rectangle {
+                        color: maximizeMouse.containsMouse ? lunar.success : files.surfaceRaised
+                        height: 32
+                        radius: 16
+                        width: 32
+
+                        Text {
+                            anchors.centerIn: parent
+                            color: files.surfaceForeground
+                            font.pixelSize: 13
+                            text: files.maximized ? "❐" : "□"
+                        }
+
+                        MouseArea {
+                            id: maximizeMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            onClicked: files.toggleMaximize()
+                        }
+                    }
+
+                    Rectangle {
+                        color: closeMouse.containsMouse ? lunar.danger : files.surfaceRaised
+                        height: 32
+                        radius: 16
+                        width: 32
+
+                        Text {
+                            anchors.centerIn: parent
+                            color: files.surfaceForeground
+                            font.bold: true
+                            font.pixelSize: 15
+                            text: "×"
+                        }
+
+                        MouseArea {
+                            id: closeMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            onClicked: files.hide()
+                        }
                     }
                 }
             }
 
             Rectangle {
                 id: locationsSurface
-                color: files.surfaceRaised
-                border.color: files.surfaceMuted
+                color: lunar.field
+                border.color: lunar.borderSoft
                 border.width: 1
                 height: 58
-                radius: 8
+                radius: lunar.radiusMedium
                 width: parent.width
 
                 Row {
@@ -1944,6 +2044,7 @@ Window {
         color: files.surfaceAccent
         height: 18
         opacity: 0.85
+        visible: !files.maximized
         width: 18
         z: 10
 
