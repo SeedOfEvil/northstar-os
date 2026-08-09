@@ -15,7 +15,11 @@ private slots:
 
 namespace {
 
-QJsonObject view(int id, qint64 pid, const QString &title, bool minimized = false)
+QJsonObject view(int id,
+                 qint64 pid,
+                 const QString &title,
+                 bool minimized = false,
+                 bool focused = false)
 {
     return QJsonObject{
         {QStringLiteral("id"), id},
@@ -25,6 +29,7 @@ QJsonObject view(int id, qint64 pid, const QString &title, bool minimized = fals
         {QStringLiteral("mapped"), true},
         {QStringLiteral("role"), QStringLiteral("TOPLEVEL")},
         {QStringLiteral("minimized"), minimized},
+        {QStringLiteral("focused"), focused},
     };
 }
 
@@ -39,7 +44,7 @@ void WindowControllerTest::refreshFiltersDesktopAndShellViews()
                 return false;
             }
             *response = QJsonArray{
-                view(4, 99123, QStringLiteral("Terminal")),
+                view(4, 99123, QStringLiteral("Terminal"), false, true),
                 QJsonObject{
                     {QStringLiteral("id"), 5},
                     {QStringLiteral("pid"), 99124},
@@ -61,6 +66,7 @@ void WindowControllerTest::refreshFiltersDesktopAndShellViews()
     QCOMPARE(controller.windows().size(), 1);
     QCOMPARE(controller.windows().first().toMap().value(QStringLiteral("viewId")).toInt(), 4);
     QCOMPARE(controller.windows().first().toMap().value(QStringLiteral("title")).toString(), QStringLiteral("Terminal"));
+    QVERIFY(controller.windows().first().toMap().value(QStringLiteral("active")).toBool());
 }
 
 void WindowControllerTest::actionsUseWayfireViewIds()
