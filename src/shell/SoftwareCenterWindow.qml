@@ -98,6 +98,20 @@ Window {
         applicationDetailsDialog.open()
     }
 
+    function openUpdatePlan() {
+        if (software.packageTrust) {
+            software.packageTrust.planUpdate()
+        }
+        if (software.updatePlan && software.packageCatalog) {
+            software.updatePlan.reload()
+            software.updatePlan.preview(software.packageCatalog.packages)
+        }
+        if (software.updateAuthorization) {
+            software.updateAuthorization.refresh()
+        }
+        updatePlanDialog.open()
+    }
+
     function beginDrag(mouseX, mouseY) {
         software.dragging = true
         software.dragOrigin = Qt.point(mouseX, mouseY)
@@ -213,15 +227,7 @@ Window {
                             id: planMouse
                             anchors.fill: parent
                             hoverEnabled: true
-                            onClicked: {
-                                if (software.packageTrust) {
-                                    software.packageTrust.planUpdate()
-                                }
-                                if (software.updatePlan && software.packageCatalog) {
-                                    software.updatePlan.reload()
-                                    software.updatePlan.preview(software.packageCatalog.packages)
-                                }
-                            }
+                            onClicked: software.openUpdatePlan()
                         }
                     }
 
@@ -868,6 +874,14 @@ Window {
                 spacing: 8
 
                 Button {
+                    text: "Review Update Plan"
+                    onClicked: {
+                        packageDetailsDialog.close()
+                        software.openUpdatePlan()
+                    }
+                }
+
+                Button {
                     enabled: false
                     text: "Install"
                 }
@@ -876,6 +890,154 @@ Window {
                     enabled: false
                     text: "Remove"
                 }
+            }
+        }
+    }
+
+    Dialog {
+        id: updatePlanDialog
+        title: "Update plan review"
+        modal: true
+        standardButtons: Dialog.Close
+        width: Math.min(620, software.width - 48)
+        x: (software.width - width) / 2
+        y: (software.height - height) / 2
+
+        background: Rectangle {
+            color: software.surfaceBackground
+            border.color: software.surfaceAccent
+            border.width: 1
+            radius: 10
+        }
+
+        contentItem: Column {
+            spacing: 12
+            width: updatePlanDialog.width - (2 * updatePlanDialog.padding)
+
+            Text {
+                color: software.surfaceForeground
+                font.bold: true
+                font.pixelSize: 18
+                text: "Review only"
+            }
+
+            Rectangle {
+                color: software.surfaceRaised
+                radius: 8
+                width: parent.width
+                height: 66
+
+                Column {
+                    anchors.fill: parent
+                    anchors.margins: 12
+                    spacing: 4
+
+                    Text {
+                        color: "#70d6a6"
+                        font.bold: true
+                        font.pixelSize: 12
+                        text: "No changes have been made"
+                    }
+
+                    Text {
+                        color: software.surfaceMuted
+                        font.pixelSize: 11
+                        text: "This review reads trust and update state only. It does not invoke pkg, write repository configuration, or create a boot environment."
+                        width: parent.width
+                        wrapMode: Text.WordWrap
+                    }
+                }
+            }
+
+            Grid {
+                columns: 2
+                columnSpacing: 18
+                rowSpacing: 7
+                width: parent.width
+
+                Text {
+                    color: software.surfaceMuted
+                    font.pixelSize: 11
+                    text: "Repository"
+                }
+
+                Text {
+                    color: software.surfaceForeground
+                    elide: Text.ElideRight
+                    font.pixelSize: 11
+                    text: software.packageTrust
+                        ? software.packageTrust.trustStatus : "Trust state unavailable."
+                    width: updatePlanDialog.width - 220
+                }
+
+                Text {
+                    color: software.surfaceMuted
+                    font.pixelSize: 11
+                    text: "Publication"
+                }
+
+                Text {
+                    color: software.surfaceForeground
+                    elide: Text.ElideRight
+                    font.pixelSize: 11
+                    text: software.updatePlan
+                        ? software.updatePlan.metadataStatus : "Publication metadata unavailable."
+                    width: updatePlanDialog.width - 220
+                }
+
+                Text {
+                    color: software.surfaceMuted
+                    font.pixelSize: 11
+                    text: "Candidate plan"
+                }
+
+                Text {
+                    color: software.surfaceForeground
+                    elide: Text.ElideRight
+                    font.pixelSize: 11
+                    text: software.updatePlan
+                        ? software.updatePlan.planStatus : "Update preview unavailable."
+                    width: updatePlanDialog.width - 220
+                }
+
+                Text {
+                    color: software.surfaceMuted
+                    font.pixelSize: 11
+                    text: "Authorization"
+                }
+
+                Text {
+                    color: software.surfaceForeground
+                    elide: Text.ElideRight
+                    font.pixelSize: 11
+                    text: software.updateAuthorization
+                        ? software.updateAuthorization.status : "Authorization preflight unavailable."
+                    width: updatePlanDialog.width - 220
+                }
+            }
+
+            Text {
+                color: software.surfaceMuted
+                font.pixelSize: 11
+                text: software.updatePlan ? software.updatePlan.planPreview : ""
+                visible: text.length > 0
+                width: parent.width
+                wrapMode: Text.WordWrap
+            }
+
+            Text {
+                color: software.surfaceMuted
+                font.pixelSize: 11
+                text: software.updateAuthorization && software.updateAuthorization.plan.length > 0
+                    ? software.updateAuthorization.plan
+                    : "A privileged update and rollback workflow is not enabled on this system."
+                width: parent.width
+                wrapMode: Text.WordWrap
+            }
+
+            Button {
+                enabled: false
+                text: "Apply Update (protected)"
             }
         }
     }
