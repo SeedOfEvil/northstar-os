@@ -121,8 +121,11 @@ user-scoped extension defaults with an explicit Open With escape hatch.
 The Desktop surface now projects entries from the home `Desktop` folder into
 the primary desktop as directly activated folder/file icons. Folder activation
 opens the corresponding Files location; file activation enters the same
-association chooser used by Files. This remains home-scoped and does not claim
-to replace a full desktop-file or icon-position service.
+association chooser used by Files. User-scoped icon positions can be dragged
+and are persisted with bounded coordinates, while reset falls back to the
+default column layout. This remains home-scoped and primary-display-only; it
+does not claim to replace a full desktop-file or multi-display icon-position
+service.
 
 Third-party global menus and full macOS compatibility remain out of scope.
 

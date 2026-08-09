@@ -6,6 +6,7 @@ Window {
     property url logoSource: northstarLogoSource
     property var state: shellState
     property var fileBrowserController: northstarFileBrowserController
+    property var layoutController: northstarDesktopLayoutController
     property var fileBrowserWindow: null
     property var targetScreen
     property int displayIndex: 0
@@ -41,7 +42,7 @@ Window {
             width: Math.min(460, desktopBackground.screenWidth * 0.42)
         }
 
-        Grid {
+        Item {
             id: desktopItems
             anchors.bottom: parent.bottom
             anchors.bottomMargin: 94
@@ -49,20 +50,49 @@ Window {
             anchors.leftMargin: 24
             anchors.top: parent.top
             anchors.topMargin: 62
-            columns: 1
-            rowSpacing: 8
+            clip: true
             visible: desktopBackground.displayIndex === 0
-            width: 112
+            width: Math.min(360, parent.width * 0.32)
 
             Repeater {
                 model: desktopBackground.fileBrowserController
                     ? desktopBackground.fileBrowserController.desktopEntries : []
 
                 delegate: Rectangle {
+                    id: desktopIcon
+                    property real itemX: 0
+                    property real itemY: index * 112
+                    property point dragOrigin: Qt.point(0, 0)
+                    property point itemOrigin: Qt.point(0, 0)
+
                     color: desktopItemMouse.containsMouse ? "#4079b8" : "transparent"
                     height: 104
                     radius: 8
                     width: 104
+                    x: desktopIcon.itemX
+                    y: desktopIcon.itemY
+
+                    function applySavedPosition() {
+                        desktopIcon.itemX = 0
+                        desktopIcon.itemY = index * 112
+                        if (!desktopBackground.layoutController) {
+                            return
+                        }
+                        const saved = desktopBackground.layoutController.positionFor(modelData.path)
+                        if (saved && saved.x !== undefined && saved.y !== undefined) {
+                            desktopIcon.itemX = Math.max(0, Math.min(desktopItems.width - desktopIcon.width, saved.x))
+                            desktopIcon.itemY = Math.max(0, Math.min(desktopItems.height - desktopIcon.height, saved.y))
+                        }
+                    }
+
+                    Component.onCompleted: applySavedPosition()
+
+                    Connections {
+                        target: desktopBackground.layoutController
+                        function onPositionsChanged() {
+                            desktopIcon.applySavedPosition()
+                        }
+                    }
 
                     NorthstarIcon {
                         anchors.horizontalCenter: parent.horizontalCenter
@@ -92,6 +122,27 @@ Window {
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
                         hoverEnabled: true
+                        onPressed: {
+                            desktopIcon.dragOrigin = Qt.point(mouse.x, mouse.y)
+                            desktopIcon.itemOrigin = Qt.point(desktopIcon.itemX, desktopIcon.itemY)
+                        }
+                        onPositionChanged: {
+                            if (!pressed) {
+                                return
+                            }
+                            desktopIcon.itemX = Math.max(0, Math.min(
+                                desktopItems.width - desktopIcon.width,
+                                desktopIcon.itemOrigin.x + mouse.x - desktopIcon.dragOrigin.x))
+                            desktopIcon.itemY = Math.max(0, Math.min(
+                                desktopItems.height - desktopIcon.height,
+                                desktopIcon.itemOrigin.y + mouse.y - desktopIcon.dragOrigin.y))
+                        }
+                        onReleased: {
+                            if (desktopBackground.layoutController) {
+                                desktopBackground.layoutController.setPosition(
+                                    modelData.path, desktopIcon.itemX, desktopIcon.itemY)
+                            }
+                        }
                         onDoubleClicked: desktopBackground.openDesktopEntry(modelData)
                     }
                 }
