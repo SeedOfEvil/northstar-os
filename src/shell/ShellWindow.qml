@@ -437,6 +437,7 @@ Window {
         packageCatalog: northstarPackageCatalog
         packageTrust: northstarPackageTrustController
         updatePlan: northstarUpdatePlanController
+        updateAuthorization: northstarUpdateAuthorizationController
         state: shellState
         targetScreen: targetScreen
         panelHeight: root.height

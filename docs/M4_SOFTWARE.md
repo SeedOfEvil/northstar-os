@@ -96,6 +96,23 @@ envelope format is an application-side verification boundary around the
 FreeBSD repository catalogue; it does not replace FreeBSD `pkg`'s own
 repository-signature checks.
 
+## M4-E update-authorization and boot-environment preflight
+
+The Software Center now exposes a read-only **Update safety** status. Its
+preflight is valid only when the repository policy and fingerprint store are
+valid, the publication catalogue digest and signature are verified, an update
+preview has been generated, and both `bectl` and `zfs` are available. For a
+pending update it derives a bounded boot-environment name such as
+`northstar-before-development-r42-abcdef1` and describes the transaction that
+a future privileged helper must perform.
+
+This slice never invokes `pkg`, writes repository configuration, creates a
+boot environment, or authorizes package mutation. A valid preflight therefore
+reports **Preflight only** until the narrow privileged helper and its explicit
+user-confirmation contract are implemented. The next gate must prove that the
+helper creates the named environment before an N-1 to N transaction and can
+select the prior environment for rollback without touching home data.
+
 ## VM validation
 
 From the FreeBSD development checkout:
@@ -114,5 +131,7 @@ reports a blocked, non-mutating plan. If a test publication manifest is placed
 at the user configuration path, confirm that Software Center reports its
 provenance as parsed and verified when the trusted fingerprint matches, or
 parsed but not verified when it does not, previews candidate counts, and still
-does not invoke package mutation. No package should be installed, removed, or
-upgraded during this validation.
+does not invoke package mutation. Confirm that **Update safety** remains
+**Blocked** without a valid policy/preview and becomes **Preflight only** only
+when the verified plan and `bectl`/`zfs` prerequisites are present. No package
+should be installed, removed, or upgraded during this validation.

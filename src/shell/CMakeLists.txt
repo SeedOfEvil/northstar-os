@@ -8,6 +8,7 @@ add_library(northstar-shell-core STATIC
     sessioncontroller.cpp
     shellstate.cpp
     shortcutcatalog.cpp
+    updateauthorizationcontroller.cpp
     updateplancontroller.cpp
     volumecatalog.cpp
     windowcontroller.cpp

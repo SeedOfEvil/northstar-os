@@ -41,7 +41,10 @@ class UpdatePlanController final : public QObject
     Q_PROPERTY(bool cataloguePresent READ cataloguePresent NOTIFY stateChanged)
     Q_PROPERTY(bool catalogueDigestValid READ catalogueDigestValid NOTIFY stateChanged)
     Q_PROPERTY(bool signatureVerified READ signatureVerified NOTIFY stateChanged)
+    Q_PROPERTY(bool previewReady READ previewReady NOTIFY stateChanged)
     Q_PROPERTY(QString signatureStatus READ signatureStatus NOTIFY stateChanged)
+    Q_PROPERTY(int repositoryRevision READ repositoryRevision NOTIFY stateChanged)
+    Q_PROPERTY(QString sourceRevision READ sourceRevision NOTIFY stateChanged)
     Q_PROPERTY(int packageCount READ packageCount NOTIFY stateChanged)
     Q_PROPERTY(int updateCount READ updateCount NOTIFY stateChanged)
     Q_PROPERTY(int installCount READ installCount NOTIFY stateChanged)
@@ -63,7 +66,10 @@ public:
     bool cataloguePresent() const;
     bool catalogueDigestValid() const;
     bool signatureVerified() const;
+    bool previewReady() const;
     QString signatureStatus() const;
+    int repositoryRevision() const;
+    QString sourceRevision() const;
     int packageCount() const;
     int updateCount() const;
     int installCount() const;
@@ -104,6 +110,7 @@ private:
     bool m_cataloguePresent = false;
     bool m_catalogueDigestValid = false;
     bool m_signatureVerified = false;
+    bool m_previewReady = false;
     QString m_catalogueFile;
     QString m_catalogueStatus;
     int m_updateCount = 0;

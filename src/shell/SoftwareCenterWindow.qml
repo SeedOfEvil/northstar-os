@@ -7,6 +7,7 @@ Window {
     property var packageCatalog
     property var packageTrust
     property var updatePlan
+    property var updateAuthorization
     property var state
     property var targetScreen
     property int panelHeight: 44
@@ -375,6 +376,68 @@ Window {
                                         ? "Parsed / verified"
                                         : "Parsed / not verified"
                                     : software.updatePlan.metadataPresent ? "Rejected" : "Not configured"
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                color: software.surfaceRaised
+                height: 72
+                radius: 8
+                width: parent.width
+
+                Row {
+                    anchors.fill: parent
+                    anchors.leftMargin: 16
+                    anchors.rightMargin: 16
+                    spacing: 12
+
+                    NorthstarIcon {
+                        anchors.verticalCenter: parent.verticalCenter
+                        height: 30
+                        width: 30
+                        iconName: "settings"
+                    }
+
+                    Column {
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 3
+                        width: parent.width - 42
+
+                        Row {
+                            spacing: 10
+
+                            Text {
+                                color: software.surfaceMuted
+                                font.pixelSize: 11
+                                text: "Update safety"
+                            }
+
+                            Text {
+                                color: !software.updateAuthorization
+                                    ? software.surfaceMuted
+                                    : software.updateAuthorization.preflightValid
+                                        ? "#f0b45a" : "#c34f65"
+                                font.bold: true
+                                font.pixelSize: 13
+                                text: !software.updateAuthorization
+                                    ? "Unavailable"
+                                    : software.updateAuthorization.authorizationAvailable
+                                        ? "Authorized"
+                                        : software.updateAuthorization.preflightValid
+                                            ? "Preflight only" : "Blocked"
+                            }
+                        }
+
+                        Text {
+                            color: software.surfaceMuted
+                            elide: Text.ElideRight
+                            font.pixelSize: 11
+                            text: software.updateAuthorization
+                                ? software.updateAuthorization.status
+                                : "Update authorization is unavailable."
+                            width: parent.width
                         }
                     }
                 }
