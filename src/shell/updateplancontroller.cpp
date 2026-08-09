@@ -115,9 +115,24 @@ bool UpdatePlanController::signatureVerified() const
     return m_signatureVerified;
 }
 
+bool UpdatePlanController::previewReady() const
+{
+    return m_previewReady;
+}
+
 QString UpdatePlanController::signatureStatus() const
 {
     return m_signatureStatus;
+}
+
+int UpdatePlanController::repositoryRevision() const
+{
+    return m_metadata.revision;
+}
+
+QString UpdatePlanController::sourceRevision() const
+{
+    return m_metadata.sourceRevision;
 }
 
 int UpdatePlanController::packageCount() const
@@ -181,6 +196,7 @@ bool UpdatePlanController::reload()
     m_cataloguePresent = false;
     m_catalogueDigestValid = false;
     m_signatureVerified = false;
+    m_previewReady = false;
     resetPlan();
 
     if (!m_metadataPresent) {
@@ -302,6 +318,7 @@ bool UpdatePlanController::preview(const QVariantList &installedPackages)
         .arg(m_installCount == 1 ? QString() : QStringLiteral("s"))
         .arg(m_unmanagedCount)
         .arg(m_unmanagedCount == 1 ? QString() : QStringLiteral("s"));
+    m_previewReady = true;
     setBlockedPlan(m_signatureVerified
         ? QStringLiteral("preview generated; update authorization is not connected")
         : QStringLiteral("preview generated; publication signature is not verified"));
@@ -711,6 +728,7 @@ void UpdatePlanController::resetPlan()
     m_updateCount = 0;
     m_installCount = 0;
     m_unmanagedCount = 0;
+    m_previewReady = false;
     m_planPreview.clear();
 }
 

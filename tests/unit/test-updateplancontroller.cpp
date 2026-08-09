@@ -1,4 +1,5 @@
 #include "packagetrustcontroller.h"
+#include "updateauthorizationcontroller.h"
 #include "updateplancontroller.h"
 
 #include <QCryptographicHash>
@@ -324,10 +325,36 @@ void UpdatePlanControllerTest::verifiesTrustedRsaSignature()
     QVERIFY(controller.metadataValid());
     QVERIFY(controller.catalogueDigestValid());
     QVERIFY(controller.signatureVerified());
+    QVERIFY(!controller.previewReady());
     QCOMPARE(controller.signatureStatus(), QStringLiteral("verified"));
     QVERIFY(controller.metadataStatus().contains(QStringLiteral("verified"), Qt::CaseInsensitive));
     QVERIFY(controller.preview({installedPackage(QStringLiteral("northstar-shell"), QStringLiteral("0.1.0"))}));
+    QVERIFY(controller.previewReady());
     QVERIFY(controller.planStatus().contains(QStringLiteral("authorization"), Qt::CaseInsensitive));
+
+    const QString shellPath = QStandardPaths::findExecutable(QStringLiteral("sh"));
+    QVERIFY(!shellPath.isEmpty());
+    UpdateAuthorizationController authorization(&trustController,
+                                                &controller,
+                                                shellPath,
+                                                shellPath);
+    QVERIFY(authorization.preflightValid());
+    QVERIFY(authorization.bectlAvailable());
+    QVERIFY(authorization.zfsAvailable());
+    QVERIFY(!authorization.authorizationAvailable());
+    QCOMPARE(authorization.bootEnvironmentName(),
+             QStringLiteral("northstar-before-development-r42-abcdef1"));
+    QVERIFY(authorization.status().contains(QStringLiteral("not connected"), Qt::CaseInsensitive));
+    QVERIFY(authorization.plan().contains(QStringLiteral("Would create boot environment"),
+                                           Qt::CaseInsensitive));
+
+    UpdateAuthorizationController missingTools(&trustController,
+                                               &controller,
+                                               directory.filePath(QStringLiteral("missing-bectl")),
+                                               directory.filePath(QStringLiteral("missing-zfs")));
+    QVERIFY(!missingTools.preflightValid());
+    QVERIFY(missingTools.status().contains(QStringLiteral("must be available"),
+                                            Qt::CaseInsensitive));
 }
 
 void UpdatePlanControllerTest::blocksPolicyMismatch()

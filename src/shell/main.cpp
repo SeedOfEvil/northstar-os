@@ -8,6 +8,7 @@
 #include "sessioncontroller.h"
 #include "shellstate.h"
 #include "shortcutcatalog.h"
+#include "updateauthorizationcontroller.h"
 #include "updateplancontroller.h"
 #include "volumecatalog.h"
 #include "windowcontroller.h"
@@ -62,6 +63,8 @@ int main(int argc, char *argv[])
     PackageCatalog packageCatalog;
     PackageTrustController packageTrustController;
     UpdatePlanController updatePlanController(&packageTrustController);
+    UpdateAuthorizationController updateAuthorizationController(&packageTrustController,
+                                                                  &updatePlanController);
     FileBrowserController fileBrowserController;
     PowerController powerController;
     SessionController sessionController;
@@ -137,6 +140,8 @@ int main(int argc, char *argv[])
         context->setContextProperty(QStringLiteral("northstarPackageCatalog"), &packageCatalog);
         context->setContextProperty(QStringLiteral("northstarPackageTrustController"), &packageTrustController);
         context->setContextProperty(QStringLiteral("northstarUpdatePlanController"), &updatePlanController);
+        context->setContextProperty(QStringLiteral("northstarUpdateAuthorizationController"),
+                                    &updateAuthorizationController);
         context->setContextProperty(QStringLiteral("northstarFileBrowserController"), &fileBrowserController);
         context->setContextProperty(QStringLiteral("northstarPowerController"), &powerController);
         context->setContextProperty(QStringLiteral("northstarSessionController"), &sessionController);

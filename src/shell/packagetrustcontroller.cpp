@@ -187,9 +187,9 @@ bool PackageTrustController::reload()
                                              m_revokedFingerprintCount,
                                              &storeError);
     m_trustStatus = m_trustStoreValid
-        ? QStringLiteral("Policy and fingerprint store are structurally valid; pkg signature verification is not connected yet.")
+        ? QStringLiteral("Policy and fingerprint store are structurally valid; publication signatures are checked by the update plan.")
         : QStringLiteral("Policy is valid but the fingerprint store was rejected: %1").arg(storeError);
-    m_updatePlanStatus = QStringLiteral("Update planning is blocked until repository signatures are verified.");
+    m_updatePlanStatus = QStringLiteral("Update planning is blocked until a verified preview and update authorization are available.");
     emit stateChanged();
     return true;
 }
@@ -199,7 +199,7 @@ void PackageTrustController::planUpdate()
     if (!m_policyValid) {
         m_updatePlanStatus = QStringLiteral("Update planning is blocked until a valid signed repository policy is configured.");
     } else {
-        m_updatePlanStatus = QStringLiteral("Update planning is blocked until repository signatures are verified.");
+        m_updatePlanStatus = QStringLiteral("Update planning is blocked until a verified preview and update authorization are available.");
     }
     emit stateChanged();
 }

@@ -199,11 +199,11 @@ void PackageTrustControllerTest::reportsValidPolicyButKeepsPlanningBlocked()
     QCOMPARE(controller.trustedFingerprintCount(), 1);
     QCOMPARE(controller.revokedFingerprintCount(), 1);
     QCOMPARE(controller.channel(), QStringLiteral("development"));
-    QVERIFY(controller.trustStatus().contains(QStringLiteral("not connected")));
+    QVERIFY(controller.trustStatus().contains(QStringLiteral("publication signatures")));
     QVERIFY(controller.repositoryConfigPreview().contains(QStringLiteral("signature_type")));
 
     controller.planUpdate();
-    QVERIFY(controller.updatePlanStatus().contains(QStringLiteral("signatures")));
+    QVERIFY(controller.updatePlanStatus().contains(QStringLiteral("verified preview")));
     QVERIFY(controller.updatePlanStatus().contains(QStringLiteral("blocked"), Qt::CaseInsensitive));
 }
 

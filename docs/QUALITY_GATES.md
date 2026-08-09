@@ -111,8 +111,8 @@ state, validation result, and any gate that remains open.
 | M1 shell acceptance | Single-display smoke and restart evidence, plus multi-display Layer Shell evidence on the declared graphics path |
 | M2 session acceptance | Exactly one supervised session, bounded shell recovery, controlled logout/restart/shutdown, display-manager entry-point evidence, and sanitized logs |
 | M3 desktop acceptance | Files mutation and Trash recovery, associations/Open With, search, mounted-volume boundaries, overview, keyboard mappings, Files-to-Apps launch, app-bundle provenance, and settings persistence |
-| M4 package trust | Pinned Ports/Poudriere inputs, signed repository metadata, package provenance, read-only/update-preview behavior, and no unauthorized mutation; policy, fingerprint-store, and provenance-preview foundations are implemented, while actual signature verification remains open |
-| M4 update/rollback | N-1 to N upgrade, pre-upgrade `bectl` environment, rollback to the prior environment, package/shell recovery, and home-data preservation |
+| M4 package trust | Pinned Ports/Poudriere inputs, an actual signed repository publication, package provenance, read-only/update-preview behavior, and no unauthorized mutation; policy, fingerprint-store, catalogue-integrity, and publication-signature verification foundations are implemented |
+| M4 update/rollback | Read-only authorization preflight, N-1 to N upgrade, pre-upgrade `bectl` environment, rollback to the prior environment, package/shell recovery, and home-data preservation |
 | M5 image | Reproducible clean builder, checksums, UEFI GPT/root-on-ZFS installation, first boot, and update/rollback from the produced image |
 | M6 alpha | VM plus declared Intel/AMD hardware matrix, graphics/login, applications, diagnostics, crash recovery, update, rollback, and clean shutdown |
 

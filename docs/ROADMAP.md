@@ -8,7 +8,7 @@ The project advances through user-visible milestones with explicit pass gates. A
 | M1 | Shell seed | Single-display product slice validated; multi-display acceptance pending | Top bar and dock render correctly on every connected display |
 | M2 | Desktop session | Development session lane validated; production display-manager and service integration pending | Session, services, supervision, notifications, and lifecycle work coherently |
 | M3 | Core desktop | Most user-facing slices implemented; acceptance closure and remaining polish pending | Filer, settings, search, overview, associations, and project apps form a usable desktop |
-| M4 | Packages, updates, rollback | Package policy, fingerprint stores, and read-only provenance preview merged; update/rollback foundation next | Signed packages and ZFS boot-environment rollback work end to end |
+| M4 | Packages, updates, rollback | Package policy, fingerprint stores, provenance preview, and publication signature verification merged; update/rollback foundation next | Signed packages and ZFS boot-environment rollback work end to end |
 | M5 | Reproducible image and installer | Not started | Pinned inputs produce a bootable UEFI root-on-ZFS image |
 | M6 | Alpha hardware release | Not started | The supported VM and narrow Intel/AMD hardware matrix meets the alpha definition |
 
@@ -18,7 +18,7 @@ The current `main` line contains the merged Northstar shell, session, Files,
 application-bundle, notification, keyboard, read-only Software Center, and
 M4 package-trust slices. The NSTAR-DEV01 FreeBSD 15.1 development VM is the
 active validation environment. Its nested X11/pixman lane is working and the
-latest recorded native suite passed 12/12 Qt tests plus the script/session
+latest recorded native suite passed 13/13 Qt tests plus the script/session
 checks.
 
 The VM is intentionally not being treated as final graphics evidence. Its
@@ -39,14 +39,15 @@ The next work is ordered as follows:
    Layer Shell run when hardware permits, and separately validate the branded
    display-manager session, controlled lifecycle actions, and the production
    privilege boundary. The current Proxmox fallback remains supplemental.
-3. **Build the M4 package-trust foundation.** The policy, fingerprint-store,
-   publication-provenance, and non-mutating update-preview foundations are now
-   merged. The remaining trust work is the actual signed development/stable
-   repository publication and verifier.
-4. **Build safe update and rollback.** Add a narrow authorization boundary,
-   create a named `bectl` boot environment before upgrades, validate N-1 to N
-   upgrades and rollback, and prove that home data survives both paths. No
-   package mutation is exposed before these gates pass.
+3. **Close M4 publication evidence.** The policy, fingerprint-store,
+   publication-provenance, catalogue-integrity, and read-only signature
+   verification foundations are merged. The remaining trust evidence is an
+   actual signed development/stable `pkg` repository publication built from
+   pinned Ports/Poudriere inputs.
+4. **Build safe update and rollback.** Establish a narrow authorization
+   boundary, preflight a named `bectl` boot environment before upgrades,
+   validate N-1 to N upgrades and rollback, and prove that home data survives
+   both paths. No package mutation is exposed before these gates pass.
 5. **Produce the reproducible image and installer.** Only after M4 has current
    evidence, pin the image inputs, build QCOW2 first, validate UEFI GPT/root-on-
    ZFS installation and first boot, then add raw/USB/ISO outputs.
@@ -118,7 +119,7 @@ Third-party global menus and full macOS compatibility remain out of scope.
 
 ## M4: Packages, updates, and rollback
 
-The first Software Center foundation is documented in [`docs/M4_SOFTWARE.md`](M4_SOFTWARE.md). It reads and searches the installed FreeBSD package inventory without mutating the host. The merged M4-A/M4-B package-trust work validates a FreeBSD `pkg`-aligned UCL policy, fingerprint stores, and a provenance-aware publication manifest, then renders a read-only update preview without claiming cryptographic verification. It does not close M4: Ports overlays, Poudriere configuration, signed development/stable repositories, an authorized upgrade command, boot-environment creation before upgrades, rollback documentation, and compatibility tests are still required.
+The first Software Center foundation is documented in [`docs/M4_SOFTWARE.md`](M4_SOFTWARE.md). It reads and searches the installed FreeBSD package inventory without mutating the host. The merged M4 package-trust work validates a FreeBSD `pkg`-aligned UCL policy, fingerprint stores, a provenance-aware publication manifest, catalogue integrity, and a read-only RSA publication-signature envelope; it also exposes a read-only update-authorization preflight. It does not close M4: an actual signed development/stable repository, a privileged authorization helper, boot-environment creation before upgrades, rollback documentation, and N-1 compatibility tests are still required.
 
 Pass only when project components install through `pkg`, repository metadata is signed, N-1 to N upgrades work, rollback restores the prior shell and package set, and user documents survive.
 
