@@ -49,6 +49,18 @@ int main(int argc, char *argv[])
         if (!saved.open(QIODevice::ReadOnly) || saved.readAll() != "Northstar editor") {
             return 1;
         }
+
+        const QString newPath = temporaryDirectory.filePath(QStringLiteral("new-document.txt"));
+        TextEditorController newDocument;
+        newDocument.setText(QStringLiteral("Northstar new document"));
+        if (!newDocument.canSave() || !newDocument.saveAs(newPath)) {
+            return 1;
+        }
+        QFile newSaved(newPath);
+        if (!newSaved.open(QIODevice::ReadOnly)
+            || newSaved.readAll() != "Northstar new document") {
+            return 1;
+        }
         return 0;
     }
 

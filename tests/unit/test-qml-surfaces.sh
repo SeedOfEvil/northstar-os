@@ -71,6 +71,9 @@ contains apps/text-editor/TextEditorWindow.qml 'qrc:/Northstar/TextEditor/norths
 contains apps/text-editor/main.cpp 'qrc:/Northstar/TextEditor/TextEditorWindow.qml'
 contains apps/text-editor/CMakeLists.txt 'QT_RESOURCE_ALIAS "northstar-text-editor.svg"'
 contains apps/text-editor/TextEditorWindow.qml 'width: unsavedDialog.width - (2 * unsavedDialog.padding)'
+contains apps/text-editor/TextEditorWindow.qml '"Save As..."'
+contains apps/text-editor/TextEditorWindow.qml 'defaultSaveDirectory'
+contains apps/text-editor/TextEditorWindow.qml 'saveAsDialog'
 
 [ -r "$ROOT/apps/samples/NorthstarTextEditor.app/Contents/Info.plist" ] \
     || fail 'Text Editor bundle manifest is missing'
