@@ -21,6 +21,7 @@ Use Cirrus CI for native FreeBSD virtual machines:
 
 - host validation and CMake build;
 - Qt unit tests;
+- QML surface-contract checks for product-critical shell wiring;
 - Ports package tests;
 - basic session integration tests.
 

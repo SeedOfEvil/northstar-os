@@ -55,6 +55,10 @@ make shell-smoke
 make shell-restart-smoke
 ```
 
+`make qml-surface-test` is a fast supplemental check for the product-critical
+Desktop, Dock, Files, Settings, Software Center, and system-menu wiring. It
+does not replace interactive noVNC acceptance or graphics-path evidence.
+
 Run the relevant manual acceptance flow in the VM after restarting the
 installed shell. Record the FreeBSD release, VM identity, source commit,
 commands, test count, and any deliberately deferred gate. Documentation-only
