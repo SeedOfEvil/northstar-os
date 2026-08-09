@@ -61,7 +61,7 @@ openssl dgst -sha256 -sign "$TMP_DIR/repo.key" \
 signature_fingerprint=$(sha256 -q "$TMP_DIR/repo.pub.trimmed")
 printf '%s\n' \
     'function: sha256' \
-    "fingerprint: \"$signature_fingerprint\"" \
+    "fingerprint: $signature_fingerprint" \
     > "$TMP_DIR/fingerprints/trusted/northstar"
 
 public_key_json=$(awk 'NR > 1 { printf "\\n" } { printf "%s", $0 }' "$TMP_DIR/repo.pub.trimmed")
