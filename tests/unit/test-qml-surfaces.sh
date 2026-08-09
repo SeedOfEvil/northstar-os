@@ -34,6 +34,7 @@ for file in $required_files; do
 done
 
 contains src/shell/DesktopBackground.qml "setPosition("
+contains src/shell/DesktopBackground.qml "nearestFreePosition("
 contains src/shell/DesktopBackground.qml "onDoubleClicked: desktopBackground.openDesktopEntry"
 contains src/shell/DesktopBackground.qml "northstarLogoSource"
 contains src/shell/DockWindow.qml "northstarWindowController.windows"
