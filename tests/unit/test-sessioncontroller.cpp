@@ -13,6 +13,7 @@ class SessionControllerTest final : public QObject
 
 private slots:
     void readsStatusContract();
+    void preservesTerminalFailureState();
     void missingStatusIsUnavailable();
     void rejectsEndRequestFromUnexpectedParent();
     void requestsEndSessionThroughExactParent();
@@ -46,6 +47,31 @@ void SessionControllerTest::readsStatusContract()
     QCOMPARE(controller.shellPid(), 1236);
     QCOMPARE(controller.restartCount(), 2);
     QCOMPARE(controller.lastEvent(), QStringLiteral("shell-started"));
+}
+
+void SessionControllerTest::preservesTerminalFailureState()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+
+    const QString statusPath = temporaryDirectory.filePath(QStringLiteral("session.status"));
+    QFile statusFile(statusPath);
+    QVERIFY(statusFile.open(QIODevice::WriteOnly | QIODevice::Text));
+    statusFile.write("state=failed\n"
+                     "supervisor_pid=1234\n"
+                     "compositor_pid=1235\n"
+                     "shell_pid=1236\n"
+                     "wayland_display=wayland-1\n"
+                     "restart_count=3\n"
+                     "last_event=shell-restart-limit\n");
+    statusFile.close();
+
+    SessionController controller(statusPath, temporaryDirectory.filePath(QStringLiteral("session.control")), 1234);
+
+    QVERIFY(!controller.available());
+    QCOMPARE(controller.state(), QStringLiteral("failed"));
+    QCOMPARE(controller.restartCount(), 3);
+    QCOMPARE(controller.lastEvent(), QStringLiteral("shell-restart-limit"));
 }
 
 void SessionControllerTest::missingStatusIsUnavailable()

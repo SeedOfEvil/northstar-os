@@ -46,7 +46,10 @@ While the shell is supervised, the supervisor writes a user-private
 `session.status` contract below its state directory and exports the status and
 control paths to the shell. The shell's Settings > Session page reads that
 contract to show the session state, Wayland display, owned process IDs, and
-restart count. A confirmed End Northstar Session request writes an
+restart count, including a terminal `failed` state and its last event. A failed
+state is intentionally not presented as an active session: Settings shows the
+recovery warning and the user must restart Northstar from the console or login
+session after saving work. A confirmed End Northstar Session request writes an
 `end-session` marker and signals the exact parent supervisor; the supervisor's
 existing cleanup path then terminates only the compositor and shell it owns.
 

@@ -8,6 +8,8 @@ Window {
     property var launcherController
     property var sessionController
     property bool hasSessionController: sessionController !== null && sessionController !== undefined
+    property bool sessionFailed: settings.hasSessionController
+        && settings.sessionController.state === "failed"
     property var targetScreen
     property string shellApplicationName: "northstar-shell"
     property string shellApplicationVersion: "0.1.0"
@@ -457,7 +459,7 @@ Window {
                                     Text {
                                         color: settings.surfaceForeground
                                         font.pixelSize: 13
-                                        text: settings.hasSessionController && settings.sessionController.available
+                                        text: settings.hasSessionController && settings.sessionController.state.length > 0
                                             ? settings.sessionController.state : "Not supervised"
                                     }
                                 }
@@ -654,6 +656,26 @@ Window {
                             font.pixelSize: 12
                             text: settings.catalogStatus
                             visible: text.length > 0
+                        }
+
+                        Rectangle {
+                            color: settings.state && settings.state.darkMode ? "#3b2328" : "#fff0f0"
+                            border.color: settings.state && settings.state.darkMode ? "#d96c7a" : "#c7465b"
+                            border.width: 1
+                            height: sessionRecoveryMessage.implicitHeight + 24
+                            radius: 8
+                            visible: settings.sessionFailed
+                            width: parent.width
+
+                            Text {
+                                id: sessionRecoveryMessage
+                                anchors.fill: parent
+                                anchors.margins: 12
+                                color: settings.state && settings.state.darkMode ? "#ffd9de" : "#7f1d2d"
+                                font.pixelSize: 12
+                                text: "The supervised session reached a terminal failure. Save your work and restart Northstar from the console or login session before testing again."
+                                wrapMode: Text.WordWrap
+                            }
                         }
 
                         Button {

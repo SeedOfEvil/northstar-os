@@ -99,8 +99,9 @@ actions without claiming a desktop-wide notification protocol.
 The supervisor now preserves a terminal `failed` state and its failure event
 when startup or the shell restart limit fails, and duplicate-session attempts
 leave the active session's status/control contract untouched. This makes the
-recovery state actionable in later Settings diagnostics instead of appearing
-as a clean stop.
+recovery state visible in Settings diagnostics instead of appearing as a clean
+stop; the warning directs the user to restart from the console or login session
+after saving work.
 
 Pass only when login starts exactly one session, shell crashes are detected and restarted, logout terminates only the user session, privileged lifecycle actions are controlled, launches record PID and identity, and logs contain no secrets.
 
