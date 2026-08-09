@@ -28,7 +28,7 @@ Window {
     property color surfaceMuted: state && state.darkMode ? "#a9b1c2" : "#637083"
     property color surfaceAccent: state && state.darkMode ? "#79b8ff" : "#1769aa"
     property color surfaceRaised: state && state.darkMode ? "#252b36" : "#e8edf5"
-    property bool gridView: true
+    property bool gridView: files.state ? files.state.filesGridView : true
     property bool sidebarVisible: files.screenWidth >= 1000
     property int sidebarWidth: 194
     property int sidebarRefreshToken: 0
@@ -91,6 +91,14 @@ Window {
         show()
         raise()
         requestActivate()
+    }
+
+    function setGridView(enabled) {
+        if (files.state) {
+            files.state.setFilesGridView(enabled)
+        } else {
+            files.gridView = enabled
+        }
     }
 
     function openPath(path, isDirectory, isLaunchable) {
@@ -949,7 +957,7 @@ Window {
                         id: tilesMouse
                         anchors.fill: parent
                         hoverEnabled: true
-                        onClicked: files.gridView = true
+                        onClicked: files.setGridView(true)
                     }
                 }
 
@@ -972,7 +980,7 @@ Window {
                         id: listViewMouse
                         anchors.fill: parent
                         hoverEnabled: true
-                        onClicked: files.gridView = false
+                        onClicked: files.setGridView(false)
                     }
                 }
 

@@ -11,6 +11,8 @@ small and safe for the development desktop:
 - The content area defaults to a tile-style explorer view and can be switched
   to a compact list view; folders and files open on double-click in either
   mode.
+- The selected tile/list presentation is stored in the user-private Northstar
+  preferences and restored after a shell restart.
 - The content toolbar can sort by name, type, size, or modification time and
   can reverse the order while keeping folders ahead of regular files.
 - Empty files and folders can be created, and entries can be renamed from the
