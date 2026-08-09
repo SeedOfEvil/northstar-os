@@ -27,6 +27,7 @@ struct RepositoryMetadata
     QString sourceRevision;
     QString signatureStatus;
     QString signatureFingerprint;
+    QString signatureEnvelope;
     QString catalogueFile;
     QString catalogueSha256;
     QList<RepositoryPackageMetadata> packages;
@@ -39,6 +40,7 @@ class UpdatePlanController final : public QObject
     Q_PROPERTY(bool metadataValid READ metadataValid NOTIFY stateChanged)
     Q_PROPERTY(bool cataloguePresent READ cataloguePresent NOTIFY stateChanged)
     Q_PROPERTY(bool catalogueDigestValid READ catalogueDigestValid NOTIFY stateChanged)
+    Q_PROPERTY(bool signatureVerified READ signatureVerified NOTIFY stateChanged)
     Q_PROPERTY(QString signatureStatus READ signatureStatus NOTIFY stateChanged)
     Q_PROPERTY(int packageCount READ packageCount NOTIFY stateChanged)
     Q_PROPERTY(int updateCount READ updateCount NOTIFY stateChanged)
@@ -60,6 +62,7 @@ public:
     bool metadataValid() const;
     bool cataloguePresent() const;
     bool catalogueDigestValid() const;
+    bool signatureVerified() const;
     QString signatureStatus() const;
     int packageCount() const;
     int updateCount() const;
@@ -85,6 +88,7 @@ signals:
 private:
     static QString defaultMetadataPath();
     bool verifyCatalogueIntegrity(QString *errorMessage = nullptr);
+    bool verifySignature(QString *errorMessage = nullptr);
     void resetPlan();
     void setBlockedPlan(const QString &reason);
 
@@ -99,6 +103,7 @@ private:
     bool m_metadataValid = false;
     bool m_cataloguePresent = false;
     bool m_catalogueDigestValid = false;
+    bool m_signatureVerified = false;
     QString m_catalogueFile;
     QString m_catalogueStatus;
     int m_updateCount = 0;

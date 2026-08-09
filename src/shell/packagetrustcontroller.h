@@ -56,6 +56,8 @@ public:
     QString trustStatus() const;
     QString updatePlanStatus() const;
 
+    bool hasTrustedFingerprint(const QString &fingerprint) const;
+
     Q_INVOKABLE bool reload();
     Q_INVOKABLE void planUpdate();
 

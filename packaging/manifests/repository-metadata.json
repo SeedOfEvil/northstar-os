@@ -8,6 +8,7 @@
   "source_revision": "UNSET",
   "signature_status": "unverified",
   "signature_fingerprint": "UNSET",
+  "signature_envelope": "signature.json",
   "catalogue_file": "data.pkg",
   "catalogue_sha256": "UNSET",
   "packages": [

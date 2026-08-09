@@ -124,6 +124,31 @@ QString PackageTrustController::updatePlanStatus() const
     return m_updatePlanStatus;
 }
 
+bool PackageTrustController::hasTrustedFingerprint(const QString &fingerprint) const
+{
+    if (!m_trustStoreValid) {
+        return false;
+    }
+
+    const QString normalizedFingerprint = fingerprint.trimmed().toLower();
+    const QString trustedPath = QDir(m_policy.fingerprintsPath).filePath(QStringLiteral("trusted"));
+    const QFileInfoList files = QDir(trustedPath).entryInfoList(
+        QDir::Files | QDir::Readable | QDir::NoSymLinks,
+        QDir::Name);
+    for (const QFileInfo &fileInfo : files) {
+        QFile file(fileInfo.absoluteFilePath());
+        if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            continue;
+        }
+
+        QString candidate;
+        if (parseFingerprintFile(file.readAll(), candidate) && candidate == normalizedFingerprint) {
+            return true;
+        }
+    }
+    return false;
+}
+
 bool PackageTrustController::reload()
 {
     m_policy = {};
