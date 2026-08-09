@@ -1480,6 +1480,7 @@ Window {
         property string itemName: ""
         property string extension: ""
         property string preferredDesktopId: ""
+        property bool showAllApplications: false
 
         title: "Open with an application"
         modal: true
@@ -1490,6 +1491,7 @@ Window {
         y: (files.height - height) / 2
 
         onOpened: {
+            associationDialog.showAllApplications = false
             associationSearch.text = ""
             if (files.applicationLauncher) {
                 files.applicationLauncher.setApplicationQuery("")
@@ -1498,6 +1500,7 @@ Window {
         }
 
         onClosed: {
+            associationDialog.showAllApplications = false
             associationSearch.text = ""
             if (files.applicationLauncher) {
                 files.applicationLauncher.setApplicationQuery("")
@@ -1553,6 +1556,28 @@ Window {
                 }
             }
 
+            Row {
+                spacing: 10
+                width: parent.width
+
+                Text {
+                    color: files.surfaceMuted
+                    elide: Text.ElideRight
+                    text: associationDialog.showAllApplications
+                        ? "Showing all registered applications."
+                        : "Showing applications that declare support for this file type."
+                    verticalAlignment: Text.AlignVCenter
+                    width: parent.width - showAllApplicationsButton.width - parent.spacing
+                }
+
+                Button {
+                    id: showAllApplicationsButton
+                    text: "Show All"
+                    visible: !associationDialog.showAllApplications
+                    onClicked: associationDialog.showAllApplications = true
+                }
+            }
+
             Rectangle {
                 color: files.surfaceBackground
                 border.color: files.surfaceMuted
@@ -1568,7 +1593,9 @@ Window {
                     model: files.applicationLauncher
                         ? files.applicationLauncher.applicationQuery.length > 0
                             ? files.applicationLauncher.matchingApplications
-                            : files.applicationLauncher.applications
+                            : associationDialog.showAllApplications
+                                ? files.applicationLauncher.applications
+                                : files.applicationLauncher.applicationsForFile(associationDialog.itemPath)
                         : []
 
                     delegate: Rectangle {
@@ -1644,7 +1671,9 @@ Window {
                 Text {
                     anchors.centerIn: parent
                     color: files.surfaceMuted
-                    text: "No registered applications were found."
+                    text: associationDialog.showAllApplications
+                        ? "No registered applications were found."
+                        : "No compatible applications found. Use Show All to choose manually."
                     visible: associationList.count === 0
                 }
             }

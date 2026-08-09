@@ -17,6 +17,13 @@
         <string>TextEditor</string>
         <string>Northstar</string>
     </array>
+    <key>DocumentExtensions</key>
+    <array>
+        <string>conf</string>
+        <string>log</string>
+        <string>md</string>
+        <string>txt</string>
+    </array>
     <key>Provenance</key>
     <dict>
         <key>Source</key>

@@ -198,6 +198,7 @@ QVariantList ApplicationCatalog::toVariantList(const QList<DesktopApplication> &
         item.insert(QStringLiteral("sourcePath"), application.sourcePath);
         item.insert(QStringLiteral("exec"), application.exec);
         item.insert(QStringLiteral("launchable"), application.launchable);
+        item.insert(QStringLiteral("mimeTypes"), application.mimeTypes);
         result.append(item);
     }
 
@@ -390,6 +391,7 @@ bool ApplicationCatalog::readDesktopEntry(const QString &path, const QString &de
     parsed.exec = values.value(QStringLiteral("Exec")).trimmed();
     parsed.icon = unescapeDesktopValue(values.value(QStringLiteral("Icon"))).trimmed();
     parsed.categories = desktopList(values.value(QStringLiteral("Categories")));
+    parsed.mimeTypes = desktopList(values.value(QStringLiteral("MimeType")));
     parsed.sourcePath = path;
 
     if (parsed.name.isEmpty() || parsed.exec.isEmpty()

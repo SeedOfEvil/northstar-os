@@ -30,6 +30,7 @@ struct BundleApplication
     QString executable;
     QString icon;
     QStringList categories;
+    QStringList documentExtensions;
     QString bundlePath;
     QString executablePath;
     QString iconPath;
@@ -45,6 +46,7 @@ inline bool operator==(const BundleApplication &left, const BundleApplication &r
         && left.executable == right.executable
         && left.icon == right.icon
         && left.categories == right.categories
+        && left.documentExtensions == right.documentExtensions
         && left.bundlePath == right.bundlePath
         && left.executablePath == right.executablePath
         && left.iconPath == right.iconPath

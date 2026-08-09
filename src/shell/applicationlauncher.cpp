@@ -8,6 +8,7 @@
 #include <QMimeDatabase>
 #include <QMimeType>
 #include <QProcess>
+#include <QSet>
 #include <QSettings>
 #include <QStandardPaths>
 #include <QVariantMap>
@@ -183,6 +184,38 @@ bool ApplicationLauncher::launchApplicationWithFile(const QString &desktopId, co
 
     arguments.append(fileInfo.absoluteFilePath());
     return launch(desktopId, applicationNameFor(desktopId), program, arguments);
+}
+
+QVariantList ApplicationLauncher::applicationsForFile(const QString &filePath) const
+{
+    const QFileInfo fileInfo(filePath);
+    if (!fileInfo.exists() || !fileInfo.isFile()) {
+        return {};
+    }
+
+    const QString extension = fileInfo.suffix().trimmed().toLower();
+    const QString mimeType = QMimeDatabase().mimeTypeForFile(
+        fileInfo, QMimeDatabase::MatchExtension).name();
+    QSet<QString> compatibleIds;
+
+    for (const DesktopApplication &application : m_catalog.entries()) {
+        if (supportsFile(application, mimeType)) {
+            compatibleIds.insert(application.desktopId);
+        }
+    }
+    for (const BundleApplication &application : m_bundleCatalog.entries()) {
+        if (supportsFile(application, extension)) {
+            compatibleIds.insert(application.desktopId);
+        }
+    }
+
+    QVariantList result;
+    for (const QVariant &item : applications()) {
+        if (compatibleIds.contains(item.toMap().value(QStringLiteral("desktopId")).toString())) {
+            result.append(item);
+        }
+    }
+    return result;
 }
 
 QString ApplicationLauncher::preferredApplicationForFile(const QString &filePath) const
@@ -366,6 +399,34 @@ QStringList ApplicationLauncher::applicationIds() const
         }
     }
     return result;
+}
+
+bool ApplicationLauncher::supportsFile(const DesktopApplication &application,
+                                       const QString &mimeType)
+{
+    if (mimeType.isEmpty()) {
+        return false;
+    }
+
+    const QMimeDatabase database;
+    const QMimeType fileMimeType = database.mimeTypeForName(mimeType);
+    if (!fileMimeType.isValid()) {
+        return false;
+    }
+
+    for (const QString &declaredMimeType : application.mimeTypes) {
+        const QMimeType declared = database.mimeTypeForName(declaredMimeType);
+        if (declared.isValid() && (fileMimeType == declared || fileMimeType.inherits(declared.name()))) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool ApplicationLauncher::supportsFile(const BundleApplication &application,
+                                       const QString &extension)
+{
+    return !extension.isEmpty() && application.documentExtensions.contains(extension, Qt::CaseInsensitive);
 }
 
 QString ApplicationLauncher::associationExtension(const QString &filePath)

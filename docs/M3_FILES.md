@@ -21,6 +21,9 @@ small and safe for the development desktop:
 - The Open With chooser can remember one user-scoped application per file
   extension and can forget that choice later; it never changes system-wide
   desktop associations.
+- Open With prioritizes applications that declare the file's MIME type or
+  extension and retains a **Show All** escape hatch for an intentional manual
+  choice.
 - Entries can be moved to the per-user FreeDesktop Trash with `.trashinfo`
   metadata; operations stay inside the Northstar home-folder boundary.
 - Trash is a first-class Files location with restore and confirmed empty

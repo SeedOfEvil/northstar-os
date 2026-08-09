@@ -15,6 +15,7 @@ struct DesktopApplication
     QString exec;
     QString icon;
     QStringList categories;
+    QStringList mimeTypes;
     QString sourcePath;
     bool launchable = false;
 };
@@ -27,6 +28,7 @@ inline bool operator==(const DesktopApplication &left, const DesktopApplication 
         && left.exec == right.exec
         && left.icon == right.icon
         && left.categories == right.categories
+        && left.mimeTypes == right.mimeTypes
         && left.sourcePath == right.sourcePath
         && left.launchable == right.launchable;
 }
