@@ -1,6 +1,7 @@
 #include "packagetrustcontroller.h"
 #include "updateplancontroller.h"
 
+#include <QCryptographicHash>
 #include <QDir>
 #include <QFile>
 #include <QJsonArray>
@@ -70,6 +71,10 @@ QByteArray validMetadata(const QString &repositoryTag = QStringLiteral("northsta
     metadata.insert(QStringLiteral("source_revision"), QStringLiteral("abcdef1"));
     metadata.insert(QStringLiteral("signature_status"), signatureStatus);
     metadata.insert(QStringLiteral("signature_fingerprint"), QString(64, QLatin1Char('a')));
+    metadata.insert(QStringLiteral("catalogue_file"), QStringLiteral("data.pkg"));
+    metadata.insert(QStringLiteral("catalogue_sha256"),
+                    QString::fromLatin1(QCryptographicHash::hash(
+                        QByteArray("catalogue-fixture\n"), QCryptographicHash::Sha256).toHex()));
     metadata.insert(QStringLiteral("packages"), QJsonArray{firstPackage, secondPackage});
     return QJsonDocument(metadata).toJson(QJsonDocument::Compact);
 }
@@ -93,6 +98,7 @@ private slots:
     void acceptsValidMetadata();
     void rejectsMalformedAndUnknownMetadata();
     void rejectsUnresolvedAndDuplicateProvenance();
+    void rejectsMissingAndMismatchedCatalogue();
     void blocksWithoutMetadata();
     void previewsCandidatesButKeepsExecutionBlocked();
     void blocksPolicyMismatch();
@@ -110,6 +116,8 @@ void UpdatePlanControllerTest::acceptsValidMetadata()
     QCOMPARE(metadata.abi, QStringLiteral("FreeBSD:15:amd64"));
     QCOMPARE(metadata.revision, 42);
     QCOMPARE(metadata.signatureStatus, QStringLiteral("unverified"));
+    QCOMPARE(metadata.catalogueFile, QStringLiteral("data.pkg"));
+    QCOMPARE(metadata.catalogueSha256.size(), 64);
     QCOMPARE(metadata.packages.size(), 2);
     QCOMPARE(metadata.packages.first().origin, QStringLiteral("desk/northstar-shell"));
     QCOMPARE(metadata.packages.first().projectRevision, QStringLiteral("1234567"));
@@ -145,6 +153,26 @@ void UpdatePlanControllerTest::rejectsUnresolvedAndDuplicateProvenance()
     QVERIFY(errorMessage.contains(QStringLiteral("duplicated")));
 }
 
+void UpdatePlanControllerTest::rejectsMissingAndMismatchedCatalogue()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString metadataPath = directory.filePath(QStringLiteral("repository-metadata.json"));
+    QVERIFY(writeFile(metadataPath, validMetadata()));
+
+    UpdatePlanController missing(nullptr, metadataPath);
+    QVERIFY(!missing.metadataValid());
+    QVERIFY(!missing.cataloguePresent());
+    QVERIFY(missing.catalogueStatus().contains(QStringLiteral("missing"), Qt::CaseInsensitive));
+
+    QVERIFY(writeFile(directory.filePath(QStringLiteral("data.pkg")), QByteArray("wrong\n")));
+    UpdatePlanController mismatched(nullptr, metadataPath);
+    QVERIFY(!mismatched.metadataValid());
+    QVERIFY(mismatched.cataloguePresent());
+    QVERIFY(!mismatched.catalogueDigestValid());
+    QVERIFY(mismatched.catalogueStatus().contains(QStringLiteral("does not match"), Qt::CaseInsensitive));
+}
+
 void UpdatePlanControllerTest::blocksWithoutMetadata()
 {
     QTemporaryDir directory;
@@ -176,10 +204,13 @@ void UpdatePlanControllerTest::previewsCandidatesButKeepsExecutionBlocked()
     QVERIFY(trustController.trustStoreValid());
 
     const QString metadataPath = directory.filePath(QStringLiteral("repository-metadata.json"));
+    QVERIFY(writeFile(directory.filePath(QStringLiteral("data.pkg")), QByteArray("catalogue-fixture\n")));
     QVERIFY(writeFile(metadataPath, validMetadata()));
     UpdatePlanController controller(&trustController, metadataPath);
     QVERIFY(controller.metadataPresent());
     QVERIFY(controller.metadataValid());
+    QVERIFY(controller.cataloguePresent());
+    QVERIFY(controller.catalogueDigestValid());
 
     const QVariantList installed{
         installedPackage(QStringLiteral("northstar-shell"), QStringLiteral("0.1.0")),
@@ -211,6 +242,7 @@ void UpdatePlanControllerTest::blocksPolicyMismatch()
     QVERIFY(trustController.trustStoreValid());
 
     const QString metadataPath = directory.filePath(QStringLiteral("repository-metadata.json"));
+    QVERIFY(writeFile(directory.filePath(QStringLiteral("data.pkg")), QByteArray("catalogue-fixture\n")));
     QVERIFY(writeFile(metadataPath, validMetadata(QStringLiteral("northstar-stable"))));
     UpdatePlanController controller(&trustController, metadataPath);
     QVERIFY(controller.metadataValid());

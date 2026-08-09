@@ -370,7 +370,8 @@ Window {
                             text: !software.updatePlan
                                 ? "Unavailable"
                                 : software.updatePlan.metadataValid
-                                    ? "Parsed / not verified" : "Not configured"
+                                    ? "Parsed / not verified"
+                                    : software.updatePlan.metadataPresent ? "Rejected" : "Not configured"
                         }
                     }
                 }
@@ -456,6 +457,15 @@ Window {
                         font.pixelSize: 11
                         text: software.updatePlan
                             ? software.updatePlan.metadataStatus : "Repository metadata is unavailable."
+                        width: parent.width
+                    }
+
+                    Text {
+                        color: software.surfaceMuted
+                        elide: Text.ElideRight
+                        font.pixelSize: 11
+                        text: software.updatePlan
+                            ? software.updatePlan.catalogueStatus : "Repository catalogue integrity is unavailable."
                         width: parent.width
                     }
 
