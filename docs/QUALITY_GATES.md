@@ -110,7 +110,7 @@ state, validation result, and any gate that remains open.
 | --- | --- |
 | M1 shell acceptance | Single-display smoke and restart evidence, plus multi-display Layer Shell evidence on the declared graphics path |
 | M2 session acceptance | Exactly one supervised session, bounded shell recovery, controlled logout/restart/shutdown, display-manager entry-point evidence, and sanitized logs |
-| M3 desktop acceptance | Files mutation and Trash recovery, associations/Open With, search, mounted-volume boundaries, overview, keyboard mappings, Files-to-Apps launch, app-bundle provenance, and settings persistence |
+| M3 desktop acceptance | Files mutation and Trash recovery, associations/Open With, search, mounted-volume boundaries, overview, live desktop/bundle application discovery, keyboard mappings, Files-to-Apps launch, app-bundle provenance, and settings persistence |
 | M4 package trust | Pinned Ports/Poudriere inputs, an actual signed repository publication, package provenance, read-only/update-preview behavior, and no unauthorized mutation; policy, fingerprint-store, catalogue-integrity, publication-signature verification, and native `pkg` publication/client smoke foundations are implemented |
 | M4 update/rollback | Read-only authorization preflight, independent broker verification, bounded root-owned update-helper request contract, N-1 to N upgrade, pre-upgrade `bectl` environment, rollback to the prior environment, package/shell recovery, and home-data preservation |
 | M5 image | Reproducible clean builder, checksums, UEFI GPT/root-on-ZFS installation, first boot, and update/rollback from the produced image |
@@ -125,7 +125,7 @@ Hold a change when it depends on an unpinned dependency, requires broad root acc
 | M0 host | Exact FreeBSD 15.1 amd64, clean VM bootstrap, idempotent second run, package versions, Wayland and Xwayland smoke tests |
 | M1 shell | Multi-monitor Layer Shell behavior, unprivileged launch, app launch, shell-only restart, Qt unit tests |
 | M2 session | Exactly one session, controlled lifecycle, service restart, launch identity, bounded notification feedback, sanitized logs |
-| M3 desktop | File operations, settings persistence, user-scoped file associations, home search, mounted-volume locations, overview, Files-to-Apps drag-and-drop, project-owned menu, validated app-bundle provenance |
+| M3 desktop | File operations, settings persistence, user-scoped file associations, home search, mounted-volume locations, overview, live desktop/bundle application discovery, Files-to-Apps drag-and-drop, project-owned menu, validated app-bundle provenance |
 | M4 update | Signed repository, N-1 to N upgrade, pre-upgrade `bectl` environment, rollback, home-data preservation |
 | M5 image | Clean builder, pinned inputs, checksums, UEFI GPT/root-on-ZFS install, first boot, update/rollback |
 | M6 alpha | Supported VM and physical hardware matrix, diagnostics, crash recovery, shutdown, application coverage |

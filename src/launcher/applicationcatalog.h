@@ -1,8 +1,10 @@
 #pragma once
 
 #include <QList>
+#include <QFileSystemWatcher>
 #include <QObject>
 #include <QStringList>
+#include <QTimer>
 #include <QVariantList>
 
 struct DesktopApplication
@@ -14,6 +16,7 @@ struct DesktopApplication
     QString icon;
     QStringList categories;
     QString sourcePath;
+    bool launchable = false;
 };
 
 inline bool operator==(const DesktopApplication &left, const DesktopApplication &right)
@@ -24,7 +27,8 @@ inline bool operator==(const DesktopApplication &left, const DesktopApplication 
         && left.exec == right.exec
         && left.icon == right.icon
         && left.categories == right.categories
-        && left.sourcePath == right.sourcePath;
+        && left.sourcePath == right.sourcePath
+        && left.launchable == right.launchable;
 }
 
 class ApplicationCatalog final : public QObject
@@ -53,7 +57,11 @@ private:
     static bool readDesktopEntry(const QString &path, const QString &desktopId, DesktopApplication *application);
     static QStringList tokenizeExec(const QString &exec);
     static QStringList expandExec(const DesktopApplication &application);
+    void scheduleReload();
+    void refreshWatchPaths();
 
     QStringList m_applicationDirectories;
     QList<DesktopApplication> m_entries;
+    QFileSystemWatcher m_watcher;
+    QTimer m_refreshTimer;
 };

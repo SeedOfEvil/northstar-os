@@ -95,6 +95,7 @@ class ApplicationBundleCatalogTest final : public QObject
 
 private slots:
     void discoversValidBundleAndLaunchSpec();
+    void autoRefreshesBundleDirectories();
     void rejectsMalformedTraversalAndWritableBundles();
     void launcherMergesBundleApplicationsAndPassesFiles();
 };
@@ -127,6 +128,21 @@ void ApplicationBundleCatalogTest::discoversValidBundleAndLaunchSpec()
     QVERIFY(catalog.launchSpec(QStringLiteral("bundle:org.northstar.Welcome"), &program, &arguments));
     QCOMPARE(program, QFileInfo(catalog.entries().first().executablePath).canonicalFilePath());
     QVERIFY(arguments.isEmpty());
+}
+
+void ApplicationBundleCatalogTest::autoRefreshesBundleDirectories()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    const QString apps = bundleDirectory(temporaryDirectory);
+    ApplicationBundleCatalog catalog({apps});
+    QSignalSpy changedSpy(&catalog, &ApplicationBundleCatalog::applicationsChanged);
+
+    QVERIFY(createBundle(apps, "org.northstar.Live"));
+
+    QTRY_VERIFY_WITH_TIMEOUT(
+        catalog.applicationIds().contains(QStringLiteral("bundle:org.northstar.Live")), 3000);
+    QVERIFY(changedSpy.count() >= 1);
 }
 
 void ApplicationBundleCatalogTest::rejectsMalformedTraversalAndWritableBundles()

@@ -223,7 +223,10 @@ Window {
                                 elide: Text.ElideRight
                                 font.pixelSize: 9
                                 horizontalAlignment: Text.AlignHCenter
-                                text: modelData.genericName || "Application"
+                                text: modelData.genericName
+                                    || (modelData.sourceType === "bundle"
+                                        ? "Northstar .app"
+                                        : (modelData.launchable === false ? "Unavailable" : "Desktop app"))
                                 width: parent.width
                             }
                         }

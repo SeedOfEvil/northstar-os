@@ -1,6 +1,7 @@
 #include "applicationbundlecatalog.h"
 
 #include <QDir>
+#include <QDirIterator>
 #include <QFile>
 #include <QFileDevice>
 #include <QFileInfo>
@@ -409,10 +410,23 @@ bool matchesQuery(const BundleApplication &application, const QStringList &terms
 ApplicationBundleCatalog::ApplicationBundleCatalog(QStringList bundleDirectories, QObject *parent)
     : QObject(parent)
     , m_bundleDirectories(std::move(bundleDirectories))
+    , m_watcher(this)
+    , m_refreshTimer(this)
 {
     if (m_bundleDirectories.isEmpty()) {
         m_bundleDirectories = defaultBundleDirectories();
     }
+
+    m_refreshTimer.setInterval(150);
+    m_refreshTimer.setSingleShot(true);
+    connect(&m_watcher, &QFileSystemWatcher::directoryChanged,
+            this, &ApplicationBundleCatalog::scheduleReload);
+    connect(&m_watcher, &QFileSystemWatcher::fileChanged,
+            this, &ApplicationBundleCatalog::scheduleReload);
+    connect(&m_refreshTimer, &QTimer::timeout, this, [this]() {
+        reload();
+    });
+
     reload();
 }
 
@@ -513,6 +527,8 @@ bool ApplicationBundleCatalog::reload()
         return QString::compare(left.desktopId, right.desktopId, Qt::CaseInsensitive) < 0;
     });
 
+    refreshWatchPaths();
+
     if (discovered == m_entries) {
         return false;
     }
@@ -520,6 +536,43 @@ bool ApplicationBundleCatalog::reload()
     m_entries = std::move(discovered);
     emit applicationsChanged();
     return true;
+}
+
+void ApplicationBundleCatalog::scheduleReload()
+{
+    if (!m_refreshTimer.isActive()) {
+        m_refreshTimer.start();
+    }
+}
+
+void ApplicationBundleCatalog::refreshWatchPaths()
+{
+    const QStringList watchedPaths = m_watcher.directories();
+    if (!watchedPaths.isEmpty()) {
+        m_watcher.removePaths(watchedPaths);
+    }
+
+    QStringList paths;
+    for (const QString &directoryPath : std::as_const(m_bundleDirectories)) {
+        const QDir directory(directoryPath);
+        if (!directory.exists()) {
+            continue;
+        }
+
+        paths.append(directory.absolutePath());
+        QDirIterator iterator(
+            directory.absolutePath(),
+            QDir::Dirs | QDir::NoDotAndDotDot,
+            QDirIterator::Subdirectories);
+        while (iterator.hasNext()) {
+            paths.append(iterator.next());
+        }
+    }
+
+    paths.removeDuplicates();
+    if (!paths.isEmpty()) {
+        m_watcher.addPaths(paths);
+    }
 }
 
 bool ApplicationBundleCatalog::launchSpec(const QString &desktopId,
