@@ -114,6 +114,34 @@ Window {
         }
     }
 
+    function launchFilePath(path) {
+        if (!files.applicationLauncher || !path) {
+            return false
+        }
+
+        const preferredDesktopId = files.applicationLauncher.preferredApplicationForFile(path)
+        if (preferredDesktopId
+                && files.applicationLauncher.launchApplicationWithFile(preferredDesktopId, path)) {
+            files.clearSelection()
+            files.hide()
+            return true
+        }
+
+        const compatibleApplications = files.applicationLauncher.applicationsForFile(path)
+        if (compatibleApplications.length !== 1) {
+            return false
+        }
+
+        const desktopId = compatibleApplications[0].desktopId
+        if (!files.applicationLauncher.launchApplicationWithFile(desktopId, path)) {
+            return false
+        }
+
+        files.clearSelection()
+        files.hide()
+        return true
+    }
+
     function openPath(path, isDirectory, isLaunchable) {
         if (!files.fileBrowserController || !path) {
             return
@@ -130,10 +158,7 @@ Window {
             return
         }
 
-        const preferredDesktopId = files.applicationLauncher
-            ? files.applicationLauncher.preferredApplicationForFile(path) : ""
-        if (preferredDesktopId
-                && files.applicationLauncher.launchApplicationWithFile(preferredDesktopId, path)) {
+        if (files.launchFilePath(path)) {
             return
         }
 
@@ -258,11 +283,7 @@ Window {
             return
         }
 
-        const preferredDesktopId = files.applicationLauncher
-            ? files.applicationLauncher.preferredApplicationForFile(files.selectedPath) : ""
-        if (preferredDesktopId
-                && files.applicationLauncher.launchApplicationWithFile(preferredDesktopId, files.selectedPath)) {
-            files.clearSelection()
+        if (files.launchFilePath(files.selectedPath)) {
             return
         }
         files.openAssociationDialog()
@@ -284,6 +305,7 @@ Window {
         associationDialog.itemPath = path
         associationDialog.itemName = normalizedPath.slice(normalizedPath.lastIndexOf("/") + 1)
         associationDialog.extension = files.fileExtension(path)
+        associationDialog.showAllApplications = associationDialog.extension.length === 0
         associationDialog.preferredDesktopId = files.applicationLauncher
             ? files.applicationLauncher.preferredApplicationForFile(path) : ""
         associationDialog.rememberChoice.checked = false
@@ -306,6 +328,7 @@ Window {
                 associationDialog.preferredDesktopId = desktopId
             }
             associationDialog.close()
+            files.hide()
         }
     }
 
@@ -1516,7 +1539,6 @@ Window {
         y: (files.height - height) / 2
 
         onOpened: {
-            associationDialog.showAllApplications = false
             associationSearch.text = ""
             if (files.applicationLauncher) {
                 files.applicationLauncher.setApplicationQuery("")
@@ -1740,6 +1762,7 @@ Window {
                     onClicked: {
                         if (files.fileBrowserController.openEntry(associationDialog.itemPath)) {
                             associationDialog.close()
+                            files.hide()
                         }
                     }
                 }
