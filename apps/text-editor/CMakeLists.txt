@@ -38,6 +38,7 @@ target_link_libraries(northstar-text-editor
         Qt6::Qml
         Qt6::Quick
         Qt6::QuickControls2
+        northstar-ui
 )
 
 install(TARGETS northstar-text-editor

@@ -1,3 +1,6 @@
+#include "northstarappearance.h"
+#include "northstarui.h"
+
 #include <QCommandLineParser>
 #include <QCoreApplication>
 #include <QDir>
@@ -22,8 +25,11 @@ int main(int argc, char *argv[])
     parser.addOption(selfTestOption);
     parser.process(application);
 
+    NorthstarUi::registerTypes();
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty(QStringLiteral("northstarHomePath"), QDir::homePath());
+    engine.rootContext()->setContextProperty(QStringLiteral("northstarDarkMode"),
+                                             NorthstarAppearance::darkMode());
     const QString waylandDisplay = qEnvironmentVariable("WAYLAND_DISPLAY");
     const QString x11Display = qEnvironmentVariable("DISPLAY");
     const QString sessionStatus = !waylandDisplay.isEmpty()

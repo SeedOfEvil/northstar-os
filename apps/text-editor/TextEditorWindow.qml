@@ -1,21 +1,25 @@
 import QtQuick
 import QtQuick.Controls
+import Northstar.Ui 1.0
 
 ApplicationWindow {
     id: editor
 
     property var documentController: northstarTextEditorController
-    property color backgroundColor: "#07172f"
-    property color panelColor: "#e61a3153"
-    property color raisedColor: "#d926436c"
-    property color foregroundColor: "#f6f9ff"
-    property color mutedColor: "#a9bdd8"
-    property color accentColor: "#63adff"
+    LunarPalette { id: lunar; darkMode: northstarDarkMode }
+
+    property color backgroundColor: lunar.background
+    property color panelColor: lunar.panel
+    property color raisedColor: lunar.raised
+    property color foregroundColor: lunar.foreground
+    property color mutedColor: lunar.muted
+    property color accentColor: lunar.accent
     property bool syncingText: false
     property bool closeConfirmed: false
     property bool closeAfterSave: false
 
-    color: editor.backgroundColor
+    color: "transparent"
+    flags: Qt.Window | Qt.FramelessWindowHint
     height: 680
     minimumHeight: 420
     minimumWidth: 620
@@ -194,65 +198,40 @@ ApplicationWindow {
         }
     }
 
-    background: Rectangle {
-        color: editor.backgroundColor
-
-        gradient: Gradient {
-            GradientStop { position: 0.0; color: "#07172f" }
-            GradientStop { position: 1.0; color: "#0c2c5a" }
-        }
-
-        Rectangle {
-            anchors.fill: parent
-            anchors.margins: 18
-            color: editor.panelColor
-            border.color: "#58779e"
-            border.width: 1
-            radius: 22
-        }
+    background: NorthstarWindowFrame {
+        darkMode: lunar.darkMode
     }
 
     Column {
         anchors.fill: parent
-        anchors.margins: 32
+        anchors.margins: 24
         spacing: 14
 
-        Row {
+        NorthstarWindowTitleBar {
+            closeDestroysWindow: true
+            iconSource: "qrc:/Northstar/TextEditor/northstar-text-editor.svg"
+            maximized: editor.visibility === Window.Maximized
+            lunarPalette: lunar
+            subtitle: editor.documentController && editor.documentController.dirty
+                ? "Unsaved changes" : "Northstar Text Editor"
+            title: editor.documentController && editor.documentController.filePath.length > 0
+                ? editor.documentController.filePath.split("/").pop() : "Untitled document"
             width: parent.width
-            spacing: 12
-
-            Image {
-                anchors.verticalCenter: parent.verticalCenter
-                height: 42
-                source: "qrc:/Northstar/TextEditor/northstar-text-editor.svg"
-                width: 42
+            window: editor
+            onMaximizeRequested: {
+                if (editor.visibility === Window.Maximized) editor.showNormal()
+                else editor.showMaximized()
             }
+        }
 
-            Column {
-                anchors.verticalCenter: parent.verticalCenter
-                spacing: 2
-                width: parent.width - saveButton.width - 60
-
-                Text {
-                    color: editor.foregroundColor
-                    elide: Text.ElideMiddle
-                    font.bold: true
-                    font.pixelSize: 22
-                    text: editor.documentController && editor.documentController.filePath.length > 0
-                        ? editor.documentController.filePath.split("/").pop() : "Untitled document"
-                    width: parent.width
-                }
-
-                Text {
-                    color: editor.mutedColor
-                    font.pixelSize: 12
-                    text: editor.documentController && editor.documentController.dirty
-                        ? "Unsaved changes" : "Northstar Text Editor"
-                }
-            }
+        Item {
+            width: parent.width
+            height: saveButton.implicitHeight
 
             Button {
                 id: saveButton
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
                 enabled: editor.documentController && editor.documentController.canSave
                 text: editor.documentController && editor.documentController.filePath.length > 0
                     ? "Save" : "Save As..."
@@ -262,8 +241,8 @@ ApplicationWindow {
 
         Rectangle {
             color: editor.raisedColor
-            height: parent.height - 120
-            border.color: "#355373"
+                height: parent.height - 188
+            border.color: lunar.borderSoft
             border.width: 1
             radius: 14
             width: parent.width
@@ -308,5 +287,10 @@ ApplicationWindow {
                 onClicked: editor.close()
             }
         }
+    }
+
+    NativeWindowResizeHandler {
+        resizingEnabled: editor.visibility !== Window.Maximized
+        window: editor
     }
 }

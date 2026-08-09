@@ -7,7 +7,8 @@ Apple-owned artwork, controls, or product branding.
 
 ## Visual system
 
-`LunarPalette.qml` is the shell-wide source for dark/light colors, translucent
+`Northstar.Ui 1.0` is the reusable first-party QML module. Its
+`LunarPalette.qml` is the desktop-wide source for dark/light colors, translucent
 panel approximations, border hierarchy, semantic status colors, spacing, and
 corner radii. The VM lane intentionally uses gradients, alpha surfaces,
 borders, and restrained motion instead of real-time blur. That keeps the UI
@@ -24,9 +25,10 @@ The redesign includes:
 - a centered icon-first dock with pinned apps, running-window state,
   focus/minimize behavior, Files, and Trash;
 - glass-like Quick Settings and Notification Center panels;
-- rounded, movable, resizable Files, Settings, and Software Center surfaces
-  with consistent window controls;
-- coordinated Welcome and Text Editor colors and panel treatment.
+- rounded, movable, resizable Files, Settings, Software Center, Welcome, and
+  Text Editor surfaces with the same frame, title bar, and window controls;
+- native compositor movement and bottom-right resizing through shared pointer
+  handlers, with app content kept independent of the chrome implementation.
 
 ## Interaction contract
 
@@ -53,9 +55,11 @@ its position for the current shell session, is brought back on-screen after a
 resolution change, and uses its standard placement until the user moves it.
 Wayland movement is delegated to the compositor through Qt's native system-
 move request; coordinate assignment is retained only as the X11 fallback.
-Files, Settings, and Software Center use the same native movement contract
-from their title bars, while Welcome and Text Editor retain their compositor-
-provided native window frames.
+Files, Settings, Software Center, Welcome, and Text Editor use the same
+frameless Northstar surface and native movement contract from their title bars.
+Their minimize, maximize/restore, close, and resize affordances come from the
+shared module. Standalone first-party apps read the durable shell appearance
+preference at startup so light and dark presentation does not drift.
 The shared title-bar `DragHandler` begins movement only after deliberate
 pointer travel and can take the grab from non-interactive title content,
 avoiding intermittent missed starts without interfering with a normal button

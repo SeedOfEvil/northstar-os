@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import Northstar.Ui 1.0
 
 Window {
     id: software
@@ -189,17 +190,9 @@ Window {
         software.maximized = true
     }
 
-    Rectangle {
+    NorthstarWindowFrame {
         anchors.fill: parent
-        color: software.surfaceBackground
-        border.color: lunar.border
-        border.width: 1
-        radius: lunar.radiusPanel
-
-        gradient: Gradient {
-            GradientStop { position: 0.0; color: lunar.panelStrong }
-            GradientStop { position: 1.0; color: lunar.panel }
-        }
+        darkMode: lunar.darkMode
 
         Column {
             anchors.fill: parent
@@ -212,14 +205,71 @@ Window {
                 width: parent.width
 
                 NativeWindowMoveHandler {
-                    enabled: !software.maximized
+                    enabled: false
                     window: software
+                }
+
+                NorthstarWindowTitleBar {
+                    anchors.fill: parent
+                    maximized: software.maximized
+                    lunarPalette: lunar
+                    subtitle: "Installed FreeBSD packages"
+                    title: "Software"
+                    window: software
+                    onMaximizeRequested: software.toggleMaximize()
+
+                    actions: [
+                        Rectangle {
+                            color: sharedPlanMouse.containsMouse ? lunar.raisedHover : software.surfaceRaised
+                            height: 34
+                            radius: lunar.radiusSmall
+                            width: 112
+                            Text {
+                                anchors.centerIn: parent
+                                color: software.surfaceForeground
+                                font.pixelSize: 12
+                                text: "Plan Update"
+                            }
+                            MouseArea {
+                                id: sharedPlanMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                onClicked: software.openUpdatePlan()
+                            }
+                        },
+                        Rectangle {
+                            color: sharedRefreshMouse.containsMouse ? lunar.raisedHover : software.surfaceRaised
+                            height: 34
+                            radius: lunar.radiusSmall
+                            width: 96
+                            Text {
+                                anchors.centerIn: parent
+                                color: software.surfaceForeground
+                                font.pixelSize: 12
+                                text: software.packageCatalog && software.packageCatalog.refreshing
+                                    ? "Refreshing..." : "Refresh"
+                            }
+                            MouseArea {
+                                id: sharedRefreshMouse
+                                anchors.fill: parent
+                                enabled: software.packageCatalog && !software.packageCatalog.refreshing
+                                hoverEnabled: true
+                                onClicked: {
+                                    software.packageCatalog.refresh()
+                                    if (software.updatePlan) {
+                                        software.updatePlan.preview(software.packageCatalog.packages)
+                                    }
+                                }
+                            }
+                        }
+                    ]
                 }
 
                 Row {
                     anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 12
+                    visible: false
 
                     NorthstarIcon {
                         anchors.verticalCenter: parent.verticalCenter
@@ -251,6 +301,7 @@ Window {
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 8
+                    visible: false
 
                     Rectangle {
                         color: minimizeSoftwareMouse.containsMouse ? lunar.warning : software.surfaceRaised
@@ -1251,7 +1302,7 @@ Window {
         color: software.surfaceAccent
         height: 18
         opacity: 0.8
-        visible: !software.maximized
+        visible: false
         width: 18
 
         MouseArea {
@@ -1260,5 +1311,10 @@ Window {
             onPressed: software.beginResize(mouse.x, mouse.y)
             onPositionChanged: software.updateResize(mouse.x, mouse.y)
         }
+    }
+
+    NativeWindowResizeHandler {
+        resizingEnabled: !software.maximized
+        window: software
     }
 }

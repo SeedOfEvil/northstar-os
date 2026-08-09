@@ -1,7 +1,7 @@
 import QtQuick
 
 DragHandler {
-    id: moveHandler
+    id: handler
 
     required property var window
 
@@ -13,7 +13,7 @@ DragHandler {
 
     onActiveChanged: {
         if (active) {
-            moveHandler.window.startSystemMove()
+            handler.window.startSystemMove()
         }
     }
 }

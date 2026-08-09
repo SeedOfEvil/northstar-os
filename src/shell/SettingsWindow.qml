@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import Northstar.Ui 1.0
 
 Window {
     id: settings
@@ -202,17 +203,9 @@ Window {
         }
     }
 
-    Rectangle {
+    NorthstarWindowFrame {
         anchors.fill: parent
-        color: settings.surfaceBackground
-        border.color: lunar.border
-        border.width: 1
-        radius: lunar.radiusPanel
-
-        gradient: Gradient {
-            GradientStop { position: 0.0; color: lunar.panelStrong }
-            GradientStop { position: 1.0; color: lunar.panel }
-        }
+        darkMode: lunar.darkMode
 
         Column {
             anchors.fill: parent
@@ -225,8 +218,18 @@ Window {
                 height: 48
 
                 NativeWindowMoveHandler {
-                    enabled: !settings.maximized
+                    enabled: false
                     window: settings
+                }
+
+                NorthstarWindowTitleBar {
+                    anchors.fill: parent
+                    maximized: settings.maximized
+                    lunarPalette: lunar
+                    subtitle: "Northstar desktop preferences"
+                    title: "Settings"
+                    window: settings
+                    onMaximizeRequested: settings.toggleMaximize()
                 }
 
                 Column {
@@ -234,6 +237,7 @@ Window {
                     anchors.verticalCenter: parent.verticalCenter
                     width: parent.width - closeButton.width - 12
                     spacing: 3
+                    visible: false
 
                     Text {
                         color: settings.surfaceForeground
@@ -254,6 +258,7 @@ Window {
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 6
+                    visible: false
 
                     Rectangle {
                         color: minimizeMouse.containsMouse ? settings.surfaceAccent : settings.surfaceRaised
@@ -872,7 +877,7 @@ Window {
         color: settings.maximized ? "transparent" : settings.surfaceAccent
         height: 18
         opacity: settings.maximized ? 0 : 0.85
-        visible: !settings.maximized
+        visible: false
         width: 18
         z: 10
 
@@ -890,5 +895,10 @@ Window {
             onPressed: settings.beginResize(mouse.x, mouse.y)
             onPositionChanged: settings.updateResize(mouse.x, mouse.y)
         }
+    }
+
+    NativeWindowResizeHandler {
+        resizingEnabled: !settings.maximized
+        window: settings
     }
 }

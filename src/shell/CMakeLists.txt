@@ -45,11 +45,8 @@ qt_add_qml_module(northstar-shell
         ApplicationOverview.qml
         QuickSettings.qml
         NotificationCenterWindow.qml
-        LunarPalette.qml
-        NativeWindowMoveHandler.qml
         WindowDragController.qml
         SoftwareCenterWindow.qml
-        NorthstarIcon.qml
         FileBrowserWindow.qml
         SystemMenu.qml
         SettingsWindow.qml
@@ -65,6 +62,7 @@ target_link_libraries(northstar-shell
         Qt6::Quick
         Qt6::QuickControls2
         LayerShellQt::Interface
+        northstar-ui
 )
 
 install(TARGETS northstar-shell

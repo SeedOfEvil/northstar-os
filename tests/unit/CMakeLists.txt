@@ -181,6 +181,10 @@ target_link_libraries(test-texteditorcontroller
 )
 
 add_test(NAME northstar-texteditorcontroller COMMAND test-texteditorcontroller)
+add_test(NAME northstar-text-editor-qml COMMAND northstar-text-editor --qml-self-test)
+set_tests_properties(northstar-text-editor-qml PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
 qt_add_executable(test-desktoplayoutcontroller
     test-desktoplayoutcontroller.cpp
 )
@@ -192,3 +196,25 @@ target_link_libraries(test-desktoplayoutcontroller
 )
 
 add_test(NAME northstar-desktoplayoutcontroller COMMAND test-desktoplayoutcontroller)
+
+set_tests_properties(
+    northstar-shellstate
+    northstar-shortcutcatalog
+    northstar-sessioncontroller
+    northstar-powercontroller
+    northstar-applicationcatalog
+    northstar-applicationbundlecatalog
+    northstar-filebrowsercontroller
+    northstar-desktopitemscontroller
+    northstar-notificationcenter
+    northstar-packagecatalog
+    northstar-packagetrustcontroller
+    northstar-updateplancontroller
+    northstar-volumecatalog
+    northstar-windowcontroller
+    northstar-welcome-gui
+    northstar-texteditorcontroller
+    northstar-text-editor-qml
+    northstar-desktoplayoutcontroller
+    PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
