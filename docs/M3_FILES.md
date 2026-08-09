@@ -11,6 +11,8 @@ small and safe for the development desktop:
 - The content area defaults to a tile-style explorer view and can be switched
   to a compact list view; folders and files open on double-click in either
   mode.
+- The content toolbar can sort by name, type, size, or modification time and
+  can reverse the order while keeping folders ahead of regular files.
 - Empty files and folders can be created, and entries can be renamed from the
   current folder.
 - A selected entry has an explicit Open action; files can be opened with a
@@ -97,4 +99,6 @@ For the v3 surface, confirm that the sidebar highlights the active location,
 that existing Desktop/Documents/Downloads folders open directly, that a
 missing favorite is visibly disabled, and that the Open With search narrows the
 application list without changing the saved default until the user selects an
-application.
+application. Use the sort selector to switch between Name, Type, Size, and
+Modified, reverse the order, and verify that folders remain ahead of files in
+both directions.

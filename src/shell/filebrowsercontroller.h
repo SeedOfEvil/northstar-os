@@ -23,6 +23,8 @@ class FileBrowserController final : public QObject
     Q_PROPERTY(bool searching READ searching NOTIFY searchQueryChanged)
     Q_PROPERTY(QString errorMessage READ errorMessage NOTIFY errorMessageChanged)
     Q_PROPERTY(bool showingTrash READ showingTrash NOTIFY locationChanged)
+    Q_PROPERTY(QString sortMode READ sortMode NOTIFY sortChanged)
+    Q_PROPERTY(bool sortAscending READ sortAscending NOTIFY sortChanged)
 
 public:
     using OpenFunction = std::function<bool(const QUrl &url)>;
@@ -44,6 +46,8 @@ public:
     bool searching() const;
     QString errorMessage() const;
     bool showingTrash() const;
+    QString sortMode() const;
+    bool sortAscending() const;
 
     Q_INVOKABLE bool navigateTo(const QString &path);
     Q_INVOKABLE bool openLocation(const QString &path, const QString &label = {});
@@ -59,6 +63,8 @@ public:
     Q_INVOKABLE bool restoreEntry(const QString &path);
     Q_INVOKABLE bool emptyTrash();
     Q_INVOKABLE void refresh();
+    Q_INVOKABLE void setSortMode(const QString &mode);
+    Q_INVOKABLE void toggleSortOrder();
 
 public slots:
     void setSearchQuery(const QString &query);
@@ -69,6 +75,7 @@ signals:
     void locationChanged();
     void searchQueryChanged();
     void errorMessageChanged();
+    void sortChanged();
 
 private:
     static QString normalizedPath(const QString &path);
@@ -88,6 +95,7 @@ private:
     bool writeTrashInfo(const QString &infoPath, const QString &originalPath) const;
     void clearSearchQuery();
     void refreshSearchResults();
+    void sortEntries(QVariantList *entries) const;
     void setErrorMessage(const QString &message);
 
     QString m_rootPath;
@@ -99,5 +107,7 @@ private:
     QVariantList m_entries;
     OpenFunction m_openFunction;
     QString m_errorMessage;
+    QString m_sortMode = QStringLiteral("name");
+    bool m_sortAscending = true;
     bool m_showingTrash = false;
 };
