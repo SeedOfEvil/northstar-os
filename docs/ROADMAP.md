@@ -152,6 +152,11 @@ The first editable first-party app, `NorthstarTextEditor.app`, now accepts a
 file argument from the Open With flow and provides bounded UTF-8 editing with
 atomic user-owned saves. This closes the first practical file-association loop
 without claiming broad macOS application compatibility.
+association chooser used by Files. User-scoped icon positions can be dragged
+and are persisted with bounded coordinates, while reset falls back to the
+default column layout. This remains home-scoped and primary-display-only; it
+does not claim to replace a full desktop-file or multi-display icon-position
+service.
 
 Third-party global menus and full macOS compatibility remain out of scope.
 

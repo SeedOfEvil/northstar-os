@@ -8,6 +8,7 @@ Window {
     property var state: shellState
     property var desktopItems: northstarDesktopItemsController
     property var fileBrowserController: northstarFileBrowserController
+    property var layoutController: northstarDesktopLayoutController
     property var fileBrowserWindow: null
     property var targetScreen
     property int displayIndex: 0
@@ -153,40 +154,62 @@ Window {
             z: 1
             onClicked: desktopBackground.selectedPath = ""
         }
-
-        GridView {
-            id: desktopGrid
-            anchors.bottomMargin: desktopBackground.dockHeight + desktopBackground.desktopMargin
-            anchors.fill: parent
-            anchors.leftMargin: desktopBackground.desktopMargin
-            anchors.rightMargin: desktopBackground.desktopMargin
-            anchors.topMargin: desktopBackground.panelHeight + desktopBackground.desktopMargin
-            cellHeight: 102
-            cellWidth: 104
+        Item {
+            id: desktopIconSurface
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 94
+            anchors.left: parent.left
+            anchors.leftMargin: 24
+            anchors.top: parent.top
+            anchors.topMargin: 62
             clip: true
-            flow: GridView.FlowTopToBottom
-            interactive: contentHeight > height || contentWidth > width
-            layoutDirection: Qt.LeftToRight
-            model: desktopBackground.fileBrowserController
-                ? desktopBackground.fileBrowserController.desktopEntries : []
+            visible: desktopBackground.displayIndex === 0
+            width: Math.min(360, parent.width * 0.32)
             z: 2
 
-            delegate: Item {
-                required property var modelData
+            Repeater {
+            model: desktopBackground.fileBrowserController
+                ? desktopBackground.fileBrowserController.desktopEntries : []
+                delegate: Rectangle {
+                    id: desktopIcon
+                    property real itemX: 0
+                    property real itemY: index * 112
+                    property point dragOrigin: Qt.point(0, 0)
+                    property point itemOrigin: Qt.point(0, 0)
 
-                height: desktopGrid.cellHeight
-                width: desktopGrid.cellWidth
-
-                Rectangle {
-                    anchors.fill: parent
-                    anchors.margins: 4
                     color: desktopBackground.selectedPath === modelData.path
                         ? (desktopBackground.state && desktopBackground.state.darkMode
-                            ? "#3b5f89" : "#c9e1ff") : "transparent"
-                    radius: 10
+                            ? "#3b5f89" : "#c9e1ff")
+                        : (desktopItemMouse.containsMouse ? "#4079b8" : "transparent")
                     border.color: desktopBackground.selectedPath === modelData.path
                         ? desktopBackground.surfaceAccent : "transparent"
                     border.width: 1
+                    height: 104
+                    radius: 8
+                    width: 104
+                    x: desktopIcon.itemX
+                    y: desktopIcon.itemY
+
+                    function applySavedPosition() {
+                        desktopIcon.itemX = 0
+                        desktopIcon.itemY = index * 112
+                        if (!desktopBackground.layoutController) {
+                            return
+                        }
+                        const saved = desktopBackground.layoutController.positionFor(modelData.path)
+                        if (saved && saved.x !== undefined && saved.y !== undefined) {
+                            desktopIcon.itemX = Math.max(0, Math.min(desktopIconSurface.width - desktopIcon.width, saved.x))
+                            desktopIcon.itemY = Math.max(0, Math.min(desktopIconSurface.height - desktopIcon.height, saved.y))
+                        }
+                    }
+
+                    Component.onCompleted: applySavedPosition()
+
+                    Connections {
+                        target: desktopBackground.layoutController
+                        function onPositionsChanged() {
+                            desktopIcon.applySavedPosition()
+                        }
                 }
 
                 NorthstarIcon {
@@ -215,7 +238,32 @@ Window {
                 MouseArea {
                     anchors.fill: parent
                     acceptedButtons: Qt.LeftButton | Qt.RightButton
+                    cursorShape: Qt.PointingHandCursor
                     hoverEnabled: true
+
+                    onPressed: {
+                        desktopIcon.dragOrigin = Qt.point(mouse.x, mouse.y)
+                        desktopIcon.itemOrigin = Qt.point(desktopIcon.itemX, desktopIcon.itemY)
+                    }
+
+                    onPositionChanged: {
+                        if (!pressed) {
+                            return
+                        }
+                        desktopIcon.itemX = Math.max(0, Math.min(
+                            desktopIconSurface.width - desktopIcon.width,
+                            desktopIcon.itemOrigin.x + mouse.x - desktopIcon.dragOrigin.x))
+                        desktopIcon.itemY = Math.max(0, Math.min(
+                            desktopIconSurface.height - desktopIcon.height,
+                            desktopIcon.itemOrigin.y + mouse.y - desktopIcon.dragOrigin.y))
+                    }
+
+                    onReleased: {
+                        if (desktopBackground.layoutController) {
+                            desktopBackground.layoutController.setPosition(
+                                modelData.path, desktopIcon.itemX, desktopIcon.itemY)
+                        }
+                    }
 
                     onClicked: function(mouse) {
                         desktopBackground.selectEntry(modelData)
@@ -231,7 +279,7 @@ Window {
         }
 
         Text {
-            anchors.centerIn: desktopGrid
+            anchors.centerIn: desktopIconSurface
             color: desktopBackground.surfaceMuted
             font.pixelSize: 13
             horizontalAlignment: Text.AlignHCenter
@@ -241,7 +289,7 @@ Window {
                 : "Your Desktop is empty"
             visible: desktopBackground.fileBrowserController
                 && desktopBackground.fileBrowserController.desktopEntries.length === 0
-            width: Math.min(360, desktopGrid.width)
+            width: Math.min(360, desktopIconSurface.width)
             wrapMode: Text.WordWrap
         }
     }

@@ -1,5 +1,6 @@
 #include "applicationlauncher.h"
 #include "desktopitemscontroller.h"
+#include "desktoplayoutcontroller.h"
 #include "filebrowsercontroller.h"
 #include "layershellsurface.h"
 #include "notificationcenter.h"
@@ -78,6 +79,7 @@ int main(int argc, char *argv[])
                                                                   &updatePlanController);
     DesktopItemsController desktopItemsController;
     FileBrowserController fileBrowserController;
+    DesktopLayoutController desktopLayoutController;
     PowerController powerController;
     SessionController sessionController;
     ShortcutCatalog shortcutCatalog;
@@ -137,6 +139,7 @@ int main(int argc, char *argv[])
         backgroundContext->setContextProperty(QStringLiteral("northstarFileBrowserController"),
                                               &fileBrowserController);
         backgroundContext->setContextProperty(QStringLiteral("northstarGeneratedIconsDirectory"), generatedIconsDirectory);
+        backgroundContext->setContextProperty(QStringLiteral("northstarDesktopLayoutController"), &desktopLayoutController);
         backgroundContext->setContextProperty(QStringLiteral("shellState"), &shellState);
         backgroundContext->setContextProperty(QStringLiteral("targetScreen"), screen);
         backgroundContext->setContextProperty(QStringLiteral("displayIndex"), index);
