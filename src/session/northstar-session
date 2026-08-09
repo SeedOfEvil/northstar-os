@@ -22,6 +22,9 @@ COMPOSITOR_PID=
 SHUTDOWN_REQUESTED=0
 LOCK_DIR=
 LOCK_ACQUIRED=0
+SESSION_STARTED=0
+FINAL_STATE=stopped
+FINAL_EVENT=session-stopped
 
 usage() {
     cat <<USAGE
@@ -240,9 +243,13 @@ wait_for_wayland() {
             return 0
         fi
         if ! kill -0 "$COMPOSITOR_PID" 2>/dev/null; then
+            FINAL_STATE=failed
+            FINAL_EVENT=compositor-exited-before-ready
             die 'compositor exited before creating its Wayland socket'
         fi
         if [ "$waited" -ge "$READY_TIMEOUT" ]; then
+            FINAL_STATE=failed
+            FINAL_EVENT=compositor-ready-timeout
             if [ -n "$REQUESTED_WAYLAND_DISPLAY" ]; then
                 die "compositor did not create Wayland socket within ${READY_TIMEOUT}s: $XDG_RUNTIME_DIR/$REQUESTED_WAYLAND_DISPLAY"
             fi
@@ -255,14 +262,18 @@ wait_for_wayland() {
 
 on_signal() {
     SHUTDOWN_REQUESTED=1
+    FINAL_STATE=stopped
+    FINAL_EVENT=end-session-requested
     write_status 'stopping' 'end-session-requested'
     stop_children
 }
 
 cleanup() {
     stop_children
-    write_status 'stopped' 'session-stopped'
-    rm -f "$CONTROL_FILE"
+    if [ "$SESSION_STARTED" -eq 1 ]; then
+        write_status "$FINAL_STATE" "$FINAL_EVENT"
+        rm -f "$CONTROL_FILE"
+    fi
     release_lock
 }
 
@@ -272,6 +283,7 @@ trap cleanup EXIT
 acquire_lock
 rm -f "$CONTROL_FILE"
 write_status 'starting' 'session-starting'
+SESSION_STARTED=1
 
 log_message "Northstar session starting"
 display_request=${REQUESTED_WAYLAND_DISPLAY:-auto}
@@ -283,7 +295,11 @@ fi
 
 "$compositor_path" >> "$COMPOSITOR_LOG" 2>&1 &
 COMPOSITOR_PID=$!
-kill -0 "$COMPOSITOR_PID" 2>/dev/null || die 'compositor exited during startup'
+if ! kill -0 "$COMPOSITOR_PID" 2>/dev/null; then
+    FINAL_STATE=failed
+    FINAL_EVENT=compositor-startup-failed
+    die 'compositor exited during startup'
+fi
 write_status 'starting' 'compositor-started'
 log_message 'Compositor started; waiting for its Wayland socket'
 wait_for_wayland
@@ -296,6 +312,8 @@ while [ "$SHUTDOWN_REQUESTED" -eq 0 ]; do
     if ! kill -0 "$COMPOSITOR_PID" 2>/dev/null; then
         write_status 'failed' 'compositor-exited-before-shell'
         log_message 'Compositor exited before the shell'
+        FINAL_STATE=failed
+        FINAL_EVENT=compositor-exited-before-shell
         session_status=1
         break
     fi
@@ -319,6 +337,8 @@ while [ "$SHUTDOWN_REQUESTED" -eq 0 ]; do
     if ! kill -0 "$COMPOSITOR_PID" 2>/dev/null; then
         write_status 'failed' 'compositor-exited-while-shell-running'
         log_message 'Compositor exited while the shell was running'
+        FINAL_STATE=failed
+        FINAL_EVENT=compositor-exited-while-shell-running
         session_status=1
         break
     fi
@@ -326,12 +346,16 @@ while [ "$SHUTDOWN_REQUESTED" -eq 0 ]; do
     if [ "$shell_status" -eq 0 ]; then
         write_status 'stopping' 'shell-exited-normally'
         log_message 'Shell exited normally; ending the session'
+        FINAL_STATE=stopped
+        FINAL_EVENT=shell-exited-normally
         break
     fi
 
     if [ "$restart_count" -ge "$MAX_SHELL_RESTARTS" ]; then
         write_status 'failed' 'shell-restart-limit-reached'
         log_message "Shell crash restart limit reached with status $shell_status"
+        FINAL_STATE=failed
+        FINAL_EVENT=shell-restart-limit-reached
         session_status=$shell_status
         break
     fi

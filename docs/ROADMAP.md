@@ -103,6 +103,12 @@ fallback for logout. The in-shell Notification Center retains bounded launch
 events, shows an unread badge, and supports mark-read, dismiss, and clear
 actions without claiming a desktop-wide notification protocol.
 
+The supervisor now preserves a terminal `failed` state and its failure event
+when startup or the shell restart limit fails, and duplicate-session attempts
+leave the active session's status/control contract untouched. This makes the
+recovery state actionable in later Settings diagnostics instead of appearing
+as a clean stop.
+
 Pass only when login starts exactly one session, shell crashes are detected and restarted, logout terminates only the user session, privileged lifecycle actions are controlled, launches record PID and identity, and logs contain no secrets.
 
 ## M3: Core desktop experience
