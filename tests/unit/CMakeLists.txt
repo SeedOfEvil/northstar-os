@@ -165,3 +165,8 @@ target_link_libraries(test-windowcontroller
 )
 
 add_test(NAME northstar-windowcontroller COMMAND test-windowcontroller)
+
+add_test(NAME northstar-welcome-gui COMMAND northstar-welcome-gui --self-test)
+set_tests_properties(northstar-welcome-gui PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
