@@ -127,6 +127,11 @@ default column layout through Settings > Appearance. This remains home-scoped
 and primary-display-only; it does not claim to replace a full desktop-file or
 multi-display icon-position service.
 
+The first editable first-party app, `NorthstarTextEditor.app`, now accepts a
+file argument from the Open With flow and provides bounded UTF-8 editing with
+atomic user-owned saves. This closes the first practical file-association loop
+without claiming broad macOS application compatibility.
+
 Third-party global menus and full macOS compatibility remain out of scope.
 
 ## M4: Packages, updates, and rollback

@@ -165,3 +165,15 @@ target_link_libraries(test-desktoplayoutcontroller
 )
 
 add_test(NAME northstar-desktoplayoutcontroller COMMAND test-desktoplayoutcontroller)
+
+qt_add_executable(test-texteditorcontroller
+    test-texteditorcontroller.cpp
+)
+
+target_link_libraries(test-texteditorcontroller
+    PRIVATE
+        northstar-text-editor-core
+        Qt6::Test
+)
+
+add_test(NAME northstar-texteditorcontroller COMMAND test-texteditorcontroller)

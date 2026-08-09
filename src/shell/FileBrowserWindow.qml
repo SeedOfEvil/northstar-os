@@ -222,7 +222,7 @@ Window {
             return
         }
         if (files.applicationLauncher.launchApplicationWithFile(desktopId, associationDialog.itemPath)) {
-            if (associationDialog.rememberChoice.checked && associationDialog.extension.length > 0) {
+            if (associationDialog.rememberChoice.checked) {
                 files.applicationLauncher.setPreferredApplicationForFile(associationDialog.itemPath, desktopId)
                 associationDialog.preferredDesktopId = desktopId
             }
@@ -1382,6 +1382,7 @@ Window {
         property string itemName: ""
         property string extension: ""
         property string preferredDesktopId: ""
+        property bool showAllApplications: false
 
         title: "Open with an application"
         modal: true
@@ -1392,6 +1393,7 @@ Window {
         y: (files.height - height) / 2
 
         onOpened: {
+            associationDialog.showAllApplications = false
             associationSearch.text = ""
             if (files.applicationLauncher) {
                 files.applicationLauncher.setApplicationQuery("")
@@ -1400,6 +1402,7 @@ Window {
         }
 
         onClosed: {
+            associationDialog.showAllApplications = false
             associationSearch.text = ""
             if (files.applicationLauncher) {
                 files.applicationLauncher.setApplicationQuery("")
@@ -1455,6 +1458,28 @@ Window {
                 }
             }
 
+            Row {
+                spacing: 10
+                width: parent.width
+
+                Text {
+                    color: files.surfaceMuted
+                    elide: Text.ElideRight
+                    text: associationDialog.showAllApplications
+                        ? "Showing all registered applications."
+                        : "Showing applications that declare support for this file type."
+                    verticalAlignment: Text.AlignVCenter
+                    width: parent.width - showAllApplicationsButton.width - parent.spacing
+                }
+
+                Button {
+                    id: showAllApplicationsButton
+                    text: "Show All"
+                    visible: !associationDialog.showAllApplications
+                    onClicked: associationDialog.showAllApplications = true
+                }
+            }
+
             Rectangle {
                 color: files.surfaceBackground
                 border.color: files.surfaceMuted
@@ -1470,7 +1495,9 @@ Window {
                     model: files.applicationLauncher
                         ? files.applicationLauncher.applicationQuery.length > 0
                             ? files.applicationLauncher.matchingApplications
-                            : files.applicationLauncher.applications
+                            : associationDialog.showAllApplications
+                                ? files.applicationLauncher.applications
+                                : files.applicationLauncher.applicationsForFile(associationDialog.itemPath)
                         : []
 
                     delegate: Rectangle {
@@ -1546,7 +1573,9 @@ Window {
                 Text {
                     anchors.centerIn: parent
                     color: files.surfaceMuted
-                    text: "No registered applications were found."
+                    text: associationDialog.showAllApplications
+                        ? "No registered applications were found."
+                        : "No compatible applications found. Use Show All to choose manually."
                     visible: associationList.count === 0
                 }
             }
@@ -1555,8 +1584,8 @@ Window {
                 id: rememberChoice
                 text: associationDialog.extension.length > 0
                     ? "Remember this choice for ." + associationDialog.extension + " files"
-                    : "Remember this choice"
-                visible: associationList.count > 0 && associationDialog.extension.length > 0
+                    : "Remember this choice for files of this type"
+                visible: associationList.count > 0
                 width: parent.width
 
                 contentItem: Text {
