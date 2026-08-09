@@ -38,10 +38,12 @@ ApplicationWindow {
         modal: true
         title: "Save changes?"
         standardButtons: Dialog.NoButton
+        padding: 16
+        width: 420
 
         contentItem: Column {
             spacing: 14
-            width: 360
+            width: unsavedDialog.width - (2 * unsavedDialog.padding)
 
             Text {
                 color: editor.foregroundColor
