@@ -41,11 +41,25 @@ controls. The dock preserves running indicators and focus/minimize behavior;
 right-clicking a running app toggles its minimized state. These are shell
 controls over the existing Wayfire IPC integration, not a new compositor.
 
+The desktop background is configured to ignore top-panel and dock work-area
+reservations, so it paints the complete physical output behind both shell
+surfaces. The panel and dock still reserve their normal application work area;
+maximized application windows therefore remain clear of those controls.
+
+Quick Settings, the system menu, Notification Center, and the application
+overview can be moved by dragging their title areas. Their positions are
+clamped below the top panel and inside the active display. A moved panel keeps
+its position for the current shell session, is brought back on-screen after a
+resolution change, and uses its standard placement until the user moves it.
+
 ## Acceptance
 
 At 1280x800 in NSTAR-DEV01, verify that the top bar does not overlap, the
 left menu remains fully visible, the application launcher is centered, and
-the dock stays within the screen. Validate global search routing, every dock
+the wallpaper continues behind the translucent dock with no black strip.
+Drag each shell panel to every display edge and confirm that it remains
+reachable, then close and reopen it to confirm position retention. Validate
+global search routing, every dock
 shortcut, running-app focus/minimize, Files/Settings/Software window controls,
 light/dark appearance, text-file opening, and the existing Files mutation and
 Trash workflows.

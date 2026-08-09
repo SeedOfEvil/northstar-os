@@ -21,7 +21,11 @@ bool LayerShellSurface::configureBackground(QWindow *window, QScreen *screen, in
     anchors |= LayerShellQt::Window::AnchorLeft;
     anchors |= LayerShellQt::Window::AnchorRight;
     surface->setAnchors(anchors);
-    surface->setExclusiveZone(0);
+    // A background is visual output content, not a normal work-area client.
+    // -1 tells layer-shell to cover the physical output even where the top
+    // panel and dock reserve space. Those surfaces remain above this layer,
+    // while maximized application windows still respect their reservations.
+    surface->setExclusiveZone(-1);
     surface->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityNone);
     surface->setLayer(LayerShellQt::Window::LayerBackground);
     surface->setScreen(screen);

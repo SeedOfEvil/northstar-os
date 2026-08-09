@@ -42,11 +42,21 @@ contains src/shell/DesktopBackground.qml 'text: "Refresh Desktop"'
 contains src/shell/DesktopBackground.qml "Qt.Key_Return"
 contains src/shell/DesktopBackground.qml "northstarLogoSource"
 contains src/shell/DesktopBackground.qml 'GradientStop { position: 1.0; color: lunar.desktopBottom }'
+contains src/shell/layershellsurface.cpp 'surface->setExclusiveZone(-1)'
 contains src/shell/DockWindow.qml "northstarWindowController.windows"
 contains src/shell/DockWindow.qml "toggleMinimize(modelData.viewId)"
 contains src/shell/DockWindow.qml 'anchors.horizontalCenter: parent.horizontalCenter'
 contains src/shell/DockWindow.qml 'Behavior on scale'
 contains src/shell/DockWindow.qml 'text: "Trash"'
+contains src/shell/DockWindow.qml 'lunar.dockGlass'
+contains src/shell/WindowDragController.qml 'function clampedX(candidate)'
+contains src/shell/WindowDragController.qml 'function prepareForOpen()'
+contains src/shell/WindowDragController.qml 'property bool hasCustomPosition: false'
+contains src/shell/QuickSettings.qml 'WindowDragController {'
+contains src/shell/QuickSettings.qml 'quickSettingsDragHandle.mapToGlobal'
+contains src/shell/SystemMenu.qml 'menuDragHandle.mapToGlobal'
+contains src/shell/NotificationCenterWindow.qml 'notificationDragHandle.mapToGlobal'
+contains src/shell/ApplicationOverview.qml 'overviewDragHandle.mapToGlobal'
 contains src/shell/FileBrowserWindow.qml 'text: "New File"'
 contains src/shell/FileBrowserWindow.qml 'text: "Delete"'
 contains src/shell/FileBrowserWindow.qml 'title: "Open with an application"'

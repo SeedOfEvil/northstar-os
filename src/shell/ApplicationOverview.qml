@@ -34,8 +34,23 @@ Window {
     x: screenX + (screenWidth - width) / 2
     y: screenY + panelHeight + (screenHeight - panelHeight - height) / 2
 
+    WindowDragController {
+        id: overviewDrag
+        window: overview
+        screenX: overview.screenX
+        screenY: overview.screenY
+        screenWidth: overview.screenWidth
+        screenHeight: overview.screenHeight
+        topInset: overview.panelHeight
+        bottomInset: 18
+        defaultX: overview.screenX + (overview.screenWidth - overview.width) / 2
+        defaultY: overview.screenY + overview.panelHeight
+                  + (overview.screenHeight - overview.panelHeight - overview.height) / 2
+    }
+
     onVisibleChanged: {
         if (visible) {
+            overviewDrag.prepareForOpen()
             applicationLauncher.setApplicationQuery("")
             searchField.forceActiveFocus()
             requestActivate()
@@ -126,21 +141,42 @@ Window {
                 width: parent.width
                 spacing: 10
 
-                Column {
+                Item {
+                    id: overviewDragHandle
+                    height: 42
                     width: parent.width - closeButton.width - parent.spacing
-                    spacing: 2
 
-                    Text {
-                        color: overview.surfaceForeground
-                        font.bold: true
-                        font.pixelSize: 20
-                        text: "Applications"
+                    Column {
+                        anchors.fill: parent
+                        spacing: 2
+
+                        Text {
+                            color: overview.surfaceForeground
+                            font.bold: true
+                            font.pixelSize: 20
+                            text: "Applications"
+                        }
+
+                        Text {
+                            color: overview.surfaceMuted
+                            font.pixelSize: 12
+                            text: "Launch your Northstar applications"
+                        }
                     }
 
-                    Text {
-                        color: overview.surfaceMuted
-                        font.pixelSize: 12
-                        text: "Launch your Northstar applications"
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.SizeAllCursor
+                        onPressed: function(mouse) {
+                            const point = overviewDragHandle.mapToGlobal(mouse.x, mouse.y)
+                            overviewDrag.begin(point.x, point.y)
+                        }
+                        onPositionChanged: function(mouse) {
+                            const point = overviewDragHandle.mapToGlobal(mouse.x, mouse.y)
+                            overviewDrag.update(point.x, point.y)
+                        }
+                        onReleased: overviewDrag.end()
+                        onCanceled: overviewDrag.end()
                     }
                 }
 

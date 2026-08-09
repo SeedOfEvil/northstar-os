@@ -11,6 +11,8 @@ QtObject {
     readonly property color backgroundDeep: darkMode ? "#061020" : "#dbe9fa"
     readonly property color panel: darkMode ? "#e61a3153" : "#eef8fcff"
     readonly property color panelStrong: darkMode ? "#f01a2b48" : "#f7fbffff"
+    readonly property color dockGlass: darkMode ? "#b81a3153" : "#bdf8fcff"
+    readonly property color dockGlassEdge: darkMode ? "#806b91bd" : "#b89bb9da"
     readonly property color raised: darkMode ? "#d926436c" : "#dceaf8"
     readonly property color raisedHover: darkMode ? "#ef315786" : "#c9e1fa"
     readonly property color field: darkMode ? "#b80b1b33" : "#e7f1fc"

@@ -16,7 +16,7 @@ Window {
     width: 1280
     title: "Northstar Dock"
 
-    property color dockBackground: lunar.panelStrong
+    property color dockBackground: lunar.dockGlass
     property color dockForeground: lunar.foreground
     property color dockMuted: lunar.muted
     property color dockAccent: lunar.accent
@@ -115,13 +115,13 @@ Window {
         color: dock.dockBackground
         height: 62
         radius: 22
-        border.color: lunar.border
+        border.color: lunar.dockGlassEdge
         border.width: 1
         width: Math.min(parent.width - 24, 748)
 
         gradient: Gradient {
-            GradientStop { position: 0.0; color: lunar.panelStrong }
-            GradientStop { position: 1.0; color: lunar.panel }
+            GradientStop { position: 0.0; color: lunar.dockGlass }
+            GradientStop { position: 1.0; color: Qt.rgba(lunar.panel.r, lunar.panel.g, lunar.panel.b, 0.58) }
         }
 
         Row {
