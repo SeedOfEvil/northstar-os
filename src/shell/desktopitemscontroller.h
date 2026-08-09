@@ -5,6 +5,7 @@
 #include <QVariantList>
 
 class QFileSystemWatcher;
+class QFileInfo;
 class QTimer;
 
 class DesktopItemsController final : public QObject
