@@ -88,8 +88,8 @@ make shell-smoke
 make shell-restart-smoke
 sh tests/unit/test-session-script.sh
 sh tests/unit/test-session-entrypoint.sh build
-"$HOME/.local/bin/NorthstarWelcome.app/Contents/MacOS/northstar-welcome" --self-test
-"$HOME/.local/bin/NorthstarTextEditor.app/Contents/MacOS/northstar-text-editor" --self-test
+env QT_QPA_PLATFORM=offscreen "$HOME/.local/share/northstar/apps/NorthstarWelcome.app/Contents/Executable/northstar-welcome-gui" --self-test
+env QT_QPA_PLATFORM=offscreen "$HOME/.local/share/northstar/apps/NorthstarTextEditor.app/Contents/Executable/northstar-text-editor" --self-test
 ```
 
 The exact target names may be inspected with `make help` on the declared VM;
