@@ -49,6 +49,10 @@ contains src/shell/FileBrowserWindow.qml 'text: "Show All"'
 contains src/shell/SettingsWindow.qml 'text: "Reset Desktop Icon Layout"'
 contains src/shell/SoftwareCenterWindow.qml 'Read-only inventory'
 contains src/shell/SystemMenu.qml 'Log Out of Northstar'
+contains apps/welcome/WelcomeWindow.qml 'text: "Getting Started"'
+contains apps/welcome/WelcomeWindow.qml 'informational'
+contains apps/welcome/WelcomeWindow.qml 'northstarSessionStatus'
+contains apps/welcome/main.cpp 'northstarSessionStatus'
 
 [ -r "$ROOT/apps/samples/NorthstarTextEditor.app/Contents/Info.plist" ] \
     || fail 'Text Editor bundle manifest is missing'

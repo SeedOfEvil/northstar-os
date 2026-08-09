@@ -13,8 +13,8 @@ ApplicationWindow {
     property string statusMessage: "Choose a starting point for your Northstar desktop."
 
     color: welcome.backgroundColor
-    height: 560
-    minimumHeight: 500
+    height: 680
+    minimumHeight: 620
     minimumWidth: 760
     title: "Northstar Welcome"
     visible: true
@@ -169,7 +169,7 @@ ApplicationWindow {
                     Text {
                         color: welcome.mutedColor
                         font.pixelSize: 12
-                        text: "Open Apps, Files, Settings, or Software from the Northstar menu."
+                        text: "Read the quick-start guide. This card is informational; use the Northstar menu for Apps, Files, Settings, and Software."
                         wrapMode: Text.WordWrap
                         width: parent.width
                     }
@@ -180,7 +180,7 @@ ApplicationWindow {
                     id: guideMouse
                     anchors.fill: parent
                     hoverEnabled: true
-                    onClicked: welcome.statusMessage = "Use the Northstar logo in the top-left menu to open Apps, Files, Settings, and Software."
+                    onClicked: welcome.statusMessage = "Guide: use the Northstar logo menu for Apps, Files, Settings, and Software. This card does not launch a second shell surface."
                 }
             }
         }
@@ -220,6 +220,72 @@ ApplicationWindow {
             }
         }
 
+        Rectangle {
+            color: welcome.raisedColor
+            height: 126
+            radius: 12
+            width: parent.width
+
+            Row {
+                anchors.fill: parent
+                anchors.margins: 18
+                spacing: 24
+
+                Column {
+                    spacing: 7
+                    width: parent.width * 0.58
+
+                    Text {
+                        color: welcome.foregroundColor
+                        font.bold: true
+                        font.pixelSize: 15
+                        text: "Getting Started"
+                    }
+                    Text {
+                        color: welcome.mutedColor
+                        font.pixelSize: 12
+                        text: "1. Open Home or Desktop to choose a workspace."
+                    }
+                    Text {
+                        color: welcome.mutedColor
+                        font.pixelSize: 12
+                        text: "2. Use the Northstar menu to launch Apps and Settings."
+                    }
+                    Text {
+                        color: welcome.mutedColor
+                        font.pixelSize: 12
+                        text: "3. Create a file in Files and watch it appear on Desktop."
+                    }
+                }
+
+                Column {
+                    spacing: 7
+                    width: parent.width * 0.42 - 24
+
+                    Text {
+                        color: welcome.foregroundColor
+                        font.bold: true
+                        font.pixelSize: 15
+                        text: "Session"
+                    }
+                    Text {
+                        color: welcome.mutedColor
+                        font.pixelSize: 12
+                        text: northstarSessionStatus
+                        wrapMode: Text.WordWrap
+                        width: parent.width
+                    }
+                    Text {
+                        color: welcome.mutedColor
+                        font.pixelSize: 12
+                        text: northstarPlatform
+                        wrapMode: Text.WordWrap
+                        width: parent.width
+                    }
+                }
+            }
+        }
+
         Item { height: 1; width: 1 }
 
         Row {
@@ -230,7 +296,7 @@ ApplicationWindow {
                 anchors.verticalCenter: parent.verticalCenter
                 color: welcome.mutedColor
                 font.pixelSize: 12
-                text: "Northstar 0.1.0"
+                text: "Northstar " + northstarVersion + " · " + northstarBuild
             }
 
             Item { height: 1; width: parent.width - 220 }
