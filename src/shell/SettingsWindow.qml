@@ -5,6 +5,7 @@ Window {
     id: settings
 
     property var state
+    property var desktopLayoutController
     property var launcherController
     property var sessionController
     property bool hasSessionController: sessionController !== null && sessionController !== undefined
@@ -14,6 +15,7 @@ Window {
     property int panelHeight: 44
     property int desktopMargin: 24
     property string selectedSection: "appearance"
+    property string layoutStatus: ""
     property int screenX: targetScreen ? targetScreen.geometry.x : 0
     property int screenY: targetScreen ? targetScreen.geometry.y : 0
     property int screenWidth: targetScreen ? targetScreen.geometry.width : 1280
@@ -132,6 +134,12 @@ Window {
         id: catalogStatusTimer
         interval: 2500
         onTriggered: settings.catalogStatus = ""
+    }
+
+    Timer {
+        id: layoutStatusTimer
+        interval: 2500
+        onTriggered: settings.layoutStatus = ""
     }
 
     Dialog {
@@ -397,6 +405,25 @@ Window {
                                     }
                                 }
                             }
+                        }
+
+                        Button {
+                            enabled: !!settings.desktopLayoutController
+                            text: "Reset Desktop Icon Layout"
+                            onClicked: {
+                                settings.desktopLayoutController.reset()
+                                settings.layoutStatus = "Desktop icon layout reset to the default column."
+                                layoutStatusTimer.restart()
+                            }
+                        }
+
+                        Text {
+                            color: settings.surfaceMuted
+                            font.pixelSize: 12
+                            text: settings.layoutStatus
+                            visible: text.length > 0
+                            wrapMode: Text.WordWrap
+                            width: parent.width
                         }
 
                         Text {

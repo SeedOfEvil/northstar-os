@@ -109,6 +109,7 @@ Double-click the folder to open it in Files, then double-click the file and
 confirm that the Open With chooser is shown. Delete the item from Files,
 refresh, and confirm that the desktop icon disappears; restore it from Trash
 and confirm that it returns. Drag a Desktop icon to a new position, restart the
-shell, and confirm that its position is retained. Move several icons without
+shell, and confirm that its position is retained. Use Settings > Appearance >
+Reset Desktop Icon Layout and confirm that the default column returns. Move several icons without
 allowing them to overlap the panel or dock; the current layout is intentionally
 primary-display-only until multi-display acceptance is available.

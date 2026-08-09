@@ -147,6 +147,7 @@ int main(int argc, char *argv[])
         context->setContextProperty(QStringLiteral("northstarUpdatePlanController"), &updatePlanController);
         context->setContextProperty(QStringLiteral("northstarUpdateAuthorizationController"),
                                     &updateAuthorizationController);
+        context->setContextProperty(QStringLiteral("northstarDesktopLayoutController"), &desktopLayoutController);
         context->setContextProperty(QStringLiteral("northstarFileBrowserController"), &fileBrowserController);
         context->setContextProperty(QStringLiteral("northstarPowerController"), &powerController);
         context->setContextProperty(QStringLiteral("northstarSessionController"), &sessionController);
