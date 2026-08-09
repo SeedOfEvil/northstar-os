@@ -35,7 +35,12 @@ The supervisor:
   that socket to the shell;
 - restarts a crashed shell up to a bounded limit;
 - stops only the compositor and shell PIDs it started;
-- records non-secret lifecycle messages.
+- records non-secret lifecycle messages;
+- preserves terminal failure state and the failure event when startup or the
+  bounded shell-restart policy fails, instead of overwriting it as a normal
+  stop during cleanup;
+- refuses duplicate sessions without clobbering the active session's status or
+  control contract.
 
 While the shell is supervised, the supervisor writes a user-private
 `session.status` contract below its state directory and exports the status and
@@ -109,7 +114,8 @@ basic-VGA lane remains insufficient for native Wayland/DRM acceptance.
 
 The fake-compositor/fake-shell test runs as an unprivileged user and verifies
 bounded shell restart, compositor cleanup, duplicate-session rejection, the
-D-Bus wrapper handoff, and preservation of an unrelated sentinel process:
+D-Bus wrapper handoff, preservation of an unrelated sentinel process, and
+failure-status retention:
 
 ```sh
 make test
