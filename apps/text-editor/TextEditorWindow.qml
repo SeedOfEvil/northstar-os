@@ -25,6 +25,11 @@ ApplicationWindow {
     visible: true
     width: 920
 
+    Component.onCompleted: {
+        raise()
+        requestActivate()
+    }
+
     onClosing: function(close) {
         if (editor.closeConfirmed || !editor.documentController || !editor.documentController.dirty) {
             close.accepted = true

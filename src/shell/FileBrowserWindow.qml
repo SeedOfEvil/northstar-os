@@ -184,35 +184,24 @@ Window {
         files.fileBrowserController.setSortMode(files.sortModes[index])
     }
 
-    function openDesktopEntry(path) {
+    function openDesktopEntry(path, isDirectory, isLaunchable) {
         if (!files.fileBrowserController || !path) {
             return
         }
 
-        const desktopPath = files.fileBrowserController.homeChildPath("Desktop")
-        if (desktopPath.length === 0 || !files.fileBrowserController.navigateTo(desktopPath)) {
+        if (isDirectory) {
+            files.openPath(path, true, false)
             return
         }
 
-        const entries = files.fileBrowserController.entries
-        for (let index = 0; index < entries.length; ++index) {
-            if (entries[index].path !== path) {
-                continue
-            }
-
-            files.selectedIndex = index
-            show()
-            raise()
-            requestActivate()
-            if (entries[index].isDirectory) {
-                openSelectedEntry()
-            } else {
-                openAssociationDialog()
-            }
+        if (files.launchFilePath(path)) {
             return
         }
 
-        files.clearSelection()
+        // Keep files without a unique association in the same Open With flow
+        // as Files. The launchable flag is reserved for application-entry
+        // execution once desktop-entry support is added.
+        files.openAssociationForPath(path)
     }
 
     function openVolume(path, label) {

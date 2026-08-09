@@ -74,7 +74,8 @@ Window {
         }
         if (desktopBackground.fileBrowserWindow
                 && desktopBackground.fileBrowserWindow.openDesktopEntry) {
-            desktopBackground.fileBrowserWindow.openDesktopEntry(entry.path)
+            desktopBackground.fileBrowserWindow.openDesktopEntry(
+                entry.path, entry.isDirectory, entry.isLaunchable)
             return
         }
         if (desktopBackground.desktopItems) {
@@ -155,7 +156,8 @@ Window {
                 || !desktopBackground.fileBrowserWindow.openDesktopEntry) {
             return
         }
-        desktopBackground.fileBrowserWindow.openDesktopEntry(entry.path)
+        desktopBackground.fileBrowserWindow.openDesktopEntry(
+            entry.path, entry.isDirectory, entry.isLaunchable)
     }
 
     function nearestFreePosition(icon, candidateX, candidateY) {
