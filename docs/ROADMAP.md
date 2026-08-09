@@ -109,7 +109,10 @@ adds a home-folder-scoped Files window with folder navigation, default file
 opening, path-boundary protection, search, explicit Open With selection, and
 top-menu/dock entry points. The first project-defined `.app` slice now
 discovers a validated development bundle, surfaces its owned icon, passes its
-owned executable directly to the launcher, supports dragging regular Files
+owned executable directly to the launcher, and watches project bundles for
+catalog changes. The XDG `.desktop` catalog also refreshes live and exposes
+source and launchability metadata without evaluating Exec through a shell.
+The slice supports dragging regular Files
 entries onto Apps tiles for explicit file launching, provides a Locations bar
 for mounted non-pseudo volumes with read-only navigation, and persists the
 Appearance preference across shell restarts. The first project-owned menu

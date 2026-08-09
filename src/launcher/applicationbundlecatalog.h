@@ -1,8 +1,10 @@
 #pragma once
 
 #include <QList>
+#include <QFileSystemWatcher>
 #include <QObject>
 #include <QStringList>
+#include <QTimer>
 #include <QVariantList>
 
 struct BundleProvenance
@@ -72,7 +74,11 @@ signals:
 
 private:
     static QVariantList toVariantList(const QList<BundleApplication> &entries);
+    void scheduleReload();
+    void refreshWatchPaths();
 
     QStringList m_bundleDirectories;
     QList<BundleApplication> m_entries;
+    QFileSystemWatcher m_watcher;
+    QTimer m_refreshTimer;
 };

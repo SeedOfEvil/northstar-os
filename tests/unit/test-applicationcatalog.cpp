@@ -41,6 +41,7 @@ class ApplicationCatalogTest final : public QObject
 private slots:
     void filtersAndSortsDesktopEntries();
     void honorsDirectoryPrecedenceAndRefreshes();
+    void autoRefreshesDesktopEntries();
     void searchesByNameCategoryAndDesktopId();
     void expandsDesktopExecWithoutShellEvaluation();
     void launcherUsesCatalogArguments();
@@ -70,7 +71,12 @@ void ApplicationCatalogTest::filtersAndSortsDesktopEntries()
 
     QCOMPARE(catalog.applicationIds(), QStringList({QStringLiteral("alpha"), QStringLiteral("zulu")}));
     QCOMPARE(catalog.entries().first().name, QStringLiteral("Alpha"));
-    QCOMPARE(catalog.applications().first().toMap().value(QStringLiteral("desktopId")).toString(), QStringLiteral("alpha"));
+    const QVariantMap alpha = catalog.applications().first().toMap();
+    QCOMPARE(alpha.value(QStringLiteral("desktopId")).toString(), QStringLiteral("alpha"));
+    QCOMPARE(alpha.value(QStringLiteral("sourceType")).toString(), QStringLiteral("desktop"));
+    QCOMPARE(alpha.value(QStringLiteral("sourcePath")).toString(),
+             QDir(applications).filePath(QStringLiteral("alpha.desktop")));
+    QVERIFY(!alpha.value(QStringLiteral("launchable")).toBool());
 }
 
 void ApplicationCatalogTest::honorsDirectoryPrecedenceAndRefreshes()
@@ -95,6 +101,20 @@ void ApplicationCatalogTest::honorsDirectoryPrecedenceAndRefreshes()
     QVERIFY(catalog.reload());
     QCOMPARE(changedSpy.count(), 1);
     QCOMPARE(catalog.entries().first().name, QStringLiteral("Updated copy"));
+}
+
+void ApplicationCatalogTest::autoRefreshesDesktopEntries()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    const QString applications = applicationsDirectory(temporaryDirectory, QStringLiteral("applications"));
+    ApplicationCatalog catalog({applications});
+    QSignalSpy changedSpy(&catalog, &ApplicationCatalog::applicationsChanged);
+
+    writeDesktopFile(applications, QStringLiteral("live"), applicationEntry("Live app", "live-app"));
+
+    QTRY_VERIFY_WITH_TIMEOUT(catalog.applicationIds().contains(QStringLiteral("live")), 3000);
+    QVERIFY(changedSpy.count() >= 1);
 }
 
 void ApplicationCatalogTest::searchesByNameCategoryAndDesktopId()
