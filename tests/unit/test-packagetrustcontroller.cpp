@@ -203,7 +203,7 @@ void PackageTrustControllerTest::reportsValidPolicyButKeepsPlanningBlocked()
     QVERIFY(controller.repositoryConfigPreview().contains(QStringLiteral("signature_type")));
 
     controller.planUpdate();
-    QVERIFY(controller.updatePlanStatus().contains(QStringLiteral("signatures")));
+    QVERIFY(controller.updatePlanStatus().contains(QStringLiteral("verified preview")));
     QVERIFY(controller.updatePlanStatus().contains(QStringLiteral("blocked"), Qt::CaseInsensitive));
 }
 
