@@ -326,7 +326,7 @@ Window {
                         }
                     }
 
-                    onDoubleClicked: desktopBackground.openEntry(modelData)
+                    onDoubleClicked: desktopBackground.openDesktopEntry(modelData)
                 }
             }
         }
