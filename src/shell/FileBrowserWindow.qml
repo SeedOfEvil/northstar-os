@@ -70,6 +70,19 @@ Window {
         }
     }
 
+    Timer {
+        id: searchDebounceTimer
+        interval: 220
+        repeat: false
+
+        onTriggered: {
+            if (files.fileBrowserController
+                    && searchField.text !== files.fileBrowserController.searchQuery) {
+                files.fileBrowserController.setSearchQuery(searchField.text)
+            }
+        }
+    }
+
     minimumWidth: files.minimumSurfaceWidth
     minimumHeight: files.minimumSurfaceHeight
     width: Math.min(1120, Math.max(files.minimumSurfaceWidth, files.screenWidth - (files.desktopMargin * 2)))
@@ -1061,9 +1074,11 @@ Window {
                     onTextChanged: {
                         if (files.fileBrowserController
                                 && text !== files.fileBrowserController.searchQuery) {
-                            files.fileBrowserController.setSearchQuery(text)
+                            searchDebounceTimer.restart()
                         }
                     }
+
+                    onAccepted: searchDebounceTimer.restart()
                 }
 
                 Rectangle {
@@ -1095,8 +1110,10 @@ Window {
                     anchors.verticalCenter: parent.verticalCenter
                     color: files.surfaceMuted
                     font.pixelSize: 11
-                    text: files.fileBrowserController && files.fileBrowserController.searching
-                        ? files.fileBrowserController.entries.length + " result(s)"
+                    text: searchDebounceTimer.running
+                        ? "Searching..."
+                        : files.fileBrowserController && files.fileBrowserController.searching
+                            ? files.fileBrowserController.entries.length + " result(s)"
                         : files.fileBrowserController && files.fileBrowserController.readOnlyLocation
                             ? "Home-only search"
                             : "Home search"
