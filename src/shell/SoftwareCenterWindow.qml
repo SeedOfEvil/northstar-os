@@ -364,13 +364,16 @@ Window {
 
                         Text {
                             color: software.updatePlan && software.updatePlan.metadataValid
-                                ? "#f0b45a" : "#c34f65"
+                                ? (software.updatePlan.signatureVerified ? "#70d6a6" : "#f0b45a")
+                                : "#c34f65"
                             font.bold: true
                             font.pixelSize: 13
                             text: !software.updatePlan
                                 ? "Unavailable"
                                 : software.updatePlan.metadataValid
-                                    ? "Parsed / not verified"
+                                    ? software.updatePlan.signatureVerified
+                                        ? "Parsed / verified"
+                                        : "Parsed / not verified"
                                     : software.updatePlan.metadataPresent ? "Rejected" : "Not configured"
                         }
                     }
@@ -583,7 +586,7 @@ Window {
             Text {
                 color: software.surfaceMuted
                 font.pixelSize: 11
-                text: "Read-only inventory and provenance-aware update preview. Package mutation, signature verification, and ZFS rollback remain protected M4 work."
+                text: "Read-only inventory and provenance-aware update preview. Update authorization, package mutation, and ZFS rollback remain protected M4 work."
                 width: parent.width
                 wrapMode: Text.WordWrap
             }

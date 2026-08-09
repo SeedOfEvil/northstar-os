@@ -7,6 +7,8 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QProcess>
+#include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QTest>
 #include <QVariantMap>
@@ -29,6 +31,27 @@ bool writeFingerprint(const QString &directory, const QString &name, const QByte
                          + QByteArray("fingerprint: ")
                          + fingerprint
                          + QByteArray("\n"));
+}
+
+bool runProcess(const QString &program, const QStringList &arguments, QString *errorMessage = nullptr)
+{
+    QProcess process;
+    process.setProgram(program);
+    process.setArguments(arguments);
+    process.start();
+    if (!process.waitForStarted(2000) || !process.waitForFinished(10000)) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QStringLiteral("process did not finish");
+        }
+        return false;
+    }
+    if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QString::fromLocal8Bit(process.readAllStandardError()).simplified();
+        }
+        return false;
+    }
+    return true;
 }
 
 QByteArray policyForStore(const QString &storePath)
@@ -71,6 +94,7 @@ QByteArray validMetadata(const QString &repositoryTag = QStringLiteral("northsta
     metadata.insert(QStringLiteral("source_revision"), QStringLiteral("abcdef1"));
     metadata.insert(QStringLiteral("signature_status"), signatureStatus);
     metadata.insert(QStringLiteral("signature_fingerprint"), QString(64, QLatin1Char('a')));
+    metadata.insert(QStringLiteral("signature_envelope"), QStringLiteral("signature.json"));
     metadata.insert(QStringLiteral("catalogue_file"), QStringLiteral("data.pkg"));
     metadata.insert(QStringLiteral("catalogue_sha256"),
                     QString::fromLatin1(QCryptographicHash::hash(
@@ -101,6 +125,7 @@ private slots:
     void rejectsMissingAndMismatchedCatalogue();
     void blocksWithoutMetadata();
     void previewsCandidatesButKeepsExecutionBlocked();
+    void verifiesTrustedRsaSignature();
     void blocksPolicyMismatch();
 };
 
@@ -224,7 +249,85 @@ void UpdatePlanControllerTest::previewsCandidatesButKeepsExecutionBlocked()
     QVERIFY(controller.planPreview().contains(QStringLiteral("1 new package candidate")));
     QVERIFY(controller.planStatus().contains(QStringLiteral("blocked"), Qt::CaseInsensitive));
     QVERIFY(controller.planStatus().contains(QStringLiteral("signature"), Qt::CaseInsensitive));
-    QVERIFY(controller.metadataStatus().contains(QStringLiteral("not connected"), Qt::CaseInsensitive));
+    QVERIFY(controller.metadataStatus().contains(QStringLiteral("not verified"), Qt::CaseInsensitive));
+}
+
+void UpdatePlanControllerTest::verifiesTrustedRsaSignature()
+{
+    const QString opensslPath = QStandardPaths::findExecutable(QStringLiteral("openssl"));
+    if (opensslPath.isEmpty()) {
+        QSKIP("openssl is unavailable on this validation host");
+    }
+
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString storePath = directory.filePath(QStringLiteral("fingerprints"));
+    QVERIFY(QDir().mkpath(QDir(storePath).filePath(QStringLiteral("trusted"))));
+    QVERIFY(QDir().mkpath(QDir(storePath).filePath(QStringLiteral("revoked"))));
+
+    const QByteArray catalogueBytes("catalogue-fixture\n");
+    QVERIFY(writeFile(directory.filePath(QStringLiteral("data.pkg")), catalogueBytes));
+    const QString catalogueDigest = QString::fromLatin1(
+        QCryptographicHash::hash(catalogueBytes, QCryptographicHash::Sha256).toHex());
+    const QString payloadPath = directory.filePath(QStringLiteral("payload"));
+    QVERIFY(writeFile(payloadPath, catalogueDigest.toUtf8()));
+
+    const QString keyPath = directory.filePath(QStringLiteral("repo.key"));
+    const QString publicKeyPath = directory.filePath(QStringLiteral("repo.pub"));
+    const QString signaturePath = directory.filePath(QStringLiteral("signature.bin"));
+    QString processError;
+    QVERIFY2(runProcess(opensslPath, {QStringLiteral("genrsa"), QStringLiteral("-out"), keyPath, QStringLiteral("2048")}, &processError),
+             qPrintable(processError));
+    QVERIFY2(runProcess(opensslPath, {QStringLiteral("rsa"), QStringLiteral("-in"), keyPath,
+                                      QStringLiteral("-pubout"), QStringLiteral("-out"), publicKeyPath}, &processError),
+             qPrintable(processError));
+    QVERIFY2(runProcess(opensslPath, {QStringLiteral("dgst"), QStringLiteral("-sha256"),
+                                      QStringLiteral("-sign"), keyPath, QStringLiteral("-out"), signaturePath,
+                                      payloadPath}, &processError),
+             qPrintable(processError));
+
+    QFile publicKeyFile(publicKeyPath);
+    QVERIFY(publicKeyFile.open(QIODevice::ReadOnly));
+    const QByteArray publicKey = publicKeyFile.readAll().trimmed();
+    QFile signatureFile(signaturePath);
+    QVERIFY(signatureFile.open(QIODevice::ReadOnly));
+    const QByteArray signature = signatureFile.readAll();
+    const QString fingerprint = QString::fromLatin1(
+        QCryptographicHash::hash(publicKey, QCryptographicHash::Sha256).toHex());
+    QVERIFY(writeFingerprint(QDir(storePath).filePath(QStringLiteral("trusted")),
+                             QStringLiteral("northstar.pub"), fingerprint.toUtf8()));
+
+    QJsonDocument metadataDocument = QJsonDocument::fromJson(validMetadata());
+    QJsonObject metadata = metadataDocument.object();
+    metadata.insert(QStringLiteral("signature_fingerprint"), fingerprint);
+    QVERIFY(writeFile(directory.filePath(QStringLiteral("repository-metadata.json")),
+                      QJsonDocument(metadata).toJson(QJsonDocument::Compact)));
+
+    QJsonObject envelope;
+    envelope.insert(QStringLiteral("schema_version"), 1);
+    envelope.insert(QStringLiteral("type"), QStringLiteral("rsa"));
+    envelope.insert(QStringLiteral("payload"), catalogueDigest);
+    envelope.insert(QStringLiteral("public_key_pem"), QString::fromUtf8(publicKey));
+    envelope.insert(QStringLiteral("signature_base64"), QString::fromLatin1(signature.toBase64()));
+    envelope.insert(QStringLiteral("fingerprint_sha256"), fingerprint);
+    QVERIFY(writeFile(directory.filePath(QStringLiteral("signature.json")),
+                      QJsonDocument(envelope).toJson(QJsonDocument::Compact)));
+
+    const QString policyPath = directory.filePath(QStringLiteral("repository-policy.conf"));
+    QVERIFY(writeFile(policyPath, policyForStore(storePath)));
+    PackageTrustController trustController(policyPath);
+    QVERIFY(trustController.policyValid());
+    QVERIFY(trustController.trustStoreValid());
+
+    UpdatePlanController controller(&trustController,
+                                    directory.filePath(QStringLiteral("repository-metadata.json")));
+    QVERIFY(controller.metadataValid());
+    QVERIFY(controller.catalogueDigestValid());
+    QVERIFY(controller.signatureVerified());
+    QCOMPARE(controller.signatureStatus(), QStringLiteral("verified"));
+    QVERIFY(controller.metadataStatus().contains(QStringLiteral("verified"), Qt::CaseInsensitive));
+    QVERIFY(controller.preview({installedPackage(QStringLiteral("northstar-shell"), QStringLiteral("0.1.0"))}));
+    QVERIFY(controller.planStatus().contains(QStringLiteral("authorization"), Qt::CaseInsensitive));
 }
 
 void UpdatePlanControllerTest::blocksPolicyMismatch()

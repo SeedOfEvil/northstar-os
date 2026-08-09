@@ -12,9 +12,11 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonParseError>
+#include <QProcess>
 #include <QRegularExpression>
 #include <QSet>
 #include <QStandardPaths>
+#include <QTemporaryDir>
 #include <QVariantMap>
 
 #include <utility>
@@ -108,6 +110,11 @@ bool UpdatePlanController::catalogueDigestValid() const
     return m_catalogueDigestValid;
 }
 
+bool UpdatePlanController::signatureVerified() const
+{
+    return m_signatureVerified;
+}
+
 QString UpdatePlanController::signatureStatus() const
 {
     return m_signatureStatus;
@@ -173,6 +180,7 @@ bool UpdatePlanController::reload()
     m_metadataValid = false;
     m_cataloguePresent = false;
     m_catalogueDigestValid = false;
+    m_signatureVerified = false;
     resetPlan();
 
     if (!m_metadataPresent) {
@@ -211,16 +219,20 @@ bool UpdatePlanController::reload()
     }
 
     m_metadataValid = true;
-    if (m_signatureStatus == QStringLiteral("verified")) {
+    QString signatureError;
+    m_signatureVerified = verifySignature(&signatureError);
+    if (m_signatureVerified) {
+        m_signatureStatus = QStringLiteral("verified");
         m_metadataStatus = QStringLiteral(
-            "Metadata parsed; its verified-signature field is only a claim until Northstar verifies it.");
-    } else if (m_signatureStatus == QStringLiteral("rejected")) {
-        m_metadataStatus = QStringLiteral("Metadata is explicitly marked as rejected.");
+            "Catalogue digest and publication signature verified; update authorization is not connected.");
     } else {
         m_metadataStatus = QStringLiteral(
-            "Metadata parsed; cryptographic repository signature verification is not connected.");
+            "Catalogue digest verified, but publication signature is not verified: %1")
+            .arg(signatureError);
     }
-    setBlockedPlan(QStringLiteral("repository signature verification and update authorization are not connected"));
+    setBlockedPlan(m_signatureVerified
+        ? QStringLiteral("update authorization is not connected")
+        : QStringLiteral("the publication signature is not verified"));
     emit stateChanged();
     return true;
 }
@@ -290,8 +302,156 @@ bool UpdatePlanController::preview(const QVariantList &installedPackages)
         .arg(m_installCount == 1 ? QString() : QStringLiteral("s"))
         .arg(m_unmanagedCount)
         .arg(m_unmanagedCount == 1 ? QString() : QStringLiteral("s"));
-    setBlockedPlan(QStringLiteral("preview generated; signature verification and update authorization are not connected"));
+    setBlockedPlan(m_signatureVerified
+        ? QStringLiteral("preview generated; update authorization is not connected")
+        : QStringLiteral("preview generated; publication signature is not verified"));
     emit stateChanged();
+    return true;
+}
+
+bool UpdatePlanController::verifySignature(QString *errorMessage)
+{
+    if (m_metadata.signatureStatus == QStringLiteral("rejected")) {
+        setError(errorMessage, QStringLiteral("the publication manifest is marked rejected"));
+        return false;
+    }
+    if (m_trustController == nullptr
+        || !m_trustController->policyValid()
+        || !m_trustController->trustStoreValid()) {
+        setError(errorMessage, QStringLiteral("the repository policy and fingerprint store are not valid"));
+        return false;
+    }
+
+    const QFileInfo metadataInfo(m_metadataPath);
+    const QFileInfo envelopeInfo(
+        QDir(metadataInfo.absolutePath()).filePath(m_metadata.signatureEnvelope));
+    if (!envelopeInfo.exists() || !envelopeInfo.isFile() || envelopeInfo.isSymLink()) {
+        setError(errorMessage, QStringLiteral("the publication signature envelope is missing or unsafe"));
+        return false;
+    }
+
+    QFile envelopeFile(envelopeInfo.absoluteFilePath());
+    if (!envelopeFile.open(QIODevice::ReadOnly)) {
+        setError(errorMessage, QStringLiteral("the publication signature envelope could not be read"));
+        return false;
+    }
+
+    QJsonParseError parseError;
+    const QJsonDocument document = QJsonDocument::fromJson(envelopeFile.readAll(), &parseError);
+    if (parseError.error != QJsonParseError::NoError || !document.isObject()) {
+        setError(errorMessage, QStringLiteral("the publication signature envelope is not valid JSON"));
+        return false;
+    }
+
+    const QJsonObject object = document.object();
+    if (!hasOnlyKeys(object,
+                     {QStringLiteral("schema_version"), QStringLiteral("type"),
+                      QStringLiteral("payload"), QStringLiteral("public_key_pem"),
+                      QStringLiteral("signature_base64"), QStringLiteral("fingerprint_sha256")},
+                     errorMessage,
+                     QStringLiteral("publication signature"))) {
+        return false;
+    }
+    if (!object.value(QStringLiteral("schema_version")).isDouble()
+        || object.value(QStringLiteral("schema_version")).toInt(-1) != CurrentSchemaVersion) {
+        setError(errorMessage, QStringLiteral("signature schema_version must be %1").arg(CurrentSchemaVersion));
+        return false;
+    }
+
+    QString type;
+    QString payload;
+    QString publicKeyPem;
+    QString signatureBase64;
+    QString fingerprint;
+    if (!readString(object, QStringLiteral("type"), type, errorMessage)
+        || !readString(object, QStringLiteral("payload"), payload, errorMessage)
+        || !readString(object, QStringLiteral("public_key_pem"), publicKeyPem, errorMessage)
+        || !readString(object, QStringLiteral("signature_base64"), signatureBase64, errorMessage)
+        || !readString(object, QStringLiteral("fingerprint_sha256"), fingerprint, errorMessage)) {
+        return false;
+    }
+    if (type != QStringLiteral("rsa")) {
+        setError(errorMessage, QStringLiteral("only rsa publication signatures are supported"));
+        return false;
+    }
+    if (payload != m_metadata.catalogueSha256) {
+        setError(errorMessage, QStringLiteral("signature payload does not match the catalogue digest"));
+        return false;
+    }
+    if (!QRegularExpression(QStringLiteral("^[0-9A-Fa-f]{64}$")).match(fingerprint).hasMatch()) {
+        setError(errorMessage, QStringLiteral("signature fingerprint must contain 64 hexadecimal characters"));
+        return false;
+    }
+    fingerprint = fingerprint.toLower();
+    if (fingerprint != m_metadata.signatureFingerprint) {
+        setError(errorMessage, QStringLiteral("signature fingerprint does not match the publication manifest"));
+        return false;
+    }
+    if (!publicKeyPem.contains(QStringLiteral("BEGIN PUBLIC KEY"))) {
+        setError(errorMessage, QStringLiteral("publication signature does not contain a PEM public key"));
+        return false;
+    }
+    const QString actualFingerprint = QString::fromLatin1(
+        QCryptographicHash::hash(publicKeyPem.toUtf8(), QCryptographicHash::Sha256).toHex());
+    if (actualFingerprint != fingerprint) {
+        setError(errorMessage, QStringLiteral("public-key fingerprint does not match the envelope"));
+        return false;
+    }
+    if (!m_trustController->hasTrustedFingerprint(fingerprint)) {
+        setError(errorMessage, QStringLiteral("public-key fingerprint is not trusted for this repository"));
+        return false;
+    }
+
+    const QByteArray signature = QByteArray::fromBase64(signatureBase64.toLatin1());
+    if (signature.isEmpty()) {
+        setError(errorMessage, QStringLiteral("publication signature is empty or not valid base64"));
+        return false;
+    }
+
+    const QString opensslPath = QStandardPaths::findExecutable(QStringLiteral("openssl"));
+    if (opensslPath.isEmpty()) {
+        setError(errorMessage, QStringLiteral("openssl is unavailable for signature verification"));
+        return false;
+    }
+
+    QTemporaryDir directory;
+    if (!directory.isValid()) {
+        setError(errorMessage, QStringLiteral("temporary signature-verification storage is unavailable"));
+        return false;
+    }
+    const QString payloadPath = QDir(directory.path()).filePath(QStringLiteral("payload"));
+    const QString publicKeyPath = QDir(directory.path()).filePath(QStringLiteral("public-key.pem"));
+    const QString signaturePath = QDir(directory.path()).filePath(QStringLiteral("signature.bin"));
+    const auto writeBytes = [](const QString &path, const QByteArray &bytes) -> bool {
+        QFile file(path);
+        return file.open(QIODevice::WriteOnly) && file.write(bytes) == bytes.size();
+    };
+    if (!writeBytes(payloadPath, payload.toUtf8())
+        || !writeBytes(publicKeyPath, publicKeyPem.toUtf8())
+        || !writeBytes(signaturePath, signature)) {
+        setError(errorMessage, QStringLiteral("temporary signature-verification files could not be written"));
+        return false;
+    }
+
+    QProcess verifier;
+    verifier.setProgram(opensslPath);
+    verifier.setArguments({QStringLiteral("dgst"), QStringLiteral("-sha256"),
+                           QStringLiteral("-verify"), publicKeyPath,
+                           QStringLiteral("-signature"), signaturePath, payloadPath});
+    verifier.start();
+    if (!verifier.waitForStarted(1500) || !verifier.waitForFinished(5000)) {
+        verifier.kill();
+        verifier.waitForFinished(1000);
+        setError(errorMessage, QStringLiteral("openssl did not finish signature verification"));
+        return false;
+    }
+    if (verifier.exitStatus() != QProcess::NormalExit || verifier.exitCode() != 0) {
+        const QString detail = QString::fromLocal8Bit(verifier.readAllStandardError()).simplified();
+        setError(errorMessage, detail.isEmpty()
+            ? QStringLiteral("openssl rejected the publication signature")
+            : QStringLiteral("openssl rejected the publication signature: %1").arg(detail));
+        return false;
+    }
     return true;
 }
 
@@ -312,6 +472,7 @@ bool UpdatePlanController::parseMetadata(const QByteArray &contents,
                       QStringLiteral("channel"), QStringLiteral("abi"), QStringLiteral("revision"),
                       QStringLiteral("generated_at"), QStringLiteral("source_revision"),
                       QStringLiteral("signature_status"), QStringLiteral("signature_fingerprint"),
+                      QStringLiteral("signature_envelope"),
                       QStringLiteral("catalogue_file"), QStringLiteral("catalogue_sha256"),
                       QStringLiteral("packages")},
                      errorMessage,
@@ -332,6 +493,7 @@ bool UpdatePlanController::parseMetadata(const QByteArray &contents,
     QString sourceRevision;
     QString signatureStatus;
     QString signatureFingerprint;
+    QString signatureEnvelope;
     QString catalogueFile;
     QString catalogueSha256;
     if (!readString(object, QStringLiteral("repository_tag"), repositoryTag, errorMessage)
@@ -341,6 +503,7 @@ bool UpdatePlanController::parseMetadata(const QByteArray &contents,
         || !readString(object, QStringLiteral("source_revision"), sourceRevision, errorMessage)
         || !readString(object, QStringLiteral("signature_status"), signatureStatus, errorMessage)
         || !readString(object, QStringLiteral("signature_fingerprint"), signatureFingerprint, errorMessage)
+        || !readString(object, QStringLiteral("signature_envelope"), signatureEnvelope, errorMessage)
         || !readString(object, QStringLiteral("catalogue_file"), catalogueFile, errorMessage)
         || !readString(object, QStringLiteral("catalogue_sha256"), catalogueSha256, errorMessage)) {
         return false;
@@ -375,6 +538,14 @@ bool UpdatePlanController::parseMetadata(const QByteArray &contents,
     }
     if (!QRegularExpression(QStringLiteral("^[0-9A-Fa-f]{64}$")).match(signatureFingerprint).hasMatch()) {
         setError(errorMessage, QStringLiteral("signature_fingerprint must contain 64 hexadecimal characters"));
+        return false;
+    }
+    const QStringList signatureParts = signatureEnvelope.split(QLatin1Char('/'), Qt::SkipEmptyParts);
+    if (signatureEnvelope.startsWith(QLatin1Char('/'))
+        || signatureEnvelope.contains(QRegularExpression(QStringLiteral("\\s")))
+        || signatureParts.contains(QStringLiteral(".."))
+        || !QRegularExpression(QStringLiteral("^[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)*$")).match(signatureEnvelope).hasMatch()) {
+        setError(errorMessage, QStringLiteral("signature_envelope must be a safe relative path"));
         return false;
     }
     const QStringList catalogueParts = catalogueFile.split(QLatin1Char('/'), Qt::SkipEmptyParts);
@@ -467,6 +638,7 @@ bool UpdatePlanController::parseMetadata(const QByteArray &contents,
         sourceRevision,
         signatureStatus,
         signatureFingerprint.toLower(),
+        signatureEnvelope,
         catalogueFile,
         catalogueSha256.toLower(),
         packages,
