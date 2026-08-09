@@ -259,7 +259,6 @@ Window {
                             desktopIcon.applySavedPosition()
                         }
                     }
-                }
 
                 NorthstarIcon {
                     anchors.horizontalCenter: parent.horizontalCenter
