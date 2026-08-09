@@ -46,6 +46,7 @@ private slots:
     void expandsDesktopExecWithoutShellEvaluation();
     void launcherUsesCatalogArguments();
     void persistsFileAssociationsByExtension();
+    void persistsFileAssociationsByMimeType();
 };
 
 void ApplicationCatalogTest::filtersAndSortsDesktopEntries()
@@ -265,8 +266,38 @@ void ApplicationCatalogTest::persistsFileAssociationsByExtension()
     QCOMPARE(restoredLauncher.preferredApplicationForFile(documentPath), QStringLiteral("demo"));
     QVERIFY(restoredLauncher.clearPreferredApplicationForFile(documentPath));
     QVERIFY(restoredLauncher.preferredApplicationForFile(documentPath).isEmpty());
-    QVERIFY(!restoredLauncher.setPreferredApplicationForFile(
-        QDir(temporaryDirectory.path()).filePath(QStringLiteral("README")), QStringLiteral("demo")));
+    const QString extensionlessPath = QDir(temporaryDirectory.path()).filePath(QStringLiteral("README"));
+    QVERIFY(restoredLauncher.setPreferredApplicationForFile(extensionlessPath, QStringLiteral("demo")));
+    QCOMPARE(restoredLauncher.preferredApplicationForFile(extensionlessPath), QStringLiteral("demo"));
+}
+
+void ApplicationCatalogTest::persistsFileAssociationsByMimeType()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    const QString applications = applicationsDirectory(temporaryDirectory, QStringLiteral("applications"));
+    writeDesktopFile(applications, QStringLiteral("demo"), applicationEntry("Demo", "demo --ready %f"));
+
+    const QString associationPath = temporaryDirectory.filePath(QStringLiteral("config/file-associations.ini"));
+    const QString documentPath = QDir(temporaryDirectory.path()).filePath(QStringLiteral("README"));
+    QFile document(documentPath);
+    QVERIFY(document.open(QIODevice::WriteOnly));
+    QCOMPARE(document.write("Northstar plain text"), 20);
+    document.close();
+
+    ApplicationLauncher launcher(
+        nullptr,
+        {},
+        {applications},
+        temporaryDirectory.filePath(QStringLiteral("launch.log")),
+        {},
+        associationPath);
+
+    QVERIFY(launcher.preferredApplicationForFile(documentPath).isEmpty());
+    QVERIFY(launcher.setPreferredApplicationForFile(documentPath, QStringLiteral("demo")));
+    QCOMPARE(launcher.preferredApplicationForFile(documentPath), QStringLiteral("demo"));
+    QVERIFY(launcher.clearPreferredApplicationForFile(documentPath));
+    QVERIFY(launcher.preferredApplicationForFile(documentPath).isEmpty());
 }
 
 QTEST_MAIN(ApplicationCatalogTest)
