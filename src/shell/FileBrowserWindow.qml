@@ -40,6 +40,7 @@ Window {
     property string selectedName: files.selectedEntry ? files.selectedEntry.name : ""
     property bool hasSelection: !!files.selectedEntry && files.selectedPath.length > 0
     property bool showingTrash: files.fileBrowserController && files.fileBrowserController.showingTrash
+    property var sortModes: ["name", "type", "size", "modified"]
     property var sidebarFavorites: [
         { label: "Home", iconName: "desktop", kind: "home", relativePath: "" },
         { label: "Desktop", iconName: "desktop", kind: "folder", relativePath: "Desktop" },
@@ -118,6 +119,22 @@ Window {
         // The launchable flag is retained for the application-discovery slice,
         // where verified desktop-entry execution will be added.
         files.openAssociationForPath(path)
+    }
+
+    function sortModeIndex() {
+        if (!files.fileBrowserController) {
+            return 0
+        }
+        const index = files.sortModes.indexOf(files.fileBrowserController.sortMode)
+        return index >= 0 ? index : 0
+    }
+
+    function setSortMode(index) {
+        if (!files.fileBrowserController || index < 0 || index >= files.sortModes.length) {
+            return
+        }
+        files.clearSelection()
+        files.fileBrowserController.setSortMode(files.sortModes[index])
     }
 
     function openVolume(path, label) {
@@ -927,13 +944,53 @@ Window {
                     }
                 }
 
+                ComboBox {
+                    id: sortSelector
+                    anchors.verticalCenter: parent.verticalCenter
+                    currentIndex: files.sortModeIndex()
+                    height: 34
+                    model: ["Name", "Type", "Size", "Modified"]
+                    width: 112
+
+                    onActivated: files.setSortMode(index)
+                }
+
+                Rectangle {
+                    id: sortOrderButton
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: sortOrderMouse.containsMouse ? files.surfaceAccent : files.surfaceRaised
+                    height: 34
+                    radius: 5
+                    width: 36
+
+                    Text {
+                        anchors.centerIn: parent
+                        color: files.surfaceForeground
+                        font.bold: true
+                        font.pixelSize: 15
+                        text: files.fileBrowserController && files.fileBrowserController.sortAscending
+                            ? "↑" : "↓"
+                    }
+
+                    MouseArea {
+                        id: sortOrderMouse
+                        anchors.fill: parent
+                        enabled: !!files.fileBrowserController
+                        hoverEnabled: true
+                        onClicked: {
+                            files.clearSelection()
+                            files.fileBrowserController.toggleSortOrder()
+                        }
+                    }
+                }
+
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
                     color: files.surfaceMuted
                     elide: Text.ElideMiddle
                     font.pixelSize: 13
                     text: files.fileBrowserController ? files.fileBrowserController.displayPath : "~"
-                    width: Math.max(80, parent.width - 306)
+                    width: Math.max(80, parent.width - 462)
                 }
             }
 

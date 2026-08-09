@@ -13,6 +13,7 @@ class FileBrowserControllerTest final : public QObject
 
 private slots:
     void listsFoldersBeforeFiles();
+    void sortsEntriesByMetadata();
     void navigatesWithinHomeFolder();
     void searchesHomeTreeAndClearsOnNavigation();
     void opensFilesThroughInjectedHandler();
@@ -62,6 +63,34 @@ void FileBrowserControllerTest::listsFoldersBeforeFiles()
     QCOMPARE(entryName(entries.at(2)), QStringLiteral("z-last.txt"));
     QVERIFY(entries.at(0).toMap().value(QStringLiteral("isDirectory")).toBool());
     QVERIFY(!entries.at(1).toMap().value(QStringLiteral("isDirectory")).toBool());
+}
+
+void FileBrowserControllerTest::sortsEntriesByMetadata()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    QVERIFY(QDir(temporaryDirectory.path()).mkdir(QStringLiteral("folder")));
+    QVERIFY(writeFile(QDir(temporaryDirectory.path()).filePath(QStringLiteral("small.txt")), "1"));
+    QVERIFY(writeFile(QDir(temporaryDirectory.path()).filePath(QStringLiteral("large.txt")), "1234"));
+
+    FileBrowserController controller(nullptr, temporaryDirectory.path());
+    controller.setSortMode(QStringLiteral("size"));
+    QCOMPARE(entryName(controller.entries().at(0)), QStringLiteral("folder"));
+    QCOMPARE(entryName(controller.entries().at(1)), QStringLiteral("small.txt"));
+    QCOMPARE(entryName(controller.entries().at(2)), QStringLiteral("large.txt"));
+
+    controller.toggleSortOrder();
+    QCOMPARE(controller.sortMode(), QStringLiteral("size"));
+    QVERIFY(!controller.sortAscending());
+    QCOMPARE(entryName(controller.entries().at(0)), QStringLiteral("folder"));
+    QCOMPARE(entryName(controller.entries().at(1)), QStringLiteral("large.txt"));
+    QCOMPARE(entryName(controller.entries().at(2)), QStringLiteral("small.txt"));
+
+    controller.setSortMode(QStringLiteral("type"));
+    QCOMPARE(controller.sortMode(), QStringLiteral("type"));
+    QVERIFY(!controller.sortAscending());
+    controller.setSortMode(QStringLiteral("unsafe"));
+    QCOMPARE(controller.sortMode(), QStringLiteral("type"));
 }
 
 void FileBrowserControllerTest::navigatesWithinHomeFolder()

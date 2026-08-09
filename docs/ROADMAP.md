@@ -133,6 +133,50 @@ replaces the fixed-width dock panel with a responsive full-width layout and
 adds active/running indicators plus focus/minimize/restore behavior backed by
 the existing Wayfire window controller.
 
+### Current product-slice execution sequence
+
+The next Northstar work is intentionally split into small slices so every
+overnight increment has a visible user-facing result and a reversible merge
+boundary:
+
+1. **Desktop surface:** live Desktop-folder icons, safe double-click/open
+   behavior, rename/delete/properties actions, and an empty/error state.
+2. **Dock surface:** full-width responsive layout, pinned launchers, running
+   application state, focus/minimize toggling, and an overflow-safe app strip.
+3. **Files polish:** Finder-style tiles/list views, metadata sorting, ascending
+   and descending order, directory-first ties, search, Open With, associations,
+   recoverable Trash, and mounted-volume read-only boundaries.
+4. **Application discovery:** parse user/system `.desktop` entries and the
+   Northstar `.app` contract, validate executable/icon provenance, and expose a
+   safe catalog without executing untrusted metadata.
+5. **Launch and associations:** connect file types to discovered applications,
+   preserve user-scoped defaults, support Open With and Forget Default, and
+   pass only validated paths as launch arguments.
+6. **Welcome experience:** make the Welcome app explain the desktop, expose
+   first-run actions, show validation/error feedback, and remain useful when
+   optional applications are absent.
+7. **Software Center:** turn the current read-only inventory into a clearly
+   staged catalog with package details, install/remove intent, pending-action
+   preview, authorization boundaries, and explicit unsupported-state messages.
+8. **Northstar visual system:** use the approved logo/icon family consistently
+   across the menu, dock, Files, Apps, Welcome, Software Center, dialogs, and
+   empty states, with light/dark contrast checks.
+9. **Session lifecycle:** finish startup/login entry points, controlled logout,
+   restart and shutdown, shell-crash recovery, duplicate-session prevention,
+   and operator-facing diagnostics.
+10. **Manual acceptance:** reinstall the combined build into a separate VM
+    checkout, validate the noVNC desktop interactively, reboot gracefully,
+    repeat the core workflows, and record any native DRM/KMS limitation.
+11. **Release hygiene:** update the roadmap and quality gates with evidence,
+    commit each slice locally, push its `codex/` branch, open a draft PR,
+    promote it after validation, squash-merge in dependency order, delete
+    merged branches, prune refs, and verify clean main.
+
+Every slice must have a focused implementation, native/unit coverage where
+feasible, a reproducible VM build/test record, a manual gate when UI behavior
+is involved, and a documented limitation when the current nested graphics
+path cannot prove direct DRM/KMS behavior.
+
 ## M4: Packages, updates, and rollback
 
 The first Software Center foundation is documented in [`docs/M4_SOFTWARE.md`](M4_SOFTWARE.md). It reads and searches the installed FreeBSD package inventory without mutating the host. The merged M4 package-trust work validates a FreeBSD `pkg`-aligned UCL policy, fingerprint stores, a provenance-aware publication manifest, catalogue integrity, a read-only RSA publication-signature envelope, the native `pkg repo`/client publication smoke contract, a bounded root-owned update-helper request protocol, and independent broker-side revalidation; it also exposes a read-only update-authorization preflight. It does not close M4: an actual signed development/stable repository built from protected Poudriere inputs, reviewed privileged deployment, boot-environment creation before upgrades, rollback documentation, and N-1 compatibility tests are still required.
