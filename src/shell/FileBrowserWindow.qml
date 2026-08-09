@@ -91,6 +91,35 @@ Window {
         requestActivate()
     }
 
+    function openPath(path, isDirectory, isLaunchable) {
+        if (!files.fileBrowserController || !path) {
+            return
+        }
+
+        if (isDirectory) {
+            if (!files.fileBrowserController.navigateTo(path)) {
+                return
+            }
+            files.clearSelection()
+            show()
+            raise()
+            requestActivate()
+            return
+        }
+
+        const preferredDesktopId = files.applicationLauncher
+            ? files.applicationLauncher.preferredApplicationForFile(path) : ""
+        if (preferredDesktopId
+                && files.applicationLauncher.launchApplicationWithFile(preferredDesktopId, path)) {
+            return
+        }
+
+        // Keep desktop files in the same user-visible Open With flow as Files.
+        // The launchable flag is retained for the application-discovery slice,
+        // where verified desktop-entry execution will be added.
+        files.openAssociationForPath(path)
+    }
+
     function openVolume(path, label) {
         if (!files.fileBrowserController
                 || !files.fileBrowserController.openLocation(path, label)) {
@@ -173,15 +202,27 @@ Window {
         if (!files.hasSelection || files.selectedEntry.isDirectory) {
             return
         }
-        associationDialog.itemPath = files.selectedPath
-        associationDialog.itemName = files.selectedName
-        associationDialog.extension = files.fileExtension(files.selectedPath)
+        files.openAssociationForPath(files.selectedPath)
+    }
+
+    function openAssociationForPath(path) {
+        if (!files.fileBrowserController || !path) {
+            return
+        }
+
+        const normalizedPath = String(path).replace(/\\/g, "/")
+        associationDialog.itemPath = path
+        associationDialog.itemName = normalizedPath.slice(normalizedPath.lastIndexOf("/") + 1)
+        associationDialog.extension = files.fileExtension(path)
         associationDialog.preferredDesktopId = files.applicationLauncher
-            ? files.applicationLauncher.preferredApplicationForFile(files.selectedPath) : ""
+            ? files.applicationLauncher.preferredApplicationForFile(path) : ""
         associationDialog.rememberChoice.checked = false
         if (files.applicationLauncher) {
             files.applicationLauncher.setApplicationQuery("")
         }
+        show()
+        raise()
+        requestActivate()
         associationDialog.open()
     }
 

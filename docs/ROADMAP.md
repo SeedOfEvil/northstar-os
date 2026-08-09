@@ -7,7 +7,7 @@ The project advances through user-visible milestones with explicit pass gates. A
 | M0 | Reproducible development desktop | Supplemental VM lane validated; direct DRM/KMS gate pending | A clean FreeBSD 15.1 amd64 VM becomes the approved development environment |
 | M1 | Shell seed | Single-display product slice validated; multi-display acceptance pending | Top bar and dock render correctly on every connected display |
 | M2 | Desktop session | Development session lane validated; production display-manager and service integration pending | Session, services, supervision, notifications, and lifecycle work coherently |
-| M3 | Core desktop | Most user-facing slices implemented; acceptance closure and remaining polish pending | Filer, settings, search, overview, associations, and project apps form a usable desktop |
+| M3 | Core desktop | Files v3 and Desktop Icons v1 implemented; acceptance closure and remaining polish pending | Filer, branded desktop surface, settings, search, overview, associations, and project apps form a usable desktop |
 | M4 | Packages, updates, rollback | Package policy, fingerprint stores, provenance preview, publication signature verification, native `pkg` publication smoke, bounded helper contract, and broker staging merged; protected release publication and update/rollback remain | Signed packages and ZFS boot-environment rollback work end to end |
 | M5 | Reproducible image and installer | Not started | Pinned inputs produce a bootable UEFI root-on-ZFS image |
 | M6 | Alpha hardware release | Not started | The supported VM and narrow Intel/AMD hardware matrix meets the alpha definition |
@@ -33,8 +33,10 @@ The next work is ordered as follows:
    matrix on a clean install: Files operations and Trash recovery, Open With
    and reversible associations, home search, mounted-volume boundaries,
    Files-to-Apps launching, keyboard mappings, settings persistence, and the
-   Software Center search/refresh flow. Record the exact VM commit and manual
-   results.
+   Software Center search/refresh flow. Also verify the Desktop Icons v1
+   create/delete/rename/open/restore flow documented in
+   [`docs/M3_DESKTOP.md`](M3_DESKTOP.md). Record the exact VM commit and
+   manual results.
 2. **Close the remaining M1/M2 development evidence.** Capture a multi-display
    Layer Shell run when hardware permits, and separately validate the branded
    display-manager session, controlled lifecycle actions, and the production
@@ -117,6 +119,12 @@ source/package/revision provenance record. Cryptographic signing, package
 repository verification, and compositor-wide/global third-party menu
 integration remain follow-on slices. File opening now supports reversible,
 user-scoped extension defaults with an explicit Open With escape hatch.
+
+The Desktop Icons v1 surface is documented in [`docs/M3_DESKTOP.md`](M3_DESKTOP.md).
+It adds a live, home-bound icon grid over the branded wallpaper with safe
+selection, opening, rename, Trash, and Properties actions. Verified execution
+of application-like `.desktop` and `.app` entries remains part of the
+application-discovery follow-on slice.
 
 Third-party global menus and full macOS compatibility remain out of scope.
 

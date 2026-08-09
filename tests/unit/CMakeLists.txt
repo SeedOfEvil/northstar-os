@@ -82,6 +82,18 @@ target_link_libraries(test-filebrowsercontroller
 
 add_test(NAME northstar-filebrowsercontroller COMMAND test-filebrowsercontroller)
 
+qt_add_executable(test-desktopitemscontroller
+    test-desktopitemscontroller.cpp
+)
+
+target_link_libraries(test-desktopitemscontroller
+    PRIVATE
+        northstar-shell-core
+        Qt6::Test
+)
+
+add_test(NAME northstar-desktopitemscontroller COMMAND test-desktopitemscontroller)
+
 qt_add_executable(test-notificationcenter
     test-notificationcenter.cpp
 )

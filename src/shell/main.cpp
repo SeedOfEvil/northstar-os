@@ -1,4 +1,5 @@
 #include "applicationlauncher.h"
+#include "desktopitemscontroller.h"
 #include "filebrowsercontroller.h"
 #include "layershellsurface.h"
 #include "notificationcenter.h"
@@ -65,6 +66,7 @@ int main(int argc, char *argv[])
     UpdatePlanController updatePlanController(&packageTrustController);
     UpdateAuthorizationController updateAuthorizationController(&packageTrustController,
                                                                   &updatePlanController);
+    DesktopItemsController desktopItemsController;
     FileBrowserController fileBrowserController;
     PowerController powerController;
     SessionController sessionController;
@@ -119,6 +121,10 @@ int main(int argc, char *argv[])
         auto *backgroundContext = new QQmlContext(engine.rootContext());
         backgroundContext->setContextProperty(QStringLiteral("northstarLogoSource"), logoSource);
         backgroundContext->setContextProperty(QStringLiteral("northstarIconsSource"), iconsSource);
+        backgroundContext->setContextProperty(QStringLiteral("northstarDesktopItemsController"),
+                                              &desktopItemsController);
+        backgroundContext->setContextProperty(QStringLiteral("northstarFileBrowserController"),
+                                              &fileBrowserController);
         backgroundContext->setContextProperty(QStringLiteral("shellState"), &shellState);
         backgroundContext->setContextProperty(QStringLiteral("targetScreen"), screen);
         backgroundContext->setContextProperty(QStringLiteral("displayIndex"), index);
@@ -143,6 +149,8 @@ int main(int argc, char *argv[])
         context->setContextProperty(QStringLiteral("northstarUpdateAuthorizationController"),
                                     &updateAuthorizationController);
         context->setContextProperty(QStringLiteral("northstarFileBrowserController"), &fileBrowserController);
+        context->setContextProperty(QStringLiteral("northstarDesktopItemsController"),
+                                    &desktopItemsController);
         context->setContextProperty(QStringLiteral("northstarPowerController"), &powerController);
         context->setContextProperty(QStringLiteral("northstarSessionController"), &sessionController);
         context->setContextProperty(QStringLiteral("northstarShortcutCatalog"), &shortcutCatalog);
