@@ -36,6 +36,8 @@ done
 contains src/shell/DesktopBackground.qml "setPosition("
 contains src/shell/DesktopBackground.qml "nearestFreePosition("
 contains src/shell/DesktopBackground.qml "onDoubleClicked: desktopBackground.openDesktopEntry"
+contains src/shell/DesktopBackground.qml 'text: "Refresh Desktop"'
+contains src/shell/DesktopBackground.qml "Qt.Key_Return"
 contains src/shell/DesktopBackground.qml "northstarLogoSource"
 contains src/shell/DockWindow.qml "northstarWindowController.windows"
 contains src/shell/DockWindow.qml "toggleMinimize(modelData.viewId)"

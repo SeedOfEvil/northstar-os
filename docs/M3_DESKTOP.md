@@ -11,8 +11,12 @@ never resolved outside the Northstar home boundary.
 - A file created by Files appears without restarting the shell.
 - Single click selects an item; double-click opens folders or enters the Files
   Open With flow for files.
+- Pressing Enter opens the selected item through the same safe path.
 - The context menu provides Open, Open With, Rename, Move to Trash, and
-  Properties.
+  Properties, plus a manual Refresh Desktop action on the desktop surface.
+- Icon positions remain inside the desktop surface, snap to the nearest free
+  cell on release, and persist through a shell restart; Appearance can reset
+  them to the default column.
 - Trash operations use the existing FreeDesktop-compatible user Trash and can
   be restored from Files.
 - Missing `~/Desktop` is an empty, non-error state; creating the folder causes
@@ -28,7 +32,9 @@ stable metadata, safe open requests, Desktop-folder creation, and live
 create/delete refreshes. VM acceptance must additionally confirm that a file
 created in Files appears on the running desktop, folders open in Files, files
 open through Open With, rename works, and Move to Trash followed by restore
-removes and returns the desktop tile.
+removes and returns the desktop tile. Right-click the empty desktop and use
+Refresh Desktop, select an item and press Enter, and verify that a restored
+item returns after the watcher refresh without a shell restart.
 
 The current Proxmox VM remains a nested X11/pixman validation lane. This slice
 does not claim direct DRM/KMS or GPU evidence.
