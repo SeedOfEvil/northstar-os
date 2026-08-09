@@ -40,6 +40,18 @@ Window {
         }
     }
 
+    Connections {
+        target: northstarDesktopItemsController
+
+        function onOpenPathRequested(path, isDirectory, isLaunchable) {
+            fileBrowserWindow.openPath(path, isDirectory, isLaunchable)
+        }
+
+        function onOpenWithRequested(path) {
+            fileBrowserWindow.openAssociationForPath(path)
+        }
+    }
+
     function closeTransientSurfaces() {
         if (systemMenu.visible) {
             systemMenu.closeMenu()
