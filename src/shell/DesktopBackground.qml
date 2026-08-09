@@ -284,6 +284,7 @@ Window {
                 }
 
                 MouseArea {
+                    id: desktopItemMouse
                     anchors.fill: parent
                     acceptedButtons: Qt.LeftButton | Qt.RightButton
                     cursorShape: Qt.PointingHandCursor
@@ -328,6 +329,7 @@ Window {
                     onDoubleClicked: desktopBackground.openDesktopEntry(modelData)
                 }
             }
+        }
         }
 
         Text {
