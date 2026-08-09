@@ -131,12 +131,30 @@ FreeBSD publication/signature/client contract only. Protected Poudriere
 inputs, development/stable repository hosting, key custody, package
 provenance, and the update/rollback helper remain open M4 release gates.
 
+## M4-G narrow update-helper request contract
+
+`src/update/northstar-update-helper` defines the first privileged boundary for
+boot-environment work. Its capabilities are intentionally small: a verified,
+root-owned mode-0600 request may ask for `bectl create` before an update or
+`bectl activate` for rollback. The request binds the operation to the channel,
+repository revision, source revision, catalogue digest, signature fingerprint,
+and the exact bounded boot-environment name derived from those values. The
+helper's read-only `--dry-run` path validates the contract; `--apply` requires
+root and never invokes `pkg` or accepts shell text.
+
+This slice adds no sudoers rule, D-Bus broker, package transaction, or real VM
+boot-environment mutation. The request producer must be a future privileged
+broker that rechecks the verified update plan and obtains explicit user
+confirmation. Until that broker and the N-1/rollback fixture exist, Software
+Center correctly remains **Preflight only**.
+
 ## VM validation
 
 From the FreeBSD development checkout:
 
 ```sh
 env QT_QPA_PLATFORM=offscreen make test
+make update-helper-test
 make install-user NORTHSTAR_PREFIX="$HOME/.local"
 make pkg-repository-smoke
 sudo -n make pkg-repository-smoke NORTHSTAR_PKG_CLIENT=1

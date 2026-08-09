@@ -2,7 +2,7 @@ SHELL := /bin/sh
 
 .DEFAULT_GOAL := help
 
-.PHONY: help check-host bootstrap configure build test run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package pkg-repository-smoke vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
+.PHONY: help check-host bootstrap configure build test update-helper-test run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package pkg-repository-smoke vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
 
 MANIFEST ?= packaging/manifests/bootstrap-packages.txt
 NORTHSTAR_USER ?=
@@ -21,6 +21,7 @@ help:
 	@printf '%s\n' '  make configure    Configure the CMake build'
 	@printf '%s\n' '  make build        Build project components'
 	@printf '%s\n' '  make test         Run unit and integration tests'
+	@printf '%s\n' '  make update-helper-test  Test the bounded update-helper request contract'
 	@printf '%s\n' '  make run-shell    Start the Northstar shell session'
 	@printf '%s\n' '  make shell-smoke  Check the live shell session'
 	@printf '%s\n' '  make shell-restart-smoke  Restart only the live shell and verify clients survive'
@@ -57,9 +58,13 @@ test:
 	@sh tests/unit/test-sddm-theme.sh
 	@sh tests/unit/test-sddm-fallback.sh
 	@sh tests/unit/test-session-script.sh
+	@sh tests/unit/test-update-helper.sh
 	@$(MAKE) build
 	@sh tests/unit/test-session-entrypoint.sh "$(BUILD_DIR)"
 	@ctest --test-dir "$(BUILD_DIR)" --output-on-failure
+
+update-helper-test:
+	@sh tests/unit/test-update-helper.sh
 
 vm-smoke:
 	@if [ -n "$(NORTHSTAR_WAYFIRE_BIN)" ]; then \

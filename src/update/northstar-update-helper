@@ -1,0 +1,200 @@
+#!/bin/sh
+
+# Narrow boot-environment helper contract.
+#
+# The desktop never passes arbitrary shell text to this helper. A future
+# privileged broker will create a root-owned, mode-0600 request after checking
+# the signed update plan and obtaining explicit user confirmation. This helper
+# validates that request and allows only the two boot-environment operations;
+# package installation/upgrade is deliberately outside this first contract.
+
+set -eu
+
+EX_USAGE=64
+EX_DATAERR=65
+EX_NOPERM=77
+EX_UNAVAILABLE=69
+
+BECTL_PATH=${NORTHSTAR_UPDATE_BECTL_PATH:-/sbin/bectl}
+
+usage() {
+    cat <<USAGE
+Usage: $0 --capabilities
+       $0 --dry-run REQUEST
+       $0 --apply REQUEST
+
+--capabilities reports the versioned helper boundary without changing state.
+--dry-run validates a request and prints the one allowed bectl operation.
+--apply requires root plus a root-owned mode-0600 request and executes only
+the validated bectl create/activate operation. It never runs pkg.
+USAGE
+}
+
+fail() {
+    status=$1
+    shift
+    printf 'ERROR: %s\n' "$*" >&2
+    exit "$status"
+}
+
+matches() {
+    printf '%s\n' "$1" | grep -Eq "$2"
+}
+
+validate_request() {
+    request=$1
+    require_root_request=$2
+
+    [ -f "$request" ] || fail "$EX_DATAERR" 'update request is not a regular file'
+    [ -r "$request" ] || fail "$EX_DATAERR" 'update request is not readable'
+
+    if [ "$require_root_request" -eq 1 ]; then
+        [ ! -L "$request" ] || fail "$EX_DATAERR" 'update request must not be a symlink'
+        owner=$(stat -f '%u' "$request") || fail "$EX_DATAERR" 'could not inspect update request ownership'
+        mode=$(stat -f '%Lp' "$request") || fail "$EX_DATAERR" 'could not inspect update request mode'
+        [ "$owner" = 0 ] || fail "$EX_NOPERM" 'update request must be owned by root'
+        [ "$mode" = 600 ] || fail "$EX_NOPERM" 'update request must have mode 0600'
+    fi
+
+    protocol=
+    operation=
+    channel=
+    repository_revision=
+    source_revision=
+    catalogue_sha256=
+    signature_fingerprint=
+    boot_environment=
+    plan_status=
+    authorization=
+    seen='|'
+    field_count=0
+
+    while IFS='=' read -r key value || [ -n "${key:-}" ]; do
+        [ -n "${key:-}" ] || fail "$EX_DATAERR" 'update request contains a blank field'
+        case "$seen" in
+            *"|$key|"*)
+                fail "$EX_DATAERR" "update request repeats field: $key"
+                ;;
+            *)
+                seen="${seen}${key}|"
+                ;;
+        esac
+
+        case "$key" in
+            protocol) protocol=$value ;;
+            operation) operation=$value ;;
+            channel) channel=$value ;;
+            repository_revision) repository_revision=$value ;;
+            source_revision) source_revision=$value ;;
+            catalogue_sha256) catalogue_sha256=$value ;;
+            signature_fingerprint) signature_fingerprint=$value ;;
+            boot_environment) boot_environment=$value ;;
+            plan_status) plan_status=$value ;;
+            authorization) authorization=$value ;;
+            *) fail "$EX_DATAERR" "update request contains unknown field: $key" ;;
+        esac
+        field_count=$((field_count + 1))
+    done < "$request"
+
+    [ "$field_count" -eq 10 ] || fail "$EX_DATAERR" 'update request has an unexpected field count'
+    [ "$protocol" = 1 ] || fail "$EX_DATAERR" 'unsupported update request protocol'
+
+    case "$operation" in
+        create-before|rollback) ;;
+        *) fail "$EX_DATAERR" 'update request operation is not allowed' ;;
+    esac
+
+    case "$channel" in
+        development|stable) ;;
+        *) fail "$EX_DATAERR" 'update request channel is not allowed' ;;
+    esac
+
+    case "$repository_revision" in
+        ''|*[!0-9]*) fail "$EX_DATAERR" 'repository revision is not numeric' ;;
+    esac
+    [ "${#repository_revision}" -le 9 ] || fail "$EX_DATAERR" 'repository revision is too long'
+
+    matches "$source_revision" '^[0-9A-Fa-f]{7,64}$' || {
+        fail "$EX_DATAERR" 'source revision is not a bounded hexadecimal value'
+    }
+    matches "$catalogue_sha256" '^[0-9A-Fa-f]{64}$' || {
+        fail "$EX_DATAERR" 'catalogue digest is not SHA-256 hexadecimal'
+    }
+    matches "$signature_fingerprint" '^[0-9A-Fa-f]{64}$' || {
+        fail "$EX_DATAERR" 'signature fingerprint is not SHA-256 hexadecimal'
+    }
+
+    source_suffix=$(printf '%s' "$source_revision" | cut -c 1-12 | tr '[:upper:]' '[:lower:]')
+    expected_boot_environment="northstar-before-${channel}-r${repository_revision}-${source_suffix}"
+    [ "$boot_environment" = "$expected_boot_environment" ] || {
+        fail "$EX_DATAERR" 'boot-environment name does not match the verified plan'
+    }
+    matches "$boot_environment" '^northstar-before-(development|stable)-r[0-9]{1,9}-[0-9a-f]{7,12}$' || {
+        fail "$EX_DATAERR" 'boot-environment name is outside the Northstar namespace'
+    }
+
+    [ "$plan_status" = verified ] || fail "$EX_DATAERR" 'update plan is not verified'
+    [ "$authorization" = interactive-confirmation ] || {
+        fail "$EX_DATAERR" 'update request lacks interactive confirmation'
+    }
+}
+
+[ "$#" -gt 0 ] || {
+    usage >&2
+    exit "$EX_USAGE"
+}
+
+case "$1" in
+    --capabilities)
+        [ "$#" -eq 1 ] || fail "$EX_USAGE" '--capabilities takes no arguments'
+        printf '%s\n' \
+            'protocol=1' \
+            'operations=create-before,rollback' \
+            'request=root-owned-mode-0600' \
+            'authorization=interactive-confirmation' \
+            'package-transaction=not-part-of-helper'
+        exit 0
+        ;;
+    --dry-run|--apply)
+        [ "$#" -eq 2 ] || fail "$EX_USAGE" "$1 requires REQUEST"
+        ;;
+    --help|-h)
+        [ "$#" -eq 1 ] || fail "$EX_USAGE" '--help takes no arguments'
+        usage
+        exit 0
+        ;;
+    *)
+        printf 'ERROR: unknown option: %s\n' "$1" >&2
+        usage >&2
+        exit "$EX_USAGE"
+        ;;
+esac
+
+mode=$1
+request=$2
+
+if [ "$mode" = --apply ]; then
+    [ "$(id -u)" -eq 0 ] || fail "$EX_NOPERM" '--apply requires root'
+    validate_request "$request" 1
+else
+    validate_request "$request" 0
+fi
+
+case "$operation" in
+    create-before)
+        operation_label='create'
+        ;;
+    rollback)
+        operation_label='activate'
+        ;;
+esac
+
+if [ "$mode" = --dry-run ]; then
+    printf 'VALID: verified %s request for %s\n' "$operation" "$boot_environment"
+    printf 'Would execute: %s %s %s\n' "$BECTL_PATH" "$operation_label" "$boot_environment"
+    printf '%s\n' 'No bectl or pkg command was run.'
+    exit 0
+fi
+
+[ -x "$BECTL_PATH" ] || fail "$EX_UNAVAILABLE" "bectl is unavailable: $BECTL_PATH"
+exec "$BECTL_PATH" "$operation_label" "$boot_environment"
