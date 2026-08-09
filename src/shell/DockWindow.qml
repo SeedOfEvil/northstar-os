@@ -121,7 +121,7 @@ Window {
 
         gradient: Gradient {
             GradientStop { position: 0.0; color: lunar.dockGlass }
-            GradientStop { position: 1.0; color: Qt.rgba(lunar.panel.r, lunar.panel.g, lunar.panel.b, 0.34) }
+            GradientStop { position: 1.0; color: Qt.rgba(lunar.panel.r, lunar.panel.g, lunar.panel.b, 0.16) }
         }
 
         Row {

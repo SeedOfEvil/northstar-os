@@ -124,6 +124,10 @@ Window {
         if (software.maximized) {
             return
         }
+        if (software.startSystemMove()) {
+            software.dragging = false
+            return
+        }
         software.dragging = true
         software.dragOrigin = Qt.point(mouseX, mouseY)
         software.windowOrigin = Qt.point(software.x, software.y)

@@ -449,6 +449,10 @@ Window {
         if (files.maximized) {
             return
         }
+        if (files.startSystemMove()) {
+            files.dragging = false
+            return
+        }
         files.dragging = true
         files.dragOrigin = Qt.point(mouseX, mouseY)
         files.windowOrigin = Qt.point(files.x, files.y)
