@@ -320,15 +320,18 @@ Window {
 
                         Text {
                             color: software.packageTrust && software.packageTrust.policyValid
+                                && software.packageTrust.trustStoreValid
                                 ? "#55c58a" : "#c34f65"
                             font.bold: true
                             font.pixelSize: 13
                             text: !software.packageTrust
                                 ? "Unavailable"
-                                : software.packageTrust.policyValid
+                                : software.packageTrust.policyValid && software.packageTrust.trustStoreValid
                                     ? "Ready"
                                     : software.packageTrust.policyPresent
-                                        ? "Rejected" : "Not configured"
+                                        ? software.packageTrust.policyValid
+                                            ? "Trust store incomplete" : "Rejected"
+                                        : "Not configured"
                         }
                     }
                 }

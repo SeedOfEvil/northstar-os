@@ -1,5 +1,6 @@
 #include "packagetrustcontroller.h"
 
+#include <QDir>
 #include <QFile>
 #include <QTemporaryDir>
 #include <QtTest>
@@ -18,6 +19,31 @@ QByteArray validPolicy()
                       "trust_mode=required\n");
 }
 
+QByteArray policyForStore(const QString &storePath)
+{
+    QByteArray policy = validPolicy();
+    policy.replace("/usr/local/etc/pkg/fingerprints/northstar-development", storePath.toUtf8());
+    return policy;
+}
+
+bool writeFile(const QString &path, const QByteArray &contents)
+{
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        return false;
+    }
+    return file.write(contents) == contents.size();
+}
+
+bool writeFingerprint(const QString &directory, const QString &name, const QByteArray &fingerprint)
+{
+    return writeFile(QDir(directory).filePath(name),
+                     QByteArray("function: sha256\n")
+                         + QByteArray("fingerprint: ")
+                         + fingerprint
+                         + QByteArray("\n"));
+}
+
 } // namespace
 
 class PackageTrustControllerTest final : public QObject
@@ -26,10 +52,12 @@ class PackageTrustControllerTest final : public QObject
 
 private slots:
     void acceptsValidPolicy();
+    void acceptsAndRejectsFingerprintFiles();
     void rejectsUnresolvedValues();
     void rejectsUnknownAndDuplicateKeys();
     void rejectsUnsafeRepositoryInputs();
     void reportsMissingPolicyAndBlocksPlanning();
+    void reportsFingerprintStoreRejection();
     void reportsValidPolicyButKeepsPlanningBlocked();
 };
 
@@ -54,6 +82,29 @@ void PackageTrustControllerTest::acceptsValidPolicy()
     QVERIFY(config.contains(QStringLiteral("northstar-development: {")));
     QVERIFY(config.contains(QStringLiteral("signature_type: \"fingerprints\"")));
     QVERIFY(config.contains(QStringLiteral("fingerprints: \"/usr/local/etc/pkg/fingerprints/northstar-development\"")));
+}
+
+void PackageTrustControllerTest::acceptsAndRejectsFingerprintFiles()
+{
+    QString fingerprint;
+    QString errorMessage;
+    QVERIFY(PackageTrustController::parseFingerprintFile(
+        QByteArray("function: sha256\nfingerprint: ") + QByteArray(64, 'A') + QByteArray("\n"),
+        fingerprint,
+        &errorMessage));
+    QCOMPARE(fingerprint, QString(64, QLatin1Char('a')));
+
+    QVERIFY(!PackageTrustController::parseFingerprintFile(
+        QByteArray("function: md5\nfingerprint: ") + QByteArray(64, 'a') + QByteArray("\n"),
+        fingerprint,
+        &errorMessage));
+    QVERIFY(errorMessage.contains(QStringLiteral("sha256")));
+
+    QVERIFY(!PackageTrustController::parseFingerprintFile(
+        QByteArray("function: sha256\nfingerprint: not-a-fingerprint\n"),
+        fingerprint,
+        &errorMessage));
+    QVERIFY(errorMessage.contains(QStringLiteral("64 hexadecimal")));
 }
 
 void PackageTrustControllerTest::rejectsUnresolvedValues()
@@ -111,19 +162,42 @@ void PackageTrustControllerTest::reportsMissingPolicyAndBlocksPlanning()
     QVERIFY(controller.updatePlanStatus().contains(QStringLiteral("blocked"), Qt::CaseInsensitive));
 }
 
-void PackageTrustControllerTest::reportsValidPolicyButKeepsPlanningBlocked()
+void PackageTrustControllerTest::reportsFingerprintStoreRejection()
 {
     QTemporaryDir directory;
     QVERIFY(directory.isValid());
     const QString path = directory.filePath(QStringLiteral("repository-policy.conf"));
-    QFile file(path);
-    QVERIFY(file.open(QIODevice::WriteOnly | QIODevice::Text));
-    QCOMPARE(file.write(validPolicy()), static_cast<qint64>(validPolicy().size()));
-    file.close();
+    QVERIFY(writeFile(path, policyForStore(directory.filePath(QStringLiteral("fingerprints")))));
+
+    PackageTrustController controller(path);
+    QVERIFY(controller.policyValid());
+    QVERIFY(!controller.trustStoreValid());
+    QVERIFY(controller.trustStatus().contains(QStringLiteral("fingerprint store was rejected")));
+}
+
+void PackageTrustControllerTest::reportsValidPolicyButKeepsPlanningBlocked()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString storePath = directory.filePath(QStringLiteral("fingerprints"));
+    QVERIFY(QDir().mkpath(QDir(storePath).filePath(QStringLiteral("trusted"))));
+    QVERIFY(QDir().mkpath(QDir(storePath).filePath(QStringLiteral("revoked"))));
+    QVERIFY(writeFingerprint(QDir(storePath).filePath(QStringLiteral("trusted")),
+                             QStringLiteral("northstar.pub"),
+                             QByteArray(64, 'a')));
+    QVERIFY(writeFingerprint(QDir(storePath).filePath(QStringLiteral("revoked")),
+                             QStringLiteral("old.pub"),
+                             QByteArray(64, 'b')));
+
+    const QString path = directory.filePath(QStringLiteral("repository-policy.conf"));
+    QVERIFY(writeFile(path, policyForStore(storePath)));
 
     PackageTrustController controller(path);
     QVERIFY(controller.policyPresent());
     QVERIFY(controller.policyValid());
+    QVERIFY(controller.trustStoreValid());
+    QCOMPARE(controller.trustedFingerprintCount(), 1);
+    QCOMPARE(controller.revokedFingerprintCount(), 1);
     QCOMPARE(controller.channel(), QStringLiteral("development"));
     QVERIFY(controller.trustStatus().contains(QStringLiteral("not connected")));
     QVERIFY(controller.repositoryConfigPreview().contains(QStringLiteral("signature_type")));

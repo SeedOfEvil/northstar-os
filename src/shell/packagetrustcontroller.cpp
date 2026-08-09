@@ -6,6 +6,7 @@
 #include <QHash>
 #include <QStringList>
 #include <QRegularExpression>
+#include <QSet>
 #include <QStandardPaths>
 #include <QUrl>
 
@@ -51,6 +52,21 @@ bool PackageTrustController::policyPresent() const
 bool PackageTrustController::policyValid() const
 {
     return m_policyValid;
+}
+
+bool PackageTrustController::trustStoreValid() const
+{
+    return m_trustStoreValid;
+}
+
+int PackageTrustController::trustedFingerprintCount() const
+{
+    return m_trustedFingerprintCount;
+}
+
+int PackageTrustController::revokedFingerprintCount() const
+{
+    return m_revokedFingerprintCount;
 }
 
 QString PackageTrustController::channel() const
@@ -114,6 +130,9 @@ bool PackageTrustController::reload()
     m_repositoryConfigPreview.clear();
     m_policyPresent = QFileInfo::exists(m_policyPath);
     m_policyValid = false;
+    m_trustStoreValid = false;
+    m_trustedFingerprintCount = 0;
+    m_revokedFingerprintCount = 0;
 
     if (!m_policyPresent) {
         setFailure(QStringLiteral("No signed repository policy is configured."),
@@ -137,7 +156,14 @@ bool PackageTrustController::reload()
 
     m_policyValid = true;
     m_repositoryConfigPreview = renderPkgRepositoryConfig(m_policy);
-    m_trustStatus = QStringLiteral("Policy is structurally valid for pkg fingerprint trust; signature verification is not connected yet.");
+    QString storeError;
+    m_trustStoreValid = loadFingerprintStore(m_policy.fingerprintsPath,
+                                             m_trustedFingerprintCount,
+                                             m_revokedFingerprintCount,
+                                             &storeError);
+    m_trustStatus = m_trustStoreValid
+        ? QStringLiteral("Policy and fingerprint store are structurally valid; pkg signature verification is not connected yet.")
+        : QStringLiteral("Policy is valid but the fingerprint store was rejected: %1").arg(storeError);
     m_updatePlanStatus = QStringLiteral("Update planning is blocked until repository signatures are verified.");
     emit stateChanged();
     return true;
@@ -296,6 +322,125 @@ QString PackageTrustController::renderPkgRepositoryConfig(const PackageRepositor
              policy.mirrorType,
              policy.signatureType,
              QDir::cleanPath(policy.fingerprintsPath));
+}
+
+bool PackageTrustController::parseFingerprintFile(const QByteArray &contents,
+                                                  QString &fingerprint,
+                                                  QString *errorMessage)
+{
+    QHash<QString, QString> values;
+    const QStringList lines = QString::fromUtf8(contents).split(QLatin1Char('\n'));
+    for (qsizetype index = 0; index < lines.size(); ++index) {
+        const QString line = lines.at(index).trimmed();
+        if (line.isEmpty() || line.startsWith(QLatin1Char('#'))) {
+            continue;
+        }
+
+        const qsizetype separator = line.indexOf(QLatin1Char(':'));
+        if (separator <= 0) {
+            setError(errorMessage, QStringLiteral("line %1 must use key: value syntax").arg(index + 1));
+            return false;
+        }
+
+        const QString key = line.left(separator).trimmed().toLower();
+        const QString value = line.mid(separator + 1).trimmed();
+        if (key != QStringLiteral("function") && key != QStringLiteral("fingerprint")) {
+            setError(errorMessage, QStringLiteral("key '%1' is not part of the fingerprint contract").arg(key));
+            return false;
+        }
+        if (value.isEmpty() || values.contains(key)) {
+            setError(errorMessage, QStringLiteral("fingerprint key '%1' is empty or duplicated").arg(key));
+            return false;
+        }
+        values.insert(key, value);
+    }
+
+    if (values.value(QStringLiteral("function")).toLower() != QStringLiteral("sha256")) {
+        setError(errorMessage, QStringLiteral("fingerprint function must be sha256"));
+        return false;
+    }
+
+    const QString value = values.value(QStringLiteral("fingerprint"));
+    static const QRegularExpression fingerprintPattern(QStringLiteral("^[0-9A-Fa-f]{64}$"));
+    if (!fingerprintPattern.match(value).hasMatch()) {
+        setError(errorMessage, QStringLiteral("fingerprint must contain 64 hexadecimal characters"));
+        return false;
+    }
+
+    fingerprint = value.toLower();
+    return true;
+}
+
+bool PackageTrustController::loadFingerprintStore(const QString &fingerprintsPath,
+                                                  int &trustedCount,
+                                                  int &revokedCount,
+                                                  QString *errorMessage)
+{
+    trustedCount = 0;
+    revokedCount = 0;
+    const QDir root(fingerprintsPath);
+    if (!root.exists()) {
+        setError(errorMessage, QStringLiteral("fingerprints directory does not exist"));
+        return false;
+    }
+
+    const QString trustedPath = root.filePath(QStringLiteral("trusted"));
+    const QString revokedPath = root.filePath(QStringLiteral("revoked"));
+    if (!QFileInfo(trustedPath).isDir() || !QFileInfo(revokedPath).isDir()) {
+        setError(errorMessage, QStringLiteral("trusted and revoked fingerprint directories are required"));
+        return false;
+    }
+
+    QSet<QString> trustedFingerprints;
+    QSet<QString> revokedFingerprints;
+    const auto loadDirectory = [errorMessage](const QString &path,
+                                               QSet<QString> &destination) -> bool {
+        const QFileInfoList files = QDir(path).entryInfoList(
+            QDir::Files | QDir::Readable | QDir::NoSymLinks,
+            QDir::Name);
+        for (const QFileInfo &fileInfo : files) {
+            QFile file(fileInfo.absoluteFilePath());
+            if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+                setError(errorMessage, QStringLiteral("fingerprint file '%1' could not be read")
+                    .arg(fileInfo.fileName()));
+                return false;
+            }
+
+            QString fingerprint;
+            QString parseError;
+            if (!PackageTrustController::parseFingerprintFile(file.readAll(), fingerprint, &parseError)) {
+                setError(errorMessage, QStringLiteral("fingerprint file '%1' rejected: %2")
+                    .arg(fileInfo.fileName(), parseError));
+                return false;
+            }
+            if (destination.contains(fingerprint)) {
+                setError(errorMessage, QStringLiteral("fingerprint '%1' is duplicated").arg(fingerprint));
+                return false;
+            }
+            destination.insert(fingerprint);
+        }
+        return true;
+    };
+
+    if (!loadDirectory(trustedPath, trustedFingerprints)
+        || !loadDirectory(revokedPath, revokedFingerprints)) {
+        return false;
+    }
+    if (trustedFingerprints.isEmpty()) {
+        setError(errorMessage, QStringLiteral("at least one trusted fingerprint is required"));
+        return false;
+    }
+
+    for (const QString &fingerprint : trustedFingerprints) {
+        if (revokedFingerprints.contains(fingerprint)) {
+            setError(errorMessage, QStringLiteral("fingerprint '%1' is both trusted and revoked").arg(fingerprint));
+            return false;
+        }
+    }
+
+    trustedCount = trustedFingerprints.size();
+    revokedCount = revokedFingerprints.size();
+    return true;
 }
 
 QString PackageTrustController::defaultPolicyPath()

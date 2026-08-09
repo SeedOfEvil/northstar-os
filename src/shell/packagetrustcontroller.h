@@ -21,6 +21,9 @@ class PackageTrustController final : public QObject
     Q_OBJECT
     Q_PROPERTY(bool policyPresent READ policyPresent NOTIFY stateChanged)
     Q_PROPERTY(bool policyValid READ policyValid NOTIFY stateChanged)
+    Q_PROPERTY(bool trustStoreValid READ trustStoreValid NOTIFY stateChanged)
+    Q_PROPERTY(int trustedFingerprintCount READ trustedFingerprintCount NOTIFY stateChanged)
+    Q_PROPERTY(int revokedFingerprintCount READ revokedFingerprintCount NOTIFY stateChanged)
     Q_PROPERTY(QString channel READ channel NOTIFY stateChanged)
     Q_PROPERTY(QString repositoryTag READ repositoryTag NOTIFY stateChanged)
     Q_PROPERTY(QString repositoryName READ repositoryName NOTIFY stateChanged)
@@ -38,6 +41,9 @@ public:
 
     bool policyPresent() const;
     bool policyValid() const;
+    bool trustStoreValid() const;
+    int trustedFingerprintCount() const;
+    int revokedFingerprintCount() const;
     QString channel() const;
     QString repositoryTag() const;
     QString repositoryName() const;
@@ -57,6 +63,13 @@ public:
                             PackageRepositoryPolicy &policy,
                             QString *errorMessage = nullptr);
     static QString renderPkgRepositoryConfig(const PackageRepositoryPolicy &policy);
+    static bool parseFingerprintFile(const QByteArray &contents,
+                                     QString &fingerprint,
+                                     QString *errorMessage = nullptr);
+    static bool loadFingerprintStore(const QString &fingerprintsPath,
+                                     int &trustedCount,
+                                     int &revokedCount,
+                                     QString *errorMessage = nullptr);
 
 signals:
     void stateChanged();
@@ -72,4 +85,7 @@ private:
     QString m_repositoryConfigPreview;
     bool m_policyPresent = false;
     bool m_policyValid = false;
+    bool m_trustStoreValid = false;
+    int m_trustedFingerprintCount = 0;
+    int m_revokedFingerprintCount = 0;
 };
