@@ -91,6 +91,14 @@ QString SessionController::lastEvent() const
     return m_lastEvent;
 }
 
+bool SessionController::restartable() const
+{
+    return m_available
+        && m_shellPid == static_cast<qint64>(::getpid())
+        && m_supervisorPid > 1
+        && static_cast<qint64>(::getppid()) == m_supervisorPid;
+}
+
 void SessionController::clearStatus()
 {
     m_available = false;
@@ -177,6 +185,26 @@ bool SessionController::requestEndSession()
 
     m_state = QStringLiteral("stopping");
     m_lastEvent = QStringLiteral("end-session-requested");
+    emit statusChanged();
+    return true;
+}
+
+bool SessionController::requestShellRestart()
+{
+    refresh();
+    if (!restartable()) {
+        return false;
+    }
+
+    const auto signalFunction = m_signalFunction ? m_signalFunction : [](qint64 pid, int signal) {
+        return ::kill(static_cast<pid_t>(pid), signal);
+    };
+    if (signalFunction(m_shellPid, SIGTERM) != 0) {
+        return false;
+    }
+
+    m_state = QStringLiteral("restarting");
+    m_lastEvent = QStringLiteral("shell-restart-requested");
     emit statusChanged();
     return true;
 }

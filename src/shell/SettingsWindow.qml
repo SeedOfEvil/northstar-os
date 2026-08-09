@@ -168,6 +168,31 @@ Window {
         }
     }
 
+    Dialog {
+        id: restartShellDialog
+        modal: true
+        title: "Restart Northstar shell?"
+        standardButtons: Dialog.Cancel | Dialog.Ok
+        width: 420
+        x: (settings.width - width) / 2
+        y: (settings.height - height) / 2
+
+        contentItem: Text {
+            color: settings.surfaceForeground
+            text: "This restarts only the supervised Northstar shell. The compositor and other user applications are not targeted."
+            wrapMode: Text.WordWrap
+            width: 360
+        }
+
+        onAccepted: {
+            const requested = settings.hasSessionController
+                && settings.sessionController.requestShellRestart()
+            if (requested) {
+                settings.hide()
+            }
+        }
+    }
+
     Rectangle {
         anchors.fill: parent
         color: settings.surfaceBackground
@@ -703,6 +728,13 @@ Window {
                                 text: "The supervised session reached a terminal failure. Save your work and restart Northstar from the console or login session before testing again."
                                 wrapMode: Text.WordWrap
                             }
+                        }
+
+                        Button {
+                            enabled: settings.hasSessionController
+                                && settings.sessionController.restartable
+                            text: "Restart Northstar Shell"
+                            onClicked: restartShellDialog.open()
                         }
 
                         Button {
