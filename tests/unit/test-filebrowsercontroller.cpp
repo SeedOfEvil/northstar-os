@@ -14,6 +14,7 @@ class FileBrowserControllerTest final : public QObject
 private slots:
     void listsFoldersBeforeFiles();
     void sortsEntriesByMetadata();
+    void listsDesktopEntriesForTheDesktopSurface();
     void navigatesWithinHomeFolder();
     void searchesHomeTreeAndClearsOnNavigation();
     void opensFilesThroughInjectedHandler();
@@ -91,6 +92,27 @@ void FileBrowserControllerTest::sortsEntriesByMetadata()
     QVERIFY(!controller.sortAscending());
     controller.setSortMode(QStringLiteral("unsafe"));
     QCOMPARE(controller.sortMode(), QStringLiteral("type"));
+}
+
+void FileBrowserControllerTest::listsDesktopEntriesForTheDesktopSurface()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    const QString desktopPath = QDir(temporaryDirectory.path()).filePath(QStringLiteral("Desktop"));
+    QVERIFY(QDir().mkpath(desktopPath));
+    QVERIFY(QDir(desktopPath).mkdir(QStringLiteral("Projects")));
+    QVERIFY(writeFile(QDir(desktopPath).filePath(QStringLiteral("notes.txt")), "notes"));
+
+    FileBrowserController controller(nullptr, temporaryDirectory.path());
+    const QVariantList entries = controller.desktopEntries();
+
+    QCOMPARE(entries.size(), 2);
+    QCOMPARE(entryName(entries.at(0)), QStringLiteral("Projects"));
+    QCOMPARE(entryName(entries.at(1)), QStringLiteral("notes.txt"));
+    QCOMPARE(entries.at(0).toMap().value(QStringLiteral("path")).toString(),
+             QFileInfo(QDir(desktopPath).filePath(QStringLiteral("Projects"))).canonicalFilePath());
+    QVERIFY(entries.at(0).toMap().value(QStringLiteral("isDirectory")).toBool());
+    QVERIFY(!entries.at(1).toMap().value(QStringLiteral("isDirectory")).toBool());
 }
 
 void FileBrowserControllerTest::navigatesWithinHomeFolder()

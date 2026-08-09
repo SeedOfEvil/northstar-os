@@ -8,7 +8,9 @@ Window {
     property var state: shellState
     property var desktopItems: northstarDesktopItemsController
     property var fileBrowserController: northstarFileBrowserController
+    property var fileBrowserWindow: null
     property var targetScreen
+    property int displayIndex: 0
     property int screenWidth: targetScreen ? targetScreen.geometry.width : 1280
     property int screenHeight: targetScreen ? targetScreen.geometry.height : 800
     property int panelHeight: 44
@@ -41,13 +43,29 @@ Window {
     }
 
     function openEntry(entry) {
-        if (desktopBackground.desktopItems && entry) {
+        if (!entry) {
+            return
+        }
+        if (desktopBackground.fileBrowserWindow
+                && desktopBackground.fileBrowserWindow.openDesktopEntry) {
+            desktopBackground.fileBrowserWindow.openDesktopEntry(entry.path)
+            return
+        }
+        if (desktopBackground.desktopItems) {
             desktopBackground.desktopItems.requestOpen(entry.path)
         }
     }
 
     function openWithEntry(entry) {
-        if (desktopBackground.desktopItems && entry) {
+        if (!entry) {
+            return
+        }
+        if (desktopBackground.fileBrowserWindow
+                && desktopBackground.fileBrowserWindow.openAssociationForPath) {
+            desktopBackground.fileBrowserWindow.openAssociationForPath(entry.path)
+            return
+        }
+        if (desktopBackground.desktopItems) {
             desktopBackground.desktopItems.requestOpenWith(entry.path)
         }
     }
@@ -90,14 +108,14 @@ Window {
     }
 
     Connections {
-        target: desktopBackground.desktopItems
+        target: desktopBackground.fileBrowserController
 
-        function onEntriesChanged() {
-            if (!desktopBackground.desktopItems) {
+        function onDesktopEntriesChanged() {
+            if (!desktopBackground.fileBrowserController) {
                 desktopBackground.selectedPath = ""
                 return
             }
-            const entries = desktopBackground.desktopItems.entries
+            const entries = desktopBackground.fileBrowserController.desktopEntries
             const stillExists = entries.some(function(entry) {
                 return entry.path === desktopBackground.selectedPath
             })
@@ -105,6 +123,13 @@ Window {
                 desktopBackground.selectedPath = ""
             }
         }
+    }
+    function openDesktopEntry(entry) {
+        if (!entry || !desktopBackground.fileBrowserWindow
+                || !desktopBackground.fileBrowserWindow.openDesktopEntry) {
+            return
+        }
+        desktopBackground.fileBrowserWindow.openDesktopEntry(entry.path)
     }
 
     Rectangle {
@@ -142,7 +167,8 @@ Window {
             flow: GridView.FlowTopToBottom
             interactive: contentHeight > height || contentWidth > width
             layoutDirection: Qt.LeftToRight
-            model: desktopBackground.desktopItems ? desktopBackground.desktopItems.entries : []
+            model: desktopBackground.fileBrowserController
+                ? desktopBackground.fileBrowserController.desktopEntries : []
             z: 2
 
             delegate: Item {
@@ -209,12 +235,12 @@ Window {
             color: desktopBackground.surfaceMuted
             font.pixelSize: 13
             horizontalAlignment: Text.AlignHCenter
-            text: desktopBackground.desktopItems
-                && desktopBackground.desktopItems.errorMessage.length > 0
-                ? desktopBackground.desktopItems.errorMessage
+            text: desktopBackground.fileBrowserController
+                && desktopBackground.fileBrowserController.errorMessage.length > 0
+                ? desktopBackground.fileBrowserController.errorMessage
                 : "Your Desktop is empty"
-            visible: desktopBackground.desktopItems
-                && desktopBackground.desktopItems.entries.length === 0
+            visible: desktopBackground.fileBrowserController
+                && desktopBackground.fileBrowserController.desktopEntries.length === 0
             width: Math.min(360, desktopGrid.width)
             wrapMode: Text.WordWrap
         }
@@ -306,7 +332,7 @@ Window {
         onAccepted: {
             if (desktopBackground.fileBrowserController.renameEntry(itemPath, renameField.text)) {
                 desktopBackground.selectedPath = ""
-                desktopBackground.desktopItems.refresh()
+                desktopBackground.fileBrowserController.refresh()
             } else {
                 Qt.callLater(function() { renameDialog.open() })
             }
@@ -344,7 +370,7 @@ Window {
         onAccepted: {
             if (desktopBackground.fileBrowserController.moveToTrash(itemPath)) {
                 desktopBackground.selectedPath = ""
-                desktopBackground.desktopItems.refresh()
+                desktopBackground.fileBrowserController.refresh()
             } else {
                 Qt.callLater(function() { deleteDialog.open() })
             }
@@ -401,5 +427,7 @@ Window {
                 width: parent.width
             }
         }
+    }
+}
     }
 }

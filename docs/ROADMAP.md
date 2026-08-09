@@ -37,6 +37,11 @@ The next work is ordered as follows:
    create/delete/rename/open/restore flow documented in
    [`docs/M3_DESKTOP.md`](M3_DESKTOP.md). Record the exact VM commit and
    manual results.
+   Files-to-Apps launching, Desktop-folder icon projection, keyboard mappings,
+   settings persistence, and the Software Center search/refresh flow. Also
+   verify the Desktop Icons v1 create/delete/rename/open/restore flow
+   documented in [`docs/M3_DESKTOP.md`](M3_DESKTOP.md). Record the exact VM
+   commit and manual results.
 2. **Close the remaining M1/M2 development evidence.** Capture a multi-display
    Layer Shell run when hardware permits, and separately validate the branded
    display-manager session, controlled lifecycle actions, and the production
@@ -128,6 +133,14 @@ It adds a live, home-bound icon grid over the branded wallpaper with safe
 selection, opening, rename, Trash, and Properties actions. Verified execution
 of application-like `.desktop` and `.app` entries remains part of the
 application-discovery follow-on slice.
+The Desktop surface now projects entries from the home `Desktop` folder into
+the primary desktop as directly activated folder/file icons. Folder activation
+opens the corresponding Files location; file activation enters the same
+association chooser used by Files. It remains home-scoped and does not claim
+to replace a full desktop-file or icon-position service. The live icon grid
+also exposes safe selection, opening, rename, Trash, and Properties actions;
+verified execution of application-like `.desktop` and `.app` entries remains
+part of the application-discovery follow-on slice.
 
 Third-party global menus and full macOS compatibility remain out of scope.
 

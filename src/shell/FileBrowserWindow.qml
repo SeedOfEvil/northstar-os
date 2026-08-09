@@ -3,6 +3,7 @@ import QtQuick.Controls
 
 Window {
     id: files
+    objectName: "fileBrowserWindow"
 
     property var fileBrowserController
     property var applicationLauncher
@@ -135,6 +136,37 @@ Window {
         }
         files.clearSelection()
         files.fileBrowserController.setSortMode(files.sortModes[index])
+    }
+
+    function openDesktopEntry(path) {
+        if (!files.fileBrowserController || !path) {
+            return
+        }
+
+        const desktopPath = files.fileBrowserController.homeChildPath("Desktop")
+        if (desktopPath.length === 0 || !files.fileBrowserController.navigateTo(desktopPath)) {
+            return
+        }
+
+        const entries = files.fileBrowserController.entries
+        for (let index = 0; index < entries.length; ++index) {
+            if (entries[index].path !== path) {
+                continue
+            }
+
+            files.selectedIndex = index
+            show()
+            raise()
+            requestActivate()
+            if (entries[index].isDirectory) {
+                openSelectedEntry()
+            } else {
+                openAssociationDialog()
+            }
+            return
+        }
+
+        files.clearSelection()
     }
 
     function openVolume(path, label) {

@@ -23,6 +23,7 @@
 #include <QQmlEngine>
 #include <QScreen>
 #include <QStandardPaths>
+#include <QVariant>
 #include <QUrl>
 #include <QWindow>
 
@@ -174,6 +175,10 @@ int main(int argc, char *argv[])
         context->setContextProperty(QStringLiteral("displayIndex"), index);
 
         QObject *object = component.create(context);
+        if (backgroundObject != nullptr && object != nullptr) {
+            auto *filesWindow = object->findChild<QObject *>(QStringLiteral("fileBrowserWindow"));
+            backgroundObject->setProperty("fileBrowserWindow", QVariant::fromValue(filesWindow));
+        }
         auto *window = qobject_cast<QWindow *>(object);
         if (window == nullptr || !LayerShellSurface::configurePanel(window, screen, PanelHeight, index)) {
             qWarning() << "Unable to configure Northstar shell surface for display" << index;

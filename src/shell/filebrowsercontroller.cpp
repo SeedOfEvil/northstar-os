@@ -37,6 +37,18 @@ FileBrowserController::FileBrowserController(QObject *parent,
     , m_currentPath(m_rootPath)
     , m_openFunction(std::move(openFunction))
 {
+    m_desktopWatcher = new QFileSystemWatcher(this);
+    m_desktopRefreshTimer = new QTimer(this);
+    m_desktopRefreshTimer->setInterval(100);
+    m_desktopRefreshTimer->setSingleShot(true);
+    connect(m_desktopWatcher, &QFileSystemWatcher::directoryChanged,
+            this, [this](const QString &) {
+        if (m_desktopRefreshTimer != nullptr) {
+            m_desktopRefreshTimer->start();
+        }
+    });
+    connect(m_desktopRefreshTimer, &QTimer::timeout,
+            this, &FileBrowserController::refreshDesktopEntries);
     refresh();
 }
 
@@ -131,6 +143,11 @@ QString FileBrowserController::sortMode() const
 bool FileBrowserController::sortAscending() const
 {
     return m_sortAscending;
+}
+
+QVariantList FileBrowserController::desktopEntries() const
+{
+    return m_desktopEntries;
 }
 
 bool FileBrowserController::navigateTo(const QString &path)
@@ -622,6 +639,8 @@ bool FileBrowserController::emptyTrash()
 
 void FileBrowserController::refresh()
 {
+    refreshDesktopEntries();
+
     if (searching()) {
         refreshSearchResults();
         return;
@@ -703,6 +722,55 @@ void FileBrowserController::toggleSortOrder()
     m_sortAscending = !m_sortAscending;
     emit sortChanged();
     refresh();
+}
+
+void FileBrowserController::refreshDesktopEntries()
+{
+    QVariantList refreshedEntries;
+    const QString desktopPath = normalizedPath(QDir(m_rootPath).filePath(QStringLiteral("Desktop")));
+    const QDir desktopDirectory(desktopPath);
+    if (!desktopDirectory.exists()) {
+        if (m_desktopWatcher != nullptr) {
+            m_desktopWatcher->removePaths(m_desktopWatcher->directories());
+            m_desktopWatcher->removePaths(m_desktopWatcher->files());
+        }
+        if (!m_desktopEntries.isEmpty()) {
+            m_desktopEntries.clear();
+            emit desktopEntriesChanged();
+        }
+        return;
+    }
+
+    if (m_desktopWatcher != nullptr && !m_desktopWatcher->directories().contains(desktopPath)) {
+        m_desktopWatcher->addPath(desktopPath);
+    }
+
+    const QFileInfoList fileInfos = desktopDirectory.entryInfoList(
+        QDir::AllEntries | QDir::Hidden | QDir::NoDotAndDotDot,
+        QDir::DirsFirst | QDir::IgnoreCase | QDir::Name);
+    for (const QFileInfo &info : fileInfos) {
+        const QString resolvedPath = canonicalOrNormalizedPath(info.absoluteFilePath());
+        if (resolvedPath.isEmpty() || !isWithinRoot(resolvedPath)) {
+            continue;
+        }
+
+        refreshedEntries.append(QVariantMap{
+            {QStringLiteral("name"), info.fileName()},
+            {QStringLiteral("path"), resolvedPath},
+            {QStringLiteral("isDirectory"), info.isDir()},
+            {QStringLiteral("kind"), info.isDir() ? QStringLiteral("Folder") : QStringLiteral("File")},
+            {QStringLiteral("size"), info.isDir() ? qint64(0) : info.size()},
+            {QStringLiteral("modified"), info.lastModified().toString(Qt::ISODate)},
+            {QStringLiteral("readOnly"), false},
+        });
+    }
+
+    if (m_desktopEntries == refreshedEntries) {
+        return;
+    }
+
+    m_desktopEntries = refreshedEntries;
+    emit desktopEntriesChanged();
 }
 
 void FileBrowserController::clearSearchQuery()
