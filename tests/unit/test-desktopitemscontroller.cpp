@@ -13,6 +13,7 @@ class DesktopItemsControllerTest final : public QObject
 private slots:
     void listsDesktopItemsWithStableMetadata();
     void refreshesWhenDesktopFolderIsCreated();
+    void watchesDesktopFolderChanges();
     void emitsSafeOpenRequests();
 };
 
@@ -89,6 +90,23 @@ void DesktopItemsControllerTest::refreshesWhenDesktopFolderIsCreated()
 
     QVERIFY(controller.available());
     QCOMPARE(controller.entries().size(), 1);
+}
+
+void DesktopItemsControllerTest::watchesDesktopFolderChanges()
+{
+    QTemporaryDir homeDirectory;
+    QVERIFY(homeDirectory.isValid());
+    const QString desktopPath = QDir(homeDirectory.path()).filePath(QStringLiteral("Desktop"));
+    QVERIFY(QDir().mkpath(desktopPath));
+
+    DesktopItemsController controller(nullptr, homeDirectory.path());
+    QVERIFY(controller.entries().isEmpty());
+
+    QVERIFY(writeFile(QDir(desktopPath).filePath(QStringLiteral("watched.txt")), "watched"));
+    QTRY_VERIFY_WITH_TIMEOUT(controller.entries().size() == 1, 3000);
+
+    QVERIFY(QFile::remove(QDir(desktopPath).filePath(QStringLiteral("watched.txt"))));
+    QTRY_VERIFY_WITH_TIMEOUT(controller.entries().isEmpty(), 3000);
 }
 
 void DesktopItemsControllerTest::emitsSafeOpenRequests()
