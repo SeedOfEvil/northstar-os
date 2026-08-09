@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Layouts
 
 Window {
     id: dock
@@ -17,6 +18,64 @@ Window {
     property color dockAccent: shellState.darkMode ? "#79b8ff" : "#1769aa"
     property color dockButton: shellState.darkMode ? "#252b36" : "#e8edf5"
 
+    function applicationIconName(applicationId) {
+        const descriptor = String(applicationId || "").toLowerCase()
+        if (descriptor.indexOf("terminal") >= 0 || descriptor.indexOf("qterminal") >= 0
+                || descriptor.indexOf("shell") >= 0 || descriptor.indexOf("console") >= 0) {
+            return "terminal"
+        }
+        if (descriptor.indexOf("firefox") >= 0 || descriptor.indexOf("browser") >= 0) {
+            return "browser"
+        }
+        if (descriptor.indexOf("file") >= 0 || descriptor.indexOf("manager") >= 0) {
+            return "files"
+        }
+        return "northstar"
+    }
+
+    function applicationIsRunning(applicationId) {
+        if (!northstarWindowController || !northstarWindowController.windows) {
+            return false
+        }
+
+        const descriptor = String(applicationId || "").toLowerCase()
+        for (let index = 0; index < northstarWindowController.windows.length; ++index) {
+            const window = northstarWindowController.windows[index]
+            const windowDescriptor = ((window.appId || "") + " " + (window.title || "")).toLowerCase()
+            if ((descriptor === "qterminal"
+                    && (windowDescriptor.indexOf("qterminal") >= 0
+                        || windowDescriptor.indexOf("terminal") >= 0
+                        || windowDescriptor.indexOf("console") >= 0))
+                    || (descriptor === "firefox"
+                        && (windowDescriptor.indexOf("firefox") >= 0
+                            || windowDescriptor.indexOf("browser") >= 0))) {
+                return true
+            }
+        }
+        return false
+    }
+
+    function launchPinned(applicationId) {
+        if (applicationId === "qterminal") {
+            launcher.launchTerminal()
+        } else if (applicationId === "firefox") {
+            launcher.launchBrowser()
+        }
+        refreshTimer.restart()
+    }
+
+    function activateOrToggle(window) {
+        if (!northstarWindowController || !window) {
+            return
+        }
+        if (window.minimized || window.active) {
+            northstarWindowController.toggleMinimize(window.viewId)
+        } else {
+            northstarWindowController.activateWindow(window.viewId)
+        }
+        refreshTimer.restart()
+    }
+
     Timer {
         id: refreshTimer
         interval: 1200
@@ -28,46 +87,41 @@ Window {
     Component.onCompleted: northstarWindowController.refresh()
 
     Rectangle {
-        anchors.fill: parent
-        color: "transparent"
+        id: dockSurface
+        anchors.bottom: parent.bottom
+        anchors.left: parent.left
+        anchors.leftMargin: 12
+        anchors.right: parent.right
+        anchors.rightMargin: 12
+        color: dock.dockBackground
+        height: 58
+        opacity: 0.98
+        radius: 18
+        border.color: dock.dockAccent
+        border.width: 1
 
-        Rectangle {
-            id: dockSurface
-            anchors.bottom: parent.bottom
-            anchors.horizontalCenter: parent.horizontalCenter
-            color: dock.dockBackground
-            height: 58
-            opacity: 0.98
-            radius: 18
-            width: Math.min(parent.width - 32, 980)
-            border.color: dock.dockAccent
-            border.width: 1
-        }
-
-        Row {
-            anchors.bottom: dockSurface.bottom
-            anchors.left: dockSurface.left
+        RowLayout {
+            anchors.fill: parent
             anchors.margins: 10
-            anchors.right: dockSurface.right
-            anchors.top: dockSurface.top
-            spacing: 10
+            spacing: 8
 
             Image {
-                anchors.verticalCenter: parent.verticalCenter
+                Layout.alignment: Qt.AlignVCenter
+                Layout.preferredHeight: 28
+                Layout.preferredWidth: 28
                 fillMode: Image.PreserveAspectFit
-                height: 28
                 mipmap: true
                 smooth: true
                 source: northstarLogoSource
                 sourceClipRect: Qt.rect(270, 245, 485, 335)
-                width: 28
             }
 
             Rectangle {
-                anchors.verticalCenter: parent.verticalCenter
+                Layout.alignment: Qt.AlignVCenter
+                Layout.preferredHeight: 26
+                Layout.preferredWidth: 1
                 color: dock.dockAccent
-                height: 1
-                width: 26
+                opacity: 0.7
             }
 
             Repeater {
@@ -75,12 +129,15 @@ Window {
 
                 delegate: Rectangle {
                     required property string modelData
+                    readonly property bool running: dock.applicationIsRunning(modelData)
 
-                    anchors.verticalCenter: parent.verticalCenter
+                    Layout.alignment: Qt.AlignVCenter
+                    Layout.preferredHeight: 38
+                    Layout.preferredWidth: 88
                     color: shortcutMouse.containsMouse ? dock.dockAccent : dock.dockButton
-                    height: 38
-                    radius: 7
-                    width: 84
+                    radius: 8
+                    border.color: running ? dock.dockAccent : "transparent"
+                    border.width: running ? 1 : 0
 
                     Row {
                         anchors.centerIn: parent
@@ -90,40 +147,45 @@ Window {
                             anchors.verticalCenter: parent.verticalCenter
                             height: 24
                             width: 24
-                            iconName: modelData === "qterminal" ? "terminal" : "browser"
+                            iconName: dock.applicationIconName(modelData)
                         }
 
                         Text {
                             anchors.verticalCenter: parent.verticalCenter
                             color: dock.dockForeground
+                            elide: Text.ElideRight
                             font.pixelSize: 12
                             text: modelData === "qterminal" ? "Terminal" : "Firefox"
+                            width: 48
                         }
+                    }
+
+                    Rectangle {
+                        anchors.bottom: parent.bottom
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        color: dock.dockAccent
+                        height: 3
+                        radius: 2
+                        visible: running
+                        width: 24
                     }
 
                     MouseArea {
                         id: shortcutMouse
                         anchors.fill: parent
                         hoverEnabled: true
-                        onClicked: {
-                            if (modelData === "qterminal") {
-                                launcher.launchTerminal()
-                            } else {
-                                launcher.launchBrowser()
-                            }
-                            refreshTimer.restart()
-                        }
+                        onClicked: dock.launchPinned(modelData)
                     }
                 }
             }
 
             Rectangle {
                 id: filesShortcut
-                anchors.verticalCenter: parent.verticalCenter
+                Layout.alignment: Qt.AlignVCenter
+                Layout.preferredHeight: 38
+                Layout.preferredWidth: 78
                 color: filesShortcutMouse.containsMouse ? dock.dockAccent : dock.dockButton
-                height: 38
-                radius: 7
-                width: 72
+                radius: 8
 
                 Row {
                     anchors.centerIn: parent
@@ -153,11 +215,11 @@ Window {
             }
 
             Rectangle {
-                anchors.verticalCenter: parent.verticalCenter
+                Layout.alignment: Qt.AlignVCenter
+                Layout.preferredHeight: 38
+                Layout.preferredWidth: 78
                 color: trashShortcutMouse.containsMouse ? "#c34f65" : dock.dockButton
-                height: 38
-                radius: 7
-                width: 72
+                radius: 8
 
                 Row {
                     anchors.centerIn: parent
@@ -187,29 +249,33 @@ Window {
             }
 
             Rectangle {
-                anchors.verticalCenter: parent.verticalCenter
+                Layout.alignment: Qt.AlignVCenter
+                Layout.preferredHeight: 36
+                Layout.preferredWidth: 1
                 color: dock.dockMuted
-                height: 36
                 opacity: 0.35
-                width: 1
             }
 
             Text {
-                anchors.verticalCenter: parent.verticalCenter
+                Layout.alignment: Qt.AlignVCenter
+                Layout.minimumWidth: 0
+                Layout.preferredWidth: 62
                 color: dock.dockMuted
+                elide: Text.ElideRight
                 font.pixelSize: 12
                 text: "Open apps"
             }
 
             Flickable {
                 id: appStrip
-                anchors.top: parent.top
-                anchors.bottom: parent.bottom
-                contentWidth: appRow.width
+                Layout.alignment: Qt.AlignVCenter
+                Layout.fillHeight: true
+                Layout.fillWidth: true
+                Layout.minimumWidth: 84
                 clip: true
+                contentWidth: appRow.width
                 flickableDirection: Flickable.HorizontalFlick
                 interactive: appRow.width > width
-                width: Math.max(0, parent.width - x - refreshButton.width - 12)
 
                 Row {
                     id: appRow
@@ -222,21 +288,45 @@ Window {
                         delegate: Rectangle {
                             required property var modelData
 
-                            color: appMouse.containsMouse ? dock.dockAccent : dock.dockButton
+                            color: modelData.active
+                                ? dock.dockAccent
+                                : appMouse.containsMouse ? dock.dockAccent : dock.dockButton
                             height: 38
-                            radius: 7
-                            width: 156
+                            radius: 8
+                            width: 172
+                            border.color: modelData.active ? dock.dockForeground : "transparent"
+                            border.width: modelData.active ? 1 : 0
 
-                            Text {
-                                anchors.left: parent.left
-                                anchors.leftMargin: 12
-                                anchors.right: minimizeButton.left
+                            Row {
+                                anchors.fill: parent
+                                anchors.leftMargin: 10
                                 anchors.rightMargin: 6
-                                anchors.verticalCenter: parent.verticalCenter
-                                color: dock.dockForeground
-                                elide: Text.ElideRight
-                                font.pixelSize: 12
-                                text: modelData.title
+                                spacing: 6
+
+                                NorthstarIcon {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    height: 22
+                                    width: 22
+                                    iconName: dock.applicationIconName(modelData.appId || modelData.title)
+                                }
+
+                                Text {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    color: dock.dockForeground
+                                    elide: Text.ElideRight
+                                    font.pixelSize: 12
+                                    text: modelData.title
+                                    width: parent.width - 62
+                                }
+
+                                Rectangle {
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    color: modelData.active ? dock.dockForeground : dock.dockAccent
+                                    height: 7
+                                    radius: 4
+                                    visible: !modelData.minimized
+                                    width: 7
+                                }
                             }
 
                             MouseArea {
@@ -246,7 +336,7 @@ Window {
                                 anchors.top: parent.top
                                 anchors.bottom: parent.bottom
                                 hoverEnabled: true
-                                onClicked: northstarWindowController.activateWindow(modelData.viewId)
+                                onClicked: dock.activateOrToggle(modelData)
                             }
 
                             Rectangle {
@@ -286,15 +376,17 @@ Window {
                             : ""
                     }
                 }
+
+                ScrollBar.horizontal: ScrollBar {}
             }
 
             Rectangle {
                 id: refreshButton
-                anchors.verticalCenter: parent.verticalCenter
+                Layout.alignment: Qt.AlignVCenter
+                Layout.preferredHeight: 38
+                Layout.preferredWidth: 38
                 color: refreshMouse.containsMouse ? dock.dockAccent : dock.dockButton
-                height: 38
-                radius: 7
-                width: 38
+                radius: 8
 
                 NorthstarIcon {
                     anchors.centerIn: parent

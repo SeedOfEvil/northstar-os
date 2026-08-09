@@ -7,7 +7,7 @@ The project advances through user-visible milestones with explicit pass gates. A
 | M0 | Reproducible development desktop | Supplemental VM lane validated; direct DRM/KMS gate pending | A clean FreeBSD 15.1 amd64 VM becomes the approved development environment |
 | M1 | Shell seed | Single-display product slice validated; multi-display acceptance pending | Top bar and dock render correctly on every connected display |
 | M2 | Desktop session | Development session lane validated; production display-manager and service integration pending | Session, services, supervision, notifications, and lifecycle work coherently |
-| M3 | Core desktop | Files v3 and Desktop Icons v1 implemented; acceptance closure and remaining polish pending | Filer, branded desktop surface, settings, search, overview, associations, and project apps form a usable desktop |
+| M3 | Core desktop | Files v3, Desktop Icons v1, and Dock v1 implemented; acceptance closure and remaining polish pending | Filer, branded desktop surface, responsive dock, settings, search, overview, associations, and project apps form a usable desktop |
 | M4 | Packages, updates, rollback | Package policy, fingerprint stores, provenance preview, publication signature verification, native `pkg` publication smoke, bounded helper contract, and broker staging merged; protected release publication and update/rollback remain | Signed packages and ZFS boot-environment rollback work end to end |
 | M5 | Reproducible image and installer | Not started | Pinned inputs produce a bootable UEFI root-on-ZFS image |
 | M6 | Alpha hardware release | Not started | The supported VM and narrow Intel/AMD hardware matrix meets the alpha definition |
@@ -127,6 +127,11 @@ of application-like `.desktop` and `.app` entries remains part of the
 application-discovery follow-on slice.
 
 Third-party global menus and full macOS compatibility remain out of scope.
+
+The Dock v1 surface is documented in [`docs/M3_DOCK.md`](M3_DOCK.md). It
+replaces the fixed-width dock panel with a responsive full-width layout and
+adds active/running indicators plus focus/minimize/restore behavior backed by
+the existing Wayfire window controller.
 
 ## M4: Packages, updates, and rollback
 

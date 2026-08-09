@@ -144,12 +144,17 @@ bool WindowController::refresh()
         const QString title = view.value(QStringLiteral("title")).toString().trimmed();
         const QString appId = view.value(QStringLiteral("app-id")).toString().trimmed();
         const QString label = !title.isEmpty() ? title : (!appId.isEmpty() ? appId : QStringLiteral("Application"));
+        const bool active = view.value(QStringLiteral("focused")).toBool(false)
+            || view.value(QStringLiteral("active")).toBool(false)
+            || view.value(QStringLiteral("focus")).toBool(false)
+            || view.value(QStringLiteral("is-focused")).toBool(false);
         nextWindows.append(QVariantMap{
             {QStringLiteral("viewId"), viewId},
             {QStringLiteral("pid"), pid},
             {QStringLiteral("title"), label},
             {QStringLiteral("appId"), appId},
             {QStringLiteral("minimized"), view.value(QStringLiteral("minimized")).toBool(false)},
+            {QStringLiteral("active"), active},
         });
     }
 
