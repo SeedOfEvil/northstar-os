@@ -1,5 +1,6 @@
 #include "packagetrustcontroller.h"
 
+#include <QDir>
 #include <QFile>
 #include <QFileInfo>
 #include <QHash>
@@ -13,8 +14,9 @@
 namespace {
 
 constexpr qsizetype MaximumNameLength = 128;
+constexpr qsizetype MaximumTagLength = 64;
 constexpr qsizetype MaximumUrlLength = 512;
-constexpr qsizetype MaximumFingerprintLength = 71;
+constexpr qsizetype MaximumPathLength = 512;
 
 void setError(QString *errorMessage, const QString &message)
 {
@@ -56,6 +58,11 @@ QString PackageTrustController::channel() const
     return m_policy.channel;
 }
 
+QString PackageTrustController::repositoryTag() const
+{
+    return m_policy.repositoryTag;
+}
+
 QString PackageTrustController::repositoryName() const
 {
     return m_policy.repositoryName;
@@ -66,14 +73,29 @@ QString PackageTrustController::repositoryUrl() const
     return m_policy.repositoryUrl;
 }
 
-QString PackageTrustController::signingKeyFingerprint() const
+QString PackageTrustController::mirrorType() const
 {
-    return m_policy.signingKeyFingerprint;
+    return m_policy.mirrorType;
+}
+
+QString PackageTrustController::signatureType() const
+{
+    return m_policy.signatureType;
+}
+
+QString PackageTrustController::fingerprintsPath() const
+{
+    return m_policy.fingerprintsPath;
 }
 
 QString PackageTrustController::policyPath() const
 {
     return m_policyPath;
+}
+
+QString PackageTrustController::repositoryConfigPreview() const
+{
+    return m_repositoryConfigPreview;
 }
 
 QString PackageTrustController::trustStatus() const
@@ -89,6 +111,7 @@ QString PackageTrustController::updatePlanStatus() const
 bool PackageTrustController::reload()
 {
     m_policy = {};
+    m_repositoryConfigPreview.clear();
     m_policyPresent = QFileInfo::exists(m_policyPath);
     m_policyValid = false;
 
@@ -113,7 +136,8 @@ bool PackageTrustController::reload()
     }
 
     m_policyValid = true;
-    m_trustStatus = QStringLiteral("Policy is structurally valid; pkg signature verification is not connected yet.");
+    m_repositoryConfigPreview = renderPkgRepositoryConfig(m_policy);
+    m_trustStatus = QStringLiteral("Policy is structurally valid for pkg fingerprint trust; signature verification is not connected yet.");
     m_updatePlanStatus = QStringLiteral("Update planning is blocked until repository signatures are verified.");
     emit stateChanged();
     return true;
@@ -158,9 +182,12 @@ bool PackageTrustController::parsePolicy(const QByteArray &contents,
             return false;
         }
         if (key != QStringLiteral("channel")
+            && key != QStringLiteral("repository_tag")
             && key != QStringLiteral("repository_name")
             && key != QStringLiteral("repository_url")
-            && key != QStringLiteral("signing_key_fingerprint")
+            && key != QStringLiteral("mirror_type")
+            && key != QStringLiteral("signature_type")
+            && key != QStringLiteral("fingerprints_path")
             && key != QStringLiteral("trust_mode")) {
             setError(errorMessage, QStringLiteral("key '%1' is not part of the policy contract").arg(key));
             return false;
@@ -170,9 +197,12 @@ bool PackageTrustController::parsePolicy(const QByteArray &contents,
 
     const QStringList requiredKeys{
         QStringLiteral("channel"),
+        QStringLiteral("repository_tag"),
         QStringLiteral("repository_name"),
         QStringLiteral("repository_url"),
-        QStringLiteral("signing_key_fingerprint"),
+        QStringLiteral("mirror_type"),
+        QStringLiteral("signature_type"),
+        QStringLiteral("fingerprints_path"),
         QStringLiteral("trust_mode"),
     };
     for (const QString &key : requiredKeys) {
@@ -198,19 +228,39 @@ bool PackageTrustController::parsePolicy(const QByteArray &contents,
         return false;
     }
 
-    const QString repositoryUrl = values.value(QStringLiteral("repository_url"));
-    const QUrl url(repositoryUrl);
-    if (repositoryUrl.size() > MaximumUrlLength || !url.isValid()
-        || url.scheme() != QStringLiteral("https") || url.host().isEmpty()
-        || repositoryUrl.contains(QRegularExpression(QStringLiteral("\\s")))) {
-        setError(errorMessage, QStringLiteral("repository_url must be an https URL without whitespace"));
+    const QString repositoryTag = values.value(QStringLiteral("repository_tag"));
+    static const QRegularExpression tagPattern(QStringLiteral("^[A-Za-z0-9][A-Za-z0-9_.-]*$"));
+    if (repositoryTag.size() > MaximumTagLength || !tagPattern.match(repositoryTag).hasMatch()) {
+        setError(errorMessage, QStringLiteral("repository_tag must contain only safe UCL tag characters"));
         return false;
     }
 
-    const QString fingerprint = values.value(QStringLiteral("signing_key_fingerprint"));
-    static const QRegularExpression fingerprintPattern(QStringLiteral("^SHA256:[0-9A-Fa-f]{64}$"));
-    if (fingerprint.size() > MaximumFingerprintLength || !fingerprintPattern.match(fingerprint).hasMatch()) {
-        setError(errorMessage, QStringLiteral("signing_key_fingerprint must be SHA256 followed by 64 hex characters"));
+    const QString repositoryUrl = values.value(QStringLiteral("repository_url"));
+    const QUrl url(repositoryUrl);
+    if (repositoryUrl.size() > MaximumUrlLength || !url.isValid()
+        || url.scheme() != QStringLiteral("pkg+https") || url.host().isEmpty()
+        || repositoryUrl.contains(QRegularExpression(QStringLiteral("\\s")))) {
+        setError(errorMessage, QStringLiteral("repository_url must be a pkg+https URL without whitespace"));
+        return false;
+    }
+
+    const QString mirrorType = values.value(QStringLiteral("mirror_type"));
+    if (mirrorType != QStringLiteral("none") && mirrorType != QStringLiteral("srv")) {
+        setError(errorMessage, QStringLiteral("mirror_type must be none or srv"));
+        return false;
+    }
+
+    if (values.value(QStringLiteral("signature_type")) != QStringLiteral("fingerprints")) {
+        setError(errorMessage, QStringLiteral("signature_type must be fingerprints"));
+        return false;
+    }
+
+    const QString fingerprintsPath = values.value(QStringLiteral("fingerprints_path"));
+    const QStringList pathParts = fingerprintsPath.split(QLatin1Char('/'), Qt::SkipEmptyParts);
+    if (fingerprintsPath.size() > MaximumPathLength || !fingerprintsPath.startsWith(QLatin1Char('/'))
+        || fingerprintsPath.contains(QRegularExpression(QStringLiteral("\\s")))
+        || pathParts.contains(QStringLiteral(".."))) {
+        setError(errorMessage, QStringLiteral("fingerprints_path must be an absolute safe path"));
         return false;
     }
 
@@ -221,12 +271,31 @@ bool PackageTrustController::parsePolicy(const QByteArray &contents,
 
     policy = PackageRepositoryPolicy{
         channel,
+        repositoryTag,
         repositoryName,
         repositoryUrl,
-        fingerprint,
+        mirrorType,
+        values.value(QStringLiteral("signature_type")),
+        fingerprintsPath,
         values.value(QStringLiteral("trust_mode")),
     };
     return true;
+}
+
+QString PackageTrustController::renderPkgRepositoryConfig(const PackageRepositoryPolicy &policy)
+{
+    return QStringLiteral("%1: {\n"
+                          "    url: \"%2\",\n"
+                          "    mirror_type: \"%3\",\n"
+                          "    signature_type: \"%4\",\n"
+                          "    fingerprints: \"%5\",\n"
+                          "    enabled: yes\n"
+                          "}\n")
+        .arg(policy.repositoryTag,
+             policy.repositoryUrl,
+             policy.mirrorType,
+             policy.signatureType,
+             QDir::cleanPath(policy.fingerprintsPath));
 }
 
 QString PackageTrustController::defaultPolicyPath()

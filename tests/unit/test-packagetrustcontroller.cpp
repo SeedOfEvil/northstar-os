@@ -9,11 +9,13 @@ namespace {
 QByteArray validPolicy()
 {
     return QByteArray("channel=development\n"
+                      "repository_tag=northstar-development\n"
                       "repository_name=Northstar Development\n"
-                      "repository_url=https://packages.example.test/northstar\n"
-                      "signing_key_fingerprint=SHA256:")
-        + QByteArray(64, 'a')
-        + QByteArray("\ntrust_mode=required\n");
+                      "repository_url=pkg+https://packages.example.test/northstar\n"
+                      "mirror_type=srv\n"
+                      "signature_type=fingerprints\n"
+                      "fingerprints_path=/usr/local/etc/pkg/fingerprints/northstar-development\n"
+                      "trust_mode=required\n");
 }
 
 } // namespace
@@ -26,6 +28,7 @@ private slots:
     void acceptsValidPolicy();
     void rejectsUnresolvedValues();
     void rejectsUnknownAndDuplicateKeys();
+    void rejectsUnsafeRepositoryInputs();
     void reportsMissingPolicyAndBlocksPlanning();
     void reportsValidPolicyButKeepsPlanningBlocked();
 };
@@ -38,10 +41,19 @@ void PackageTrustControllerTest::acceptsValidPolicy()
     QVERIFY2(PackageTrustController::parsePolicy(validPolicy(), policy, &errorMessage),
              qPrintable(errorMessage));
     QCOMPARE(policy.channel, QStringLiteral("development"));
+    QCOMPARE(policy.repositoryTag, QStringLiteral("northstar-development"));
     QCOMPARE(policy.repositoryName, QStringLiteral("Northstar Development"));
-    QCOMPARE(policy.repositoryUrl, QStringLiteral("https://packages.example.test/northstar"));
-    QCOMPARE(policy.signingKeyFingerprint, QStringLiteral("SHA256:") + QString(64, QLatin1Char('a')));
+    QCOMPARE(policy.repositoryUrl, QStringLiteral("pkg+https://packages.example.test/northstar"));
+    QCOMPARE(policy.mirrorType, QStringLiteral("srv"));
+    QCOMPARE(policy.signatureType, QStringLiteral("fingerprints"));
+    QCOMPARE(policy.fingerprintsPath,
+             QStringLiteral("/usr/local/etc/pkg/fingerprints/northstar-development"));
     QCOMPARE(policy.trustMode, QStringLiteral("required"));
+
+    const QString config = PackageTrustController::renderPkgRepositoryConfig(policy);
+    QVERIFY(config.contains(QStringLiteral("northstar-development: {")));
+    QVERIFY(config.contains(QStringLiteral("signature_type: \"fingerprints\"")));
+    QVERIFY(config.contains(QStringLiteral("fingerprints: \"/usr/local/etc/pkg/fingerprints/northstar-development\"")));
 }
 
 void PackageTrustControllerTest::rejectsUnresolvedValues()
@@ -67,6 +79,22 @@ void PackageTrustControllerTest::rejectsUnknownAndDuplicateKeys()
 
     QVERIFY(!PackageTrustController::parsePolicy(duplicate, parsed, &errorMessage));
     QVERIFY(errorMessage.contains(QStringLiteral("duplicated")));
+}
+
+void PackageTrustControllerTest::rejectsUnsafeRepositoryInputs()
+{
+    QByteArray insecure = validPolicy();
+    insecure.replace("pkg+https://packages.example.test/northstar", "https://packages.example.test/northstar");
+    QByteArray unsafePath = validPolicy();
+    unsafePath.replace("/usr/local/etc/pkg/fingerprints/northstar-development", "/tmp/../unsafe");
+    QString errorMessage;
+    PackageRepositoryPolicy parsed;
+
+    QVERIFY(!PackageTrustController::parsePolicy(insecure, parsed, &errorMessage));
+    QVERIFY(errorMessage.contains(QStringLiteral("pkg+https")));
+
+    QVERIFY(!PackageTrustController::parsePolicy(unsafePath, parsed, &errorMessage));
+    QVERIFY(errorMessage.contains(QStringLiteral("absolute safe path")));
 }
 
 void PackageTrustControllerTest::reportsMissingPolicyAndBlocksPlanning()
@@ -98,6 +126,7 @@ void PackageTrustControllerTest::reportsValidPolicyButKeepsPlanningBlocked()
     QVERIFY(controller.policyValid());
     QCOMPARE(controller.channel(), QStringLiteral("development"));
     QVERIFY(controller.trustStatus().contains(QStringLiteral("not connected")));
+    QVERIFY(controller.repositoryConfigPreview().contains(QStringLiteral("signature_type")));
 
     controller.planUpdate();
     QVERIFY(controller.updatePlanStatus().contains(QStringLiteral("signatures")));

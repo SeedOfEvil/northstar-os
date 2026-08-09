@@ -27,9 +27,11 @@ The next slice adds a read-only repository policy contract at
 `packaging/manifests/repository-policy.conf`. A configured policy contains:
 
 - `channel=development` or `channel=stable`;
+- a safe `repository_tag` used for the FreeBSD `pkg` UCL repository key;
 - a repository name;
-- an HTTPS repository URL;
-- a `SHA256:` signing-key fingerprint with 64 hexadecimal characters; and
+- a `pkg+https` repository URL and `mirror_type`;
+- `signature_type=fingerprints` and an absolute `fingerprints_path` containing
+  the trusted/revoked fingerprint files; and
 - `trust_mode=required`.
 
 The shell can validate this structure from the user configuration path
@@ -38,6 +40,9 @@ equivalent Qt application-config path). Software Center reports whether the
 policy is absent, rejected, or structurally valid. **Plan Update** remains a
 non-mutating safety boundary: it explicitly reports that repository signature
 verification is not connected yet, even when the policy structure is valid.
+For a valid policy, the controller also exposes a preview of the corresponding
+FreeBSD `pkg` repository UCL without writing it to `/etc/pkg` or
+`/usr/local/etc/pkg/repos`.
 
 Structural validation is not cryptographic verification and does not authorize
 `pkg` operations. The following M4 slices must connect the policy to signed
