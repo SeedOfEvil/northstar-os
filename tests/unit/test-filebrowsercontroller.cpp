@@ -15,6 +15,7 @@ private slots:
     void listsFoldersBeforeFiles();
     void sortsEntriesByMetadata();
     void listsDesktopEntriesForTheDesktopSurface();
+    void watchesForDesktopFolderCreation();
     void navigatesWithinHomeFolder();
     void searchesHomeTreeAndClearsOnNavigation();
     void opensFilesThroughInjectedHandler();
@@ -113,6 +114,22 @@ void FileBrowserControllerTest::listsDesktopEntriesForTheDesktopSurface()
              QFileInfo(QDir(desktopPath).filePath(QStringLiteral("Projects"))).canonicalFilePath());
     QVERIFY(entries.at(0).toMap().value(QStringLiteral("isDirectory")).toBool());
     QVERIFY(!entries.at(1).toMap().value(QStringLiteral("isDirectory")).toBool());
+}
+
+void FileBrowserControllerTest::watchesForDesktopFolderCreation()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+
+    FileBrowserController controller(nullptr, temporaryDirectory.path());
+    QVERIFY(controller.desktopEntries().isEmpty());
+
+    const QString desktopPath = QDir(temporaryDirectory.path()).filePath(QStringLiteral("Desktop"));
+    QVERIFY(QDir().mkpath(desktopPath));
+    QVERIFY(writeFile(QDir(desktopPath).filePath(QStringLiteral("created-later.txt")), "later"));
+
+    QTRY_COMPARE_WITH_TIMEOUT(controller.desktopEntries().size(), 1, 2000);
+    QCOMPARE(entryName(controller.desktopEntries().first()), QStringLiteral("created-later.txt"));
 }
 
 void FileBrowserControllerTest::navigatesWithinHomeFolder()

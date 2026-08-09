@@ -156,7 +156,9 @@ without claiming broad macOS application compatibility.
 association chooser used by Files. User-scoped icon positions can be dragged
 and are persisted with bounded coordinates; release positions snap to the
 nearest free cell, while reset falls back to the default column layout through
-Settings > Appearance. This remains home-scoped
+Settings > Appearance. The projection also watches the home directory so a
+Desktop folder created after shell startup appears without a manual refresh.
+This remains home-scoped
 and primary-display-only; it does not claim to replace a full desktop-file or
 multi-display icon-position service.
 

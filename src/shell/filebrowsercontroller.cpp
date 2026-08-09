@@ -727,12 +727,16 @@ void FileBrowserController::toggleSortOrder()
 void FileBrowserController::refreshDesktopEntries()
 {
     QVariantList refreshedEntries;
+    const QString homePath = normalizedPath(m_rootPath);
     const QString desktopPath = normalizedPath(QDir(m_rootPath).filePath(QStringLiteral("Desktop")));
+    if (m_desktopWatcher != nullptr && !m_desktopWatcher->directories().contains(homePath)) {
+        m_desktopWatcher->addPath(homePath);
+    }
+
     const QDir desktopDirectory(desktopPath);
     if (!desktopDirectory.exists()) {
         if (m_desktopWatcher != nullptr) {
-            m_desktopWatcher->removePaths(m_desktopWatcher->directories());
-            m_desktopWatcher->removePaths(m_desktopWatcher->files());
+            m_desktopWatcher->removePath(desktopPath);
         }
         if (!m_desktopEntries.isEmpty()) {
             m_desktopEntries.clear();
