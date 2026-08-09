@@ -148,6 +148,21 @@ broker that rechecks the verified update plan and obtains explicit user
 confirmation. Until that broker and the N-1/rollback fixture exist, Software
 Center correctly remains **Preflight only**.
 
+## M4-H independent verified-plan broker
+
+`northstar-update-broker` reuses the tested trust and update-plan core in a
+separate process. Its first operation, `--stage-create-before`, requires root,
+explicit `--confirm`, root-owned non-group-writable policy/metadata/snapshot
+inputs, and a root-owned request directory. It independently verifies the
+publication policy, trusted fingerprint store, catalogue digest, RSA signature,
+and pending package preview before writing the helper's mode-0600 request.
+
+The broker checks `bectl` and `zfs` availability through the existing preflight
+but does not call either tool or invoke `pkg`. No sudoers rule, D-Bus service,
+package transaction, or real VM boot-environment mutation is added. The next
+gate is a reviewed privileged deployment plus a disposable ZFS N-1 update and
+rollback transaction.
+
 ## VM validation
 
 From the FreeBSD development checkout:
@@ -158,6 +173,8 @@ make update-helper-test
 make install-user NORTHSTAR_PREFIX="$HOME/.local"
 make pkg-repository-smoke
 sudo -n make pkg-repository-smoke NORTHSTAR_PKG_CLIENT=1
+make build
+sudo -n make update-broker-smoke
 ```
 
 After restarting the shell, open **Software Center** from the Northstar menu

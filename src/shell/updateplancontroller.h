@@ -43,6 +43,8 @@ class UpdatePlanController final : public QObject
     Q_PROPERTY(bool signatureVerified READ signatureVerified NOTIFY stateChanged)
     Q_PROPERTY(bool previewReady READ previewReady NOTIFY stateChanged)
     Q_PROPERTY(QString signatureStatus READ signatureStatus NOTIFY stateChanged)
+    Q_PROPERTY(QString signatureFingerprint READ signatureFingerprint NOTIFY stateChanged)
+    Q_PROPERTY(QString catalogueSha256 READ catalogueSha256 NOTIFY stateChanged)
     Q_PROPERTY(int repositoryRevision READ repositoryRevision NOTIFY stateChanged)
     Q_PROPERTY(QString sourceRevision READ sourceRevision NOTIFY stateChanged)
     Q_PROPERTY(int packageCount READ packageCount NOTIFY stateChanged)
@@ -68,6 +70,8 @@ public:
     bool signatureVerified() const;
     bool previewReady() const;
     QString signatureStatus() const;
+    QString signatureFingerprint() const;
+    QString catalogueSha256() const;
     int repositoryRevision() const;
     QString sourceRevision() const;
     int packageCount() const;

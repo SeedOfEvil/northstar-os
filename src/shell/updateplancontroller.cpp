@@ -125,6 +125,16 @@ QString UpdatePlanController::signatureStatus() const
     return m_signatureStatus;
 }
 
+QString UpdatePlanController::signatureFingerprint() const
+{
+    return m_metadata.signatureFingerprint;
+}
+
+QString UpdatePlanController::catalogueSha256() const
+{
+    return m_metadata.catalogueSha256;
+}
+
 int UpdatePlanController::repositoryRevision() const
 {
     return m_metadata.revision;
