@@ -39,6 +39,10 @@ mutation, post-update verification, failure recovery, and explicit rollback.
 - The proven disposable boot environment was then destroyed and the VM reset
   to `northstar-0.0.9`, leaving a real signed `0.1.0` update pending for manual
   Software Center acceptance.
+- Initial manual acceptance exposed a Qt application-specific configuration
+  path mismatch. Policy and metadata discovery now use the documented stable
+  `~/.config/northstar` namespace; all 22 tests and QML contracts passed again
+  before redeployment and controlled shell restart.
 
 ## Manual noVNC acceptance
 
