@@ -20,18 +20,12 @@ QString defaultSettingsPath()
 
 ShellState::ShellState(QObject *parent, QString settingsPath)
     : QObject(parent)
-    , m_pinnedApplications({QStringLiteral("qterminal"), QStringLiteral("firefox")})
     , m_settingsPath(settingsPath.trimmed().isEmpty()
             ? defaultSettingsPath()
             : QDir::cleanPath(QDir::fromNativeSeparators(settingsPath)))
     , m_activeWindowTitle(QStringLiteral("Desktop"))
 {
     loadPreferences();
-}
-
-QStringList ShellState::pinnedApplications() const
-{
-    return m_pinnedApplications;
 }
 
 QString ShellState::activeWindowTitle() const

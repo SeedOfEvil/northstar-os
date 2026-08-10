@@ -186,6 +186,68 @@ bool ApplicationLauncher::launchApplicationWithFile(const QString &desktopId, co
     return launch(desktopId, applicationNameFor(desktopId), program, arguments);
 }
 
+QString ApplicationLauncher::desktopIdForWindow(const QString &appId, const QString &title) const
+{
+    const QString normalizedAppId = appId.trimmed().toLower();
+    const QString normalizedTitle = title.trimmed().toLower();
+    const QVariantList entries = applications();
+
+    const auto compactIdentity = [](QString value) {
+        value = value.toLower();
+        value.removeIf([](QChar character) { return !character.isLetterOrNumber(); });
+        return value;
+    };
+    const QString compactAppId = compactIdentity(normalizedAppId);
+
+    // Project-owned bundles are the canonical Dock identity even when the
+    // same executable is also exposed through a compatibility .desktop file.
+    for (const QVariant &entry : entries) {
+        const QVariantMap application = entry.toMap();
+        if (application.value(QStringLiteral("sourceType")).toString() != QStringLiteral("bundle")) {
+            continue;
+        }
+        const QString desktopId = application.value(QStringLiteral("desktopId")).toString();
+        const QString name = application.value(QStringLiteral("name")).toString().trimmed().toLower();
+        const QString bundleToken = compactIdentity(desktopId.section(QLatin1Char('.'), -1));
+        if ((!name.isEmpty() && !normalizedTitle.isEmpty()
+             && (normalizedTitle == name || normalizedTitle.startsWith(name + QLatin1Char(' '))))
+            || (bundleToken.size() >= 4 && compactAppId.contains(bundleToken))) {
+            return desktopId;
+        }
+    }
+
+    for (const QVariant &entry : entries) {
+        const QVariantMap application = entry.toMap();
+        QString desktopId = application.value(QStringLiteral("desktopId")).toString();
+        QString comparableDesktopId = desktopId.toLower();
+        if (comparableDesktopId.endsWith(QStringLiteral(".desktop"))) {
+            comparableDesktopId.chop(8);
+        }
+        if (!normalizedAppId.isEmpty()
+            && (comparableDesktopId == normalizedAppId
+                || application.value(QStringLiteral("exec")).toString().toLower().contains(normalizedAppId))) {
+            return desktopId;
+        }
+    }
+
+    for (const QVariant &entry : entries) {
+        const QVariantMap application = entry.toMap();
+        const QString name = application.value(QStringLiteral("name")).toString().trimmed().toLower();
+        if (!name.isEmpty() && !normalizedTitle.isEmpty()
+            && (normalizedTitle == name || normalizedTitle.startsWith(name + QLatin1Char(' ')))) {
+            return application.value(QStringLiteral("desktopId")).toString();
+        }
+    }
+
+    if (normalizedAppId.contains(QStringLiteral("terminal"))) {
+        return QStringLiteral("qterminal");
+    }
+    if (normalizedAppId.contains(QStringLiteral("firefox"))) {
+        return QStringLiteral("firefox");
+    }
+    return {};
+}
+
 QVariantList ApplicationLauncher::applicationsForFile(const QString &filePath) const
 {
     const QFileInfo fileInfo(filePath);

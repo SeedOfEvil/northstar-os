@@ -461,6 +461,7 @@ Window {
     ApplicationOverview {
         id: applicationOverview
         applicationLauncher: launcher
+        pinnedApplications: northstarPinnedApplicationModel
         state: shellState
         targetScreen: targetScreen
         panelHeight: root.height

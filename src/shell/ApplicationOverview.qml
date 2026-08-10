@@ -11,6 +11,7 @@ Window {
     }
 
     property var applicationLauncher
+    property var pinnedApplications
     property var state
     property var targetScreen
     property int panelHeight: 44
@@ -105,6 +106,33 @@ Window {
             return "editor"
         }
         return "northstar"
+    }
+
+    function pinnedDisplayName(desktopId) {
+        if (desktopId === "qterminal") {
+            return "Terminal"
+        }
+        if (desktopId === "firefox") {
+            return "Firefox"
+        }
+        const applications = applicationLauncher ? applicationLauncher.applications : []
+        for (let index = 0; index < applications.length; ++index) {
+            if (applications[index].desktopId === desktopId) {
+                return applications[index].name
+            }
+        }
+        return desktopId
+    }
+
+    function launchPinned(desktopId) {
+        if (desktopId === "qterminal") {
+            applicationLauncher.launchTerminal()
+        } else if (desktopId === "firefox") {
+            applicationLauncher.launchBrowser()
+        } else {
+            applicationLauncher.launchApplication(desktopId)
+        }
+        overview.hide()
     }
 
     function localPathFromDrop(drop) {
@@ -220,6 +248,7 @@ Window {
                     model: applicationLauncher ? applicationLauncher.matchingApplications : []
 
                     delegate: Rectangle {
+                        id: applicationDelegate
                         required property var modelData
 
                         color: applicationDropArea.containsDrag || applicationMouse.containsMouse
@@ -279,11 +308,39 @@ Window {
                         MouseArea {
                             id: applicationMouse
                             anchors.fill: parent
+                            acceptedButtons: Qt.LeftButton | Qt.RightButton
                             hoverEnabled: true
-                            onClicked: {
-                                applicationLauncher.launchApplication(modelData.desktopId)
-                                overview.visible = false
+                            onClicked: function(mouse) {
+                                if (mouse.button === Qt.RightButton) {
+                                    applicationPinMenu.desktopId = modelData.desktopId
+                                    applicationPinMenu.applicationName = modelData.name
+                                    applicationPinMenu.x = Math.max(8, Math.min(
+                                        overview.width - applicationPinMenu.implicitWidth - 8,
+                                        applicationDelegate.mapToItem(overview.contentItem, 0, 0).x
+                                            + mouse.x))
+                                    applicationPinMenu.y = Math.max(8, Math.min(
+                                        overview.height - applicationPinMenu.implicitHeight - 8,
+                                        applicationDelegate.mapToItem(overview.contentItem, 0, 0).y
+                                            + mouse.y))
+                                    applicationPinMenu.open()
+                                } else {
+                                    applicationLauncher.launchApplication(modelData.desktopId)
+                                    overview.visible = false
+                                }
                             }
+                        }
+
+                        Rectangle {
+                            anchors.right: parent.right
+                            anchors.rightMargin: 7
+                            anchors.top: parent.top
+                            anchors.topMargin: 7
+                            color: lunar.accent
+                            height: 9
+                            radius: 5
+                            visible: overview.pinnedApplications
+                                && overview.pinnedApplications.isPinned(modelData.desktopId)
+                            width: 9
                         }
 
                         DropArea {
@@ -341,53 +398,72 @@ Window {
                     width: 58
                 }
 
-                Rectangle {
-                    color: pinnedTerminalMouse.containsMouse ? lunar.raisedHover : lunar.raised
-                    height: 36
-                    radius: 12
-                    width: 112
+                Flickable {
+                    clip: true
+                    contentWidth: pinnedShortcutsRow.width
+                    height: 38
+                    interactive: contentWidth > width
+                    width: Math.max(180, parent.width - 58 - 230 - (3 * parent.spacing))
 
                     Row {
-                        anchors.centerIn: parent
-                        spacing: 7
+                        id: pinnedShortcutsRow
+                        height: parent.height
+                        spacing: 10
 
-                        NorthstarIcon { height: 22; iconName: "terminal"; width: 22 }
-                        Text { color: overview.surfaceForeground; font.pixelSize: 11; text: "Terminal" }
-                    }
+                        Repeater {
+                            model: overview.pinnedApplications
+                                ? overview.pinnedApplications.desktopIds : []
 
-                    MouseArea {
-                        id: pinnedTerminalMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        onClicked: {
-                            overview.applicationLauncher.launchTerminal()
-                            overview.hide()
+                            delegate: Rectangle {
+                                id: pinnedShortcut
+                                required property string modelData
+
+                                anchors.verticalCenter: parent.verticalCenter
+                                color: shortcutMouse.containsMouse ? lunar.raisedHover : lunar.raised
+                                height: 36
+                                radius: 12
+                                width: 112
+
+                                Row {
+                                    anchors.centerIn: parent
+                                    spacing: 7
+
+                                    NorthstarIcon {
+                                        height: 22
+                                        iconName: overview.applicationIconName({ desktopId: pinnedShortcut.modelData })
+                                        width: 22
+                                    }
+                                    Text {
+                                        color: overview.surfaceForeground
+                                        elide: Text.ElideRight
+                                        font.pixelSize: 11
+                                        text: overview.pinnedDisplayName(pinnedShortcut.modelData)
+                                        width: 74
+                                    }
+                                }
+
+                                MouseArea {
+                                    id: shortcutMouse
+                                    anchors.fill: parent
+                                    acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                    hoverEnabled: true
+                                    onClicked: function(mouse) {
+                                        if (mouse.button === Qt.RightButton) {
+                                            applicationPinMenu.desktopId = pinnedShortcut.modelData
+                                            applicationPinMenu.applicationName = overview.pinnedDisplayName(
+                                                pinnedShortcut.modelData)
+                                            applicationPinMenu.open()
+                                        } else {
+                                            overview.launchPinned(pinnedShortcut.modelData)
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
-                }
 
-                Rectangle {
-                    color: pinnedBrowserMouse.containsMouse ? lunar.raisedHover : lunar.raised
-                    height: 36
-                    radius: 12
-                    width: 104
-
-                    Row {
-                        anchors.centerIn: parent
-                        spacing: 7
-
-                        NorthstarIcon { height: 22; iconName: "browser"; width: 22 }
-                        Text { color: overview.surfaceForeground; font.pixelSize: 11; text: "Firefox" }
-                    }
-
-                    MouseArea {
-                        id: pinnedBrowserMouse
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        onClicked: {
-                            overview.applicationLauncher.launchBrowser()
-                            overview.hide()
-                        }
+                    ScrollBar.horizontal: ScrollBar {
+                        policy: ScrollBar.AsNeeded
                     }
                 }
 
@@ -397,7 +473,31 @@ Window {
                     font.pixelSize: 10
                     horizontalAlignment: Text.AlignRight
                     text: "Tip: drag a file onto a compatible app"
-                    width: parent.width - 294
+                    width: 220
+                }
+            }
+        }
+    }
+
+    Menu {
+        id: applicationPinMenu
+        parent: overview.contentItem
+        property string desktopId: ""
+        property string applicationName: "Application"
+
+        MenuItem {
+            enabled: applicationPinMenu.desktopId.length > 0
+            text: overview.pinnedApplications
+                    && overview.pinnedApplications.isPinned(applicationPinMenu.desktopId)
+                ? "Unpin from Dock" : "Pin to Dock"
+            onTriggered: {
+                if (!overview.pinnedApplications) {
+                    return
+                }
+                if (overview.pinnedApplications.isPinned(applicationPinMenu.desktopId)) {
+                    overview.pinnedApplications.unpin(applicationPinMenu.desktopId)
+                } else {
+                    overview.pinnedApplications.pin(applicationPinMenu.desktopId)
                 }
             }
         }

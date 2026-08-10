@@ -166,6 +166,18 @@ target_link_libraries(test-windowcontroller
 
 add_test(NAME northstar-windowcontroller COMMAND test-windowcontroller)
 
+qt_add_executable(test-pinnedapplicationmodel
+    test-pinnedapplicationmodel.cpp
+)
+
+target_link_libraries(test-pinnedapplicationmodel
+    PRIVATE
+        northstar-shell-core
+        Qt6::Test
+)
+
+add_test(NAME northstar-pinnedapplicationmodel COMMAND test-pinnedapplicationmodel)
+
 add_test(NAME northstar-welcome-gui COMMAND northstar-welcome-gui --self-test)
 set_tests_properties(northstar-welcome-gui PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
@@ -212,6 +224,7 @@ set_tests_properties(
     northstar-updateplancontroller
     northstar-volumecatalog
     northstar-windowcontroller
+    northstar-pinnedapplicationmodel
     northstar-welcome-gui
     northstar-texteditorcontroller
     northstar-text-editor-qml

@@ -45,6 +45,7 @@ private slots:
     void searchesByNameCategoryAndDesktopId();
     void expandsDesktopExecWithoutShellEvaluation();
     void launcherUsesCatalogArguments();
+    void launcherResolvesWindowIdentity();
     void persistsFileAssociationsByExtension();
     void persistsFileAssociationsByMimeType();
 };
@@ -168,6 +169,31 @@ void ApplicationCatalogTest::expandsDesktopExecWithoutShellEvaluation()
     }));
 
     QVERIFY(!catalog.launchSpec(QStringLiteral("does-not-exist"), &program, &arguments));
+}
+
+void ApplicationCatalogTest::launcherResolvesWindowIdentity()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    const QString applications = applicationsDirectory(temporaryDirectory, QStringLiteral("applications"));
+    writeDesktopFile(applications, QStringLiteral("northstar-text-editor"),
+                     applicationEntry("Northstar Text Editor", "northstar-text-editor"));
+
+    ApplicationLauncher launcher(
+        nullptr,
+        {},
+        {applications},
+        temporaryDirectory.filePath(QStringLiteral("launch.log")));
+
+    QCOMPARE(launcher.desktopIdForWindow(QStringLiteral("northstar-text-editor"), QString()),
+             QStringLiteral("bundle:org.northstar.TextEditor"));
+    QCOMPARE(launcher.desktopIdForWindow(QStringLiteral("unknown"),
+                                         QStringLiteral("Northstar Text Editor - notes.txt")),
+             QStringLiteral("bundle:org.northstar.TextEditor"));
+    QCOMPARE(launcher.desktopIdForWindow(QStringLiteral("northstar-welcome-gui"),
+                                         QStringLiteral("Welcome to Northstar")),
+             QStringLiteral("bundle:org.northstar.Welcome"));
+    QVERIFY(launcher.desktopIdForWindow(QStringLiteral("unknown"), QStringLiteral("Unknown")).isEmpty());
 }
 
 void ApplicationCatalogTest::launcherUsesCatalogArguments()
