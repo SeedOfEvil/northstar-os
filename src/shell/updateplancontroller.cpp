@@ -444,9 +444,18 @@ bool UpdatePlanController::verifySignature(QString *errorMessage)
     QString fingerprint;
     if (!readString(object, QStringLiteral("type"), type, errorMessage)
         || !readString(object, QStringLiteral("payload"), payload, errorMessage)
-        || !readString(object, QStringLiteral("public_key_pem"), publicKeyPem, errorMessage)
         || !readString(object, QStringLiteral("signature_base64"), signatureBase64, errorMessage)
         || !readString(object, QStringLiteral("fingerprint_sha256"), fingerprint, errorMessage)) {
+        return false;
+    }
+    const QJsonValue publicKeyValue = object.value(QStringLiteral("public_key_pem"));
+    if (!publicKeyValue.isString()) {
+        setError(errorMessage, QStringLiteral("key 'public_key_pem' must be a string"));
+        return false;
+    }
+    publicKeyPem = publicKeyValue.toString();
+    if (publicKeyPem.trimmed().isEmpty() || isUnresolved(publicKeyPem)) {
+        setError(errorMessage, QStringLiteral("key 'public_key_pem' must be resolved and non-empty"));
         return false;
     }
     if (type != QStringLiteral("rsa")) {
