@@ -16,6 +16,7 @@ Window {
     property var fileBrowserController: northstarFileBrowserController
     property var layoutController: northstarDesktopLayoutController
     property var fileBrowserWindow: null
+    property var quickLookWindow: null
     property var targetScreen
     property int displayIndex: 0
     property int screenWidth: targetScreen ? targetScreen.geometry.width : 1280
@@ -117,6 +118,14 @@ Window {
         if (desktopBackground.desktopItems) {
             desktopBackground.desktopItems.requestOpenWith(entry.path)
         }
+    }
+
+    function previewEntry(entry) {
+        if (!entry || !desktopBackground.quickLookWindow
+                || !desktopBackground.quickLookWindow.presentPath) {
+            return
+        }
+        desktopBackground.quickLookWindow.presentPath(entry.path, "")
     }
 
     function beginRename(entry) {
@@ -316,6 +325,17 @@ Window {
                 if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
                     desktopBackground.openSelectedEntry()
                     event.accepted = true
+                } else if (event.key === Qt.Key_Space
+                           && desktopBackground.selectedPath.length > 0) {
+                    const entries = desktopBackground.fileBrowserController
+                        ? desktopBackground.fileBrowserController.desktopEntries : []
+                    for (let entryIndex = 0; entryIndex < entries.length; ++entryIndex) {
+                        if (entries[entryIndex].path === desktopBackground.selectedPath) {
+                            desktopBackground.previewEntry(entries[entryIndex])
+                            event.accepted = true
+                            return
+                        }
+                    }
                 }
             }
 
@@ -504,6 +524,12 @@ Window {
             text: "Open With"
             enabled: !!desktopMenu.item && !desktopMenu.item.isDirectory
             onTriggered: desktopBackground.openWithEntry(desktopMenu.item)
+        }
+
+        MenuItem {
+            text: "Quick Look"
+            enabled: !!desktopMenu.item
+            onTriggered: desktopBackground.previewEntry(desktopMenu.item)
         }
 
         MenuSeparator {}

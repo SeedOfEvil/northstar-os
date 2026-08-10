@@ -14,6 +14,7 @@ Window {
     property var fileBrowserController
     property var applicationLauncher
     property var volumeController
+    property var previewWindow
     property var state
     property var targetScreen
     property int panelHeight: 44
@@ -311,6 +312,15 @@ Window {
             return
         }
         files.openAssociationForPath(files.selectedPath)
+    }
+
+    function previewSelectedEntry() {
+        if (!files.hasSelection || !files.previewWindow || !files.previewWindow.presentPath) {
+            return
+        }
+        const navigationRoot = files.fileBrowserController
+            ? files.fileBrowserController.locationRoot : ""
+        files.previewWindow.presentPath(files.selectedPath, navigationRoot)
     }
 
     function openAssociationForPath(path) {
@@ -1256,6 +1266,30 @@ Window {
                 width: parent.width
 
                 Rectangle {
+                    color: files.hasSelection && quickLookMouse.containsMouse
+                        ? files.surfaceAccent : files.surfaceRaised
+                    height: 34
+                    opacity: files.hasSelection ? 1 : 0.55
+                    radius: 5
+                    width: 92
+
+                    Text {
+                        anchors.centerIn: parent
+                        color: files.surfaceForeground
+                        font.pixelSize: 12
+                        text: "Quick Look"
+                    }
+
+                    MouseArea {
+                        id: quickLookMouse
+                        anchors.fill: parent
+                        enabled: files.hasSelection
+                        hoverEnabled: true
+                        onClicked: files.previewSelectedEntry()
+                    }
+                }
+
+                Rectangle {
                     color: files.hasSelection && !files.showingTrash && openMouse.containsMouse
                         ? files.surfaceAccent : files.surfaceRaised
                     height: 34
@@ -1485,6 +1519,15 @@ Window {
                     cellWidth: files.gridView ? 176 : width
                     clip: true
                     model: files.fileBrowserController ? files.fileBrowserController.entries : []
+                    activeFocusOnTab: true
+                    focus: true
+
+                    Keys.onPressed: function(event) {
+                        if (event.key === Qt.Key_Space && files.hasSelection) {
+                            files.previewSelectedEntry()
+                            event.accepted = true
+                        }
+                    }
 
                     delegate: Rectangle {
                         required property var modelData
@@ -1579,7 +1622,10 @@ Window {
                             id: fileMouse
                             anchors.fill: parent
                             hoverEnabled: true
-                            onClicked: files.selectedIndex = index
+                            onClicked: {
+                                files.selectedIndex = index
+                                fileList.forceActiveFocus()
+                            }
                             onDoubleClicked: {
                                 files.selectedIndex = index
                                 files.openSelectedEntry()
@@ -1623,7 +1669,7 @@ Window {
                         ? "Search results are scoped to the Northstar home folder."
                     : files.fileBrowserController && files.fileBrowserController.readOnlyLocation
                         ? "Mounted volumes are read-only. Return Home to create, rename, or delete files."
-                    : "Select an item and choose Open, or drag a file onto an app in Apps."
+                    : "Select an item and press Space for Quick Look, choose Open, or drag it onto an app."
                 width: parent.width
             }
         }

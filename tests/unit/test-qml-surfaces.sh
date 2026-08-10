@@ -35,6 +35,7 @@ src/shell/SettingsWindow.qml \
 src/shell/SoftwareCenterWindow.qml \
 src/shell/SystemMenu.qml"
 required_files="$required_files src/shell/SearchOverlay.qml"
+required_files="$required_files src/shell/QuickLookWindow.qml"
 
 for file in $required_files; do
     [ -r "$ROOT/$file" ] || fail "missing QML surface: $file"
@@ -119,6 +120,18 @@ contains src/shell/SearchOverlay.qml 'placeholderText: "Search apps, files, and 
 contains src/shell/SearchOverlay.qml 'controller.activateResult(index)'
 contains src/shell/SearchOverlay.qml 'Qt.Key_Down'
 contains src/shell/SearchOverlay.qml 'Qt.Key_Escape'
+contains src/shell/QuickLookWindow.qml 'objectName: "quickLookWindow"'
+contains src/shell/QuickLookWindow.qml 'function presentPath(path, navigationRoot)'
+contains src/shell/QuickLookWindow.qml 'previewController.previewPath(path, navigationRoot || "")'
+contains src/shell/QuickLookWindow.qml 'previewController.kind === "text"'
+contains src/shell/QuickLookWindow.qml 'previewController.kind === "image"'
+contains src/shell/QuickLookWindow.qml 'previewController.kind === "folder"'
+contains src/shell/QuickLookWindow.qml 'NorthstarWindowTitleBar'
+contains src/shell/QuickLookWindow.qml 'NativeWindowResizeHandler'
+contains src/shell/FileBrowserWindow.qml 'function previewSelectedEntry()'
+contains src/shell/FileBrowserWindow.qml 'event.key === Qt.Key_Space'
+contains src/shell/DesktopBackground.qml 'function previewEntry(entry)'
+contains src/shell/DesktopBackground.qml 'event.key === Qt.Key_Space'
 contains src/shell/searchcontroller.cpp 'MaximumScannedEntries = 20000'
 contains src/shell/searchcontroller.cpp 'std::make_shared<std::atomic_bool>'
 contains src/ui/LunarPalette.qml 'readonly property color accentBright'
