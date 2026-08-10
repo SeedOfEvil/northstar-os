@@ -29,8 +29,29 @@ tamper rejection, and read-only Software Center presentation.
 
 ## Immutable evidence
 
-Pending commit archive rebuild, full test gate, native package generation,
-signed-channel client smoke, and installed-artifact deployment.
+- Commit `a16a533` was exported with `git archive` and built in the separate
+  `/home/northstar/validation/signed-development-a16a533` checkout on
+  NSTAR-DEV01; all 262 Ninja steps completed.
+- The immutable archive passed all 22 CTest targets and the QML surface
+  contract.
+- CPack generated `northstar-0.1.0-amd64.pkg`; `pkg info -F` confirmed package
+  name `northstar`, version `0.1.0`, origin `x11/northstar`, FreeBSD 15 amd64,
+  and the declared runtime libraries.
+- The isolated signed-channel smoke refreshed and exposed Northstar from the
+  authentic repository, rejected altered signed catalogue metadata, performed
+  no package mutation, and found no private key in the publication. Its
+  catalogue digest was
+  `aabe18819719f30b42f3fc556853ff6b5cd3f859aafbc1d47b8499d65754bbf3`.
+- The same immutable build was installed under `/home/northstar/.local`. A
+  persistent test-only publication was generated at
+  `/home/northstar/validation/development-channel-a16a533`, with catalogue
+  digest `66ea1b02c532ed4b6a7359f06616a545a6a5b02b9c923c484f6407cdf10baccb`
+  and metadata digest
+  `761a66a9fcadb3ced9d22ea651ae2f0a7b4ec6fcceeb6e30d614f4e9ced79321`.
+- Its public trust and presentation files were installed under
+  `/home/northstar/.config/northstar`; the disposable private key was removed
+  and a filesystem audit found no private key in either location.
+- The supervised shell restarted from the installed binary as PID `42855`.
 
 ## Manual 1280x800 noVNC acceptance
 
