@@ -353,8 +353,9 @@ void UpdatePlanControllerTest::verifiesTrustedRsaSignature()
     QVERIFY(!authorization.authorizationAvailable());
     QCOMPARE(authorization.bootEnvironmentName(),
              QStringLiteral("northstar-before-development-r42-abcdef1"));
-    QVERIFY(authorization.status().contains(QStringLiteral("not connected"), Qt::CaseInsensitive));
-    QVERIFY(authorization.plan().contains(QStringLiteral("Would create boot environment"),
+    QVERIFY(authorization.status().contains(QStringLiteral("protected transaction service"),
+                                            Qt::CaseInsensitive));
+    QVERIFY(authorization.plan().contains(QStringLiteral("Create boot environment"),
                                            Qt::CaseInsensitive));
 
     UpdateAuthorizationController missingTools(&trustController,
