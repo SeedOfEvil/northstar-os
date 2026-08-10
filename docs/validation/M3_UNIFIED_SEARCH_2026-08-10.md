@@ -18,22 +18,22 @@ validated applications, and bounded Home-scoped file and folder results.
 - `git diff --check` passed in the Windows source checkout.
 - The accepted binaries were installed into `/home/northstar/.local`.
 
-## Manual 1280x800 noVNC acceptance pending
+## Manual 1280x800 noVNC acceptance
 
-The installed build is ready for focused interactive validation in the
-Proxmox scfb/pixman lane:
+The installed build passed focused interactive validation in the Proxmox
+scfb/pixman lane:
 
-- click the top search affordance and press `Ctrl+K` to open the overlay;
-- verify responsive typing with representative content under Home;
-- navigate with Up and Down, activate with Enter, and dismiss with Escape;
-- activate Settings, Software Center, Terminal, Firefox, Files, and
-  Applications results;
-- launch a catalog application and open a Home-scoped file and folder;
-- confirm no command execution or web-query behavior is exposed.
+- the top search affordance and `Ctrl+K` open the overlay;
+- typing remains responsive with representative content under Home;
+- Up and Down navigate, Enter activates, and Escape dismisses;
+- Settings, Software Center, Terminal, Firefox, Files, and Applications
+  results route to their intended surfaces;
+- catalog applications and Home-scoped file and folder results activate
+  correctly;
+- no command-execution or web-query behavior is exposed.
 
-Because the supervised session was stopped at deployment time, the newly
-installed shell will load on the next Northstar login. This record remains
-open until the noVNC checklist is accepted.
+Manual acceptance was confirmed on 2026-08-10 after loading the installed
+shell in a new Northstar session.
 
 ## Deferred hardware evidence
 
