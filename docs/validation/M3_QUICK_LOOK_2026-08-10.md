@@ -13,8 +13,11 @@ desktop on `codex/m3-quick-look`.
 - The focused `northstar-previewcontroller` target passed.
 - The complete Qt/offscreen gate passed: 21 of 21 CTest targets.
 - The QML surface contract passed.
-- The same gates will be repeated from the immutable commit archive before
-  deployment.
+- Commit `9baa506` was exported as an immutable Git archive and rebuilt in
+  `/home/northstar/validation/quick-look-9baa506/build`: 256 of 256 build
+  steps completed, all 21 CTest targets passed, and the QML surface contract
+  passed again.
+- The exact archived artifact was installed into `/home/northstar/.local`.
 
 ## Manual 1280x800 noVNC acceptance pending
 
@@ -30,6 +33,8 @@ After deployment, validate:
 - Home items work and unrelated paths remain blocked.
 
 This record remains open until the noVNC checklist is accepted.
+The supervised session was stopped at deployment time, so the installed shell
+will load on the next Northstar login.
 
 ## Deferred hardware evidence
 
