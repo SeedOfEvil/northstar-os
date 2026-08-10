@@ -270,9 +270,6 @@ void UpdatePlanControllerTest::verifiesTrustedRsaSignature()
     QVERIFY(writeFile(directory.filePath(QStringLiteral("data.pkg")), catalogueBytes));
     const QString catalogueDigest = QString::fromLatin1(
         QCryptographicHash::hash(catalogueBytes, QCryptographicHash::Sha256).toHex());
-    const QString payloadPath = directory.filePath(QStringLiteral("payload"));
-    QVERIFY(writeFile(payloadPath, catalogueDigest.toUtf8()));
-
     const QString keyPath = directory.filePath(QStringLiteral("repo.key"));
     const QString publicKeyPath = directory.filePath(QStringLiteral("repo.pub"));
     const QString signaturePath = directory.filePath(QStringLiteral("signature.bin"));
@@ -282,17 +279,9 @@ void UpdatePlanControllerTest::verifiesTrustedRsaSignature()
     QVERIFY2(runProcess(opensslPath, {QStringLiteral("rsa"), QStringLiteral("-in"), keyPath,
                                       QStringLiteral("-pubout"), QStringLiteral("-out"), publicKeyPath}, &processError),
              qPrintable(processError));
-    QVERIFY2(runProcess(opensslPath, {QStringLiteral("dgst"), QStringLiteral("-sha256"),
-                                      QStringLiteral("-sign"), keyPath, QStringLiteral("-out"), signaturePath,
-                                      payloadPath}, &processError),
-             qPrintable(processError));
-
     QFile publicKeyFile(publicKeyPath);
     QVERIFY(publicKeyFile.open(QIODevice::ReadOnly));
     const QByteArray publicKey = publicKeyFile.readAll().trimmed();
-    QFile signatureFile(signaturePath);
-    QVERIFY(signatureFile.open(QIODevice::ReadOnly));
-    const QByteArray signature = signatureFile.readAll();
     const QString fingerprint = QString::fromLatin1(
         QCryptographicHash::hash(publicKey, QCryptographicHash::Sha256).toHex());
     QVERIFY(writeFingerprint(QDir(storePath).filePath(QStringLiteral("trusted")),
@@ -301,13 +290,25 @@ void UpdatePlanControllerTest::verifiesTrustedRsaSignature()
     QJsonDocument metadataDocument = QJsonDocument::fromJson(validMetadata());
     QJsonObject metadata = metadataDocument.object();
     metadata.insert(QStringLiteral("signature_fingerprint"), fingerprint);
-    QVERIFY(writeFile(directory.filePath(QStringLiteral("repository-metadata.json")),
-                      QJsonDocument(metadata).toJson(QJsonDocument::Compact)));
+    const QByteArray metadataBytes = QJsonDocument(metadata).toJson(QJsonDocument::Compact);
+    const QString metadataDigest = QString::fromLatin1(
+        QCryptographicHash::hash(metadataBytes, QCryptographicHash::Sha256).toHex());
+    QVERIFY(writeFile(directory.filePath(QStringLiteral("repository-metadata.json")), metadataBytes));
+    const QString payloadPath = directory.filePath(QStringLiteral("payload"));
+    QVERIFY(writeFile(payloadPath, metadataDigest.toUtf8()));
+    QVERIFY2(runProcess(opensslPath, {QStringLiteral("dgst"), QStringLiteral("-sha256"),
+                                      QStringLiteral("-sign"), keyPath, QStringLiteral("-out"), signaturePath,
+                                      payloadPath}, &processError),
+             qPrintable(processError));
+    QFile signatureFile(signaturePath);
+    QVERIFY(signatureFile.open(QIODevice::ReadOnly));
+    const QByteArray signature = signatureFile.readAll();
 
     QJsonObject envelope;
-    envelope.insert(QStringLiteral("schema_version"), 1);
+    envelope.insert(QStringLiteral("schema_version"), 2);
     envelope.insert(QStringLiteral("type"), QStringLiteral("rsa"));
-    envelope.insert(QStringLiteral("payload"), catalogueDigest);
+    envelope.insert(QStringLiteral("payload_type"), QStringLiteral("repository-metadata-sha256"));
+    envelope.insert(QStringLiteral("payload"), metadataDigest);
     envelope.insert(QStringLiteral("public_key_pem"), QString::fromUtf8(publicKey));
     envelope.insert(QStringLiteral("signature_base64"), QString::fromLatin1(signature.toBase64()));
     envelope.insert(QStringLiteral("fingerprint_sha256"), fingerprint);
@@ -329,6 +330,12 @@ void UpdatePlanControllerTest::verifiesTrustedRsaSignature()
     QCOMPARE(controller.signatureStatus(), QStringLiteral("verified"));
     QCOMPARE(controller.signatureFingerprint(), fingerprint);
     QCOMPARE(controller.catalogueSha256(), catalogueDigest);
+    QCOMPARE(controller.publicationManifestSha256(), metadataDigest);
+    QCOMPARE(controller.channel(), QStringLiteral("development"));
+    QCOMPARE(controller.repositoryTag(), QStringLiteral("northstar-development"));
+    QCOMPARE(controller.abi(), QStringLiteral("FreeBSD:15:amd64"));
+    QCOMPARE(controller.generatedAt(), QStringLiteral("2026-08-09T12:00:00Z"));
+    QCOMPARE(controller.packageProvenance().size(), 2);
     QVERIFY(controller.metadataStatus().contains(QStringLiteral("verified"), Qt::CaseInsensitive));
     QVERIFY(controller.preview({installedPackage(QStringLiteral("northstar-shell"), QStringLiteral("0.1.0"))}));
     QVERIFY(controller.previewReady());
@@ -357,6 +364,17 @@ void UpdatePlanControllerTest::verifiesTrustedRsaSignature()
     QVERIFY(!missingTools.preflightValid());
     QVERIFY(missingTools.status().contains(QStringLiteral("must be available"),
                                             Qt::CaseInsensitive));
+
+    QByteArray tamperedMetadata = metadataBytes;
+    tamperedMetadata.replace("abcdef1", "abcdef2");
+    QVERIFY(writeFile(directory.filePath(QStringLiteral("repository-metadata.json")), tamperedMetadata));
+    UpdatePlanController tamperedController(
+        &trustController, directory.filePath(QStringLiteral("repository-metadata.json")));
+    QVERIFY(tamperedController.metadataValid());
+    QVERIFY(tamperedController.catalogueDigestValid());
+    QVERIFY(!tamperedController.signatureVerified());
+    QVERIFY(tamperedController.metadataStatus().contains(QStringLiteral("manifest digest"),
+                                                           Qt::CaseInsensitive));
 }
 
 void UpdatePlanControllerTest::blocksPolicyMismatch()

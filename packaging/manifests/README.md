@@ -20,8 +20,10 @@ FreeBSD `pkg` catalogue. The manifest is a Northstar provenance and planning
 sidecar; it does not replace `meta.conf`, `data.pkg`, or `pkg`'s own signature
 verification. Its catalogue filename and SHA-256 bind the sidecar to a staged
 catalogue file before planning. The `signature_envelope` points to a local
-JSON envelope containing the catalogue-digest payload, public key, signature,
-and public-key fingerprint. Northstar verifies that envelope against the
+JSON envelope containing the signed payload, public key, signature, and
+public-key fingerprint. New development publications use envelope schema 2,
+which signs the SHA-256 digest of the complete resolved metadata document;
+legacy schema 1 fixtures sign the catalogue digest directly. Northstar verifies that envelope against the
 configured trusted fingerprint store, but the resulting plan remains
 read-only until update authorization is implemented. Its unresolved values
 intentionally prevent it from being used as an active update input.

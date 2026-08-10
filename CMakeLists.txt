@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.28)
 
-project(Northstar VERSION 0.1.0 LANGUAGES CXX)
+project(Northstar
+    VERSION 0.1.0
+    DESCRIPTION "Northstar desktop environment for FreeBSD"
+    HOMEPAGE_URL "https://github.com/SeedOfEvil/northstar-os"
+    LANGUAGES CXX
+)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -25,3 +30,23 @@ add_subdirectory(src/update)
 if(BUILD_TESTING)
     add_subdirectory(tests/unit)
 endif()
+
+set(CPACK_GENERATOR "FREEBSD")
+set(CPACK_PACKAGE_NAME "northstar")
+set(CPACK_PACKAGE_VENDOR "Northstar contributors")
+set(CPACK_PACKAGE_CONTACT "Northstar contributors")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Northstar desktop environment for FreeBSD")
+set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/SeedOfEvil/northstar-os")
+set(CPACK_PACKAGE_FILE_NAME "northstar-${PROJECT_VERSION}-${CMAKE_SYSTEM_PROCESSOR}")
+set(CPACK_FREEBSD_PACKAGE_NAME "northstar")
+set(CPACK_FREEBSD_PACKAGE_COMMENT "Northstar desktop environment")
+set(CPACK_FREEBSD_PACKAGE_DESCRIPTION "Northstar provides a cohesive desktop shell, session, and first-party applications for FreeBSD.")
+set(CPACK_FREEBSD_PACKAGE_WWW "https://github.com/SeedOfEvil/northstar-os")
+set(CPACK_FREEBSD_PACKAGE_LICENSE "BSD2CLAUSE")
+set(CPACK_FREEBSD_PACKAGE_MAINTAINER "northstar@localhost.invalid")
+set(CPACK_FREEBSD_PACKAGE_ORIGIN "x11/northstar")
+set(CPACK_FREEBSD_PACKAGE_CATEGORIES "x11")
+set(CPACK_FREEBSD_PACKAGE_DEPS
+    "devel/qt6-base;x11-toolkits/qt6-declarative;graphics/qt6-svg;graphics/qt6-wayland;x11/plasma6-layer-shell-qt"
+)
+include(CPack)

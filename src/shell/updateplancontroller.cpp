@@ -24,6 +24,7 @@
 namespace {
 
 constexpr int CurrentSchemaVersion = 1;
+constexpr int CurrentSignatureSchemaVersion = 2;
 constexpr qsizetype MaximumTagLength = 64;
 constexpr qsizetype MaximumStringLength = 256;
 
@@ -135,6 +136,47 @@ QString UpdatePlanController::catalogueSha256() const
     return m_metadata.catalogueSha256;
 }
 
+QString UpdatePlanController::publicationManifestSha256() const
+{
+    return m_publicationManifestSha256;
+}
+
+QString UpdatePlanController::repositoryTag() const
+{
+    return m_metadata.repositoryTag;
+}
+
+QString UpdatePlanController::channel() const
+{
+    return m_metadata.channel;
+}
+
+QString UpdatePlanController::abi() const
+{
+    return m_metadata.abi;
+}
+
+QString UpdatePlanController::generatedAt() const
+{
+    return m_metadata.generatedAt;
+}
+
+QVariantList UpdatePlanController::packageProvenance() const
+{
+    QVariantList values;
+    values.reserve(m_metadata.packages.size());
+    for (const RepositoryPackageMetadata &package : m_metadata.packages) {
+        values.append(QVariantMap{
+            {QStringLiteral("name"), package.name},
+            {QStringLiteral("version"), package.version},
+            {QStringLiteral("origin"), package.origin},
+            {QStringLiteral("source"), package.source},
+            {QStringLiteral("projectRevision"), package.projectRevision},
+        });
+    }
+    return values;
+}
+
 int UpdatePlanController::repositoryRevision() const
 {
     return m_metadata.revision;
@@ -199,6 +241,7 @@ bool UpdatePlanController::reload()
 {
     m_metadata = {};
     m_signatureStatus.clear();
+    m_publicationManifestSha256.clear();
     m_catalogueFile.clear();
     m_catalogueStatus.clear();
     m_metadataPresent = QFileInfo::exists(m_metadataPath);
@@ -224,8 +267,11 @@ bool UpdatePlanController::reload()
         return false;
     }
 
+    const QByteArray metadataBytes = file.readAll();
+    m_publicationManifestSha256 = QString::fromLatin1(
+        QCryptographicHash::hash(metadataBytes, QCryptographicHash::Sha256).toHex());
     QString errorMessage;
-    if (!parseMetadata(file.readAll(), m_metadata, &errorMessage)) {
+    if (!parseMetadata(metadataBytes, m_metadata, &errorMessage)) {
         m_metadataStatus = QStringLiteral("Repository publication manifest rejected: %1")
             .arg(errorMessage);
         setBlockedPlan(QStringLiteral("the repository publication manifest was rejected"));
@@ -373,15 +419,21 @@ bool UpdatePlanController::verifySignature(QString *errorMessage)
     const QJsonObject object = document.object();
     if (!hasOnlyKeys(object,
                      {QStringLiteral("schema_version"), QStringLiteral("type"),
-                      QStringLiteral("payload"), QStringLiteral("public_key_pem"),
+                      QStringLiteral("payload_type"), QStringLiteral("payload"), QStringLiteral("public_key_pem"),
                       QStringLiteral("signature_base64"), QStringLiteral("fingerprint_sha256")},
                      errorMessage,
                      QStringLiteral("publication signature"))) {
         return false;
     }
-    if (!object.value(QStringLiteral("schema_version")).isDouble()
-        || object.value(QStringLiteral("schema_version")).toInt(-1) != CurrentSchemaVersion) {
-        setError(errorMessage, QStringLiteral("signature schema_version must be %1").arg(CurrentSchemaVersion));
+    if (!object.value(QStringLiteral("schema_version")).isDouble()) {
+        setError(errorMessage, QStringLiteral("signature schema_version must be an integer"));
+        return false;
+    }
+    const int signatureSchemaVersion = object.value(QStringLiteral("schema_version")).toInt(-1);
+    if (signatureSchemaVersion != CurrentSchemaVersion
+        && signatureSchemaVersion != CurrentSignatureSchemaVersion) {
+        setError(errorMessage, QStringLiteral("signature schema_version must be 1 or %1")
+            .arg(CurrentSignatureSchemaVersion));
         return false;
     }
 
@@ -401,8 +453,25 @@ bool UpdatePlanController::verifySignature(QString *errorMessage)
         setError(errorMessage, QStringLiteral("only rsa publication signatures are supported"));
         return false;
     }
-    if (payload != m_metadata.catalogueSha256) {
-        setError(errorMessage, QStringLiteral("signature payload does not match the catalogue digest"));
+    QString expectedPayload = m_metadata.catalogueSha256;
+    if (signatureSchemaVersion == CurrentSignatureSchemaVersion) {
+        QString payloadType;
+        if (!readString(object, QStringLiteral("payload_type"), payloadType, errorMessage)) {
+            return false;
+        }
+        if (payloadType != QStringLiteral("repository-metadata-sha256")) {
+            setError(errorMessage, QStringLiteral("signature payload_type must bind repository metadata"));
+            return false;
+        }
+        expectedPayload = m_publicationManifestSha256;
+    } else if (object.contains(QStringLiteral("payload_type"))) {
+        setError(errorMessage, QStringLiteral("signature schema_version 1 must not declare payload_type"));
+        return false;
+    }
+    if (payload != expectedPayload) {
+        setError(errorMessage, signatureSchemaVersion == CurrentSignatureSchemaVersion
+            ? QStringLiteral("signature payload does not match the publication manifest digest")
+            : QStringLiteral("signature payload does not match the catalogue digest"));
         return false;
     }
     if (!QRegularExpression(QStringLiteral("^[0-9A-Fa-f]{64}$")).match(fingerprint).hasMatch()) {

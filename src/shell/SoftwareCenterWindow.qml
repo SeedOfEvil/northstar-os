@@ -1127,6 +1127,39 @@ Window {
                 Text {
                     color: software.surfaceMuted
                     font.pixelSize: 11
+                    text: "Verified channel"
+                }
+
+                Text {
+                    color: software.surfaceForeground
+                    elide: Text.ElideRight
+                    font.pixelSize: 11
+                    text: software.updatePlan && software.updatePlan.metadataValid
+                        ? software.updatePlan.channel + " / " + software.updatePlan.repositoryTag
+                            + " / r" + software.updatePlan.repositoryRevision
+                        : "No verified development channel"
+                    width: updatePlanDialog.width - 220
+                }
+
+                Text {
+                    color: software.surfaceMuted
+                    font.pixelSize: 11
+                    text: "Manifest digest"
+                }
+
+                Text {
+                    color: software.surfaceForeground
+                    elide: Text.ElideMiddle
+                    font.family: "monospace"
+                    font.pixelSize: 10
+                    text: software.updatePlan
+                        ? software.updatePlan.publicationManifestSha256 : ""
+                    width: updatePlanDialog.width - 220
+                }
+
+                Text {
+                    color: software.surfaceMuted
+                    font.pixelSize: 11
                     text: "Candidate plan"
                 }
 
@@ -1152,6 +1185,58 @@ Window {
                     text: software.updateAuthorization
                         ? software.updateAuthorization.status : "Authorization preflight unavailable."
                     width: updatePlanDialog.width - 220
+                }
+            }
+
+            Rectangle {
+                color: software.surfaceRaised
+                height: visible ? 74 : 0
+                radius: 8
+                visible: !!software.updatePlan
+                    && software.updatePlan.packageProvenance.length > 0
+                width: parent.width
+
+                ListView {
+                    anchors.fill: parent
+                    anchors.margins: 8
+                    clip: true
+                    model: software.updatePlan ? software.updatePlan.packageProvenance : []
+                    orientation: ListView.Horizontal
+                    spacing: 8
+
+                    delegate: Rectangle {
+                        required property var modelData
+
+                        color: software.surfaceBackground
+                        border.color: software.surfaceAccent
+                        border.width: 1
+                        height: 58
+                        radius: 7
+                        width: 230
+
+                        Column {
+                            anchors.fill: parent
+                            anchors.margins: 8
+                            spacing: 2
+
+                            Text {
+                                color: software.surfaceForeground
+                                elide: Text.ElideRight
+                                font.bold: true
+                                font.pixelSize: 11
+                                text: modelData.name + " " + modelData.version
+                                width: parent.width
+                            }
+
+                            Text {
+                                color: software.surfaceMuted
+                                elide: Text.ElideMiddle
+                                font.pixelSize: 10
+                                text: modelData.origin + " · " + modelData.projectRevision
+                                width: parent.width
+                            }
+                        }
+                    }
                 }
             }
 
