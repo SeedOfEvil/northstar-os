@@ -2,7 +2,7 @@ SHELL := /bin/sh
 
 .DEFAULT_GOAL := help
 
-.PHONY: help check-host bootstrap configure build test welcome-app-test qml-surface-test update-helper-test update-broker-smoke run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package pkg-repository-smoke signed-development-repository-smoke vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
+.PHONY: help check-host bootstrap configure build test welcome-app-test qml-surface-test update-helper-test update-broker-smoke transactional-update-smoke run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package pkg-repository-smoke signed-development-repository-smoke vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
 
 MANIFEST ?= packaging/manifests/bootstrap-packages.txt
 NORTHSTAR_USER ?=
@@ -26,6 +26,7 @@ help:
 	@printf '%s\n' '  make qml-surface-test  Check product-critical QML surface wiring'
 	@printf '%s\n' '  make update-helper-test  Test the bounded update-helper request contract'
 	@printf '%s\n' '  make update-broker-smoke  Verify and stage a disposable update request (root)'
+	@printf '%s\n' '  make transactional-update-smoke  Prove update/rollback ordering with isolated tools (root)'
 	@printf '%s\n' '  make run-shell    Start the Northstar shell session'
 	@printf '%s\n' '  make shell-smoke  Check the live shell session'
 	@printf '%s\n' '  make shell-restart-smoke  Restart only the live shell and verify clients survive'
@@ -81,6 +82,9 @@ update-helper-test:
 
 update-broker-smoke:
 	@NORTHSTAR_UPDATE_BROKER_BIN="$(NORTHSTAR_UPDATE_BROKER_BIN)" sh tests/vm/update-broker-smoke.sh
+
+transactional-update-smoke:
+	@sh tests/vm/transactional-update-smoke.sh
 
 vm-smoke:
 	@if [ -n "$(NORTHSTAR_WAYFIRE_BIN)" ]; then \

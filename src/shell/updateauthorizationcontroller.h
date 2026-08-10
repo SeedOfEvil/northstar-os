@@ -33,6 +33,8 @@ public:
     QString plan() const;
 
     Q_INVOKABLE bool refresh();
+    Q_INVOKABLE bool applyUpdate();
+    Q_INVOKABLE bool scheduleRollback();
 
 signals:
     void stateChanged();
@@ -41,6 +43,7 @@ private:
     static bool executableAvailable(const QString &overridePath, const QString &name);
     static QString makeBootEnvironmentName(const UpdatePlanController &updatePlan,
                                            const QString &channel);
+    bool requestTransaction(const QString &operation);
     void setState(bool preflightValid,
                   bool bectlAvailable,
                   bool zfsAvailable,
@@ -55,6 +58,7 @@ private:
     bool m_preflightValid = false;
     bool m_bectlAvailable = false;
     bool m_zfsAvailable = false;
+    bool m_authorizationAvailable = false;
     QString m_bootEnvironmentName;
     QString m_status;
     QString m_plan;

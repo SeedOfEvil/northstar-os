@@ -1,0 +1,132 @@
+#!/bin/sh
+
+# Root-only transactional package update runner. The unprivileged shell may
+# invoke this fixed executable through PolicyKit, but it cannot supply paths,
+# package names, repository names, or shell text.
+
+set -eu
+
+EX_USAGE=64
+EX_DATAERR=65
+EX_UNAVAILABLE=69
+EX_NOPERM=77
+
+BROKER=${NORTHSTAR_UPDATE_BROKER:-/usr/local/libexec/northstar-update-broker}
+HELPER=${NORTHSTAR_UPDATE_HELPER:-/usr/local/libexec/northstar-update-helper}
+PKG=${NORTHSTAR_UPDATE_PKG:-/usr/sbin/pkg}
+POLICY=${NORTHSTAR_UPDATE_POLICY:-/usr/local/etc/northstar/repository-policy.conf}
+METADATA=${NORTHSTAR_UPDATE_METADATA:-/usr/local/etc/northstar/repository-metadata.json}
+STATE_DIR=${NORTHSTAR_UPDATE_STATE_DIR:-/var/db/northstar}
+REQUEST_DIR=${NORTHSTAR_UPDATE_REQUEST_DIR:-/var/run/northstar}
+REPOSITORY=northstar-development
+
+fail() {
+    status=$1
+    shift
+    printf 'ERROR: %s\n' "$*" >&2
+    exit "$status"
+}
+
+[ "$(id -u)" -eq 0 ] || fail "$EX_NOPERM" 'transaction runner requires root'
+[ "$#" -eq 2 ] && [ "$2" = --confirm ] || fail "$EX_USAGE" 'use --apply-update --confirm or --rollback --confirm'
+case "$1" in --apply-update|--rollback) ;; *) fail "$EX_USAGE" 'unsupported transaction operation' ;; esac
+for executable in "$BROKER" "$HELPER" "$PKG"; do
+    [ -x "$executable" ] || fail "$EX_UNAVAILABLE" "required executable is unavailable: $executable"
+done
+
+umask 077
+mkdir -p "$STATE_DIR" "$REQUEST_DIR"
+chmod 0700 "$STATE_DIR" "$REQUEST_DIR"
+STATE=$STATE_DIR/update-state.conf
+SNAPSHOT=$REQUEST_DIR/installed-packages.txt
+REQUEST=$REQUEST_DIR/update.request
+ROLLBACK_REQUEST=$REQUEST_DIR/rollback.request
+BROKER_OUTPUT=$REQUEST_DIR/broker-output.txt
+
+write_state() {
+    status=$1
+    boot_environment=$2
+    request_source=$3
+    tmp=$STATE.tmp.$$
+    {
+        printf 'protocol=1\n'
+        printf 'status=%s\n' "$status"
+        printf 'boot_environment=%s\n' "$boot_environment"
+        sed -n '/^channel=/p; /^repository_revision=/p; /^source_revision=/p; /^catalogue_sha256=/p; /^signature_fingerprint=/p' "$request_source"
+    } > "$tmp"
+    chmod 0600 "$tmp"
+    mv "$tmp" "$STATE"
+}
+
+make_rollback_request() {
+    source=$1
+    destination=$2
+    sed 's/^operation=create-before$/operation=rollback/' "$source" > "$destination"
+    chmod 0600 "$destination"
+}
+
+if [ "$1" = --rollback ]; then
+    [ -f "$STATE" ] && [ ! -L "$STATE" ] || fail "$EX_DATAERR" 'no verified update state is available for rollback'
+    owner=$(stat -f '%u' "$STATE")
+    mode=$(stat -f '%Lp' "$STATE")
+    [ "$owner" = 0 ] && [ "$mode" = 600 ] || fail "$EX_NOPERM" 'update state is not root-owned mode 0600'
+    status=$(awk -F= '$1 == "status" { print $2 }' "$STATE")
+    [ "$status" = updated ] || [ "$status" = rollback-scheduled ] || fail "$EX_DATAERR" 'the recorded transaction is not rollback eligible'
+    boot_environment=$(awk -F= '$1 == "boot_environment" { print $2 }' "$STATE")
+    {
+        printf 'protocol=1\noperation=rollback\n'
+        sed -n '/^channel=/p; /^repository_revision=/p; /^source_revision=/p; /^catalogue_sha256=/p; /^signature_fingerprint=/p' "$STATE"
+        printf 'boot_environment=%s\nplan_status=verified\nauthorization=interactive-confirmation\n' "$boot_environment"
+    } > "$ROLLBACK_REQUEST"
+    chmod 0600 "$ROLLBACK_REQUEST"
+    "$HELPER" --apply "$ROLLBACK_REQUEST"
+    write_state rollback-scheduled "$boot_environment" "$ROLLBACK_REQUEST"
+    printf 'ROLLBACK_SCHEDULED=%s\nREBOOT_REQUIRED=yes\n' "$boot_environment"
+    exit 0
+fi
+
+rm -f "$SNAPSHOT" "$REQUEST" "$ROLLBACK_REQUEST" "$BROKER_OUTPUT"
+"$PKG" query -a '%n|%v' > "$SNAPSHOT"
+chmod 0600 "$SNAPSHOT"
+
+"$BROKER" --stage-create-before --confirm \
+    --policy "$POLICY" --metadata "$METADATA" \
+    --installed-file "$SNAPSHOT" --request "$REQUEST" > "$BROKER_OUTPUT"
+
+boot_environment=$(awk -F= '$1 == "boot_environment" { print $2 }' "$REQUEST")
+[ -n "$boot_environment" ] || fail "$EX_DATAERR" 'broker did not bind a boot environment'
+packages=$(sed -n 's/^target_package=\([A-Za-z0-9][A-Za-z0-9+_.-]*\)|.*/\1/p' "$BROKER_OUTPUT")
+[ -n "$packages" ] || fail "$EX_DATAERR" 'broker did not emit a bounded package transaction'
+
+"$HELPER" --apply "$REQUEST"
+write_state boot-environment-created "$boot_environment" "$REQUEST"
+
+set -- upgrade -y -r "$REPOSITORY"
+for package in $packages; do
+    set -- "$@" "$package"
+done
+if ! "$PKG" "$@"; then
+    make_rollback_request "$REQUEST" "$ROLLBACK_REQUEST"
+    "$HELPER" --apply "$ROLLBACK_REQUEST" || true
+    write_state rollback-scheduled "$boot_environment" "$REQUEST"
+    fail 70 "package transaction failed; rollback to $boot_environment is scheduled for reboot"
+fi
+
+verification_failed=0
+while IFS='|' read -r name version; do
+    [ -n "$name" ] || continue
+    actual=$("$PKG" query -e "%n == $name" '%v' 2>/dev/null || true)
+    [ "$actual" = "$version" ] || verification_failed=1
+done <<EOF
+$(sed -n 's/^target_package=//p' "$BROKER_OUTPUT")
+EOF
+
+if [ "$verification_failed" -ne 0 ]; then
+    make_rollback_request "$REQUEST" "$ROLLBACK_REQUEST"
+    "$HELPER" --apply "$ROLLBACK_REQUEST" || true
+    write_state rollback-scheduled "$boot_environment" "$REQUEST"
+    fail 70 "post-update package verification failed; rollback to $boot_environment is scheduled for reboot"
+fi
+
+write_state updated "$boot_environment" "$REQUEST"
+printf 'UPDATED=yes\nBOOT_ENVIRONMENT=%s\nROLLBACK_AVAILABLE=yes\n' "$boot_environment"

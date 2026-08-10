@@ -1,7 +1,9 @@
 cmake_minimum_required(VERSION 3.28)
 
+set(NORTHSTAR_PACKAGE_VERSION "0.1.0" CACHE STRING "Northstar package version")
+
 project(Northstar
-    VERSION 0.1.0
+    VERSION ${NORTHSTAR_PACKAGE_VERSION}
     DESCRIPTION "Northstar desktop environment for FreeBSD"
     HOMEPAGE_URL "https://github.com/SeedOfEvil/northstar-os"
     LANGUAGES CXX
@@ -49,4 +51,9 @@ set(CPACK_FREEBSD_PACKAGE_CATEGORIES "x11")
 set(CPACK_FREEBSD_PACKAGE_DEPS
     "devel/qt6-base;x11-toolkits/qt6-declarative;graphics/qt6-svg;graphics/qt6-wayland;x11/plasma6-layer-shell-qt"
 )
+
+install(FILES packaging/polkit/org.northstar.update.policy
+    DESTINATION share/polkit-1/actions
+)
+
 include(CPack)

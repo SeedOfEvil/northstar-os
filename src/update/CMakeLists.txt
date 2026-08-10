@@ -11,3 +11,9 @@ target_link_libraries(northstar-update-broker
 install(TARGETS northstar-update-broker
     RUNTIME DESTINATION libexec
 )
+
+install(PROGRAMS
+    northstar-update-helper
+    northstar-update-transaction
+    DESTINATION libexec
+)

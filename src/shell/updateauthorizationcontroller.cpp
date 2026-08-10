@@ -4,6 +4,7 @@
 #include "updateplancontroller.h"
 
 #include <QFileInfo>
+#include <QProcess>
 #include <QStandardPaths>
 
 #include <utility>
@@ -47,7 +48,7 @@ bool UpdateAuthorizationController::zfsAvailable() const
 
 bool UpdateAuthorizationController::authorizationAvailable() const
 {
-    return false;
+    return m_authorizationAvailable;
 }
 
 QString UpdateAuthorizationController::bootEnvironmentName() const
@@ -67,6 +68,11 @@ QString UpdateAuthorizationController::plan() const
 
 bool UpdateAuthorizationController::refresh()
 {
+    const QFileInfo transaction(QStringLiteral("/usr/local/libexec/northstar-update-transaction"));
+    const QFileInfo broker(QStringLiteral("/usr/local/libexec/northstar-update-broker"));
+    const bool privilegeAvailable = !QStandardPaths::findExecutable(QStringLiteral("pkexec")).isEmpty();
+    m_authorizationAvailable = transaction.isFile() && transaction.isExecutable()
+        && broker.isFile() && broker.isExecutable() && privilegeAvailable;
     const bool bectlAvailable = executableAvailable(m_bectlPath, QStringLiteral("bectl"));
     const bool zfsAvailable = executableAvailable(m_zfsPath, QStringLiteral("zfs"));
     if (m_updatePlan == nullptr) {
@@ -132,11 +138,50 @@ bool UpdateAuthorizationController::refresh()
     setState(true,
              bectlAvailable,
              zfsAvailable,
-             QStringLiteral("Preflight passed; the privileged update helper is not connected."),
-             QStringLiteral("Would create boot environment '%1' before the authorized package transaction; no bectl or pkg command was run.")
+             m_authorizationAvailable
+                 ? QStringLiteral("Authorized transaction path is ready.")
+                 : QStringLiteral("Preflight passed; install the protected transaction service to continue."),
+             QStringLiteral("Create boot environment '%1', apply only verified repository packages, and retain rollback until reboot.")
                  .arg(bootEnvironmentName),
              bootEnvironmentName);
     return true;
+}
+
+bool UpdateAuthorizationController::applyUpdate()
+{
+    if (!m_preflightValid || !m_authorizationAvailable || m_updatePlan == nullptr
+        || (m_updatePlan->updateCount() == 0 && m_updatePlan->installCount() == 0)) {
+        return false;
+    }
+    return requestTransaction(QStringLiteral("--apply-update"));
+}
+
+bool UpdateAuthorizationController::scheduleRollback()
+{
+    if (!m_authorizationAvailable) {
+        return false;
+    }
+    return requestTransaction(QStringLiteral("--rollback"));
+}
+
+bool UpdateAuthorizationController::requestTransaction(const QString &operation)
+{
+    const QString pkexec = QStandardPaths::findExecutable(QStringLiteral("pkexec"));
+    if (pkexec.isEmpty()) {
+        return false;
+    }
+    const bool started = QProcess::startDetached(
+        pkexec,
+        {QStringLiteral("/usr/local/libexec/northstar-update-transaction"),
+         operation,
+         QStringLiteral("--confirm")});
+    if (started) {
+        m_status = operation == QStringLiteral("--rollback")
+            ? QStringLiteral("Rollback authorization requested; reboot after it completes.")
+            : QStringLiteral("Update authorization requested.");
+        emit stateChanged();
+    }
+    return started;
 }
 
 bool UpdateAuthorizationController::executableAvailable(const QString &overridePath, const QString &name)

@@ -1075,13 +1075,13 @@ Window {
                         color: "#70d6a6"
                         font.bold: true
                         font.pixelSize: 12
-                        text: "No changes have been made"
+                        text: "No changes have been made yet"
                     }
 
                     Text {
                         color: software.surfaceMuted
                         font.pixelSize: 11
-                        text: "This review reads trust and update state only. It does not invoke pkg, write repository configuration, or create a boot environment."
+                        text: "Review is read-only. Applying requires a verified plan, a protected transaction service, explicit confirmation, and PolicyKit authorization."
                         width: parent.width
                         wrapMode: Text.WordWrap
                     }
@@ -1259,10 +1259,76 @@ Window {
                 wrapMode: Text.WordWrap
             }
 
-            Button {
-                enabled: false
-                text: "Apply Update (protected)"
+            Row {
+                spacing: 10
+
+                Button {
+                    enabled: !!software.updateAuthorization
+                        && software.updateAuthorization.authorizationAvailable
+                        && software.updateAuthorization.preflightValid
+                        && !!software.updatePlan
+                        && (software.updatePlan.updateCount + software.updatePlan.installCount) > 0
+                    text: "Apply Verified Update"
+                    onClicked: updateConfirmationDialog.open()
+                }
+
+                Button {
+                    enabled: !!software.updateAuthorization
+                        && software.updateAuthorization.authorizationAvailable
+                    text: "Schedule Rollback"
+                    onClicked: rollbackConfirmationDialog.open()
+                }
             }
+        }
+    }
+
+    Dialog {
+        id: updateConfirmationDialog
+        title: "Apply verified update?"
+        modal: true
+        standardButtons: Dialog.Yes | Dialog.No
+        width: Math.min(500, software.width - 48)
+        x: (software.width - width) / 2
+        y: (software.height - height) / 2
+
+        Text {
+            color: software.surfaceForeground
+            text: "Northstar will create '" + (software.updateAuthorization
+                ? software.updateAuthorization.bootEnvironmentName : "")
+                + "' before updating. PolicyKit administrator authorization is required."
+            width: parent.width
+            wrapMode: Text.WordWrap
+        }
+
+        onAccepted: {
+            if (software.updateAuthorization) {
+                software.updateAuthorization.applyUpdate()
+            }
+            updatePlanDialog.close()
+        }
+    }
+
+    Dialog {
+        id: rollbackConfirmationDialog
+        title: "Schedule rollback?"
+        modal: true
+        standardButtons: Dialog.Yes | Dialog.No
+        width: Math.min(500, software.width - 48)
+        x: (software.width - width) / 2
+        y: (software.height - height) / 2
+
+        Text {
+            color: software.surfaceForeground
+            text: "The last verified pre-update boot environment will be activated for the next reboot. Home data is stored outside the root boot environment."
+            width: parent.width
+            wrapMode: Text.WordWrap
+        }
+
+        onAccepted: {
+            if (software.updateAuthorization) {
+                software.updateAuthorization.scheduleRollback()
+            }
+            updatePlanDialog.close()
         }
     }
 
