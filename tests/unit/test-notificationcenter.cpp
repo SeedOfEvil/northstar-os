@@ -11,6 +11,7 @@ private slots:
     void pushesNewestUnreadNotification();
     void marksAndDismissesNotifications();
     void capsNotificationHistory();
+    void doNotDisturbKeepsNewNotificationsRead();
 };
 
 void NotificationCenterTest::pushesNewestUnreadNotification()
@@ -64,6 +65,20 @@ void NotificationCenterTest::capsNotificationHistory()
     QCOMPARE(center.notifications().first().toMap().value(QStringLiteral("id")).toString(), thirdId);
     QVERIFY(!center.dismissNotification(firstId));
     QVERIFY(center.dismissNotification(thirdId));
+}
+
+void NotificationCenterTest::doNotDisturbKeepsNewNotificationsRead()
+{
+    NotificationCenter center;
+    center.setDoNotDisturb(true);
+    center.pushNotification(QStringLiteral("Quiet"), QStringLiteral("Stored without a badge"));
+
+    QCOMPARE(center.unreadCount(), 0);
+    QVERIFY(center.notifications().first().toMap().value(QStringLiteral("read")).toBool());
+
+    center.setDoNotDisturb(false);
+    center.pushNotification(QStringLiteral("Visible"), QStringLiteral("Unread notification"));
+    QCOMPARE(center.unreadCount(), 1);
 }
 
 QTEST_MAIN(NotificationCenterTest)

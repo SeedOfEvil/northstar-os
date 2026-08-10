@@ -9,6 +9,7 @@
 #include "pinnedapplicationmodel.h"
 #include "powercontroller.h"
 #include "previewcontroller.h"
+#include "quicksettingscontroller.h"
 #include "searchcontroller.h"
 #include "sessioncontroller.h"
 #include "shellstate.h"
@@ -77,6 +78,7 @@ int main(int argc, char *argv[])
     ShellState shellState;
     ApplicationLauncher applicationLauncher;
     NotificationCenter notificationCenter;
+    QuickSettingsController quickSettingsController;
     PackageCatalog packageCatalog;
     PackageTrustController packageTrustController;
     PinnedApplicationModel pinnedApplicationModel;
@@ -93,6 +95,11 @@ int main(int argc, char *argv[])
     ShortcutCatalog shortcutCatalog;
     VolumeController volumeController;
     WindowController windowController;
+    notificationCenter.setDoNotDisturb(quickSettingsController.doNotDisturb());
+    QObject::connect(&quickSettingsController, &QuickSettingsController::doNotDisturbChanged,
+                     &notificationCenter, [&quickSettingsController, &notificationCenter]() {
+        notificationCenter.setDoNotDisturb(quickSettingsController.doNotDisturb());
+    });
     QObject::connect(&applicationLauncher, &ApplicationLauncher::launchStatusChanged,
                      &notificationCenter, [&applicationLauncher, &notificationCenter]() {
         if (applicationLauncher.launchMessage().isEmpty()) {
@@ -181,6 +188,8 @@ int main(int argc, char *argv[])
                                     &desktopItemsController);
         context->setContextProperty(QStringLiteral("northstarPowerController"), &powerController);
         context->setContextProperty(QStringLiteral("northstarPreviewController"), &previewController);
+        context->setContextProperty(QStringLiteral("northstarQuickSettingsController"),
+                                    &quickSettingsController);
         context->setContextProperty(QStringLiteral("northstarSearchController"), &searchController);
         context->setContextProperty(QStringLiteral("northstarSessionController"), &sessionController);
         context->setContextProperty(QStringLiteral("northstarShortcutCatalog"), &shortcutCatalog);

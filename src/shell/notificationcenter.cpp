@@ -30,6 +30,11 @@ int NotificationCenter::unreadCount() const
     return count;
 }
 
+bool NotificationCenter::doNotDisturb() const
+{
+    return m_doNotDisturb;
+}
+
 QString NotificationCenter::pushNotification(const QString &title,
                                               const QString &body,
                                               const QString &kind)
@@ -51,6 +56,7 @@ QString NotificationCenter::pushNotification(const QString &title,
         entry.body = entry.title;
     }
     entry.timestamp = QDateTime::currentDateTime().toString(Qt::ISODateWithMs);
+    entry.read = m_doNotDisturb;
 
     const int previousUnreadCount = unreadCount();
     m_entries.prepend(entry);
@@ -63,6 +69,15 @@ QString NotificationCenter::pushNotification(const QString &title,
         emit unreadCountChanged();
     }
     return entry.id;
+}
+
+void NotificationCenter::setDoNotDisturb(bool enabled)
+{
+    if (m_doNotDisturb == enabled) {
+        return;
+    }
+    m_doNotDisturb = enabled;
+    emit doNotDisturbChanged();
 }
 
 bool NotificationCenter::markRead(const QString &id)

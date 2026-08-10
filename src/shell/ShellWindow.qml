@@ -505,7 +505,9 @@ Window {
 
     QuickSettings {
         id: quickSettingsWindow
+        controller: northstarQuickSettingsController
         state: shellState
+        settingsWindow: settingsWindow
         targetScreen: targetScreen
         panelHeight: root.height
     }
