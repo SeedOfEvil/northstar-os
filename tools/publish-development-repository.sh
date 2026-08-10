@@ -144,9 +144,9 @@ find "$PACKAGES_DIR" -type f -name '*.pkg' -print | sort |
 PUBLIC_KEY_TEXT=$(sed -e 's/[[:space:]]*$//' "$PUBLIC_KEY")
 printf '%s\n' "$PUBLIC_KEY_TEXT" | grep -F 'BEGIN PUBLIC KEY' >/dev/null 2>&1 \
     || die 'public key is not PEM public-key material'
-printf '%s' "$PUBLIC_KEY_TEXT" > "$STAGING_DIR/public-key.pem"
+printf '%s\n' "$PUBLIC_KEY_TEXT" > "$STAGING_DIR/public-key.pem"
 FINGERPRINT=$(sha256 -q "$STAGING_DIR/public-key.pem")
-printf '%s\n' 'function: sha256' "fingerprint: $FINGERPRINT" \
+printf '%s\n' 'function: sha256' "fingerprint: \"$FINGERPRINT\"" \
     > "$STAGING_DIR/fingerprints/trusted/northstar-development"
 
 CATALOGUE_SHA256=$(sha256 -q "$STAGING_DIR/data.pkg")
@@ -209,7 +209,7 @@ openssl dgst -sha256 -verify "$STAGING_DIR/public-key.pem" \
     -signature "$STAGING_DIR/publication-signature.bin" "$STAGING_DIR/publication-payload" >/dev/null 2>&1 \
     || die 'public key did not verify the publication signature'
 
-PUBLIC_KEY_JSON=$(awk 'BEGIN { first=1 } { gsub(/\\/, "\\\\"); gsub(/\"/, "\\\""); if (!first) printf "\\n"; printf "%s", $0; first=0 }' "$STAGING_DIR/public-key.pem")
+PUBLIC_KEY_JSON=$(awk '{ gsub(/\\/, "\\\\"); gsub(/\"/, "\\\""); printf "%s\\n", $0 }' "$STAGING_DIR/public-key.pem")
 SIGNATURE_BASE64=$(base64 < "$STAGING_DIR/publication-signature.bin" | tr -d '\n')
 {
     printf '%s\n' '{'

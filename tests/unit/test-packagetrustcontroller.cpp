@@ -94,6 +94,18 @@ void PackageTrustControllerTest::acceptsAndRejectsFingerprintFiles()
         &errorMessage));
     QCOMPARE(fingerprint, QString(64, QLatin1Char('a')));
 
+    QVERIFY(PackageTrustController::parseFingerprintFile(
+        QByteArray("function: sha256\nfingerprint: \"") + QByteArray(64, 'B') + QByteArray("\"\n"),
+        fingerprint,
+        &errorMessage));
+    QCOMPARE(fingerprint, QString(64, QLatin1Char('b')));
+
+    QVERIFY(!PackageTrustController::parseFingerprintFile(
+        QByteArray("function: sha256\nfingerprint: \"") + QByteArray(64, 'a') + QByteArray("\n"),
+        fingerprint,
+        &errorMessage));
+    QVERIFY(errorMessage.contains(QStringLiteral("balanced")));
+
     QVERIFY(!PackageTrustController::parseFingerprintFile(
         QByteArray("function: md5\nfingerprint: ") + QByteArray(64, 'a') + QByteArray("\n"),
         fingerprint,

@@ -281,7 +281,7 @@ void UpdatePlanControllerTest::verifiesTrustedRsaSignature()
              qPrintable(processError));
     QFile publicKeyFile(publicKeyPath);
     QVERIFY(publicKeyFile.open(QIODevice::ReadOnly));
-    const QByteArray publicKey = publicKeyFile.readAll().trimmed();
+    const QByteArray publicKey = publicKeyFile.readAll();
     const QString fingerprint = QString::fromLatin1(
         QCryptographicHash::hash(publicKey, QCryptographicHash::Sha256).toHex());
     QVERIFY(writeFingerprint(QDir(storePath).filePath(QStringLiteral("trusted")),

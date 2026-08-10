@@ -40,8 +40,8 @@ fi
 printf '%s\n' "$SOURCE_REVISION" | grep -Eq '^[0-9A-Fa-f]{7,64}$' \
     || die 'NORTHSTAR_SOURCE_REVISION must identify the immutable source commit'
 
-qt_version=$(pkg query -e '%n = qt6-base' '%v')
-wayfire_version=$(pkg query -e '%n = wayfire' '%v')
+qt_version=$(pkg query -e '%n == qt6-base' '%v')
+wayfire_version=$(pkg query -e '%n == wayfire' '%v')
 [ -n "$qt_version" ] && [ -n "$wayfire_version" ] || die 'dependency versions are unavailable'
 if [ -z "$PORTS_COMMIT" ]; then
     command -v git >/dev/null 2>&1 || die 'git is required to resolve the Ports branch for the smoke gate'
@@ -126,6 +126,14 @@ PKG_DBDIR="$TMP_DIR/client-db" PKG_CACHEDIR="$TMP_DIR/client-cache" \
     pkg -o REPOS_DIR="$TMP_DIR/repos" -o ASSUME_ALWAYS_YES=yes update -f \
     > "$TMP_DIR/client.log" 2>&1 \
     || { cat "$TMP_DIR/client.log" >&2; die 'isolated pkg client rejected the signed development repository'; }
+if ! PKG_DBDIR="$TMP_DIR/client-db" PKG_CACHEDIR="$TMP_DIR/client-cache" \
+    pkg -o REPOS_DIR="$TMP_DIR/repos" rquery -r northstar-development \
+        -e '%n == northstar' '%n' | grep -Fx northstar >/dev/null 2>&1; then
+    cat "$TMP_DIR/client.log" >&2
+    PKG_DBDIR="$TMP_DIR/client-db" PKG_CACHEDIR="$TMP_DIR/client-cache" \
+        pkg -o REPOS_DIR="$TMP_DIR/repos" rquery -a '%n|%R' >&2 || true
+    die 'trusted repository refresh did not expose the Northstar package'
+fi
 
 cp -Rp "$TMP_DIR/repository" "$TMP_DIR/tampered-repository"
 catalogue_number=0
@@ -138,7 +146,9 @@ for catalogue_name in data packagesite filesite; do
     tar -xf "$catalogue_path" -C "$catalogue_dir"
     signature_path=$(find "$catalogue_dir" -type f -name '*.sig' -print -quit)
     [ -n "$signature_path" ] || die "signed catalogue has no signature member: $catalogue_name.pkg"
-    printf X | dd of="$signature_path" bs=1 seek=0 conv=notrunc >/dev/null 2>&1
+    payload_path=$(find "$catalogue_dir" -maxdepth 1 -type f ! -name '*.sig' ! -name '*.pub' -print -quit)
+    [ -n "$payload_path" ] || die "signed catalogue has no payload member: $catalogue_name.pkg"
+    printf '\n' >> "$payload_path"
     member_list=$(find "$catalogue_dir" -maxdepth 1 -type f -print | sort)
     (
         cd "$catalogue_dir"
@@ -156,10 +166,14 @@ printf '%s\n' \
     '    enabled: yes' \
     '}' > "$TMP_DIR/repos/northstar.conf"
 
-if PKG_DBDIR="$TMP_DIR/tampered-db" PKG_CACHEDIR="$TMP_DIR/tampered-cache" \
+PKG_DBDIR="$TMP_DIR/tampered-db" PKG_CACHEDIR="$TMP_DIR/tampered-cache" \
     pkg -o REPOS_DIR="$TMP_DIR/repos" -o ASSUME_ALWAYS_YES=yes update -f \
-    > "$TMP_DIR/tampered.log" 2>&1; then
-    die 'isolated pkg client accepted altered signed metadata'
+    > "$TMP_DIR/tampered.log" 2>&1 || true
+if PKG_DBDIR="$TMP_DIR/tampered-db" PKG_CACHEDIR="$TMP_DIR/tampered-cache" \
+    pkg -o REPOS_DIR="$TMP_DIR/repos" rquery -r northstar-development \
+        -e '%n == northstar' '%n' 2>/dev/null | grep -Fx northstar >/dev/null 2>&1; then
+    cat "$TMP_DIR/tampered.log" >&2
+    die 'isolated pkg client exposed Northstar from altered signed metadata'
 fi
 
 printf '%s\n' 'PASS: isolated pkg client trusted and refreshed the signed development channel'
