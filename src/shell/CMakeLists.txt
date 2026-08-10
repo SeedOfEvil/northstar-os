@@ -8,6 +8,7 @@ add_library(northstar-shell-core STATIC
     packagetrustcontroller.cpp
     pinnedapplicationmodel.cpp
     powercontroller.cpp
+    previewcontroller.cpp
     searchcontroller.cpp
     sessioncontroller.cpp
     shellstate.cpp
@@ -48,6 +49,7 @@ qt_add_qml_module(northstar-shell
         ApplicationOverview.qml
         QuickSettings.qml
         NotificationCenterWindow.qml
+        QuickLookWindow.qml
         SearchOverlay.qml
         WindowDragController.qml
         SoftwareCenterWindow.qml

@@ -69,6 +69,8 @@ Window {
             quickSettingsWindow.hide()
         } else if (notificationCenterWindow.visible) {
             notificationCenterWindow.hide()
+        } else if (quickLookWindow.visible) {
+            quickLookWindow.hide()
         } else if (softwareCenterWindow.visible) {
             softwareCenterWindow.hide()
         } else if (fileBrowserWindow.visible) {
@@ -533,6 +535,15 @@ Window {
         fileBrowserController: northstarFileBrowserController
         applicationLauncher: launcher
         volumeController: northstarVolumeController
+        state: shellState
+        targetScreen: targetScreen
+        panelHeight: root.height
+        previewWindow: quickLookWindow
+    }
+
+    QuickLookWindow {
+        id: quickLookWindow
+        previewController: northstarPreviewController
         state: shellState
         targetScreen: targetScreen
         panelHeight: root.height

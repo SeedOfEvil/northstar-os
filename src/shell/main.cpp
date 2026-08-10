@@ -8,6 +8,7 @@
 #include "packagetrustcontroller.h"
 #include "pinnedapplicationmodel.h"
 #include "powercontroller.h"
+#include "previewcontroller.h"
 #include "searchcontroller.h"
 #include "sessioncontroller.h"
 #include "shellstate.h"
@@ -86,6 +87,7 @@ int main(int argc, char *argv[])
     FileBrowserController fileBrowserController;
     DesktopLayoutController desktopLayoutController;
     PowerController powerController;
+    PreviewController previewController;
     SearchController searchController(&applicationLauncher);
     SessionController sessionController;
     ShortcutCatalog shortcutCatalog;
@@ -146,6 +148,8 @@ int main(int argc, char *argv[])
                                               &desktopItemsController);
         backgroundContext->setContextProperty(QStringLiteral("northstarFileBrowserController"),
                                               &fileBrowserController);
+        backgroundContext->setContextProperty(QStringLiteral("northstarPreviewController"),
+                                              &previewController);
         backgroundContext->setContextProperty(QStringLiteral("northstarGeneratedIconsDirectory"), generatedIconsDirectory);
         backgroundContext->setContextProperty(QStringLiteral("northstarDesktopLayoutController"), &desktopLayoutController);
         backgroundContext->setContextProperty(QStringLiteral("shellState"), &shellState);
@@ -176,6 +180,7 @@ int main(int argc, char *argv[])
         context->setContextProperty(QStringLiteral("northstarDesktopItemsController"),
                                     &desktopItemsController);
         context->setContextProperty(QStringLiteral("northstarPowerController"), &powerController);
+        context->setContextProperty(QStringLiteral("northstarPreviewController"), &previewController);
         context->setContextProperty(QStringLiteral("northstarSearchController"), &searchController);
         context->setContextProperty(QStringLiteral("northstarSessionController"), &sessionController);
         context->setContextProperty(QStringLiteral("northstarShortcutCatalog"), &shortcutCatalog);
@@ -192,7 +197,9 @@ int main(int argc, char *argv[])
         QObject *object = component.create(context);
         if (backgroundObject != nullptr && object != nullptr) {
             auto *filesWindow = object->findChild<QObject *>(QStringLiteral("fileBrowserWindow"));
+            auto *quickLookWindow = object->findChild<QObject *>(QStringLiteral("quickLookWindow"));
             backgroundObject->setProperty("fileBrowserWindow", QVariant::fromValue(filesWindow));
+            backgroundObject->setProperty("quickLookWindow", QVariant::fromValue(quickLookWindow));
         }
         auto *window = qobject_cast<QWindow *>(object);
         if (window == nullptr || !LayerShellSurface::configurePanel(window, screen, PanelHeight, index)) {
