@@ -22,10 +22,8 @@ Window {
     property int screenHeight: targetScreen ? targetScreen.geometry.height : 800
     property int minimumSurfaceWidth: 520
     property int minimumSurfaceHeight: 360
-    property bool maximized: false
+    property bool maximized: visibility === Window.Maximized
     property var returnFocusWindow: null
-    property point normalGeometryPosition: Qt.point(0, 0)
-    property size normalGeometrySize: Qt.size(0, 0)
 
     visible: false
     color: "transparent"
@@ -74,21 +72,10 @@ Window {
 
     function toggleMaximize() {
         if (quickLook.maximized) {
-            quickLook.x = quickLook.normalGeometryPosition.x
-            quickLook.y = quickLook.normalGeometryPosition.y
-            quickLook.width = quickLook.normalGeometrySize.width
-            quickLook.height = quickLook.normalGeometrySize.height
-            quickLook.maximized = false
+            quickLook.showNormal()
             return
         }
-        quickLook.normalGeometryPosition = Qt.point(quickLook.x, quickLook.y)
-        quickLook.normalGeometrySize = Qt.size(quickLook.width, quickLook.height)
-        quickLook.x = quickLook.screenX
-        quickLook.y = quickLook.screenY + quickLook.panelHeight
-        quickLook.width = quickLook.screenWidth
-        quickLook.height = Math.max(quickLook.minimumSurfaceHeight,
-                                    quickLook.screenHeight - quickLook.panelHeight)
-        quickLook.maximized = true
+        quickLook.showMaximized()
     }
 
     Shortcut {

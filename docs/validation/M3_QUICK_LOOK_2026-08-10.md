@@ -45,6 +45,15 @@ FreeBSD build completed, all 21 CTest targets and QML contracts passed again,
 and a controlled shell-only restart activated the fix as PID 34404. Repeated
 open/close/minimize manual acceptance remains pending.
 
+The next interactive pass found that client-side maximize dimensions were
+applied while Wayland retained the prior top-level position, placing part of
+Quick Look beyond the output. Quick Look now delegates maximize and restore to
+the compositor with `showMaximized()` and `showNormal()` and derives its state
+from native window visibility. The incremental native build, all 21 CTest
+targets, and QML contracts passed; the installed shell was restarted as PID
+34796. Fullscreen/maximize placement requires another 1280x800 noVNC check
+before acceptance.
+
 ## Deferred hardware evidence
 
 This validates the supplemental Proxmox scfb/pixman lane only. Direct DRM/KMS,
