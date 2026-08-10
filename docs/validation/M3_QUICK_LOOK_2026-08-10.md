@@ -19,9 +19,9 @@ desktop on `codex/m3-quick-look`.
   passed again.
 - The exact archived artifact was installed into `/home/northstar/.local`.
 
-## Manual 1280x800 noVNC acceptance pending
+## Manual 1280x800 noVNC acceptance
 
-After deployment, validate:
+The final installed build passed the following checks:
 
 - Space opens Quick Look for a selected Files item and desktop icon;
 - the Files Quick Look button and desktop context-menu action open the same
@@ -32,9 +32,8 @@ After deployment, validate:
 - previewing leaves file contents, Files selection, and associations unchanged;
 - Home items work and unrelated paths remain blocked.
 
-This record remains open until the noVNC checklist is accepted. The supervised
-session was stopped during the initial deployment, and the installed shell was
-subsequently loaded by a new Northstar login.
+The supervised session was stopped during the initial deployment, and the
+installed shell was subsequently loaded by a new Northstar login.
 
 The first interactive pass found that Quick Look could stop appearing after
 its native window was minimized or hidden: reopening used `show()` without
@@ -42,8 +41,7 @@ restoring the minimized state, and closing did not return keyboard focus to
 the originating Files/Desktop surface. The branch now uses `showNormal()` on
 every presentation and restores origin focus after hiding. The incremental
 FreeBSD build completed, all 21 CTest targets and QML contracts passed again,
-and a controlled shell-only restart activated the fix as PID 34404. Repeated
-open/close/minimize manual acceptance remains pending.
+and a controlled shell-only restart activated the fix as PID 34404.
 
 The next interactive pass found that client-side maximize dimensions were
 applied while Wayland retained the prior top-level position, placing part of
@@ -51,8 +49,8 @@ Quick Look beyond the output. Quick Look now delegates maximize and restore to
 the compositor with `showMaximized()` and `showNormal()` and derives its state
 from native window visibility. The incremental native build, all 21 CTest
 targets, and QML contracts passed; the installed shell was restarted as PID
-34796. Fullscreen/maximize placement requires another 1280x800 noVNC check
-before acceptance.
+34796. Repeated open, close, minimize, maximize, restore, Files, and desktop
+preview flows were accepted at 1280x800 on 2026-08-10.
 
 ## Deferred hardware evidence
 
