@@ -478,8 +478,8 @@ bool PackageTrustController::loadFingerprintStore(const QString &fingerprintsPat
 
 QString PackageTrustController::defaultPolicyPath()
 {
-    const QString userConfigPath = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation)
-        + QStringLiteral("/repository-policy.conf");
+    const QString userConfigPath = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation)
+        + QStringLiteral("/northstar/repository-policy.conf");
     if (QFileInfo::exists(userConfigPath)) {
         return userConfigPath;
     }

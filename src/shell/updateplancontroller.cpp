@@ -798,8 +798,8 @@ bool UpdatePlanController::verifyCatalogueIntegrity(QString *errorMessage)
 
 QString UpdatePlanController::defaultMetadataPath()
 {
-    const QString userConfigPath = QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation)
-        + QStringLiteral("/repository-metadata.json");
+    const QString userConfigPath = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation)
+        + QStringLiteral("/northstar/repository-metadata.json");
     if (QFileInfo::exists(userConfigPath)) {
         return userConfigPath;
     }
