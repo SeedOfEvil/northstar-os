@@ -8,6 +8,7 @@
 #include "packagetrustcontroller.h"
 #include "pinnedapplicationmodel.h"
 #include "powercontroller.h"
+#include "searchcontroller.h"
 #include "sessioncontroller.h"
 #include "shellstate.h"
 #include "shortcutcatalog.h"
@@ -85,6 +86,7 @@ int main(int argc, char *argv[])
     FileBrowserController fileBrowserController;
     DesktopLayoutController desktopLayoutController;
     PowerController powerController;
+    SearchController searchController(&applicationLauncher);
     SessionController sessionController;
     ShortcutCatalog shortcutCatalog;
     VolumeController volumeController;
@@ -174,6 +176,7 @@ int main(int argc, char *argv[])
         context->setContextProperty(QStringLiteral("northstarDesktopItemsController"),
                                     &desktopItemsController);
         context->setContextProperty(QStringLiteral("northstarPowerController"), &powerController);
+        context->setContextProperty(QStringLiteral("northstarSearchController"), &searchController);
         context->setContextProperty(QStringLiteral("northstarSessionController"), &sessionController);
         context->setContextProperty(QStringLiteral("northstarShortcutCatalog"), &shortcutCatalog);
         context->setContextProperty(QStringLiteral("northstarVolumeController"), &volumeController);

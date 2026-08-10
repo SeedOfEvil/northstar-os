@@ -59,7 +59,9 @@ Window {
     }
 
     function closeTransientSurfaces() {
-        if (systemMenu.visible) {
+        if (searchOverlay.visible) {
+            searchOverlay.closeSearch()
+        } else if (systemMenu.visible) {
             systemMenu.closeMenu()
         } else if (applicationOverview.visible) {
             applicationOverview.hide()
@@ -74,6 +76,13 @@ Window {
         } else if (settingsWindow.visible) {
             settingsWindow.hide()
         }
+    }
+
+    Shortcut {
+        context: Qt.ApplicationShortcut
+        enabled: displayIndex === 0
+        sequence: "Ctrl+K"
+        onActivated: searchOverlay.openSearch("")
     }
 
     Shortcut {
@@ -134,7 +143,7 @@ Window {
 
     Shortcut {
         context: Qt.ApplicationShortcut
-        enabled: systemMenu.visible || applicationOverview.visible || quickSettingsWindow.visible
+        enabled: searchOverlay.visible || systemMenu.visible || applicationOverview.visible || quickSettingsWindow.visible
             || notificationCenterWindow.visible || softwareCenterWindow.visible
             || fileBrowserWindow.visible || settingsWindow.visible
         sequence: "Escape"
@@ -287,50 +296,26 @@ Window {
             }
 
             Rectangle {
+                id: globalSearchSurface
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.verticalCenter: parent.verticalCenter
                 color: lunar.field
-                border.color: globalSearchField.activeFocus ? lunar.accent : lunar.borderSoft
+                border.color: globalSearchMouse.containsMouse ? lunar.accent : lunar.borderSoft
                 border.width: 1
                 height: 32
                 radius: 12
                 width: Math.min(360, root.width - 560)
 
-                TextField {
-                    id: globalSearchField
-                    anchors.fill: parent
-                    color: root.panelForeground
+                Text {
+                    anchors.left: parent.left
+                    anchors.leftMargin: 34
+                    anchors.right: parent.right
+                    anchors.rightMargin: 58
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: root.panelMuted
+                    elide: Text.ElideRight
                     font.pixelSize: 11
-                    leftPadding: 34
-                    rightPadding: 58
-                    placeholderText: "Search apps, files, and actions"
-                    placeholderTextColor: root.panelMuted
-                    selectByMouse: true
-
-                    background: Rectangle {
-                        color: "transparent"
-                    }
-
-                    onTextChanged: launcher.setApplicationQuery(text)
-
-                    onAccepted: {
-                        const query = text.trim()
-                        const action = query.toLowerCase()
-                        if (action === "settings" || action === "preferences") {
-                            settingsWindow.openSettings()
-                        } else if (action === "software" || action === "software center") {
-                            softwareCenterWindow.openSoftware()
-                        } else if (action === "terminal") {
-                            launcher.launchTerminal()
-                        } else if (action === "firefox" || action === "browser") {
-                            launcher.launchBrowser()
-                        } else if (query.length > 0 && launcher.matchingApplications.length === 0) {
-                            fileBrowserWindow.openWithSearch(query)
-                        } else {
-                            applicationOverview.openWithQuery(query)
-                        }
-                        globalSearchField.text = ""
-                    }
+                    text: "Search apps, files, and actions"
                 }
 
                 NorthstarIcon {
@@ -349,6 +334,14 @@ Window {
                     color: root.panelMuted
                     font.pixelSize: 10
                     text: "⌘K"
+                }
+
+                MouseArea {
+                    id: globalSearchMouse
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    hoverEnabled: true
+                    onClicked: searchOverlay.openSearch("")
                 }
             }
 
@@ -453,6 +446,43 @@ Window {
         softwareWindow: softwareCenterWindow
         sessionController: northstarSessionController
         shortcutCatalog: northstarShortcutCatalog
+        state: shellState
+        targetScreen: targetScreen
+        panelHeight: root.height
+    }
+
+    Connections {
+        target: northstarSearchController
+        enabled: displayIndex === 0
+
+        function onActionRequested(actionId) {
+            if (actionId === "applications") {
+                applicationOverview.openWithQuery("")
+            } else if (actionId === "files") {
+                fileBrowserWindow.openBrowser()
+            } else if (actionId === "settings") {
+                settingsWindow.openSettings()
+            } else if (actionId === "software") {
+                softwareCenterWindow.openSoftware()
+            } else if (actionId === "terminal") {
+                launcher.launchTerminal()
+            } else if (actionId === "browser") {
+                launcher.launchBrowser()
+            }
+        }
+
+        function onApplicationRequested(desktopId) {
+            launcher.launchApplication(desktopId)
+        }
+
+        function onFileRequested(path, isDirectory) {
+            fileBrowserWindow.openPath(path, isDirectory, false)
+        }
+    }
+
+    SearchOverlay {
+        id: searchOverlay
+        controller: northstarSearchController
         state: shellState
         targetScreen: targetScreen
         panelHeight: root.height
