@@ -7,7 +7,7 @@ The project advances through user-visible milestones with explicit pass gates. A
 | M0 | Reproducible development desktop | Supplemental VM lane validated; direct DRM/KMS gate pending | A clean FreeBSD 15.1 amd64 VM becomes the approved development environment |
 | M1 | Shell seed | Single-display product slice validated; multi-display acceptance pending | Top bar and dock render correctly on every connected display |
 | M2 | Desktop session | Development session lane validated; production display-manager and service integration pending | Session, services, supervision, notifications, and lifecycle work coherently |
-| M3 | Core desktop | Core workflows and initial Lunar redesign accepted; interaction polish in progress | Filer, branded desktop surface, responsive dock, settings, search, overview, associations, and project apps form a usable desktop |
+| M3 | Core desktop | Core workflows, Lunar redesign, and shared first-party chrome accepted; Dock v2 is next | Filer, branded desktop surface, responsive dock, settings, search, overview, associations, and project apps form a usable desktop |
 | M4 | Packages, updates, rollback | Package policy, fingerprint stores, provenance preview, publication signature verification, native `pkg` publication smoke, bounded helper contract, and broker staging merged; protected release publication and update/rollback remain | Signed packages and ZFS boot-environment rollback work end to end |
 | M5 | Reproducible image and installer | Not started | Pinned inputs produce a bootable UEFI root-on-ZFS image |
 | M6 | Alpha hardware release | Not started | The supported VM and narrow Intel/AMD hardware matrix meets the alpha definition |
@@ -18,12 +18,15 @@ The current `main` line contains the merged Northstar shell, session, Files,
 application-bundle, notification, keyboard, read-only Software Center, text
 editor, desktop-icon, search, association, and M4 package-trust foundations.
 The core M3 desktop workflows and initial Lunar redesign have passed iterative
-noVNC validation in the NSTAR-DEV01 FreeBSD 15.1 development VM. The current
-interaction-polish slice extends the wallpaper behind the dock and adds
-bounded movement to shell panels without changing the established
-home-directory, launch, session, or privilege boundaries. Its design and
-acceptance contract are in
-[`docs/M3_LUNAR.md`](M3_LUNAR.md).
+noVNC validation in the NSTAR-DEV01 FreeBSD 15.1 development VM. The wallpaper,
+dock transparency, shell-panel movement, and persistent desktop icon placement
+slice is accepted. The reusable
+`Northstar.Ui 1.0` module and gives Files, Settings, Software Center, Welcome,
+and Text Editor one shared frame, title-bar, control, move, resize, palette, and
+icon contract. That shared-chrome slice passed the 1280x800 noVNC acceptance
+gate on NSTAR-DEV01. Its design and acceptance contract are in
+[`docs/M3_LUNAR.md`](M3_LUNAR.md), with evidence in
+[`docs/validation/M3_SHARED_UI_2026-08-09.md`](validation/M3_SHARED_UI_2026-08-09.md).
 
 The VM is intentionally not being treated as final graphics evidence. Its
 Proxmox basic-VGA/scfb path does not provide a guest DRM render device, so
@@ -40,32 +43,37 @@ noVNC items are recorded in
 
 The next work is ordered as follows:
 
-1. **Complete Lunar interaction polish.** Validate full-output wallpaper,
-   floating-dock transparency, bounded draggable shell panels, and resolution-
-   change recovery in the VM before promoting the focused follow-up PR.
-2. **Close the remaining M3 hardware-sensitive evidence.** Repeat placement,
+1. **Build Dock v2.** Add persistent ordered pins, drag-to-reorder, Pin/Unpin,
+   and application-identity grouping after the chrome PR is squash-merged.
+2. **Build keyboard-first unified search.** Aggregate bounded system actions,
+   validated apps, and asynchronous home-scoped files with cancellation.
+3. **Add Quick Look.** Preview bounded text, raster images, folders, and
+   metadata from Files and Desktop without changing associations or content.
+4. **Back Quick Settings with capabilities.** Report confirmed FreeBSD state,
+   persist shell-local DND, and disable unsupported controls honestly.
+5. **Close the remaining M3 hardware-sensitive evidence.** Repeat placement,
    animation, multi-display, and direct compositor checks on the future
    Intel/AMD DRM lane; keep the scfb/pixman observations supplemental.
-3. **Close the remaining M1/M2 development evidence.** Capture a multi-display
+6. **Close the remaining M1/M2 development evidence.** Capture a multi-display
    Layer Shell run when hardware permits, and separately validate the branded
    display-manager session, controlled lifecycle actions, and the production
    privilege boundary. The current Proxmox fallback remains supplemental.
-4. **Close M4 publication evidence.** The policy, fingerprint-store,
+7. **Close M4 publication evidence.** The policy, fingerprint-store,
    publication-provenance, catalogue-integrity, read-only signature
    verification, and native `pkg` publication/client smoke foundations are
    merged. The remaining trust evidence is an actual signed development/stable
    `pkg` repository publication built from pinned Ports/Poudriere inputs with
    protected key custody and recorded provenance.
-5. **Build safe update and rollback.** The bounded root-owned helper request
+8. **Build safe update and rollback.** The bounded root-owned helper request
    contract and independent verified-plan broker are defined and tested. Next
    establish the reviewed privileged deployment, preflight a named `bectl` boot
    environment before upgrades, validate N-1 to N upgrades and rollback, and
    prove that home data survives both paths. No package mutation is exposed
    before these gates pass.
-6. **Produce the reproducible image and installer.** Only after M4 has current
+9. **Produce the reproducible image and installer.** Only after M4 has current
    evidence, pin the image inputs, build QCOW2 first, validate UEFI GPT/root-on-
    ZFS installation and first boot, then add raw/USB/ISO outputs.
-7. **Run the alpha hardware matrix.** Validate the supported VM plus the
+10. **Run the alpha hardware matrix.** Validate the supported VM plus the
    declared Intel and AMD graphics lanes, networking, applications,
    diagnostics, crash recovery, updates, rollback, and clean shutdown.
 

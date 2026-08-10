@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import Northstar.Ui 1.0
 
 Window {
     id: files
@@ -109,9 +110,19 @@ Window {
         files.fileBrowserController.setSearchQuery("")
         searchField.text = ""
         files.fileBrowserController.refresh()
-        show()
-        raise()
-        requestActivate()
+        files.presentWindow()
+    }
+
+    function presentWindow() {
+        if (files.visibility === Window.Minimized) {
+            files.showNormal()
+        } else {
+            files.show()
+        }
+        Qt.callLater(function() {
+            files.raise()
+            files.requestActivate()
+        })
     }
 
     function openWithSearch(query) {
@@ -229,9 +240,7 @@ Window {
             return
         }
         files.clearSelection()
-        show()
-        raise()
-        requestActivate()
+        files.presentWindow()
     }
 
     function openSidebarItem(item) {
@@ -358,9 +367,7 @@ Window {
             return
         }
         files.clearSelection()
-        show()
-        raise()
-        requestActivate()
+        files.presentWindow()
     }
 
     function openRestoreDialog() {
@@ -513,17 +520,9 @@ Window {
         files.maximized = true
     }
 
-    Rectangle {
+    NorthstarWindowFrame {
         anchors.fill: parent
-        color: files.surfaceBackground
-        border.color: lunar.border
-        border.width: 1
-        radius: lunar.radiusPanel
-
-        gradient: Gradient {
-            GradientStop { position: 0.0; color: lunar.panelStrong }
-            GradientStop { position: 1.0; color: lunar.panel }
-        }
+        darkMode: lunar.darkMode
 
         Rectangle {
             id: sidebar
@@ -714,14 +713,31 @@ Window {
                 width: parent.width
 
                 NativeWindowMoveHandler {
-                    enabled: !files.maximized
+                    enabled: false
                     window: files
+                }
+
+                NorthstarWindowTitleBar {
+                    anchors.fill: parent
+                    maximized: files.maximized
+                    lunarPalette: lunar
+                    subtitle: files.showingTrash
+                        ? "Review and restore deleted items"
+                        : files.fileBrowserController && files.fileBrowserController.searching
+                            ? "Search results from your Northstar home folder"
+                        : files.fileBrowserController && files.fileBrowserController.readOnlyLocation
+                            ? "Browse a mounted volume (read-only)"
+                        : "Browse your Northstar home folder"
+                    title: "Files"
+                    window: files
+                    onMaximizeRequested: files.toggleMaximize()
                 }
 
                 Column {
                     anchors.left: parent.left
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 2
+                    visible: false
 
                     Text {
                         color: files.surfaceForeground
@@ -748,6 +764,7 @@ Window {
                     anchors.right: parent.right
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 7
+                    visible: false
 
                     Rectangle {
                         color: minimizeMouse.containsMouse ? lunar.warning : files.surfaceRaised
@@ -2045,7 +2062,7 @@ Window {
         color: files.surfaceAccent
         height: 18
         opacity: 0.85
-        visible: !files.maximized
+        visible: false
         width: 18
         z: 10
 
@@ -2063,5 +2080,10 @@ Window {
             onPressed: files.beginResize(mouse.x, mouse.y)
             onPositionChanged: files.updateResize(mouse.x, mouse.y)
         }
+    }
+
+    NativeWindowResizeHandler {
+        resizingEnabled: !files.maximized
+        window: files
     }
 }

@@ -1,8 +1,6 @@
 import QtQuick
 
 QtObject {
-    id: palette
-
     property bool darkMode: true
 
     readonly property color desktopTop: darkMode ? "#07172f" : "#d9e9ff"

@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import Northstar.Ui 1.0
 
 Window {
     id: quickSettings

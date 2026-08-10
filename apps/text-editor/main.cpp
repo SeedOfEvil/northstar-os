@@ -1,4 +1,6 @@
 #include "texteditorcontroller.h"
+#include "northstarappearance.h"
+#include "northstarui.h"
 
 #include <QCommandLineParser>
 #include <QCoreApplication>
@@ -20,7 +22,10 @@ int main(int argc, char *argv[])
     parser.addVersionOption();
     QCommandLineOption selfTestOption(QStringLiteral("self-test"),
                                        QStringLiteral("validate text loading and saving without opening a window"));
+    QCommandLineOption qmlSelfTestOption(QStringLiteral("qml-self-test"),
+                                          QStringLiteral("load the Text Editor QML surface without entering the event loop"));
     parser.addOption(selfTestOption);
+    parser.addOption(qmlSelfTestOption);
     parser.addPositionalArgument(QStringLiteral("file"), QStringLiteral("text file to open"));
     parser.process(application);
 
@@ -70,14 +75,17 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    NorthstarUi::registerTypes();
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty(QStringLiteral("northstarTextEditorController"), &controller);
+    engine.rootContext()->setContextProperty(QStringLiteral("northstarDarkMode"),
+                                             NorthstarAppearance::darkMode());
     engine.load(QUrl(QStringLiteral("qrc:/Northstar/TextEditor/TextEditorWindow.qml")));
     if (engine.rootObjects().isEmpty()) {
         return 1;
     }
 
-    if (selfTest) {
+    if (parser.isSet(qmlSelfTestOption)) {
         return 0;
     }
 

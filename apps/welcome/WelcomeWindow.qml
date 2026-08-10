@@ -1,18 +1,22 @@
 import QtQuick
 import QtQuick.Controls
+import Northstar.Ui 1.0
 
 ApplicationWindow {
     id: welcome
 
-    property color backgroundColor: "#07172f"
-    property color panelColor: "#e61a3153"
-    property color raisedColor: "#d926436c"
-    property color foregroundColor: "#f6f9ff"
-    property color mutedColor: "#a9bdd8"
-    property color accentColor: "#63adff"
+    LunarPalette { id: lunar; darkMode: northstarDarkMode }
+
+    property color backgroundColor: lunar.background
+    property color panelColor: lunar.panel
+    property color raisedColor: lunar.raised
+    property color foregroundColor: lunar.foreground
+    property color mutedColor: lunar.muted
+    property color accentColor: lunar.accent
     property string statusMessage: "Choose a starting point for your Northstar desktop."
 
-    color: welcome.backgroundColor
+    color: "transparent"
+    flags: Qt.Window | Qt.FramelessWindowHint
     height: 680
     minimumHeight: 620
     minimumWidth: 760
@@ -20,37 +24,29 @@ ApplicationWindow {
     visible: true
     width: 820
 
-    background: Rectangle {
-        color: welcome.backgroundColor
-
-        gradient: Gradient {
-            GradientStop { position: 0.0; color: "#07172f" }
-            GradientStop { position: 1.0; color: "#0c2c5a" }
-        }
-
-        Rectangle {
-            anchors.fill: parent
-            anchors.margins: 18
-            color: welcome.panelColor
-            border.color: "#58779e"
-            border.width: 1
-            radius: 24
-
-            Rectangle {
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.top: parent.top
-                color: welcome.accentColor
-                height: 2
-                opacity: 0.9
-            }
-        }
+    background: NorthstarWindowFrame {
+        darkMode: lunar.darkMode
     }
 
     Column {
         anchors.fill: parent
-        anchors.margins: 42
-        spacing: 18
+        anchors.margins: 28
+        spacing: 12
+
+        NorthstarWindowTitleBar {
+            closeDestroysWindow: true
+            iconSource: "qrc:/Northstar/Welcome/northstar-welcome.svg"
+            maximized: welcome.visibility === Window.Maximized
+            lunarPalette: lunar
+            subtitle: "Start exploring your Northstar desktop"
+            title: "Welcome"
+            width: parent.width
+            window: welcome
+            onMaximizeRequested: {
+                if (welcome.visibility === Window.Maximized) welcome.showNormal()
+                else welcome.showMaximized()
+            }
+        }
 
         Row {
             spacing: 18
@@ -59,9 +55,9 @@ ApplicationWindow {
             Image {
                 anchors.verticalCenter: parent.verticalCenter
                 fillMode: Image.PreserveAspectFit
-                height: 82
+                height: 70
                 source: "qrc:/Northstar/Welcome/northstar-welcome.svg"
-                width: 82
+                width: 70
             }
 
             Column {
@@ -97,8 +93,8 @@ ApplicationWindow {
 
             Rectangle {
                 color: homeMouse.containsMouse ? welcome.accentColor : welcome.raisedColor
-                height: 132
-                border.color: homeMouse.containsMouse ? "#82c9ff" : "#355373"
+                height: 116
+                border.color: homeMouse.containsMouse ? lunar.accentBright : lunar.borderSoft
                 border.width: 1
                 radius: 16
                 width: (parent.width - 28) / 3
@@ -132,8 +128,8 @@ ApplicationWindow {
 
             Rectangle {
                 color: desktopMouse.containsMouse ? welcome.accentColor : welcome.raisedColor
-                height: 132
-                border.color: desktopMouse.containsMouse ? "#82c9ff" : "#355373"
+                height: 116
+                border.color: desktopMouse.containsMouse ? lunar.accentBright : lunar.borderSoft
                 border.width: 1
                 radius: 16
                 width: (parent.width - 28) / 3
@@ -167,8 +163,8 @@ ApplicationWindow {
 
             Rectangle {
                 color: guideMouse.containsMouse ? welcome.accentColor : welcome.raisedColor
-                height: 132
-                border.color: guideMouse.containsMouse ? "#82c9ff" : "#355373"
+                height: 116
+                border.color: guideMouse.containsMouse ? lunar.accentBright : lunar.borderSoft
                 border.width: 1
                 radius: 16
                 width: (parent.width - 28) / 3
@@ -200,8 +196,8 @@ ApplicationWindow {
 
         Rectangle {
             color: welcome.raisedColor
-            height: 92
-            border.color: "#355373"
+            height: 76
+            border.color: lunar.borderSoft
             border.width: 1
             radius: 16
             width: parent.width
@@ -237,8 +233,8 @@ ApplicationWindow {
 
         Rectangle {
             color: welcome.raisedColor
-            height: 126
-            border.color: "#355373"
+            height: 110
+            border.color: lunar.borderSoft
             border.width: 1
             radius: 16
             width: parent.width
@@ -323,5 +319,10 @@ ApplicationWindow {
                 onClicked: welcome.close()
             }
         }
+    }
+
+    NativeWindowResizeHandler {
+        resizingEnabled: welcome.visibility !== Window.Maximized
+        window: welcome
     }
 }

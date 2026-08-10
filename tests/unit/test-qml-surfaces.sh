@@ -22,6 +22,12 @@ contains()
 }
 
 required_files="\
+src/ui/LunarPalette.qml \
+src/ui/NativeWindowMoveHandler.qml \
+src/ui/NativeWindowResizeHandler.qml \
+src/ui/NorthstarWindowControls.qml \
+src/ui/NorthstarWindowFrame.qml \
+src/ui/NorthstarWindowTitleBar.qml \
 src/shell/DesktopBackground.qml \
 src/shell/DockWindow.qml \
 src/shell/FileBrowserWindow.qml \
@@ -57,9 +63,13 @@ contains src/shell/WindowDragController.qml 'function prepareForOpen()'
 contains src/shell/WindowDragController.qml 'property bool hasCustomPosition: false'
 contains src/shell/WindowDragController.qml 'window.startSystemMove()'
 contains src/shell/QuickSettings.qml 'WindowDragController {'
-contains src/shell/NativeWindowMoveHandler.qml 'DragHandler {'
-contains src/shell/NativeWindowMoveHandler.qml 'window.startSystemMove()'
-contains src/shell/NativeWindowMoveHandler.qml 'PointerHandler.CanTakeOverFromAnything'
+contains src/ui/NativeWindowMoveHandler.qml 'DragHandler {'
+contains src/ui/NativeWindowMoveHandler.qml 'window.startSystemMove()'
+contains src/ui/NativeWindowMoveHandler.qml 'PointerHandler.CanTakeOverFromAnything'
+contains src/ui/NativeWindowResizeHandler.qml 'window.startSystemResize(Qt.RightEdge | Qt.BottomEdge)'
+contains src/ui/NorthstarWindowControls.qml 'showMinimized()'
+contains src/ui/NorthstarWindowControls.qml 'closeDestroysWindow'
+contains src/ui/NorthstarWindowTitleBar.qml 'NorthstarWindowControls {'
 contains src/shell/QuickSettings.qml 'NativeWindowMoveHandler {'
 contains src/shell/SystemMenu.qml 'NativeWindowMoveHandler {'
 contains src/shell/NotificationCenterWindow.qml 'NativeWindowMoveHandler {'
@@ -74,6 +84,8 @@ contains src/shell/FileBrowserWindow.qml 'interval: 220'
 contains src/shell/FileBrowserWindow.qml 'searchDebounceTimer.restart()'
 contains src/shell/FileBrowserWindow.qml 'function launchFilePath(path)'
 contains src/shell/FileBrowserWindow.qml 'function openWithSearch(query)'
+contains src/shell/FileBrowserWindow.qml 'function presentWindow()'
+contains src/shell/FileBrowserWindow.qml 'files.showNormal()'
 contains src/shell/FileBrowserWindow.qml 'function toggleMaximize()'
 contains src/shell/FileBrowserWindow.qml 'files.startSystemMove()'
 contains src/shell/FileBrowserWindow.qml 'NativeWindowMoveHandler {'
@@ -92,7 +104,7 @@ contains src/shell/SoftwareCenterWindow.qml 'function toggleMaximize()'
 contains src/shell/SoftwareCenterWindow.qml 'software.startSystemMove()'
 contains src/shell/SoftwareCenterWindow.qml 'NativeWindowMoveHandler {'
 contains src/shell/ShellWindow.qml 'fileBrowserWindow.openWithSearch(query)'
-contains src/shell/LunarPalette.qml 'readonly property color accentBright'
+contains src/ui/LunarPalette.qml 'readonly property color accentBright'
 contains src/shell/SoftwareCenterWindow.qml 'Read-only inventory'
 contains src/shell/SoftwareCenterWindow.qml 'Northstar application catalog'
 contains src/shell/SoftwareCenterWindow.qml 'Search packages and applications...'
@@ -115,6 +127,19 @@ contains apps/text-editor/TextEditorWindow.qml 'width: unsavedDialog.width - (2 
 contains apps/text-editor/TextEditorWindow.qml '"Save As..."'
 contains apps/text-editor/TextEditorWindow.qml 'defaultSaveDirectory'
 contains apps/text-editor/TextEditorWindow.qml 'saveAsDialog'
+contains apps/text-editor/TextEditorWindow.qml 'anchors.right: parent.right'
+
+for surface in \
+    src/shell/FileBrowserWindow.qml \
+    src/shell/SettingsWindow.qml \
+    src/shell/SoftwareCenterWindow.qml \
+    apps/welcome/WelcomeWindow.qml \
+    apps/text-editor/TextEditorWindow.qml; do
+    contains "$surface" 'import Northstar.Ui 1.0'
+    contains "$surface" 'NorthstarWindowFrame {'
+    contains "$surface" 'NorthstarWindowTitleBar {'
+    contains "$surface" 'NativeWindowResizeHandler {'
+done
 
 [ -r "$ROOT/apps/samples/NorthstarTextEditor.app/Contents/Info.plist" ] \
     || fail 'Text Editor bundle manifest is missing'

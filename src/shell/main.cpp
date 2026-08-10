@@ -14,6 +14,7 @@
 #include "updateplancontroller.h"
 #include "volumecatalog.h"
 #include "windowcontroller.h"
+#include "northstarui.h"
 
 #include <QCoreApplication>
 #include <QDebug>
@@ -68,6 +69,7 @@ int main(int argc, char *argv[])
     QCoreApplication::setApplicationName(QStringLiteral("northstar-shell"));
     QCoreApplication::setApplicationVersion(QStringLiteral("0.1.0"));
 
+    NorthstarUi::registerTypes();
     QQmlApplicationEngine engine;
     ShellState shellState;
     ApplicationLauncher applicationLauncher;
