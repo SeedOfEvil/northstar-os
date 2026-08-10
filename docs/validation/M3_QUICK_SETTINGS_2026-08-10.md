@@ -21,8 +21,13 @@ than allowing mock state changes.
 - The focused Quick Settings controller and notification tests passed.
 - The complete Qt/offscreen gate passed: 22 of 22 CTest targets.
 - The QML surface contract passed.
-- Immutable commit rebuild and installed-artifact smoke evidence remain
-  pending.
+- Commit `b2c5f89` was exported as an immutable Git archive and rebuilt in
+  `/home/northstar/validation/quick-settings-b2c5f89/build`: all 262 Ninja
+  steps completed, all 22 CTest targets passed, and the QML surface contract
+  passed again.
+- That immutable artifact was installed into `/home/northstar/.local`. The VM
+  was at the SDDM greeter with no active user shell, so the next Northstar
+  login loads the new binary without terminating an existing session.
 
 ## Manual 1280x800 noVNC acceptance
 
