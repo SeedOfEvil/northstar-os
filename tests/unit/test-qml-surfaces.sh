@@ -34,6 +34,7 @@ src/shell/FileBrowserWindow.qml \
 src/shell/SettingsWindow.qml \
 src/shell/SoftwareCenterWindow.qml \
 src/shell/SystemMenu.qml"
+required_files="$required_files src/shell/SearchOverlay.qml"
 
 for file in $required_files; do
     [ -r "$ROOT/$file" ] || fail "missing QML surface: $file"
@@ -111,7 +112,15 @@ contains src/shell/SettingsWindow.qml 'NativeWindowMoveHandler {'
 contains src/shell/SoftwareCenterWindow.qml 'function toggleMaximize()'
 contains src/shell/SoftwareCenterWindow.qml 'software.startSystemMove()'
 contains src/shell/SoftwareCenterWindow.qml 'NativeWindowMoveHandler {'
-contains src/shell/ShellWindow.qml 'fileBrowserWindow.openWithSearch(query)'
+contains src/shell/ShellWindow.qml 'sequence: "Ctrl+K"'
+contains src/shell/ShellWindow.qml 'searchOverlay.openSearch("")'
+contains src/shell/ShellWindow.qml 'northstarSearchController'
+contains src/shell/SearchOverlay.qml 'placeholderText: "Search apps, files, and actions"'
+contains src/shell/SearchOverlay.qml 'controller.activateResult(index)'
+contains src/shell/SearchOverlay.qml 'Qt.Key_Down'
+contains src/shell/SearchOverlay.qml 'Qt.Key_Escape'
+contains src/shell/searchcontroller.cpp 'MaximumScannedEntries = 20000'
+contains src/shell/searchcontroller.cpp 'std::make_shared<std::atomic_bool>'
 contains src/ui/LunarPalette.qml 'readonly property color accentBright'
 contains src/shell/SoftwareCenterWindow.qml 'Read-only inventory'
 contains src/shell/SoftwareCenterWindow.qml 'Northstar application catalog'

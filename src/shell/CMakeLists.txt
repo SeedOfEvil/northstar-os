@@ -8,6 +8,7 @@ add_library(northstar-shell-core STATIC
     packagetrustcontroller.cpp
     pinnedapplicationmodel.cpp
     powercontroller.cpp
+    searchcontroller.cpp
     sessioncontroller.cpp
     shellstate.cpp
     shortcutcatalog.cpp
@@ -25,6 +26,7 @@ target_include_directories(northstar-shell-core
 target_link_libraries(northstar-shell-core
     PUBLIC
         northstar-launcher-core
+        Qt6::Concurrent
         Qt6::Core
         Qt6::Gui
         Qt6::Network
@@ -46,6 +48,7 @@ qt_add_qml_module(northstar-shell
         ApplicationOverview.qml
         QuickSettings.qml
         NotificationCenterWindow.qml
+        SearchOverlay.qml
         WindowDragController.qml
         SoftwareCenterWindow.qml
         FileBrowserWindow.qml
