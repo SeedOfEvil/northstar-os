@@ -32,9 +32,18 @@ After deployment, validate:
 - previewing leaves file contents, Files selection, and associations unchanged;
 - Home items work and unrelated paths remain blocked.
 
-This record remains open until the noVNC checklist is accepted.
-The supervised session was stopped at deployment time, so the installed shell
-will load on the next Northstar login.
+This record remains open until the noVNC checklist is accepted. The supervised
+session was stopped during the initial deployment, and the installed shell was
+subsequently loaded by a new Northstar login.
+
+The first interactive pass found that Quick Look could stop appearing after
+its native window was minimized or hidden: reopening used `show()` without
+restoring the minimized state, and closing did not return keyboard focus to
+the originating Files/Desktop surface. The branch now uses `showNormal()` on
+every presentation and restores origin focus after hiding. The incremental
+FreeBSD build completed, all 21 CTest targets and QML contracts passed again,
+and a controlled shell-only restart activated the fix as PID 34404. Repeated
+open/close/minimize manual acceptance remains pending.
 
 ## Deferred hardware evidence
 

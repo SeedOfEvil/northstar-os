@@ -125,7 +125,11 @@ Window {
                 || !desktopBackground.quickLookWindow.presentPath) {
             return
         }
-        desktopBackground.quickLookWindow.presentPath(entry.path, "")
+        desktopBackground.quickLookWindow.presentPath(entry.path, "", desktopBackground)
+    }
+
+    function restorePreviewFocus() {
+        desktopKeyboardSurface.forceActiveFocus()
     }
 
     function beginRename(entry) {

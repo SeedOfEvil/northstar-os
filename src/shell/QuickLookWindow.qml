@@ -23,6 +23,7 @@ Window {
     property int minimumSurfaceWidth: 520
     property int minimumSurfaceHeight: 360
     property bool maximized: false
+    property var returnFocusWindow: null
     property point normalGeometryPosition: Qt.point(0, 0)
     property size normalGeometrySize: Qt.size(0, 0)
 
@@ -40,15 +41,35 @@ Window {
     x: screenX + Math.max(desktopMargin, (screenWidth - width) / 2)
     y: screenY + panelHeight + Math.max(desktopMargin, (screenHeight - panelHeight - height) / 2)
 
-    function presentPath(path, navigationRoot) {
+    function presentPath(path, navigationRoot, originWindow) {
         if (!quickLook.previewController || !path) {
             return false
         }
+        quickLook.returnFocusWindow = originWindow || null
         quickLook.previewController.previewPath(path, navigationRoot || "")
+        quickLook.showNormal()
         quickLook.show()
         quickLook.raise()
         quickLook.requestActivate()
         return quickLook.previewController.status === "ready"
+    }
+
+    function restoreOriginFocus() {
+        const origin = quickLook.returnFocusWindow
+        if (!origin || !origin.visible) {
+            return
+        }
+        origin.raise()
+        origin.requestActivate()
+        if (origin.restorePreviewFocus) {
+            Qt.callLater(function() { origin.restorePreviewFocus() })
+        }
+    }
+
+    onVisibleChanged: {
+        if (!visible) {
+            quickLook.restoreOriginFocus()
+        }
     }
 
     function toggleMaximize() {

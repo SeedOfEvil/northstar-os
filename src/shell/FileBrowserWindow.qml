@@ -320,7 +320,11 @@ Window {
         }
         const navigationRoot = files.fileBrowserController
             ? files.fileBrowserController.locationRoot : ""
-        files.previewWindow.presentPath(files.selectedPath, navigationRoot)
+        files.previewWindow.presentPath(files.selectedPath, navigationRoot, files)
+    }
+
+    function restorePreviewFocus() {
+        fileList.forceActiveFocus()
     }
 
     function openAssociationForPath(path) {
