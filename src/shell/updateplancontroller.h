@@ -45,6 +45,12 @@ class UpdatePlanController final : public QObject
     Q_PROPERTY(QString signatureStatus READ signatureStatus NOTIFY stateChanged)
     Q_PROPERTY(QString signatureFingerprint READ signatureFingerprint NOTIFY stateChanged)
     Q_PROPERTY(QString catalogueSha256 READ catalogueSha256 NOTIFY stateChanged)
+    Q_PROPERTY(QString publicationManifestSha256 READ publicationManifestSha256 NOTIFY stateChanged)
+    Q_PROPERTY(QString repositoryTag READ repositoryTag NOTIFY stateChanged)
+    Q_PROPERTY(QString channel READ channel NOTIFY stateChanged)
+    Q_PROPERTY(QString abi READ abi NOTIFY stateChanged)
+    Q_PROPERTY(QString generatedAt READ generatedAt NOTIFY stateChanged)
+    Q_PROPERTY(QVariantList packageProvenance READ packageProvenance NOTIFY stateChanged)
     Q_PROPERTY(int repositoryRevision READ repositoryRevision NOTIFY stateChanged)
     Q_PROPERTY(QString sourceRevision READ sourceRevision NOTIFY stateChanged)
     Q_PROPERTY(int packageCount READ packageCount NOTIFY stateChanged)
@@ -72,6 +78,12 @@ public:
     QString signatureStatus() const;
     QString signatureFingerprint() const;
     QString catalogueSha256() const;
+    QString publicationManifestSha256() const;
+    QString repositoryTag() const;
+    QString channel() const;
+    QString abi() const;
+    QString generatedAt() const;
+    QVariantList packageProvenance() const;
     int repositoryRevision() const;
     QString sourceRevision() const;
     int packageCount() const;
@@ -117,6 +129,7 @@ private:
     bool m_previewReady = false;
     QString m_catalogueFile;
     QString m_catalogueStatus;
+    QString m_publicationManifestSha256;
     int m_updateCount = 0;
     int m_installCount = 0;
     int m_unmanagedCount = 0;

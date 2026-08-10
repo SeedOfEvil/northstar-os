@@ -174,6 +174,25 @@ package transaction, or real VM boot-environment mutation is added. The next
 gate is a reviewed privileged deployment plus a disposable ZFS N-1 update and
 rollback transaction.
 
+## M4-I signed development package channel
+
+Northstar now has a native CPack FreeBSD package and a production-shaped
+development repository publisher. The publisher consumes immutable `.pkg`
+artifacts plus a resolved FreeBSD/Ports/dependency/source lock, delegates both
+repository and publication signing to external executables, emits no private
+key, and records package provenance plus source-lock, manifest, and catalogue
+digests.
+
+Signature envelope schema 2 binds the complete resolved publication manifest.
+Software Center exposes its verified channel, revision, ABI, manifest digest,
+and package records while retaining its read-only boundary. The disposable
+client gate accepts the authentic repository and rejects altered signed
+catalogues. Details are in
+[`docs/M4_SIGNED_DEVELOPMENT_CHANNEL.md`](M4_SIGNED_DEVELOPMENT_CHANNEL.md).
+
+Protected Poudriere production builds, stable hosting, persistent key custody,
+package mutation, and rollback remain outside pull-request execution.
+
 ## VM validation
 
 From the FreeBSD development checkout:
@@ -186,6 +205,9 @@ make pkg-repository-smoke
 sudo -n make pkg-repository-smoke NORTHSTAR_PKG_CLIENT=1
 make build
 sudo -n make update-broker-smoke
+make package
+sudo -n make signed-development-repository-smoke \
+  NORTHSTAR_SOURCE_REVISION="$(git rev-parse HEAD)"
 ```
 
 After restarting the shell, open **Software Center** from the Northstar menu

@@ -385,7 +385,15 @@ bool PackageTrustController::parseFingerprintFile(const QByteArray &contents,
         return false;
     }
 
-    const QString value = values.value(QStringLiteral("fingerprint"));
+    QString value = values.value(QStringLiteral("fingerprint"));
+    if (value.startsWith(QLatin1Char('"')) || value.endsWith(QLatin1Char('"'))) {
+        if (value.size() < 2 || !value.startsWith(QLatin1Char('"'))
+            || !value.endsWith(QLatin1Char('"'))) {
+            setError(errorMessage, QStringLiteral("fingerprint quotes are not balanced"));
+            return false;
+        }
+        value = value.mid(1, value.size() - 2);
+    }
     static const QRegularExpression fingerprintPattern(QStringLiteral("^[0-9A-Fa-f]{64}$"));
     if (!fingerprintPattern.match(value).hasMatch()) {
         setError(errorMessage, QStringLiteral("fingerprint must contain 64 hexadecimal characters"));

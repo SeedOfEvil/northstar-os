@@ -22,6 +22,12 @@ make bootstrap NORTHSTAR_USER=<development-user>
 make diagnostics OUTPUT=/tmp/northstar-m0-diagnostics
 ```
 
+On FreeBSD, `make package` creates Northstar's native package with CPack.
+`tools/publish-development-repository.sh` atomically publishes immutable
+package inputs through external catalogue and manifest signers. Its resolved
+input, key-custody, provenance, and validation contract is documented in
+`docs/M4_SIGNED_DEVELOPMENT_CHANNEL.md`.
+
 On the Proxmox basic-VGA validation lane, the stock FreeBSD Wayfire package
 cannot start without a DRM render node. After installing the optional build
 dependencies documented in `docs/M0_PROXMOX.md`, use:

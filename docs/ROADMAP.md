@@ -8,7 +8,7 @@ The project advances through user-visible milestones with explicit pass gates. A
 | M1 | Shell seed | Single-display product slice validated; multi-display acceptance pending | Top bar and dock render correctly on every connected display |
 | M2 | Desktop session | Development session lane validated; production display-manager and service integration pending | Session, services, supervision, notifications, and lifecycle work coherently |
 | M3 | Core desktop | Core workflows, Lunar redesign, shared chrome, Dock v2, unified search, Quick Look, and capability-backed Quick Settings accepted | Filer, branded desktop surface, responsive dock, settings, search, overview, associations, and project apps form a usable desktop |
-| M4 | Packages, updates, rollback | Package policy, fingerprint stores, provenance preview, publication signature verification, native `pkg` publication smoke, bounded helper contract, and broker staging merged; protected release publication and update/rollback remain | Signed packages and ZFS boot-environment rollback work end to end |
+| M4 | Packages, updates, rollback | Package trust foundations merged; signed development package channel is in progress; protected release publication and update/rollback remain | Signed packages and ZFS boot-environment rollback work end to end |
 | M5 | Reproducible image and installer | Not started | Pinned inputs produce a bootable UEFI root-on-ZFS image |
 | M6 | Alpha hardware release | Not started | The supported VM and narrow Intel/AMD hardware matrix meets the alpha definition |
 
@@ -67,12 +67,13 @@ The next work is ordered as follows:
    Layer Shell run when hardware permits, and separately validate the branded
    display-manager session, controlled lifecycle actions, and the production
    privilege boundary. The current Proxmox fallback remains supplemental.
-3. **Close M4 publication evidence.** The policy, fingerprint-store,
+3. **Complete the signed development channel.** The policy, fingerprint-store,
    publication-provenance, catalogue-integrity, read-only signature
    verification, and native `pkg` publication/client smoke foundations are
-   merged. The remaining trust evidence is an actual signed development/stable
-   `pkg` repository publication built from pinned Ports/Poudriere inputs with
-   protected key custody and recorded provenance.
+   merged. PR #73 adds the actual Northstar FreeBSD package, resolved-input
+   development publisher, manifest-bound signature, package provenance, and
+   authentic/tampered disposable-client evidence. Protected Poudriere builds,
+   stable hosting, and persistent key custody remain release infrastructure.
 4. **Build safe update and rollback.** The bounded root-owned helper request
    contract and independent verified-plan broker are defined and tested. Next
    establish the reviewed privileged deployment, preflight a named `bectl` boot

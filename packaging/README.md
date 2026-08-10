@@ -19,6 +19,15 @@ an actual signed `pkg` repository, narrow privileged authorization, and
 
 Do not commit package repositories, signing keys, or unsigned release claims.
 
+## Signed development channel
+
+The production-shaped development publisher is documented in
+[`docs/M4_SIGNED_DEVELOPMENT_CHANNEL.md`](../docs/M4_SIGNED_DEVELOPMENT_CHANNEL.md).
+It consumes resolved immutable package artifacts and source locks, delegates
+both catalogue and sidecar signing to external executables, and emits an
+atomic repository plus policy, provenance, manifest digest, and fingerprint
+records. Generated repositories and all private keys remain untracked.
+
 ## Native publication smoke gate
 
 On FreeBSD, `make pkg-repository-smoke` creates a temporary repository from an
