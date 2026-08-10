@@ -22,6 +22,7 @@ Window {
     property color dockMuted: lunar.muted
     property color dockAccent: lunar.accent
     property color dockButton: lunar.raised
+    property var chooserGroup: null
 
     function applicationIconName(applicationId) {
         const descriptor = String(applicationId || "").toLowerCase()
@@ -48,22 +49,43 @@ Window {
         return "northstar"
     }
 
-    function applicationIsRunning(applicationId) {
-        if (!northstarWindowController || !northstarWindowController.windows) {
-            return false
-        }
-        const descriptor = String(applicationId || "").toLowerCase()
-        for (let index = 0; index < northstarWindowController.windows.length; ++index) {
-            const window = northstarWindowController.windows[index]
-            const candidate = ((window.appId || "") + " " + (window.title || "")).toLowerCase()
-            if ((descriptor === "qterminal"
-                    && (candidate.indexOf("terminal") >= 0 || candidate.indexOf("console") >= 0))
-                    || (descriptor === "firefox"
-                        && (candidate.indexOf("firefox") >= 0 || candidate.indexOf("browser") >= 0))) {
-                return true
+    function applicationIconSize(applicationId, defaultSize) {
+        return defaultSize
+    }
+
+    function applicationIconVerticalOffset(applicationId) {
+        const iconName = applicationIconName(applicationId)
+        return iconName === "terminal" || iconName === "browser" || iconName === "files" ? 0 : 5
+    }
+
+    function groupFor(applicationId) {
+        const groups = northstarWindowController ? northstarWindowController.applicationGroups : []
+        for (let index = 0; index < groups.length; ++index) {
+            if (groups[index].identity === applicationId
+                    || dock.desktopIdForGroup(groups[index]) === applicationId) {
+                return groups[index]
             }
         }
-        return false
+        return null
+    }
+
+    function unpinnedGroups() {
+        const groups = northstarWindowController ? northstarWindowController.applicationGroups : []
+        const result = []
+        for (let index = 0; index < groups.length; ++index) {
+            const desktopId = dock.desktopIdForGroup(groups[index])
+            if (!desktopId || !pinnedApplicationModel.isPinned(desktopId)) {
+                result.push(groups[index])
+            }
+        }
+        return result
+    }
+
+    function desktopIdForGroup(group) {
+        if (!group) {
+            return ""
+        }
+        return launcher.desktopIdForWindow(group.appId || "", group.title || "")
     }
 
     function launchPinned(applicationId) {
@@ -71,8 +93,42 @@ Window {
             launcher.launchTerminal()
         } else if (applicationId === "firefox") {
             launcher.launchBrowser()
+        } else {
+            launcher.launchApplication(applicationId)
         }
         refreshTimer.restart()
+    }
+
+    function activateGroup(group) {
+        if (!group || !group.windows || group.windows.length === 0) {
+            return
+        }
+        if (group.windows.length === 1) {
+            activateOrToggle(group.windows[0])
+            return
+        }
+        chooserGroup = group
+        windowChooser.open()
+    }
+
+    function activatePinned(applicationId) {
+        const group = groupFor(applicationId)
+        if (group) {
+            activateGroup(group)
+        } else {
+            launchPinned(applicationId)
+        }
+    }
+
+    function openDockMenu(desktopId, pinIndex, sourceItem) {
+        const point = sourceItem.mapToItem(dock.contentItem, 0, 0)
+        dockAppMenu.desktopId = desktopId || ""
+        dockAppMenu.pinIndex = pinIndex
+        dockAppMenu.x = Math.max(8, Math.min(
+            dock.width - dockAppMenu.implicitWidth - 8,
+            point.x))
+        dockAppMenu.y = -dockAppMenu.implicitHeight + 4
+        dockAppMenu.open()
     }
 
     function activateOrToggle(window) {
@@ -98,13 +154,14 @@ Window {
     Component.onCompleted: northstarWindowController.refresh()
 
     Rectangle {
+        id: dockShadow
         anchors.bottom: parent.bottom
         anchors.bottomMargin: 1
         anchors.horizontalCenter: parent.horizontalCenter
         color: lunar.shadow
         height: 64
         radius: 24
-        width: Math.min(parent.width - 20, 760)
+        width: Math.min(parent.width - 20, dockSurface.width + 12)
         y: 8
     }
 
@@ -118,7 +175,7 @@ Window {
         radius: 22
         border.color: lunar.dockGlassEdge
         border.width: 1
-        width: Math.min(parent.width - 24, 748)
+        width: Math.min(parent.width - 24, Math.max(748, dockContent.implicitWidth + 20))
 
         gradient: Gradient {
             GradientStop { position: 0.0; color: lunar.dockGlass }
@@ -127,7 +184,9 @@ Window {
 
         Row {
             id: dockContent
-            anchors.centerIn: parent
+            anchors.left: parent.left
+            anchors.leftMargin: 10
+            anchors.verticalCenter: parent.verticalCenter
             height: 50
             spacing: 8
 
@@ -172,11 +231,15 @@ Window {
             }
 
             Repeater {
-                model: shellState.pinnedApplications
+                model: pinnedApplicationModel
 
                 delegate: Rectangle {
-                    required property string modelData
-                    readonly property bool running: dock.applicationIsRunning(modelData)
+                    id: pinnedDelegate
+                    required property int index
+                    required property string desktopId
+                    property real dragStartX: 0
+                    readonly property var applicationGroup: dock.groupFor(desktopId)
+                    readonly property bool running: applicationGroup !== null
 
                     anchors.verticalCenter: parent.verticalCenter
                     color: pinnedMouse.containsMouse ? lunar.raisedHover : "transparent"
@@ -189,9 +252,10 @@ Window {
 
                     NorthstarIcon {
                         anchors.centerIn: parent
-                        height: 34
-                        iconName: dock.applicationIconName(modelData)
-                        width: 34
+                        anchors.verticalCenterOffset: dock.applicationIconVerticalOffset(desktopId)
+                        height: dock.applicationIconSize(desktopId, 34)
+                        iconName: dock.applicationIconName(desktopId)
+                        width: height
                     }
 
                     Rectangle {
@@ -208,12 +272,44 @@ Window {
                     MouseArea {
                         id: pinnedMouse
                         anchors.fill: parent
+                        acceptedButtons: Qt.LeftButton | Qt.RightButton
                         hoverEnabled: true
-                        onClicked: dock.launchPinned(modelData)
+                        onClicked: function(mouse) {
+                            if (mouse.button === Qt.RightButton) {
+                                dock.openDockMenu(pinnedDelegate.desktopId,
+                                                  pinnedDelegate.index,
+                                                  pinnedDelegate)
+                            } else {
+                                dock.activatePinned(pinnedDelegate.desktopId)
+                            }
+                        }
+                    }
+
+                    DragHandler {
+                        id: pinDrag
+                        target: pinnedDelegate
+                        xAxis.enabled: true
+                        yAxis.enabled: false
+                        onActiveChanged: {
+                            if (active) {
+                                pinnedDelegate.dragStartX = pinnedDelegate.x
+                            } else {
+                                const offset = Math.round(
+                                    (pinnedDelegate.x - pinnedDelegate.dragStartX) / 56)
+                                const destination = Math.max(0, Math.min(
+                                    pinnedApplicationModel.count - 1,
+                                    pinnedDelegate.index + offset))
+                                pinnedDelegate.x = pinnedDelegate.dragStartX
+                                if (destination !== pinnedDelegate.index) {
+                                    pinnedApplicationModel.movePinned(pinnedDelegate.index, destination)
+                                }
+                            }
+                        }
                     }
 
                     ToolTip.visible: pinnedMouse.containsMouse
-                    ToolTip.text: modelData === "qterminal" ? "Terminal" : "Firefox"
+                    ToolTip.text: desktopId === "qterminal" ? "Terminal"
+                        : desktopId === "firefox" ? "Firefox" : desktopId
                 }
             }
 
@@ -259,7 +355,10 @@ Window {
                 contentWidth: runningRow.width
                 height: 50
                 interactive: runningRow.width > width
-                width: 250
+                width: {
+                    const groups = dock.unpinnedGroups()
+                    return groups.length === 0 ? 92 : Math.min(250, Math.max(56, groups.length * 54))
+                }
 
                 Row {
                     id: runningRow
@@ -267,7 +366,7 @@ Window {
                     spacing: 6
 
                     Repeater {
-                        model: northstarWindowController.windows
+                        model: dock.unpinnedGroups()
 
                         delegate: Rectangle {
                             required property var modelData
@@ -286,17 +385,20 @@ Window {
 
                             NorthstarIcon {
                                 anchors.centerIn: parent
-                                height: 32
-                                iconName: dock.applicationIconName(modelData.appId || modelData.title)
-                                opacity: modelData.minimized ? 0.62 : 1.0
-                                width: 32
+                                anchors.verticalCenterOffset: dock.applicationIconVerticalOffset(
+                                    modelData.identity || modelData.title)
+                                height: dock.applicationIconSize(
+                                    modelData.identity || modelData.title, 32)
+                                iconName: dock.applicationIconName(modelData.identity || modelData.title)
+                                opacity: modelData.allMinimized ? 0.62 : 1.0
+                                width: height
                             }
 
                             Rectangle {
                                 anchors.bottom: parent.bottom
                                 anchors.bottomMargin: 2
                                 anchors.horizontalCenter: parent.horizontalCenter
-                                color: modelData.minimized ? lunar.muted : lunar.accentBright
+                                color: modelData.allMinimized ? lunar.muted : lunar.accentBright
                                 height: 4
                                 radius: 2
                                 width: modelData.active ? 22 : 12
@@ -309,16 +411,20 @@ Window {
                                 hoverEnabled: true
                                 onClicked: function(mouse) {
                                     if (mouse.button === Qt.RightButton) {
-                                        northstarWindowController.toggleMinimize(modelData.viewId)
+                                        dock.openDockMenu(dock.desktopIdForGroup(modelData),
+                                                          -1,
+                                                          parent)
                                     } else {
-                                        dock.activateOrToggle(modelData)
+                                        dock.activateGroup(modelData)
                                     }
                                 }
                             }
 
                             ToolTip.visible: runningMouse.containsMouse
-                            ToolTip.text: modelData.title + (modelData.minimized ? " (minimized)" : "")
-                                + "\nRight-click to minimize or restore"
+                            ToolTip.text: modelData.title
+                                + (modelData.count > 1 ? " (" + modelData.count + " windows)" : "")
+                                + (modelData.allMinimized ? " (minimized)" : "")
+                                + "\nRight-click for dock options"
                         }
                     }
 
@@ -326,7 +432,7 @@ Window {
                         anchors.verticalCenter: parent.verticalCenter
                         color: dock.dockMuted
                         font.pixelSize: 11
-                        text: northstarWindowController.windows.length === 0 ? "No open apps" : ""
+                        text: northstarWindowController.applicationGroups.length === 0 ? "No open apps" : ""
                         visible: text.length > 0
                     }
                 }
@@ -378,5 +484,75 @@ Window {
         state: shellState
         targetScreen: targetScreen
         panelHeight: 44
+    }
+
+    Menu {
+        id: dockAppMenu
+        parent: dock.contentItem
+        property string desktopId: ""
+        property int pinIndex: -1
+
+        MenuItem {
+            enabled: dockAppMenu.desktopId.length > 0
+            text: pinnedApplicationModel.isPinned(dockAppMenu.desktopId)
+                ? "Unpin from Dock" : "Pin to Dock"
+            onTriggered: {
+                if (pinnedApplicationModel.isPinned(dockAppMenu.desktopId)) {
+                    pinnedApplicationModel.unpin(dockAppMenu.desktopId)
+                } else {
+                    pinnedApplicationModel.pin(dockAppMenu.desktopId)
+                }
+            }
+        }
+        MenuSeparator { visible: dockAppMenu.pinIndex >= 0 }
+        MenuItem {
+            enabled: dockAppMenu.pinIndex > 0
+            text: "Move left"
+            visible: dockAppMenu.pinIndex >= 0
+            onTriggered: pinnedApplicationModel.movePinned(dockAppMenu.pinIndex, dockAppMenu.pinIndex - 1)
+        }
+        MenuItem {
+            enabled: dockAppMenu.pinIndex >= 0
+                && dockAppMenu.pinIndex < pinnedApplicationModel.count - 1
+            text: "Move right"
+            visible: dockAppMenu.pinIndex >= 0
+            onTriggered: pinnedApplicationModel.movePinned(dockAppMenu.pinIndex, dockAppMenu.pinIndex + 1)
+        }
+    }
+
+    Popup {
+        id: windowChooser
+        anchors.centerIn: parent
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        modal: false
+        padding: 8
+        width: 280
+
+        background: Rectangle {
+            color: lunar.panel
+            border.color: lunar.border
+            border.width: 1
+            radius: 12
+        }
+
+        contentItem: Column {
+            spacing: 4
+
+            Repeater {
+                model: dock.chooserGroup && dock.chooserGroup.windows
+                    ? dock.chooserGroup.windows : []
+
+                delegate: Button {
+                    required property var modelData
+                    flat: true
+                    text: modelData.title + (modelData.minimized ? " (minimized)" : "")
+                    width: 264
+                    onClicked: {
+                        windowChooser.close()
+                        dock.activateOrToggle(modelData)
+                    }
+                }
+            }
+        }
     }
 }

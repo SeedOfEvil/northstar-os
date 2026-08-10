@@ -52,9 +52,17 @@ contains src/shell/DesktopBackground.qml "Qt.Key_Return"
 contains src/shell/DesktopBackground.qml "northstarLogoSource"
 contains src/shell/DesktopBackground.qml 'GradientStop { position: 1.0; color: lunar.desktopBottom }'
 contains src/shell/layershellsurface.cpp 'surface->setExclusiveZone(-1)'
-contains src/shell/DockWindow.qml "northstarWindowController.windows"
-contains src/shell/DockWindow.qml "toggleMinimize(modelData.viewId)"
-contains src/shell/DockWindow.qml 'anchors.horizontalCenter: parent.horizontalCenter'
+contains src/shell/DockWindow.qml "northstarWindowController.applicationGroups"
+contains src/shell/DockWindow.qml "pinnedApplicationModel.movePinned"
+contains src/shell/DockWindow.qml '"Unpin from Dock"'
+contains src/shell/DockWindow.qml 'dockAppMenu.y = -dockAppMenu.implicitHeight'
+contains src/shell/DockWindow.qml 'applicationIconSize'
+contains src/shell/DockWindow.qml 'applicationIconVerticalOffset'
+contains src/shell/DockWindow.qml 'dockContent.implicitWidth + 20'
+contains src/shell/ApplicationOverview.qml '"Pin to Dock"'
+contains src/shell/ApplicationOverview.qml 'pinnedApplications.isPinned'
+contains src/shell/ApplicationOverview.qml 'contentWidth: pinnedShortcutsRow.width'
+contains src/shell/DockWindow.qml 'anchors.leftMargin: 10'
 contains src/shell/DockWindow.qml 'Behavior on scale'
 contains src/shell/DockWindow.qml 'text: "Trash"'
 contains src/shell/DockWindow.qml 'lunar.dockGlass'

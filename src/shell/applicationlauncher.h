@@ -50,6 +50,7 @@ public:
     Q_INVOKABLE bool launchBrowser();
     Q_INVOKABLE bool launchApplication(const QString &desktopId);
     Q_INVOKABLE bool launchApplicationWithFile(const QString &desktopId, const QString &filePath);
+    Q_INVOKABLE QString desktopIdForWindow(const QString &appId, const QString &title) const;
     Q_INVOKABLE QVariantList applicationsForFile(const QString &filePath) const;
     Q_INVOKABLE QString preferredApplicationForFile(const QString &filePath) const;
     Q_INVOKABLE bool setPreferredApplicationForFile(const QString &filePath, const QString &desktopId);

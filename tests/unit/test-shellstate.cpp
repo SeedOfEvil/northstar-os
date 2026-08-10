@@ -24,7 +24,6 @@ void ShellStateTest::defaultsAreStable()
     QVERIFY(temporaryDirectory.isValid());
     ShellState state(nullptr, temporaryDirectory.filePath(QStringLiteral("preferences.ini")));
 
-    QCOMPARE(state.pinnedApplications(), QStringList({QStringLiteral("qterminal"), QStringLiteral("firefox")}));
     QCOMPARE(state.activeWindowTitle(), QStringLiteral("Desktop"));
     QVERIFY(state.darkMode());
     QVERIFY(state.filesGridView());

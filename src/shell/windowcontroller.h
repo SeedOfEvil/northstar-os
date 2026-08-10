@@ -11,6 +11,7 @@ class WindowController final : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(QVariantList windows READ windows NOTIFY windowsChanged)
+    Q_PROPERTY(QVariantList applicationGroups READ applicationGroups NOTIFY windowsChanged)
     Q_PROPERTY(bool available READ available NOTIFY availabilityChanged)
     Q_PROPERTY(QString statusMessage READ statusMessage NOTIFY statusMessageChanged)
 
@@ -23,6 +24,7 @@ public:
     explicit WindowController(QObject *parent = nullptr, RequestFunction requestFunction = {});
 
     QVariantList windows() const;
+    QVariantList applicationGroups() const;
     bool available() const;
     QString statusMessage() const;
 
@@ -47,8 +49,11 @@ private:
     void setRequestStatus(bool available, const QString &message);
     bool setMinimized(int viewId, bool minimized);
     bool minimizedStateFor(int viewId, bool *minimized) const;
+    static QString applicationIdentity(const QString &appId, const QString &title);
+    void rebuildApplicationGroups();
 
     QVariantList m_windows;
+    QVariantList m_applicationGroups;
     RequestFunction m_requestFunction;
     bool m_available = false;
     QString m_statusMessage;

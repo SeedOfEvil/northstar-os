@@ -6,7 +6,9 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLocalSocket>
+#include <QHash>
 #include <QStringList>
+#include <QVariantMap>
 
 #include <utility>
 
@@ -98,6 +100,11 @@ QVariantList WindowController::windows() const
     return m_windows;
 }
 
+QVariantList WindowController::applicationGroups() const
+{
+    return m_applicationGroups;
+}
+
 bool WindowController::available() const
 {
     return m_available;
@@ -159,6 +166,7 @@ bool WindowController::refresh()
     }
 
     m_windows = nextWindows;
+    rebuildApplicationGroups();
     emit windowsChanged();
     setRequestStatus(true, QStringLiteral("%1 open app%2")
         .arg(m_windows.size())
@@ -317,4 +325,65 @@ bool WindowController::minimizedStateFor(int viewId, bool *minimized) const
         }
     }
     return false;
+}
+
+QString WindowController::applicationIdentity(const QString &appId, const QString &title)
+{
+    QString identity = appId.trimmed().toLower();
+    if (identity.endsWith(QStringLiteral(".desktop"))) {
+        identity.chop(8);
+    }
+    const QString descriptor = identity + QLatin1Char(' ') + title.trimmed().toLower();
+    if (descriptor.contains(QStringLiteral("qterminal"))
+        || descriptor.contains(QStringLiteral("terminal"))) {
+        return QStringLiteral("qterminal");
+    }
+    if (descriptor.contains(QStringLiteral("firefox"))) {
+        return QStringLiteral("firefox");
+    }
+    if (!identity.isEmpty()) {
+        return identity;
+    }
+
+    QString fallback = title.trimmed().toLower();
+    fallback.replace(QLatin1Char(' '), QLatin1Char('-'));
+    return fallback.isEmpty() ? QStringLiteral("application") : fallback;
+}
+
+void WindowController::rebuildApplicationGroups()
+{
+    QVariantList groups;
+    QHash<QString, int> indexes;
+    for (const QVariant &entry : std::as_const(m_windows)) {
+        const QVariantMap window = entry.toMap();
+        const QString identity = applicationIdentity(
+            window.value(QStringLiteral("appId")).toString(),
+            window.value(QStringLiteral("title")).toString());
+        if (!indexes.contains(identity)) {
+            indexes.insert(identity, groups.size());
+            groups.append(QVariantMap{
+                {QStringLiteral("identity"), identity},
+                {QStringLiteral("desktopId"), identity},
+                {QStringLiteral("title"), window.value(QStringLiteral("title"))},
+                {QStringLiteral("appId"), window.value(QStringLiteral("appId"))},
+                {QStringLiteral("windows"), QVariantList{}},
+                {QStringLiteral("count"), 0},
+                {QStringLiteral("active"), false},
+                {QStringLiteral("allMinimized"), true},
+            });
+        }
+
+        const int groupIndex = indexes.value(identity);
+        QVariantMap group = groups.at(groupIndex).toMap();
+        QVariantList windows = group.value(QStringLiteral("windows")).toList();
+        windows.append(window);
+        group.insert(QStringLiteral("windows"), windows);
+        group.insert(QStringLiteral("count"), windows.size());
+        group.insert(QStringLiteral("active"), group.value(QStringLiteral("active")).toBool()
+            || window.value(QStringLiteral("active")).toBool());
+        group.insert(QStringLiteral("allMinimized"), group.value(QStringLiteral("allMinimized")).toBool()
+            && window.value(QStringLiteral("minimized")).toBool());
+        groups[groupIndex] = group;
+    }
+    m_applicationGroups = groups;
 }

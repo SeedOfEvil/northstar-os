@@ -10,6 +10,7 @@ class WindowControllerTest final : public QObject
 
 private slots:
     void refreshFiltersDesktopAndShellViews();
+    void groupsWindowsByApplicationIdentity();
     void actionsUseWayfireViewIds();
 };
 
@@ -113,6 +114,40 @@ void WindowControllerTest::actionsUseWayfireViewIds()
         QStringLiteral("wm-actions/set-minimized"),
         QStringLiteral("window-rules/list-views"),
     }));
+}
+
+void WindowControllerTest::groupsWindowsByApplicationIdentity()
+{
+    WindowController controller(
+        nullptr,
+        [](const QString &method, const QJsonObject &, QJsonValue *response, QString *) {
+            if (method != QStringLiteral("window-rules/list-views")) {
+                return false;
+            }
+            QJsonObject first = view(21, 99131, QStringLiteral("Terminal one"), false, true);
+            first.insert(QStringLiteral("app-id"), QStringLiteral("qterminal"));
+            QJsonObject second = view(22, 99132, QStringLiteral("Terminal two"), true, false);
+            second.insert(QStringLiteral("app-id"), QStringLiteral("qterminal.desktop"));
+            QJsonObject browser = view(23, 99133, QStringLiteral("Firefox"), true, false);
+            browser.insert(QStringLiteral("app-id"), QStringLiteral("firefox"));
+            *response = QJsonArray{first, second, browser};
+            return true;
+        });
+
+    QVERIFY(controller.refresh());
+    QCOMPARE(controller.applicationGroups().size(), 2);
+
+    const QVariantMap terminals = controller.applicationGroups().first().toMap();
+    QCOMPARE(terminals.value(QStringLiteral("identity")).toString(), QStringLiteral("qterminal"));
+    QCOMPARE(terminals.value(QStringLiteral("count")).toInt(), 2);
+    QCOMPARE(terminals.value(QStringLiteral("windows")).toList().size(), 2);
+    QVERIFY(terminals.value(QStringLiteral("active")).toBool());
+    QVERIFY(!terminals.value(QStringLiteral("allMinimized")).toBool());
+
+    const QVariantMap firefox = controller.applicationGroups().last().toMap();
+    QCOMPARE(firefox.value(QStringLiteral("identity")).toString(), QStringLiteral("firefox"));
+    QCOMPARE(firefox.value(QStringLiteral("count")).toInt(), 1);
+    QVERIFY(firefox.value(QStringLiteral("allMinimized")).toBool());
 }
 
 QTEST_MAIN(WindowControllerTest)

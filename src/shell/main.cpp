@@ -6,6 +6,7 @@
 #include "notificationcenter.h"
 #include "packagecatalog.h"
 #include "packagetrustcontroller.h"
+#include "pinnedapplicationmodel.h"
 #include "powercontroller.h"
 #include "sessioncontroller.h"
 #include "shellstate.h"
@@ -76,6 +77,7 @@ int main(int argc, char *argv[])
     NotificationCenter notificationCenter;
     PackageCatalog packageCatalog;
     PackageTrustController packageTrustController;
+    PinnedApplicationModel pinnedApplicationModel;
     UpdatePlanController updatePlanController(&packageTrustController);
     UpdateAuthorizationController updateAuthorizationController(&packageTrustController,
                                                                   &updatePlanController);
@@ -176,6 +178,8 @@ int main(int argc, char *argv[])
         context->setContextProperty(QStringLiteral("northstarShortcutCatalog"), &shortcutCatalog);
         context->setContextProperty(QStringLiteral("northstarVolumeController"), &volumeController);
         context->setContextProperty(QStringLiteral("northstarWindowController"), &windowController);
+        context->setContextProperty(QStringLiteral("northstarPinnedApplicationModel"),
+                                    &pinnedApplicationModel);
         context->setContextProperty(QStringLiteral("northstarLogoSource"), logoSource);
         context->setContextProperty(QStringLiteral("northstarIconsSource"), iconsSource);
         context->setContextProperty(QStringLiteral("northstarGeneratedIconsDirectory"), generatedIconsDirectory);
@@ -203,6 +207,7 @@ int main(int argc, char *argv[])
         dockContext->setContextProperty(QStringLiteral("northstarFileBrowserController"), &fileBrowserController);
         dockContext->setContextProperty(QStringLiteral("northstarVolumeController"), &volumeController);
         dockContext->setContextProperty(QStringLiteral("northstarWindowController"), &windowController);
+        dockContext->setContextProperty(QStringLiteral("pinnedApplicationModel"), &pinnedApplicationModel);
         dockContext->setContextProperty(QStringLiteral("northstarLogoSource"), logoSource);
         dockContext->setContextProperty(QStringLiteral("northstarIconsSource"), iconsSource);
         dockContext->setContextProperty(QStringLiteral("northstarGeneratedIconsDirectory"), generatedIconsDirectory);
