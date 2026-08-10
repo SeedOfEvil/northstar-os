@@ -7,7 +7,7 @@ The project advances through user-visible milestones with explicit pass gates. A
 | M0 | Reproducible development desktop | Supplemental VM lane validated; direct DRM/KMS gate pending | A clean FreeBSD 15.1 amd64 VM becomes the approved development environment |
 | M1 | Shell seed | Single-display product slice validated; multi-display acceptance pending | Top bar and dock render correctly on every connected display |
 | M2 | Desktop session | Development session lane validated; production display-manager and service integration pending | Session, services, supervision, notifications, and lifecycle work coherently |
-| M3 | Core desktop | Core workflows, Lunar redesign, shared chrome, Dock v2, unified search, and Quick Look accepted; capability-backed Quick Settings is in progress | Filer, branded desktop surface, responsive dock, settings, search, overview, associations, and project apps form a usable desktop |
+| M3 | Core desktop | Core workflows, Lunar redesign, shared chrome, Dock v2, unified search, Quick Look, and capability-backed Quick Settings accepted | Filer, branded desktop surface, responsive dock, settings, search, overview, associations, and project apps form a usable desktop |
 | M4 | Packages, updates, rollback | Package policy, fingerprint stores, provenance preview, publication signature verification, native `pkg` publication smoke, bounded helper contract, and broker staging merged; protected release publication and update/rollback remain | Signed packages and ZFS boot-environment rollback work end to end |
 | M5 | Reproducible image and installer | Not started | Pinned inputs produce a bootable UEFI root-on-ZFS image |
 | M6 | Alpha hardware release | Not started | The supported VM and narrow Intel/AMD hardware matrix meets the alpha definition |
@@ -39,6 +39,11 @@ Quick Look now provides bounded text, image, folder, metadata, unavailable, and
 error previews from Files and Desktop. PR #71 passed its immutable FreeBSD
 build, 21-test gate, QML contracts, and iterative 1280x800 noVNC acceptance
 before its squash merge.
+Capability-backed Quick Settings now reports observed FreeBSD state, disables
+unsupported VM controls honestly, persists shell-local Do Not Disturb, and
+requires mixer confirmation before reporting a volume mutation. PR #72 passed
+its immutable FreeBSD build, 22-test gate, QML contracts, and 1280x800 noVNC
+acceptance.
 
 The VM is intentionally not being treated as final graphics evidence. Its
 Proxmox basic-VGA/scfb path does not provide a guest DRM render device, so
@@ -55,31 +60,29 @@ noVNC items are recorded in
 
 The next work is ordered as follows:
 
-1. **Back Quick Settings with capabilities.** Report confirmed FreeBSD state,
-   persist shell-local DND, and disable unsupported controls honestly.
-2. **Close the remaining M3 hardware-sensitive evidence.** Repeat placement,
+1. **Close the remaining M3 hardware-sensitive evidence.** Repeat placement,
    animation, multi-display, and direct compositor checks on the future
    Intel/AMD DRM lane; keep the scfb/pixman observations supplemental.
-3. **Close the remaining M1/M2 development evidence.** Capture a multi-display
+2. **Close the remaining M1/M2 development evidence.** Capture a multi-display
    Layer Shell run when hardware permits, and separately validate the branded
    display-manager session, controlled lifecycle actions, and the production
    privilege boundary. The current Proxmox fallback remains supplemental.
-4. **Close M4 publication evidence.** The policy, fingerprint-store,
+3. **Close M4 publication evidence.** The policy, fingerprint-store,
    publication-provenance, catalogue-integrity, read-only signature
    verification, and native `pkg` publication/client smoke foundations are
    merged. The remaining trust evidence is an actual signed development/stable
    `pkg` repository publication built from pinned Ports/Poudriere inputs with
    protected key custody and recorded provenance.
-5. **Build safe update and rollback.** The bounded root-owned helper request
+4. **Build safe update and rollback.** The bounded root-owned helper request
    contract and independent verified-plan broker are defined and tested. Next
    establish the reviewed privileged deployment, preflight a named `bectl` boot
    environment before upgrades, validate N-1 to N upgrades and rollback, and
    prove that home data survives both paths. No package mutation is exposed
    before these gates pass.
-6. **Produce the reproducible image and installer.** Only after M4 has current
+5. **Produce the reproducible image and installer.** Only after M4 has current
    evidence, pin the image inputs, build QCOW2 first, validate UEFI GPT/root-on-
    ZFS installation and first boot, then add raw/USB/ISO outputs.
-7. **Run the alpha hardware matrix.** Validate the supported VM plus the
+6. **Run the alpha hardware matrix.** Validate the supported VM plus the
    declared Intel and AMD graphics lanes, networking, applications,
    diagnostics, crash recovery, updates, rollback, and clean shutdown.
 

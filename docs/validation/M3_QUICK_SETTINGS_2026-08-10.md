@@ -31,7 +31,7 @@ than allowing mock state changes.
 
 ## Manual 1280x800 noVNC acceptance
 
-Pending user validation:
+Accepted on NSTAR-DEV01 after login from the SDDM greeter:
 
 - the capability panel opens, moves, closes, and remains unclipped;
 - unavailable VM hardware is clearly disabled and does not pretend to change;
@@ -40,6 +40,9 @@ Pending user validation:
   notifications to remain read in history without an unread badge;
 - disabling Do Not Disturb restores unread notification badges;
 - both Lunar themes remain readable.
+
+The interactive validator confirmed that all listed capability, persistence,
+notification, movement, bounds, and theme checks work as intended.
 
 ## Deferred hardware evidence
 
