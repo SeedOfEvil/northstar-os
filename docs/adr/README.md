@@ -25,3 +25,4 @@ Accepted records in the initial foundation:
 - [0005: Project application bundle layout](0005-project-app-bundle-layout.md)
 - [0006: Narrow update-helper boundary](0006-update-helper-boundary.md)
 - [0007: Independent verified-plan update broker](0007-update-broker-verification.md)
+- [0008: Transactional package update and boot-environment rollback](0008-transactional-update-and-rollback.md)

@@ -8,7 +8,7 @@ The project advances through user-visible milestones with explicit pass gates. A
 | M1 | Shell seed | Single-display product slice validated; multi-display acceptance pending | Top bar and dock render correctly on every connected display |
 | M2 | Desktop session | Development session lane validated; production display-manager and service integration pending | Session, services, supervision, notifications, and lifecycle work coherently |
 | M3 | Core desktop | Core workflows, Lunar redesign, shared chrome, Dock v2, unified search, Quick Look, and capability-backed Quick Settings accepted | Filer, branded desktop surface, responsive dock, settings, search, overview, associations, and project apps form a usable desktop |
-| M4 | Packages, updates, rollback | Package trust foundations merged; signed development package channel is in progress; protected release publication and update/rollback remain | Signed packages and ZFS boot-environment rollback work end to end |
+| M4 | Packages, updates, rollback | Signed development channel merged; transactional update and rollback is in progress | Signed packages and ZFS boot-environment rollback work end to end |
 | M5 | Reproducible image and installer | Not started | Pinned inputs produce a bootable UEFI root-on-ZFS image |
 | M6 | Alpha hardware release | Not started | The supported VM and narrow Intel/AMD hardware matrix meets the alpha definition |
 
@@ -282,7 +282,7 @@ they are not an instruction to create dozens of trivial branches.
 
 ## M4: Packages, updates, and rollback
 
-The first Software Center foundation is documented in [`docs/M4_SOFTWARE.md`](M4_SOFTWARE.md). It reads and searches the installed FreeBSD package inventory without mutating the host. The merged M4 package-trust work validates a FreeBSD `pkg`-aligned UCL policy, fingerprint stores, a provenance-aware publication manifest, catalogue integrity, a read-only RSA publication-signature envelope, the native `pkg repo`/client publication smoke contract, a bounded root-owned update-helper request protocol, and independent broker-side revalidation; it also exposes a read-only update-authorization preflight. It does not close M4: an actual signed development/stable repository built from protected Poudriere inputs, reviewed privileged deployment, boot-environment creation before upgrades, rollback documentation, and N-1 compatibility tests are still required.
+The Software Center and signed development-channel foundations are documented in [`docs/M4_SOFTWARE.md`](M4_SOFTWARE.md) and [`docs/M4_SIGNED_DEVELOPMENT_CHANNEL.md`](M4_SIGNED_DEVELOPMENT_CHANNEL.md). PR74 adds the fixed PolicyKit transaction boundary, creates a named ZFS boot environment before repository-scoped package mutation, verifies target versions, schedules recovery after injected failure, and exposes explicit rollback. Protected Poudriere production publication, persistent key custody, and stable hosting remain release-infrastructure gates.
 
 Pass only when project components install through `pkg`, repository metadata is signed, N-1 to N upgrades work, rollback restores the prior shell and package set, and user documents survive.
 
