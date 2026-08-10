@@ -202,6 +202,18 @@ target_link_libraries(test-previewcontroller
 
 add_test(NAME northstar-previewcontroller COMMAND test-previewcontroller)
 
+qt_add_executable(test-quicksettingscontroller
+    test-quicksettingscontroller.cpp
+)
+
+target_link_libraries(test-quicksettingscontroller
+    PRIVATE
+        northstar-shell-core
+        Qt6::Test
+)
+
+add_test(NAME northstar-quicksettingscontroller COMMAND test-quicksettingscontroller)
+
 add_test(NAME northstar-welcome-gui COMMAND northstar-welcome-gui --self-test)
 set_tests_properties(northstar-welcome-gui PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
@@ -251,6 +263,7 @@ set_tests_properties(
     northstar-pinnedapplicationmodel
     northstar-searchcontroller
     northstar-previewcontroller
+    northstar-quicksettingscontroller
     northstar-welcome-gui
     northstar-texteditorcontroller
     northstar-text-editor-qml

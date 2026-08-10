@@ -11,6 +11,8 @@ Window {
     }
 
     property var state
+    property var controller
+    property var settingsWindow
     property var targetScreen
     property int panelHeight: 44
     property int screenX: targetScreen ? targetScreen.geometry.x : 0
@@ -22,10 +24,6 @@ Window {
     property color surfaceMuted: lunar.muted
     property color surfaceAccent: lunar.accent
     property color surfaceRaised: lunar.raised
-    property bool wifiEnabled: true
-    property bool bluetoothEnabled: true
-    property bool nightLightEnabled: false
-    property bool doNotDisturbEnabled: false
 
     visible: false
     color: "transparent"
@@ -52,6 +50,8 @@ Window {
     }
 
     function openPanel() {
+        if (controller)
+            controller.refresh()
         quickSettingsDrag.prepareForOpen()
         show()
         raise()
@@ -142,8 +142,10 @@ Window {
                 width: parent.width
 
                 Rectangle {
-                    color: quickSettings.wifiEnabled ? lunar.accentSoft : quickSettings.surfaceRaised
-                    border.color: quickSettings.wifiEnabled ? lunar.accentBright : lunar.borderSoft
+                    color: quickSettings.controller && quickSettings.controller.wifiEnabled
+                        ? lunar.accentSoft : quickSettings.surfaceRaised
+                    border.color: quickSettings.controller && quickSettings.controller.wifiEnabled
+                        ? lunar.accentBright : lunar.borderSoft
                     border.width: 1
                     height: 62
                     radius: lunar.radiusMedium
@@ -165,19 +167,20 @@ Window {
                             anchors.horizontalCenter: parent.horizontalCenter
                             color: quickSettings.surfaceForeground
                             font.pixelSize: 10
-                            text: quickSettings.wifiEnabled ? "Connected" : "Off"
+                            text: quickSettings.controller
+                                ? quickSettings.controller.wifiStatus : "Status unavailable"
+                            width: 138
+                            elide: Text.ElideRight
+                            horizontalAlignment: Text.AlignHCenter
                         }
-                    }
-
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: quickSettings.wifiEnabled = !quickSettings.wifiEnabled
                     }
                 }
 
                 Rectangle {
-                    color: quickSettings.bluetoothEnabled ? lunar.accentSoft : quickSettings.surfaceRaised
-                    border.color: quickSettings.bluetoothEnabled ? lunar.accentBright : lunar.borderSoft
+                    color: quickSettings.controller && quickSettings.controller.bluetoothEnabled
+                        ? lunar.accentSoft : quickSettings.surfaceRaised
+                    border.color: quickSettings.controller && quickSettings.controller.bluetoothEnabled
+                        ? lunar.accentBright : lunar.borderSoft
                     border.width: 1
                     height: 62
                     radius: lunar.radiusMedium
@@ -199,13 +202,12 @@ Window {
                             anchors.horizontalCenter: parent.horizontalCenter
                             color: quickSettings.surfaceForeground
                             font.pixelSize: 10
-                            text: quickSettings.bluetoothEnabled ? "On" : "Off"
+                            text: quickSettings.controller
+                                ? quickSettings.controller.bluetoothStatus : "Status unavailable"
+                            width: 138
+                            elide: Text.ElideRight
+                            horizontalAlignment: Text.AlignHCenter
                         }
-                    }
-
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: quickSettings.bluetoothEnabled = !quickSettings.bluetoothEnabled
                     }
                 }
             }
@@ -215,7 +217,8 @@ Window {
                 width: parent.width
 
                 Rectangle {
-                    color: quickSettings.nightLightEnabled ? lunar.accentSoft : quickSettings.surfaceRaised
+                    color: quickSettings.controller && quickSettings.controller.nightLightEnabled
+                        ? lunar.accentSoft : quickSettings.surfaceRaised
                     height: 56
                     radius: lunar.radiusMedium
                     width: (parent.width - parent.spacing) / 2
@@ -224,17 +227,17 @@ Window {
                         anchors.centerIn: parent
                         color: quickSettings.surfaceForeground
                         font.pixelSize: 11
-                        text: "Night Light  " + (quickSettings.nightLightEnabled ? "On" : "Off")
-                    }
-
-                    MouseArea {
-                        anchors.fill: parent
-                        onClicked: quickSettings.nightLightEnabled = !quickSettings.nightLightEnabled
+                        text: "Night Light  " + (quickSettings.controller
+                            ? quickSettings.controller.nightLightStatus : "Unavailable")
+                        width: parent.width - 16
+                        elide: Text.ElideRight
+                        horizontalAlignment: Text.AlignHCenter
                     }
                 }
 
                 Rectangle {
-                    color: quickSettings.doNotDisturbEnabled ? lunar.accentSoft : quickSettings.surfaceRaised
+                    color: quickSettings.controller && quickSettings.controller.doNotDisturb
+                        ? lunar.accentSoft : quickSettings.surfaceRaised
                     height: 56
                     radius: lunar.radiusMedium
                     width: (parent.width - parent.spacing) / 2
@@ -244,12 +247,15 @@ Window {
                         color: quickSettings.surfaceForeground
                         font.pixelSize: 11
                         text: "Do Not Disturb  "
-                            + (quickSettings.doNotDisturbEnabled ? "On" : "Off")
+                            + (quickSettings.controller && quickSettings.controller.doNotDisturb ? "On" : "Off")
                     }
 
                     MouseArea {
                         anchors.fill: parent
-                        onClicked: quickSettings.doNotDisturbEnabled = !quickSettings.doNotDisturbEnabled
+                        onClicked: {
+                            if (quickSettings.controller)
+                                quickSettings.controller.toggleDoNotDisturb()
+                        }
                     }
                 }
             }
@@ -286,15 +292,20 @@ Window {
                             anchors.right: parent.right
                             color: quickSettings.surfaceMuted
                             font.pixelSize: 10
-                            text: "Preview"
+                            text: quickSettings.controller
+                                ? quickSettings.controller.displayStatus : "Unavailable"
+                            width: 210
+                            elide: Text.ElideRight
+                            horizontalAlignment: Text.AlignRight
                         }
                     }
 
                     Slider {
                         id: displaySlider
+                        enabled: quickSettings.controller && quickSettings.controller.displayAvailable
                         from: 0
-                        to: 1
-                        value: 0.7
+                        to: 100
+                        value: quickSettings.controller ? quickSettings.controller.displayBrightness : 0
                         width: parent.width
                     }
 
@@ -315,16 +326,26 @@ Window {
                             anchors.right: parent.right
                             color: quickSettings.surfaceMuted
                             font.pixelSize: 10
-                            text: Math.round(soundSlider.value * 100) + "%"
+                            text: quickSettings.controller
+                                ? quickSettings.controller.soundStatus : "Unavailable"
+                            width: 210
+                            elide: Text.ElideRight
+                            horizontalAlignment: Text.AlignRight
                         }
                     }
 
                     Slider {
                         id: soundSlider
+                        enabled: quickSettings.controller && quickSettings.controller.soundAvailable
                         from: 0
-                        to: 1
-                        value: 0.65
+                        to: 100
+                        value: quickSettings.controller ? quickSettings.controller.volume : 0
+                        live: false
                         width: parent.width
+                        onPressedChanged: {
+                            if (!pressed && quickSettings.controller)
+                                quickSettings.controller.setVolume(Math.round(value))
+                        }
                     }
                 }
             }
@@ -374,6 +395,51 @@ Window {
                             color: quickSettings.surfaceMuted
                             font.pixelSize: 10
                             text: "No media playing"
+                        }
+                    }
+                }
+            }
+
+            Row {
+                spacing: 8
+                width: parent.width
+
+                Text {
+                    color: quickSettings.surfaceMuted
+                    elide: Text.ElideRight
+                    font.pixelSize: 10
+                    height: 28
+                    text: quickSettings.controller && quickSettings.controller.statusMessage.length > 0
+                        ? quickSettings.controller.statusMessage
+                        : "Controls reflect confirmed FreeBSD capabilities."
+                    verticalAlignment: Text.AlignVCenter
+                    width: parent.width - settingsButton.width - parent.spacing
+                }
+
+                Rectangle {
+                    id: settingsButton
+                    color: settingsMouse.containsMouse ? lunar.accentSoft : quickSettings.surfaceRaised
+                    border.color: lunar.borderSoft
+                    border.width: 1
+                    height: 28
+                    radius: lunar.radiusSmall
+                    width: 64
+
+                    Text {
+                        anchors.centerIn: parent
+                        color: quickSettings.surfaceForeground
+                        font.pixelSize: 10
+                        text: "Settings"
+                    }
+
+                    MouseArea {
+                        id: settingsMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onClicked: {
+                            quickSettings.hide()
+                            if (quickSettings.settingsWindow)
+                                quickSettings.settingsWindow.openSettings()
                         }
                     }
                 }

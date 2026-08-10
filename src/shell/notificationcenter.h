@@ -30,6 +30,7 @@ class NotificationCenter final : public QObject
     Q_OBJECT
     Q_PROPERTY(QVariantList notifications READ notifications NOTIFY notificationsChanged)
     Q_PROPERTY(int unreadCount READ unreadCount NOTIFY unreadCountChanged)
+    Q_PROPERTY(bool doNotDisturb READ doNotDisturb WRITE setDoNotDisturb NOTIFY doNotDisturbChanged)
 
 public:
     explicit NotificationCenter(QObject *parent = nullptr, int maxNotifications = 40);
@@ -37,6 +38,7 @@ public:
     QList<NotificationEntry> entries() const;
     QVariantList notifications() const;
     int unreadCount() const;
+    bool doNotDisturb() const;
 
     Q_INVOKABLE QString pushNotification(const QString &title,
                                          const QString &body,
@@ -46,9 +48,13 @@ public:
     Q_INVOKABLE bool dismissNotification(const QString &id);
     Q_INVOKABLE void clearNotifications();
 
+public slots:
+    void setDoNotDisturb(bool enabled);
+
 signals:
     void notificationsChanged();
     void unreadCountChanged();
+    void doNotDisturbChanged();
 
 private:
     static QVariantList toVariantList(const QList<NotificationEntry> &entries);
@@ -56,4 +62,5 @@ private:
     QList<NotificationEntry> m_entries;
     int m_maxNotifications = 40;
     int m_nextId = 1;
+    bool m_doNotDisturb = false;
 };

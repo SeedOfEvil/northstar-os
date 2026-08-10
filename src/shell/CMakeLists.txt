@@ -9,6 +9,7 @@ add_library(northstar-shell-core STATIC
     pinnedapplicationmodel.cpp
     powercontroller.cpp
     previewcontroller.cpp
+    quicksettingscontroller.cpp
     searchcontroller.cpp
     sessioncontroller.cpp
     shellstate.cpp
