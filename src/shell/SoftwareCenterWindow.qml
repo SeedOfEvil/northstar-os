@@ -70,6 +70,21 @@ Window {
         }
     }
 
+    Connections {
+        target: software.updateAuthorization
+
+        function onTransactionFinished(success) {
+            if (success && software.packageCatalog) {
+                software.packageCatalog.refresh()
+            }
+            if (software.updatePlan && software.packageCatalog) {
+                software.updatePlan.reload()
+                software.updatePlan.preview(software.packageCatalog.packages)
+            }
+            updatePlanDialog.open()
+        }
+    }
+
     minimumWidth: software.minimumSurfaceWidth
     minimumHeight: software.minimumSurfaceHeight
     width: Math.min(980, Math.max(software.minimumSurfaceWidth,
@@ -670,16 +685,22 @@ Window {
                             Text {
                                 color: !software.updateAuthorization
                                     ? software.surfaceMuted
-                                    : software.updateAuthorization.preflightValid
-                                        ? "#f0b45a" : "#c34f65"
+                                    : software.updateAuthorization.transactionBusy
+                                        ? "#f0b45a"
+                                        : software.updateAuthorization.preflightValid
+                                            && software.updateAuthorization.authorizationAvailable
+                                            ? "#55c58a" : "#c34f65"
                                 font.bold: true
                                 font.pixelSize: 13
                                 text: !software.updateAuthorization
                                     ? "Unavailable"
-                                    : software.updateAuthorization.authorizationAvailable
-                                        ? "Authorized"
-                                        : software.updateAuthorization.preflightValid
-                                            ? "Preflight only" : "Blocked"
+                                    : software.updateAuthorization.transactionBusy
+                                        ? "Working"
+                                        : software.updateAuthorization.authorizationAvailable
+                                            && software.updateAuthorization.preflightValid
+                                            ? "Ready"
+                                            : software.updateAuthorization.preflightValid
+                                                ? "Preflight only" : "Blocked"
                             }
                         }
 
@@ -688,7 +709,9 @@ Window {
                             elide: Text.ElideRight
                             font.pixelSize: 11
                             text: software.updateAuthorization
-                                ? software.updateAuthorization.status
+                                ? (software.updateAuthorization.transactionStatus.length > 0
+                                    ? software.updateAuthorization.transactionStatus
+                                    : software.updateAuthorization.status)
                                 : "Update authorization is unavailable."
                             width: parent.width
                         }
@@ -1183,7 +1206,10 @@ Window {
                     elide: Text.ElideRight
                     font.pixelSize: 11
                     text: software.updateAuthorization
-                        ? software.updateAuthorization.status : "Authorization preflight unavailable."
+                        ? (software.updateAuthorization.transactionStatus.length > 0
+                            ? software.updateAuthorization.transactionStatus
+                            : software.updateAuthorization.status)
+                        : "Authorization preflight unavailable."
                     width: updatePlanDialog.width - 220
                 }
             }
@@ -1266,15 +1292,18 @@ Window {
                     enabled: !!software.updateAuthorization
                         && software.updateAuthorization.authorizationAvailable
                         && software.updateAuthorization.preflightValid
+                        && !software.updateAuthorization.transactionBusy
                         && !!software.updatePlan
                         && (software.updatePlan.updateCount + software.updatePlan.installCount) > 0
-                    text: "Apply Verified Update"
+                    text: software.updateAuthorization && software.updateAuthorization.transactionBusy
+                        ? "Update in progress..." : "Apply Verified Update"
                     onClicked: updateConfirmationDialog.open()
                 }
 
                 Button {
                     enabled: !!software.updateAuthorization
                         && software.updateAuthorization.authorizationAvailable
+                        && !software.updateAuthorization.transactionBusy
                     text: "Schedule Rollback"
                     onClicked: rollbackConfirmationDialog.open()
                 }

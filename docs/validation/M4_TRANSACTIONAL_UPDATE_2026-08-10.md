@@ -43,6 +43,13 @@ mutation, post-update verification, failure recovery, and explicit rollback.
   path mismatch. Policy and metadata discovery now use the documented stable
   `~/.config/northstar` namespace; all 22 tests and QML contracts passed again
   before redeployment and controlled shell restart.
+- The next manual attempt exposed a missing graphical PolicyKit agent: `pkexec`
+  could not open `/dev/ctty`, so no package mutation or boot environment was
+  created. The session now owns `lxqt-policykit-agent`, Software Center tracks
+  the protected process through completion, and cancelled or failed requests
+  report an explicit result instead of appearing frozen. All 22 CTest targets,
+  the session-supervisor test, and QML contracts passed in a clean VM archive
+  build before redeployment.
 
 ## Manual noVNC acceptance
 

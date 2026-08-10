@@ -14,6 +14,7 @@ RUNTIME_DIR=$TMP_DIR/runtime
 SHELL_COUNT=$TMP_DIR/shell-count
 COMPOSITOR_EVENTS=$TMP_DIR/compositor-events
 DBUS_EVENTS=$TMP_DIR/dbus-events
+AUTH_AGENT_EVENTS=$TMP_DIR/auth-agent-events
 OUTPUT=$TMP_DIR/output.txt
 ERROR_OUTPUT=$TMP_DIR/error.txt
 SENTINEL_PID=
@@ -22,6 +23,7 @@ SESSION_PID=
 mkdir -p "$STUB_DIR" "$LOG_DIR" "$RUNTIME_DIR"
 : > "$SHELL_COUNT"
 : > "$COMPOSITOR_EVENTS"
+: > "$AUTH_AGENT_EVENTS"
 chmod 0700 "$RUNTIME_DIR"
 
 cleanup() {
@@ -117,7 +119,20 @@ while :; do
 done
 STUB
 
-chmod 0755 "$STUB_DIR/fake-dbus-run-session" "$STUB_DIR/hold-shell"
+cat > "$STUB_DIR/fake-auth-agent" <<'STUB'
+#!/bin/sh
+printf 'start\n' >> "$NORTHSTAR_TEST_AUTH_AGENT_EVENTS"
+stop() {
+    printf 'stop\n' >> "$NORTHSTAR_TEST_AUTH_AGENT_EVENTS"
+    exit 0
+}
+trap stop INT TERM HUP
+while :; do
+    sleep 1
+done
+STUB
+
+chmod 0755 "$STUB_DIR/fake-dbus-run-session" "$STUB_DIR/hold-shell" "$STUB_DIR/fake-auth-agent"
 
 sleep 30 &
 SENTINEL_PID=$!
@@ -126,6 +141,7 @@ export XDG_RUNTIME_DIR=$RUNTIME_DIR
 export NORTHSTAR_SESSION_SKIP_DBUS=1
 export NORTHSTAR_SESSION_COMPOSITOR=$STUB_DIR/fake-compositor
 export NORTHSTAR_SESSION_SHELL=$STUB_DIR/fake-shell
+export NORTHSTAR_SESSION_AUTH_AGENT=$STUB_DIR/fake-auth-agent
 export NORTHSTAR_SESSION_MAX_SHELL_RESTARTS=2
 export NORTHSTAR_SESSION_RESTART_DELAY=0
 export NORTHSTAR_SESSION_LOG_DIR=$LOG_DIR
@@ -133,6 +149,7 @@ export NORTHSTAR_SESSION_LOCK_DIR=$TMP_DIR/lock
 export NORTHSTAR_SESSION_WAYLAND_DISPLAY=test-wayland
 export NORTHSTAR_TEST_COMPOSITOR_EVENTS=$COMPOSITOR_EVENTS
 export NORTHSTAR_TEST_DBUS_EVENTS=$DBUS_EVENTS
+export NORTHSTAR_TEST_AUTH_AGENT_EVENTS=$AUTH_AGENT_EVENTS
 export NORTHSTAR_TEST_SHELL_COUNT=$SHELL_COUNT
 export NORTHSTAR_TEST_RUNTIME_DIR=$RUNTIME_DIR
 
@@ -140,6 +157,8 @@ run_expect 0 sh "$ROOT/src/session/northstar-session"
 [ "$(cat "$SHELL_COUNT")" = 2 ] || fail 'shell was not restarted exactly once'
 grep -F 'start' "$COMPOSITOR_EVENTS" >/dev/null || fail 'compositor did not start'
 grep -F 'stop' "$COMPOSITOR_EVENTS" >/dev/null || fail 'compositor was not stopped'
+grep -F 'start' "$AUTH_AGENT_EVENTS" >/dev/null || fail 'PolicyKit agent did not start'
+grep -F 'stop' "$AUTH_AGENT_EVENTS" >/dev/null || fail 'PolicyKit agent was not stopped'
 grep -F 'restart 1/2' "$LOG_DIR/session.log" >/dev/null || fail 'restart was not recorded'
 grep -F 'state=stopped' "$LOG_DIR/session.status" >/dev/null || fail 'session status did not record stopped state'
 grep -F 'wayland_display=test-wayland' "$LOG_DIR/session.status" >/dev/null || fail 'session status did not record Wayland display'

@@ -19,3 +19,4 @@ qterminal
 firefox
 xterm
 sddm
+lxqt-policykit

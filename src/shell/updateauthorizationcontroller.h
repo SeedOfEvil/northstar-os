@@ -4,6 +4,7 @@
 #include <QString>
 
 class PackageTrustController;
+class QProcess;
 class UpdatePlanController;
 
 class UpdateAuthorizationController final : public QObject
@@ -16,6 +17,8 @@ class UpdateAuthorizationController final : public QObject
     Q_PROPERTY(QString bootEnvironmentName READ bootEnvironmentName NOTIFY stateChanged)
     Q_PROPERTY(QString status READ status NOTIFY stateChanged)
     Q_PROPERTY(QString plan READ plan NOTIFY stateChanged)
+    Q_PROPERTY(bool transactionBusy READ transactionBusy NOTIFY transactionStateChanged)
+    Q_PROPERTY(QString transactionStatus READ transactionStatus NOTIFY transactionStateChanged)
 
 public:
     explicit UpdateAuthorizationController(PackageTrustController *trustController = nullptr,
@@ -31,6 +34,8 @@ public:
     QString bootEnvironmentName() const;
     QString status() const;
     QString plan() const;
+    bool transactionBusy() const;
+    QString transactionStatus() const;
 
     Q_INVOKABLE bool refresh();
     Q_INVOKABLE bool applyUpdate();
@@ -38,6 +43,8 @@ public:
 
 signals:
     void stateChanged();
+    void transactionStateChanged();
+    void transactionFinished(bool success);
 
 private:
     static bool executableAvailable(const QString &overridePath, const QString &name);
@@ -62,4 +69,7 @@ private:
     QString m_bootEnvironmentName;
     QString m_status;
     QString m_plan;
+    QProcess *m_transactionProcess = nullptr;
+    bool m_transactionBusy = false;
+    QString m_transactionStatus;
 };

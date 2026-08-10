@@ -49,7 +49,7 @@ set(CPACK_FREEBSD_PACKAGE_MAINTAINER "northstar@localhost.invalid")
 set(CPACK_FREEBSD_PACKAGE_ORIGIN "x11/northstar")
 set(CPACK_FREEBSD_PACKAGE_CATEGORIES "x11")
 set(CPACK_FREEBSD_PACKAGE_DEPS
-    "devel/qt6-base;x11-toolkits/qt6-declarative;graphics/qt6-svg;graphics/qt6-wayland;x11/plasma6-layer-shell-qt"
+    "devel/qt6-base;x11-toolkits/qt6-declarative;graphics/qt6-svg;graphics/qt6-wayland;x11/plasma6-layer-shell-qt;sysutils/lxqt-policykit"
 )
 
 install(FILES packaging/polkit/org.northstar.update.policy
