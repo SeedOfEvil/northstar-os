@@ -2,7 +2,7 @@ SHELL := /bin/sh
 
 .DEFAULT_GOAL := help
 
-.PHONY: help check-host bootstrap configure build test welcome-app-test qml-surface-test image-input-test runtime-bundle-test capture-runtime-bundle prepare-image-inputs validation-deployment-audit update-helper-test update-broker-smoke transactional-update-smoke run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package pkg-repository-smoke signed-development-repository-smoke vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
+.PHONY: help check-host bootstrap configure build test welcome-app-test qml-surface-test image-input-test runtime-bundle-test nested-wayfire-package-test capture-runtime-bundle prepare-image-inputs validation-deployment-audit update-helper-test update-broker-smoke transactional-update-smoke run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package pkg-repository-smoke signed-development-repository-smoke vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
 
 MANIFEST ?= packaging/manifests/bootstrap-packages.txt
 NORTHSTAR_USER ?=
@@ -22,6 +22,7 @@ IMAGE_RUNTIME_ROOTS ?= image/manifests/northstar-runtime-roots.txt
 IMAGE_RUNTIME_OUTPUT ?= .artifacts/m5-runtime-bundle
 IMAGE_PACKAGE_CACHE ?= .artifacts/m5-package-cache
 NORTHSTAR_IMAGE_PACKAGE ?= .artifacts/m5-inputs/northstar-0.1.4-amd64.pkg
+NORTHSTAR_COMPAT_PACKAGE ?= .artifacts/m5-compat-package/northstar-wayfire-nested-0.10.1.746bc7e.pkg
 IMAGE_SOURCE_DATE_EPOCH ?= $(shell sed -n 's/^SOURCE_DATE_EPOCH=//p' "$(IMAGE_LOCK)")
 PROJECT_COMMIT ?= $(shell git rev-parse HEAD 2>/dev/null)
 PROJECT_ROOT ?= .
@@ -37,6 +38,7 @@ help:
 	@printf '%s\n' '  make qml-surface-test  Check product-critical QML surface wiring'
 	@printf '%s\n' '  make image-input-test  Test pinned M5 image-input preparation'
 	@printf '%s\n' '  make runtime-bundle-test  Test exact offline runtime capture'
+	@printf '%s\n' '  make nested-wayfire-package-test  Test scfb compatibility packaging'
 	@printf '%s\n' '  make capture-runtime-bundle  Capture accepted installed runtime packages'
 	@printf '%s\n' '  make prepare-image-inputs  Verify staged M5 artifacts and record provenance'
 	@printf '%s\n' '  make validation-deployment-audit  Audit the canonical VM deployment (read-only)'
@@ -86,6 +88,7 @@ test:
 	@sh tests/unit/test-validation-deployment-audit.sh
 	@sh tests/unit/test-image-inputs.sh
 	@sh tests/unit/test-runtime-bundle.sh
+	@sh tests/unit/test-nested-wayfire-package.sh
 	@$(MAKE) build
 	@sh tests/unit/test-session-entrypoint.sh "$(BUILD_DIR)"
 	@ctest --test-dir "$(BUILD_DIR)" --output-on-failure
@@ -102,10 +105,14 @@ image-input-test:
 runtime-bundle-test:
 	@sh tests/unit/test-runtime-bundle.sh
 
+nested-wayfire-package-test:
+	@sh tests/unit/test-nested-wayfire-package.sh
+
 capture-runtime-bundle:
 	@sh image/scripts/capture-runtime-bundle.sh \
 		--roots "$(IMAGE_RUNTIME_ROOTS)" \
 		--northstar-package "$(NORTHSTAR_IMAGE_PACKAGE)" \
+		--compat-package "$(NORTHSTAR_COMPAT_PACKAGE)" \
 		--package-cache "$(IMAGE_PACKAGE_CACHE)" \
 		--source-date-epoch "$(IMAGE_SOURCE_DATE_EPOCH)" \
 		--output "$(IMAGE_RUNTIME_OUTPUT)"

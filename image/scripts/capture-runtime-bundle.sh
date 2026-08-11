@@ -7,6 +7,7 @@ set -eu
 
 ROOTS=
 NORTHSTAR_PACKAGE=
+COMPAT_PACKAGE=
 PACKAGE_CACHE=
 OUTPUT=
 SOURCE_DATE_EPOCH=
@@ -15,6 +16,7 @@ STAGING=
 usage() {
     cat <<'USAGE'
 Usage: capture-runtime-bundle.sh --roots FILE --northstar-package FILE \
+  --compat-package FILE \
   --package-cache DIRECTORY \
   --source-date-epoch UNIX_SECONDS --output NEW_DIRECTORY
 
@@ -43,6 +45,7 @@ while [ "$#" -gt 0 ]; do
     case "$1" in
         --roots) ROOTS=${2-}; shift 2 ;;
         --northstar-package) NORTHSTAR_PACKAGE=${2-}; shift 2 ;;
+        --compat-package) COMPAT_PACKAGE=${2-}; shift 2 ;;
         --package-cache) PACKAGE_CACHE=${2-}; shift 2 ;;
         --source-date-epoch) SOURCE_DATE_EPOCH=${2-}; shift 2 ;;
         --output) OUTPUT=${2-}; shift 2 ;;
@@ -59,6 +62,8 @@ done
 [ -f "$ROOTS" ] && [ ! -L "$ROOTS" ] || die 'roots must be a regular non-symlink file'
 [ -f "$NORTHSTAR_PACKAGE" ] && [ ! -L "$NORTHSTAR_PACKAGE" ] \
     || die 'Northstar package must be a regular non-symlink file'
+[ -f "$COMPAT_PACKAGE" ] && [ ! -L "$COMPAT_PACKAGE" ] \
+    || die 'compatibility compositor package must be a regular non-symlink file'
 [ -d "$PACKAGE_CACHE" ] && [ ! -L "$PACKAGE_CACHE" ] \
     || die 'package cache must be a real directory'
 [ -n "$OUTPUT" ] || die 'output is required'
@@ -108,6 +113,10 @@ sort -u "$seen" -o "$seen"
 northstar_name=$(pkg query -F "$NORTHSTAR_PACKAGE" '%n') \
     || die 'cannot read Northstar package metadata'
 [ "$northstar_name" = northstar ] || die 'reviewed package is not named northstar'
+compat_name=$(pkg query -F "$COMPAT_PACKAGE" '%n') \
+    || die 'cannot read compatibility compositor package metadata'
+[ "$compat_name" = northstar-wayfire-nested ] \
+    || die 'compatibility package is not named northstar-wayfire-nested'
 
 cache_records=$STAGING/cache-records
 : > "$cache_records"
@@ -162,6 +171,7 @@ while IFS= read -r package_name; do
         fi
     fi
 done < "$seen"
+cp -p "$COMPAT_PACKAGE" "$STAGING/packages/"
 
 records_unsorted=$STAGING/runtime-package-records.unsorted
 records=$STAGING/runtime-package-records
@@ -188,6 +198,8 @@ rm -f "$cache_records" "$records_unsorted" "$pending" "$seen"
 [ -s "$records" ] || die 'runtime bundle is empty'
 awk -F'|' 'seen[$4]++ { exit 1 }' "$records" \
     || die 'runtime bundle contains duplicate package names'
+awk -F'|' '$4 == "northstar-wayfire-nested" { found=1 } END { exit !found }' "$records" \
+    || die 'runtime bundle omitted the compatibility compositor package'
 
 while IFS= read -r required_name; do
     awk -F'|' -v name="$required_name" '$4 == name { found=1 } END { exit !found }' "$records" \

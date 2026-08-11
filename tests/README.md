@@ -25,3 +25,6 @@ matches its exact dependency versions to a previously staged package cache.
 Uncached artifacts are recreated with a fixed epoch only when the accepted
 installed files are complete. Capture never downloads, installs, upgrades, or
 modifies repository configuration.
+`unit/test-nested-wayfire-package.sh` proves the accepted patched compositor
+tree becomes an immutable, package-managed compatibility artifact instead of
+an untracked user-home dependency.

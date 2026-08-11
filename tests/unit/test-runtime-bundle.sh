@@ -15,6 +15,7 @@ mkdir -p "$TMP_DIR/bin"
 mkdir -p "$TMP_DIR/cache"
 
 printf 'northstar package fixture\n' > "$TMP_DIR/northstar-0.1.4-amd64.pkg"
+printf 'compat package fixture\n' > "$TMP_DIR/northstar-wayfire-nested-0.10.1.746bc7e.pkg"
 printf 'qt package fixture\n' > "$TMP_DIR/cache/qt6-base-6.11.1.pkg"
 cp "$TMP_DIR/cache/qt6-base-6.11.1.pkg" "$TMP_DIR/cache/qt6-base-duplicate.pkg"
 printf '%s\n' northstar qt6-base > "$TMP_DIR/roots"
@@ -33,6 +34,7 @@ case "${1-}" in
             format=${4-}
             filename=${file##*/}
             case "$filename" in
+                *northstar-wayfire-nested*) name=northstar-wayfire-nested; version=0.10.1.746bc7e; origin=x11-wm/northstar-wayfire-nested ;;
                 *northstar*) name=northstar; version=0.1.4; origin=x11/northstar ;;
                 *qt6-base*) name=qt6-base; version=6.11.1; origin=devel/qt6-base ;;
                 *) exit 3 ;;
@@ -76,19 +78,23 @@ chmod +x "$TMP_DIR/bin/pkg"
 PATH="$TMP_DIR/bin:$PATH" "$CAPTURE" \
     --roots "$TMP_DIR/roots" \
     --northstar-package "$TMP_DIR/northstar-0.1.4-amd64.pkg" \
+    --compat-package "$TMP_DIR/northstar-wayfire-nested-0.10.1.746bc7e.pkg" \
     --package-cache "$TMP_DIR/cache" \
     --source-date-epoch 1781274780 \
     --output "$TMP_DIR/output" >/dev/null
 
-grep -F 'package_count=2' "$TMP_DIR/output/runtime-bundle.conf" >/dev/null
+grep -F 'package_count=3' "$TMP_DIR/output/runtime-bundle.conf" >/dev/null
 grep -F '|northstar|0.1.4|x11/northstar' \
     "$TMP_DIR/output/runtime-package-records" >/dev/null
 grep -F '|qt6-base|6.11.1|devel/qt6-base' \
+    "$TMP_DIR/output/runtime-package-records" >/dev/null
+grep -F '|northstar-wayfire-nested|0.10.1.746bc7e|x11-wm/northstar-wayfire-nested' \
     "$TMP_DIR/output/runtime-package-records" >/dev/null
 
 if PATH="$TMP_DIR/bin:$PATH" "$CAPTURE" \
     --roots "$TMP_DIR/roots" \
     --northstar-package "$TMP_DIR/northstar-0.1.4-amd64.pkg" \
+    --compat-package "$TMP_DIR/northstar-wayfire-nested-0.10.1.746bc7e.pkg" \
     --package-cache "$TMP_DIR/cache" \
     --source-date-epoch 1781274780 \
     --output "$TMP_DIR/output" >/dev/null 2>&1; then
@@ -100,6 +106,7 @@ printf 'missing-package\n' > "$TMP_DIR/missing-roots"
 if PATH="$TMP_DIR/bin:$PATH" "$CAPTURE" \
     --roots "$TMP_DIR/missing-roots" \
     --northstar-package "$TMP_DIR/northstar-0.1.4-amd64.pkg" \
+    --compat-package "$TMP_DIR/northstar-wayfire-nested-0.10.1.746bc7e.pkg" \
     --package-cache "$TMP_DIR/cache" \
     --source-date-epoch 1781274780 \
     --output "$TMP_DIR/missing-output" >/dev/null 2>&1; then
