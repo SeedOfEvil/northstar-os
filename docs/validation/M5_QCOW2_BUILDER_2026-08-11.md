@@ -88,3 +88,15 @@ the separate `xf86-input-libinput` Xorg driver that had made the QEMU USB
 Tablet interactive on NSTAR-DEV01. The driver is now an explicit immutable
 runtime root; the replacement image must repeat the visual gate and prove both
 pointer and keyboard interaction before PR76 promotion.
+
+The corrected candidate at project commit
+`41d1b8ba8f8b0be75b71f1ff8b0eee2c7b795598` captured 236 exact runtime
+packages and assembled successfully after obsolete builder outputs were
+removed. In a snapshot boot, `xf86-input-libinput-1.5.0` was installed and
+Xorg loaded `libinput_drv.so` for the system keyboard multiplexer, AT keyboard,
+system mouse, and IntelliMouse device. The session reached `state=running` on
+`wayland-1` with zero restarts. An injected `Ctrl+Alt+T` traveled through the
+emulated keyboard, Xorg, nested compositor, and Northstar shortcut handler and
+launched QTerminal, providing an end-to-end keyboard-input check. Final
+Proxmox/noVNC acceptance still requires the operator to confirm pointer motion,
+clicking, and ordinary text entry on the imported artifact.
