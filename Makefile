@@ -2,7 +2,7 @@ SHELL := /bin/sh
 
 .DEFAULT_GOAL := help
 
-.PHONY: help check-host bootstrap configure build test welcome-app-test qml-surface-test image-input-test prepare-image-inputs validation-deployment-audit update-helper-test update-broker-smoke transactional-update-smoke run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package pkg-repository-smoke signed-development-repository-smoke vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
+.PHONY: help check-host bootstrap configure build test welcome-app-test qml-surface-test image-input-test runtime-bundle-test nested-wayfire-package-test image-assembler-test image-boot-smoke-test capture-runtime-bundle prepare-image-inputs validation-deployment-audit update-helper-test update-broker-smoke transactional-update-smoke run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package pkg-repository-smoke signed-development-repository-smoke vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
 
 MANIFEST ?= packaging/manifests/bootstrap-packages.txt
 NORTHSTAR_USER ?=
@@ -18,6 +18,12 @@ VALIDATION_DEPLOYMENT_MANIFEST ?= /usr/local/etc/northstar/validation-deployment
 IMAGE_LOCK ?= image/manifests/northstar-15.1-amd64-qcow2.lock
 IMAGE_ARTIFACTS ?= .artifacts/m5-inputs
 IMAGE_INPUT_OUTPUT ?= .artifacts/m5-resolved-inputs
+IMAGE_RUNTIME_ROOTS ?= image/manifests/northstar-runtime-roots.txt
+IMAGE_RUNTIME_OUTPUT ?= .artifacts/m5-runtime-bundle
+IMAGE_PACKAGE_CACHE ?= .artifacts/m5-package-cache
+NORTHSTAR_IMAGE_PACKAGE ?= .artifacts/m5-inputs/northstar-0.1.4-amd64.pkg
+NORTHSTAR_COMPAT_PACKAGE ?= .artifacts/m5-compat-package/northstar-wayfire-nested-0.10.1.746bc7e.pkg
+IMAGE_SOURCE_DATE_EPOCH ?= $(shell sed -n 's/^SOURCE_DATE_EPOCH=//p' "$(IMAGE_LOCK)")
 PROJECT_COMMIT ?= $(shell git rev-parse HEAD 2>/dev/null)
 PROJECT_ROOT ?= .
 
@@ -31,6 +37,11 @@ help:
 	@printf '%s\n' '  make welcome-app-test  Test the bundled Northstar Welcome launcher'
 	@printf '%s\n' '  make qml-surface-test  Check product-critical QML surface wiring'
 	@printf '%s\n' '  make image-input-test  Test pinned M5 image-input preparation'
+	@printf '%s\n' '  make runtime-bundle-test  Test exact offline runtime capture'
+	@printf '%s\n' '  make nested-wayfire-package-test  Test scfb compatibility packaging'
+	@printf '%s\n' '  make image-assembler-test  Test privileged QCOW2 input preflight'
+	@printf '%s\n' '  make image-boot-smoke-test  Test snapshot-only QCOW2 boot-smoke contract'
+	@printf '%s\n' '  make capture-runtime-bundle  Capture accepted installed runtime packages'
 	@printf '%s\n' '  make prepare-image-inputs  Verify staged M5 artifacts and record provenance'
 	@printf '%s\n' '  make validation-deployment-audit  Audit the canonical VM deployment (read-only)'
 	@printf '%s\n' '  make update-helper-test  Test the bounded update-helper request contract'
@@ -78,6 +89,9 @@ test:
 	@sh tests/unit/test-update-helper.sh
 	@sh tests/unit/test-validation-deployment-audit.sh
 	@sh tests/unit/test-image-inputs.sh
+	@sh tests/unit/test-runtime-bundle.sh
+	@sh tests/unit/test-nested-wayfire-package.sh
+	@sh tests/unit/test-image-assembler.sh
 	@$(MAKE) build
 	@sh tests/unit/test-session-entrypoint.sh "$(BUILD_DIR)"
 	@ctest --test-dir "$(BUILD_DIR)" --output-on-failure
@@ -90,6 +104,27 @@ qml-surface-test:
 
 image-input-test:
 	@sh tests/unit/test-image-inputs.sh
+
+runtime-bundle-test:
+	@sh tests/unit/test-runtime-bundle.sh
+
+nested-wayfire-package-test:
+	@sh tests/unit/test-nested-wayfire-package.sh
+
+image-assembler-test:
+	@sh tests/unit/test-image-assembler.sh
+
+image-boot-smoke-test:
+	@sh tests/unit/test-image-boot-smoke.sh
+
+capture-runtime-bundle:
+	@sh image/scripts/capture-runtime-bundle.sh \
+		--roots "$(IMAGE_RUNTIME_ROOTS)" \
+		--northstar-package "$(NORTHSTAR_IMAGE_PACKAGE)" \
+		--compat-package "$(NORTHSTAR_COMPAT_PACKAGE)" \
+		--package-cache "$(IMAGE_PACKAGE_CACHE)" \
+		--source-date-epoch "$(IMAGE_SOURCE_DATE_EPOCH)" \
+		--output "$(IMAGE_RUNTIME_OUTPUT)"
 
 prepare-image-inputs:
 	@sh image/scripts/prepare-image-inputs.sh \
@@ -175,6 +210,6 @@ shell-restart-smoke: install-user
 	@NORTHSTAR_SHELL_BIN="$(NORTHSTAR_SHELL_BIN)" sh tests/integration/test-shell-session.sh --restart
 
 image:
-	@printf '%s\n' 'Northstar: QCOW2 disk assembly begins in PR76 after verified input preparation.' >&2
-	@printf '%s\n' 'Run make prepare-image-inputs for the current safe M5 gate.' >&2
+	@printf '%s\n' 'Northstar: run the guarded PR76 assembler on a marked disposable FreeBSD builder.' >&2
+	@printf '%s\n' 'See docs/M5_QCOW2_BUILDER.md; direct make image remains intentionally non-privileged.' >&2
 	@exit 2

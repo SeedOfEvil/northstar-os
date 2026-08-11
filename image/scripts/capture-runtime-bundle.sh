@@ -1,0 +1,224 @@
+#!/bin/sh
+
+# Capture an exact, offline package closure from an accepted FreeBSD host.
+# The resulting directory is immutable input for the privileged image builder.
+
+set -eu
+
+ROOTS=
+NORTHSTAR_PACKAGE=
+COMPAT_PACKAGE=
+PACKAGE_CACHE=
+OUTPUT=
+SOURCE_DATE_EPOCH=
+STAGING=
+
+usage() {
+    cat <<'USAGE'
+Usage: capture-runtime-bundle.sh --roots FILE --northstar-package FILE \
+  --compat-package FILE \
+  --package-cache DIRECTORY \
+  --source-date-epoch UNIX_SECONDS --output NEW_DIRECTORY
+
+All root packages must already be installed. Dependencies are traversed from
+the local pkg database and matched to exact-version artifacts in a previously
+staged package cache. An uncached package is recreated deterministically from
+the accepted host only when its installed files are complete. The reviewed
+Northstar package is copied from its immutable publication. No package is
+downloaded or installed.
+USAGE
+}
+
+die() {
+    printf 'ERROR: %s\n' "$1" >&2
+    exit 1
+}
+
+cleanup() {
+    if [ -n "$STAGING" ] && [ -d "$STAGING" ]; then
+        rm -rf "$STAGING"
+    fi
+}
+trap cleanup EXIT HUP INT TERM
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --roots) ROOTS=${2-}; shift 2 ;;
+        --northstar-package) NORTHSTAR_PACKAGE=${2-}; shift 2 ;;
+        --compat-package) COMPAT_PACKAGE=${2-}; shift 2 ;;
+        --package-cache) PACKAGE_CACHE=${2-}; shift 2 ;;
+        --source-date-epoch) SOURCE_DATE_EPOCH=${2-}; shift 2 ;;
+        --output) OUTPUT=${2-}; shift 2 ;;
+        --help|-h) usage; exit 0 ;;
+        *) die "unknown option: $1" ;;
+    esac
+done
+
+[ "$(uname -s)" = FreeBSD ] || die 'runtime capture requires FreeBSD'
+for command_name in awk basename cp dirname find grep mkdir mktemp mv pkg rm sed sha256 sort stat tr wc; do
+    command -v "$command_name" >/dev/null 2>&1 \
+        || die "required command is unavailable: $command_name"
+done
+[ -f "$ROOTS" ] && [ ! -L "$ROOTS" ] || die 'roots must be a regular non-symlink file'
+[ -f "$NORTHSTAR_PACKAGE" ] && [ ! -L "$NORTHSTAR_PACKAGE" ] \
+    || die 'Northstar package must be a regular non-symlink file'
+[ -f "$COMPAT_PACKAGE" ] && [ ! -L "$COMPAT_PACKAGE" ] \
+    || die 'compatibility compositor package must be a regular non-symlink file'
+[ -d "$PACKAGE_CACHE" ] && [ ! -L "$PACKAGE_CACHE" ] \
+    || die 'package cache must be a real directory'
+[ -n "$OUTPUT" ] || die 'output is required'
+printf '%s\n' "$SOURCE_DATE_EPOCH" | grep -Eq '^[0-9]{10}$' \
+    || die 'source-date-epoch must be ten decimal digits'
+[ ! -e "$OUTPUT" ] && [ ! -L "$OUTPUT" ] || die 'output already exists'
+
+case "$(LC_ALL=C tr -d '\11\12\15\40-\176' < "$ROOTS" | wc -c | tr -d ' ')" in
+    0) : ;;
+    *) die 'roots contain non-ASCII or control characters' ;;
+esac
+
+awk '
+    /^[[:space:]]*($|#)/ { next }
+    !/^[A-Za-z0-9][A-Za-z0-9+_.-]*$/ { exit 1 }
+    seen[$0]++ { exit 1 }
+' "$ROOTS" || die 'roots contain an unsafe or duplicate package name'
+
+output_parent=$(dirname "$OUTPUT")
+mkdir -p "$output_parent"
+output_parent=$(CDPATH= cd -- "$output_parent" && pwd)
+OUTPUT=$output_parent/$(basename "$OUTPUT")
+STAGING=$(mktemp -d "$output_parent/.northstar-runtime.XXXXXX")
+mkdir -p "$STAGING/packages"
+
+pending=$STAGING/pending
+seen=$STAGING/seen
+: > "$pending"
+: > "$seen"
+awk '!/^[[:space:]]*($|#)/ { print }' "$ROOTS" | sort > "$pending"
+
+while [ -s "$pending" ]; do
+    package_name=$(sed -n '1p' "$pending")
+    sed '1d' "$pending" > "$pending.next"
+    mv "$pending.next" "$pending"
+    grep -Fx "$package_name" "$seen" >/dev/null 2>&1 && continue
+    printf '%s\n' "$package_name" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9+_.-]*$' \
+        || die "unsafe dependency name: $package_name"
+    pkg info -e "$package_name" || die "required runtime package is not installed: $package_name"
+    printf '%s\n' "$package_name" >> "$seen"
+    pkg query -e "%n = '$package_name'" '%dn' 2>/dev/null \
+        | grep -E '^[A-Za-z0-9][A-Za-z0-9+_.-]*$' >> "$pending" || true
+    sort -u "$pending" -o "$pending"
+done
+sort -u "$seen" -o "$seen"
+
+northstar_name=$(pkg query -F "$NORTHSTAR_PACKAGE" '%n') \
+    || die 'cannot read Northstar package metadata'
+[ "$northstar_name" = northstar ] || die 'reviewed package is not named northstar'
+compat_name=$(pkg query -F "$COMPAT_PACKAGE" '%n') \
+    || die 'cannot read compatibility compositor package metadata'
+[ "$compat_name" = northstar-wayfire-nested ] \
+    || die 'compatibility package is not named northstar-wayfire-nested'
+
+cache_records=$STAGING/cache-records
+: > "$cache_records"
+find "$PACKAGE_CACHE" -type f -name '*.pkg' -print | while IFS= read -r package_path; do
+    [ ! -L "$package_path" ] || exit 30
+    case "$package_path" in *'|'*) exit 31 ;; esac
+    metadata=$(pkg query -F "$package_path" '%n|%v') || exit 32
+    [ "$(printf '%s\n' "$metadata" | wc -l | tr -d ' ')" = 1 ] || exit 33
+    name=$(printf '%s' "$metadata" | awk -F'|' '{ print $1 }')
+    version=$(printf '%s' "$metadata" | awk -F'|' '{ print $2 }')
+    printf '%s\n' "$name" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9+_.-]*$' || exit 34
+    printf '%s\n' "$version" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9+_.~,:-]*$' || exit 35
+    digest=$(sha256 -q "$package_path")
+    annotation_sha=$(pkg query -F "$package_path" '%At=%Av' \
+        | grep -Ev '^(repo_type|repository)=' | sort | sha256 -q) \
+        || exit 36
+    printf '%s|%s|%s|%s|%s\n' \
+        "$name" "$version" "$annotation_sha" "$digest" "$package_path"
+done | sort > "$cache_records" || die 'package cache contains unsafe metadata'
+
+while IFS= read -r package_name; do
+    if [ "$package_name" = northstar ]; then
+        cp -p "$NORTHSTAR_PACKAGE" "$STAGING/packages/"
+    else
+        installed_version=$(pkg query -e "%n = '$package_name'" '%v') \
+            || die "cannot read installed version: $package_name"
+        printf '%s\n' "$installed_version" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9+_.~,:-]*$' \
+            || die "installed package version is unsafe: $package_name"
+        installed_annotation_sha=$(pkg query -e "%n = '$package_name'" '%At=%Av' \
+            | grep -Ev '^(repo_type|repository)=' | sort | sha256 -q) \
+            || die "cannot hash installed package annotations: $package_name"
+        match_digest_count=$(awk -F'|' -v name="$package_name" \
+            -v version="$installed_version" -v annotation="$installed_annotation_sha" '
+            $1 == name && $2 == version && $3 == annotation { seen[$4]=1 }
+            END { for (digest in seen) count++; print count + 0 }
+        ' "$cache_records")
+        if [ "$match_digest_count" -eq 0 ]; then
+            pkg create -q -l 1 -T 2 -t "$SOURCE_DATE_EPOCH" \
+                -o "$STAGING/packages" "$package_name" \
+                || die "uncached installed package cannot be recreated: $package_name-$installed_version"
+        elif [ "$match_digest_count" -eq 1 ]; then
+            package_path=$(awk -F'|' -v name="$package_name" -v version="$installed_version" \
+                -v annotation="$installed_annotation_sha" \
+                '$1 == name && $2 == version && $3 == annotation { print $5; exit }' \
+                "$cache_records")
+            filename=$(basename "$package_path")
+            [ ! -e "$STAGING/packages/$filename" ] \
+                || die "runtime package filename is duplicated: $filename"
+            cp -p "$package_path" "$STAGING/packages/$filename"
+        else
+            die "package cache contains conflicting exact artifacts: $package_name-$installed_version"
+        fi
+    fi
+done < "$seen"
+cp -p "$COMPAT_PACKAGE" "$STAGING/packages/"
+
+records_unsorted=$STAGING/runtime-package-records.unsorted
+records=$STAGING/runtime-package-records
+: > "$records_unsorted"
+find "$STAGING/packages" -type f -name '*.pkg' -print | while IFS= read -r package_path; do
+    [ ! -L "$package_path" ] || exit 20
+    metadata=$(pkg query -F "$package_path" '%n|%v|%o') || exit 21
+    [ "$(printf '%s\n' "$metadata" | wc -l | tr -d ' ')" = 1 ] || exit 22
+    name=$(printf '%s' "$metadata" | awk -F'|' '{ print $1 }')
+    version=$(printf '%s' "$metadata" | awk -F'|' '{ print $2 }')
+    origin=$(printf '%s' "$metadata" | awk -F'|' '{ print $3 }')
+    printf '%s\n' "$name" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9+_.-]*$' || exit 23
+    printf '%s\n' "$version" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9+_.~,:-]*$' || exit 24
+    printf '%s\n' "$origin" | grep -Eq '^[A-Za-z0-9_.+~-]+/[A-Za-z0-9_.+~-]+$' || exit 25
+    filename=$(basename "$package_path")
+    digest=$(sha256 -q "$package_path")
+    size=$(stat -f '%z' "$package_path")
+    printf '%s|%s|%s|%s|%s|%s\n' \
+        "$filename" "$digest" "$size" "$name" "$version" "$origin"
+done > "$records_unsorted" || die 'runtime package metadata is missing or unsafe'
+
+sort -t '|' -k4,4 "$records_unsorted" > "$records"
+rm -f "$cache_records" "$records_unsorted" "$pending" "$seen"
+[ -s "$records" ] || die 'runtime bundle is empty'
+awk -F'|' 'seen[$4]++ { exit 1 }' "$records" \
+    || die 'runtime bundle contains duplicate package names'
+awk -F'|' '$4 == "northstar-wayfire-nested" { found=1 } END { exit !found }' "$records" \
+    || die 'runtime bundle omitted the compatibility compositor package'
+
+while IFS= read -r required_name; do
+    awk -F'|' -v name="$required_name" '$4 == name { found=1 } END { exit !found }' "$records" \
+        || die "runtime bundle omitted required root: $required_name"
+done <<EOF
+$(awk '!/^[[:space:]]*($|#)/ { print }' "$ROOTS")
+EOF
+
+package_count=$(wc -l < "$records" | tr -d ' ')
+records_sha256=$(sha256 -q "$records")
+printf '%s\n' \
+    'schema_version=1' \
+    'freebsd_abi=FreeBSD:15:amd64' \
+    "source_date_epoch=$SOURCE_DATE_EPOCH" \
+    "package_count=$package_count" \
+    "runtime_package_records_sha256=$records_sha256" \
+    > "$STAGING/runtime-bundle.conf"
+cp "$ROOTS" "$STAGING/runtime-roots.txt"
+chmod 0444 "$STAGING/runtime-bundle.conf" "$records" "$STAGING/runtime-roots.txt"
+mv "$STAGING" "$OUTPUT"
+STAGING=
+printf 'PASS: captured %s exact runtime packages at %s\n' "$package_count" "$OUTPUT"

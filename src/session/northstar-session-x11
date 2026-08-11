@@ -31,6 +31,13 @@ wayfire_bin=${NORTHSTAR_WAYFIRE_BIN:-$HOME/.local/wayfire-nested/bin/wayfire}
 session_bin=${NORTHSTAR_SESSION_BIN:-$HOME/.local/bin/northstar-session}
 shell_bin=${NORTHSTAR_SESSION_SHELL:-$HOME/.local/bin/northstar-shell}
 
+if [ ! -x "$session_bin" ] && [ -x /usr/local/bin/northstar-session ]; then
+    session_bin=/usr/local/bin/northstar-session
+fi
+if [ ! -x "$shell_bin" ] && [ -x /usr/local/bin/northstar-shell ]; then
+    shell_bin=/usr/local/bin/northstar-shell
+fi
+
 for required_file in "$wayfire_bin" "$session_bin" "$shell_bin"; do
     [ -x "$required_file" ] || die "fallback session executable is unavailable: $required_file"
 done

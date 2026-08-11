@@ -39,5 +39,47 @@ deterministic output, immutable output refusal, and rejection of tampered,
 unresolved, duplicate, unknown, missing, symlinked, or incorrectly sized
 inputs. It does not close the M5 image gate.
 
-PR76 will add the disposable privileged assembler, UEFI GPT/root-on-ZFS layout,
-QCOW2 conversion, checksum/provenance output, and QEMU/Proxmox boot smoke.
+PR76 adds the disposable privileged assembler, UEFI GPT/root-on-ZFS layout,
+offline exact-package installation, QCOW2 conversion, checksum/provenance
+output, and a bounded snapshot-only QEMU boot smoke. The automated smoke
+requires serial evidence for UEFI boot, ZFS root mount, rc startup, and the
+multi-user login prompt. It deliberately does not claim graphical acceptance;
+the branded greeter and Northstar shell remain a focused Proxmox/noVNC gate.
+
+Run the boot smoke on a disposable FreeBSD builder with headless QEMU and EDK2:
+
+```sh
+image/scripts/boot-smoke-qcow2.sh \
+  --image /path/to/northstar-15.1-amd64.qcow2 \
+  --firmware-code /usr/local/share/edk2-qemu/QEMU_UEFI_CODE-x86_64.fd \
+  --firmware-vars /usr/local/share/edk2-qemu/QEMU_UEFI_VARS-x86_64.fd \
+  --output /new/boot-smoke-evidence
+```
+
+The command runs with `snapshot=on`, a private user network, TCG, and no host
+port forwarding. It refuses existing output paths and records the source-image
+and serial-log digests. The source QCOW2 and firmware templates remain
+unchanged.
+
+The normal image keeps the initial `northstar` account locked pending a future
+first-boot account workflow. The explicit `--development-autologin` option
+instead enables a passwordless local account so SDDM's FreeBSD PAM account
+check can enter the compatibility session. This is recorded in image
+provenance and is never enabled implicitly. OpenSSH continues to reject empty
+password authentication.
+
+The image also owns a separate `northstar-image-proxmox.desktop` entry. It
+uses an image-owned launcher that validates SDDM's protected, per-user
+`/tmp/xauth_*` cookie before starting the nested compositor. This accommodates
+the FreeBSD SDDM lane where the helper creates the cookie but can leave the
+session without a usable `XAUTHORITY` path. The launcher also binds the accepted
+compatibility compositor in the image user's home and the package-managed
+supervisor and shell in `/usr/local/bin`. Keeping this entry separate avoids
+changing package-owned files while making the image independent of older
+package wrappers that assumed a fully user-local installation.
+
+The runtime roots explicitly include `xf86-input-libinput`. The basic-VGA
+fallback can paint through `scfb` without that driver, but Proxmox's emulated
+keyboard and QEMU USB Tablet do not become usable Xorg input devices until the
+driver is installed. A painted desktop is therefore not sufficient image
+acceptance; pointer and keyboard interaction are required.

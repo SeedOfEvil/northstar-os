@@ -19,3 +19,16 @@ PR74 adds `vm/transactional-update-smoke.sh`, which uses isolated fake broker,
 helper, and package-manager boundaries to prove create-before-mutation ordering,
 post-update verification, explicit rollback, failure-triggered rollback, and
 home-data preservation without touching the host package database or ZFS tree.
+PR76 adds `unit/test-runtime-bundle.sh` for the offline package-closure capture
+contract. The production capture reads the accepted local pkg database and
+matches its exact dependency versions to a previously staged package cache.
+Uncached artifacts are recreated with a fixed epoch only when the accepted
+installed files are complete. Capture never downloads, installs, upgrades, or
+modifies repository configuration.
+`unit/test-nested-wayfire-package.sh` proves the accepted patched compositor
+tree becomes an immutable, package-managed compatibility artifact instead of
+an untracked user-home dependency.
+`unit/test-image-assembler.sh` exercises the complete non-root QCOW2 preflight
+with fixture release sets and package artifacts, including tamper rejection.
+The production path additionally requires root, FreeBSD, a protected
+disposable-builder marker, and a newly allocated file-backed md device.

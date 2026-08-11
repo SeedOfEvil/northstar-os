@@ -1,0 +1,20 @@
+# Runtime roots for the first Northstar development QCOW2 image.
+# Dependencies are captured recursively from the accepted FreeBSD VM.
+dbus
+firefox
+lxqt-policykit
+northstar
+pkg
+plasma6-layer-shell-qt
+qterminal
+qt6-wayland
+sddm
+seatd
+sudo
+wayfire
+xf86-input-libinput
+xf86-video-scfb
+xorg-server
+xauth
+xterm
+xwayland
