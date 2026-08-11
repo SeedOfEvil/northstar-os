@@ -53,9 +53,10 @@ case "${1-}" in
         fi
         ;;
     create)
-        [ "${2-}" = -q ] && [ "${3-}" = -o ] || exit 8
-        output=${4-}
-        package=${5-}
+        [ "${2-}" = -q ] && [ "${3-}" = -l ] && [ "${5-}" = -T ] \
+            && [ "${7-}" = -t ] && [ "${9-}" = -o ] || exit 8
+        output=${10-}
+        package=${11-}
         printf 'fixture for %s\n' "$package" > "$output/$package-6.11.1.pkg"
         ;;
     *) exit 9 ;;
@@ -66,6 +67,7 @@ chmod +x "$TMP_DIR/bin/pkg"
 PATH="$TMP_DIR/bin:$PATH" "$CAPTURE" \
     --roots "$TMP_DIR/roots" \
     --northstar-package "$TMP_DIR/northstar-0.1.4-amd64.pkg" \
+    --source-date-epoch 1781274780 \
     --output "$TMP_DIR/output" >/dev/null
 
 grep -F 'package_count=2' "$TMP_DIR/output/runtime-bundle.conf" >/dev/null
@@ -77,6 +79,7 @@ grep -F '|qt6-base|6.11.1|devel/qt6-base' \
 if PATH="$TMP_DIR/bin:$PATH" "$CAPTURE" \
     --roots "$TMP_DIR/roots" \
     --northstar-package "$TMP_DIR/northstar-0.1.4-amd64.pkg" \
+    --source-date-epoch 1781274780 \
     --output "$TMP_DIR/output" >/dev/null 2>&1; then
     printf 'FAIL: runtime capture replaced immutable output\n' >&2
     exit 1
@@ -86,6 +89,7 @@ printf 'missing-package\n' > "$TMP_DIR/missing-roots"
 if PATH="$TMP_DIR/bin:$PATH" "$CAPTURE" \
     --roots "$TMP_DIR/missing-roots" \
     --northstar-package "$TMP_DIR/northstar-0.1.4-amd64.pkg" \
+    --source-date-epoch 1781274780 \
     --output "$TMP_DIR/missing-output" >/dev/null 2>&1; then
     printf 'FAIL: runtime capture accepted a missing root package\n' >&2
     exit 1

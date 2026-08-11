@@ -8,12 +8,13 @@ set -eu
 ROOTS=
 NORTHSTAR_PACKAGE=
 OUTPUT=
+SOURCE_DATE_EPOCH=
 STAGING=
 
 usage() {
     cat <<'USAGE'
 Usage: capture-runtime-bundle.sh --roots FILE --northstar-package FILE \
-  --output NEW_DIRECTORY
+  --source-date-epoch UNIX_SECONDS --output NEW_DIRECTORY
 
 All root packages must already be installed. Dependencies are traversed from
 the local pkg database, exact installed packages are recreated with pkg create,
@@ -38,6 +39,7 @@ while [ "$#" -gt 0 ]; do
     case "$1" in
         --roots) ROOTS=${2-}; shift 2 ;;
         --northstar-package) NORTHSTAR_PACKAGE=${2-}; shift 2 ;;
+        --source-date-epoch) SOURCE_DATE_EPOCH=${2-}; shift 2 ;;
         --output) OUTPUT=${2-}; shift 2 ;;
         --help|-h) usage; exit 0 ;;
         *) die "unknown option: $1" ;;
@@ -53,6 +55,8 @@ done
 [ -f "$NORTHSTAR_PACKAGE" ] && [ ! -L "$NORTHSTAR_PACKAGE" ] \
     || die 'Northstar package must be a regular non-symlink file'
 [ -n "$OUTPUT" ] || die 'output is required'
+printf '%s\n' "$SOURCE_DATE_EPOCH" | grep -Eq '^[0-9]{10}$' \
+    || die 'source-date-epoch must be ten decimal digits'
 [ ! -e "$OUTPUT" ] && [ ! -L "$OUTPUT" ] || die 'output already exists'
 
 case "$(LC_ALL=C tr -d '\11\12\15\40-\176' < "$ROOTS" | wc -c | tr -d ' ')" in
@@ -102,7 +106,8 @@ while IFS= read -r package_name; do
     if [ "$package_name" = northstar ]; then
         cp -p "$NORTHSTAR_PACKAGE" "$STAGING/packages/"
     else
-        pkg create -q -o "$STAGING/packages" "$package_name" \
+        pkg create -q -l 1 -T 2 -t "$SOURCE_DATE_EPOCH" \
+            -o "$STAGING/packages" "$package_name" \
             || die "failed to recreate installed package: $package_name"
     fi
 done < "$seen"
@@ -145,6 +150,7 @@ records_sha256=$(sha256 -q "$records")
 printf '%s\n' \
     'schema_version=1' \
     'freebsd_abi=FreeBSD:15:amd64' \
+    "source_date_epoch=$SOURCE_DATE_EPOCH" \
     "package_count=$package_count" \
     "runtime_package_records_sha256=$records_sha256" \
     > "$STAGING/runtime-bundle.conf"

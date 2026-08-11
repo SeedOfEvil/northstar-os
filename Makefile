@@ -21,6 +21,7 @@ IMAGE_INPUT_OUTPUT ?= .artifacts/m5-resolved-inputs
 IMAGE_RUNTIME_ROOTS ?= image/manifests/northstar-runtime-roots.txt
 IMAGE_RUNTIME_OUTPUT ?= .artifacts/m5-runtime-bundle
 NORTHSTAR_IMAGE_PACKAGE ?= .artifacts/m5-inputs/northstar-0.1.4-amd64.pkg
+IMAGE_SOURCE_DATE_EPOCH ?= $(shell sed -n 's/^SOURCE_DATE_EPOCH=//p' "$(IMAGE_LOCK)")
 PROJECT_COMMIT ?= $(shell git rev-parse HEAD 2>/dev/null)
 PROJECT_ROOT ?= .
 
@@ -104,6 +105,7 @@ capture-runtime-bundle:
 	@sh image/scripts/capture-runtime-bundle.sh \
 		--roots "$(IMAGE_RUNTIME_ROOTS)" \
 		--northstar-package "$(NORTHSTAR_IMAGE_PACKAGE)" \
+		--source-date-epoch "$(IMAGE_SOURCE_DATE_EPOCH)" \
 		--output "$(IMAGE_RUNTIME_OUTPUT)"
 
 prepare-image-inputs:
