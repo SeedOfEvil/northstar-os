@@ -28,6 +28,10 @@ grep -F '"/.northstar-package-index/$name-$version.pkg"' "$ASSEMBLER" >/dev/null
     printf 'FAIL: assembler omits the canonical offline package index\n' >&2
     exit 1
 }
+grep -F 'offline package bootstrap did not converge after three passes' "$ASSEMBLER" >/dev/null || {
+    printf 'FAIL: assembler omits bounded offline package convergence\n' >&2
+    exit 1
+}
 if grep -F 'pkg -r "$MOUNT_ROOT"' "$ASSEMBLER" >/dev/null; then
     printf 'FAIL: assembler still uses host-rooted pkg installation\n' >&2
     exit 1

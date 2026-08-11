@@ -281,8 +281,20 @@ while IFS='|' read -r filename _digest _size name version _origin _extra; do
     ln -s "/.northstar-packages/$filename" "$canonical_path"
     set -- "$@" "/.northstar-package-index/$name-$version.pkg"
 done < "$runtime_records"
-ASSUME_ALWAYS_YES=yes chroot "$MOUNT_ROOT" /tmp/northstar-pkg-static \
-    -o REPOS_DIR=/tmp/empty-repos add -M "$@"
+install_attempt=1
+install_complete=0
+while [ "$install_attempt" -le 3 ]; do
+    if ASSUME_ALWAYS_YES=yes chroot "$MOUNT_ROOT" /tmp/northstar-pkg-static \
+        -o REPOS_DIR=/tmp/empty-repos add -M "$@"; then
+        install_complete=1
+        break
+    fi
+    printf 'WARN: offline package bootstrap pass %s did not converge; retrying registered closure\n' \
+        "$install_attempt" >&2
+    install_attempt=$((install_attempt + 1))
+done
+[ "$install_complete" -eq 1 ] \
+    || die 'offline package bootstrap did not converge after three passes'
 
 installed_package_count=$(chroot "$MOUNT_ROOT" /tmp/northstar-pkg-static \
     query '%n|%v' | sort -u | wc -l | tr -d ' ')
