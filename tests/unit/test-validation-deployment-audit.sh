@@ -80,6 +80,10 @@ EOF
 
 "$AUDITOR" --manifest "$MANIFEST" --allow-unprivileged-manifest --strict >/dev/null
 
+# Unrelated source dependencies are not historical Northstar deployments.
+mkdir -p "$TMP_DIR/src/wayfire-nested-v0.10.1"
+"$AUDITOR" --manifest "$MANIFEST" --allow-unprivileged-manifest --strict >/dev/null
+
 mkdir -p "$TMP_DIR/builds/orphaned-build"
 if "$AUDITOR" --manifest "$MANIFEST" --allow-unprivileged-manifest --strict >/dev/null 2>&1; then
     printf 'FAIL: strict audit accepted an orphaned build\n' >&2

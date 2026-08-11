@@ -204,9 +204,13 @@ audit_siblings() {
     current=$2
     previous=${3-}
     label=$4
+    name_prefix=${5-}
     [ -d "$parent" ] || return
     for candidate in "$parent"/*; do
         [ -e "$candidate" ] || continue
+        if [ -n "$name_prefix" ]; then
+            case "$(basename "$candidate")" in "$name_prefix"*) : ;; *) continue ;; esac
+        fi
         [ "$candidate" = "$current" ] && continue
         [ -n "$previous" ] && [ "$candidate" = "$previous" ] && continue
         case "$candidate" in "$quarantine_root"|"$quarantine_root"/*) continue ;; esac
@@ -214,7 +218,7 @@ audit_siblings() {
     done
 }
 
-audit_siblings "$(dirname "$canonical_checkout")" "$canonical_checkout" '' checkout
+audit_siblings "$(dirname "$canonical_checkout")" "$canonical_checkout" '' checkout northstar
 audit_siblings "$(dirname "$canonical_build")" "$canonical_build" '' build
 audit_siblings "$(dirname "$repository_path")" "$repository_path" "$previous_repository_path" repository
 
