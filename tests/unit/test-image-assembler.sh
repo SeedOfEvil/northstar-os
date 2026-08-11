@@ -16,6 +16,11 @@ git -C "$TMP_DIR/project" add README
 git -C "$TMP_DIR/project" commit -qm fixture
 PROJECT_COMMIT=$(git -C "$TMP_DIR/project" rev-parse HEAD)
 
+grep -F 'newfs_msdos -F 32 -c 1 -L NSTAR_EFI' "$ASSEMBLER" >/dev/null || {
+    printf 'FAIL: assembler does not pin valid FAT32 geometry for the EFI partition\n' >&2
+    exit 1
+}
+
 digest() {
     if command -v sha256 >/dev/null 2>&1; then sha256 -q "$1"; else sha256sum "$1" | awk '{ print $1 }'; fi
 }

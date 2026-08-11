@@ -227,7 +227,10 @@ gpart add -a 1m -s 260m -t efi "$MD_DEVICE"
 gpart add -a 1m -t freebsd-zfs "$MD_DEVICE"
 gpart show "$MD_DEVICE" > "$STAGING/partition-layout.txt"
 
-newfs_msdos -F 32 -L NSTAR_EFI "/dev/${MD_DEVICE}p1" >/dev/null
+# FreeBSD's automatic geometry can choose 16 KiB clusters for this small EFI
+# partition, leaving fewer than FAT32's required 65,525 clusters. Pin one
+# sector per cluster so the 260 MiB ESP is valid across supported builders.
+newfs_msdos -F 32 -c 1 -L NSTAR_EFI "/dev/${MD_DEVICE}p1" >/dev/null
 POOL=nstar_$(printf '%s' "$PROJECT_COMMIT" | cut -c1-12)
 zpool create -f -o altroot="$MOUNT_ROOT" -o cachefile=none -o ashift=12 \
     -O mountpoint=none -O compression=lz4 -O atime=off -O canmount=off \
