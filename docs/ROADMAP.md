@@ -310,6 +310,14 @@ text entry, and clean shutdown at 1280x800. Image-local update/rollback, the
 non-development first-boot account workflow, and installer media remain
 required before the complete M5 image-and-installer gate closes.
 
+PR77 adds the reboot-spanning installed-image acceptance gate documented in
+[`docs/M5_IMAGE_UPDATE_ROLLBACK.md`](M5_IMAGE_UPDATE_ROLLBACK.md). It keeps
+mutation off the persistent development VM, injects a package failure, proves
+recovery through a real boot-environment reboot, performs a signed N-1 to N
+package update, explicitly rolls back, and verifies `/home` preservation. The
+deterministic contract is implemented; the disposable-image execution remains
+required before PR77 promotion.
+
 Pass only when clean builders produce recorded inputs and checksums, QEMU/Proxmox boots the image, the installer creates UEFI GPT/root-on-ZFS, first boot reaches graphical login and the shell, and update/rollback work after installation.
 
 ## M6: Alpha hardware release

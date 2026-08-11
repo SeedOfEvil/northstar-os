@@ -2,7 +2,7 @@ SHELL := /bin/sh
 
 .DEFAULT_GOAL := help
 
-.PHONY: help check-host bootstrap configure build test welcome-app-test qml-surface-test image-input-test runtime-bundle-test nested-wayfire-package-test image-assembler-test image-boot-smoke-test capture-runtime-bundle prepare-image-inputs validation-deployment-audit update-helper-test update-broker-smoke transactional-update-smoke run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package pkg-repository-smoke signed-development-repository-smoke vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
+.PHONY: help check-host bootstrap configure build test welcome-app-test qml-surface-test image-input-test runtime-bundle-test nested-wayfire-package-test image-assembler-test image-boot-smoke-test image-update-rollback-gate-test capture-runtime-bundle prepare-image-inputs validation-deployment-audit update-helper-test update-broker-smoke transactional-update-smoke run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package pkg-repository-smoke signed-development-repository-smoke vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
 
 MANIFEST ?= packaging/manifests/bootstrap-packages.txt
 NORTHSTAR_USER ?=
@@ -41,6 +41,7 @@ help:
 	@printf '%s\n' '  make nested-wayfire-package-test  Test scfb compatibility packaging'
 	@printf '%s\n' '  make image-assembler-test  Test privileged QCOW2 input preflight'
 	@printf '%s\n' '  make image-boot-smoke-test  Test snapshot-only QCOW2 boot-smoke contract'
+	@printf '%s\n' '  make image-update-rollback-gate-test  Test the reboot-spanning image update gate'
 	@printf '%s\n' '  make capture-runtime-bundle  Capture accepted installed runtime packages'
 	@printf '%s\n' '  make prepare-image-inputs  Verify staged M5 artifacts and record provenance'
 	@printf '%s\n' '  make validation-deployment-audit  Audit the canonical VM deployment (read-only)'
@@ -92,6 +93,7 @@ test:
 	@sh tests/unit/test-runtime-bundle.sh
 	@sh tests/unit/test-nested-wayfire-package.sh
 	@sh tests/unit/test-image-assembler.sh
+	@sh tests/unit/test-image-update-rollback-gate.sh
 	@$(MAKE) build
 	@sh tests/unit/test-session-entrypoint.sh "$(BUILD_DIR)"
 	@ctest --test-dir "$(BUILD_DIR)" --output-on-failure
@@ -116,6 +118,9 @@ image-assembler-test:
 
 image-boot-smoke-test:
 	@sh tests/unit/test-image-boot-smoke.sh
+
+image-update-rollback-gate-test:
+	@sh tests/unit/test-image-update-rollback-gate.sh
 
 capture-runtime-bundle:
 	@sh image/scripts/capture-runtime-bundle.sh \

@@ -32,3 +32,10 @@ an untracked user-home dependency.
 with fixture release sets and package artifacts, including tamper rejection.
 The production path additionally requires root, FreeBSD, a protected
 disposable-builder marker, and a newly allocated file-backed md device.
+PR77 adds `unit/test-image-update-rollback-gate.sh` and the installed-image
+`image/scripts/validate-image-update-rollback.sh` acceptance driver. The unit
+test simulates both reboot boundaries. Production use is root-only, requires
+the installed-image marker and a separate `/home` dataset, and must run only on
+a disposable VM restored from the accepted QCOW2. It proves injected package
+failure recovery, an actual N-1 to N transaction, explicit boot-environment
+rollback, and preservation of a `/home` sentinel.
