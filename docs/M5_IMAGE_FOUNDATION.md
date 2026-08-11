@@ -60,3 +60,10 @@ The command runs with `snapshot=on`, a private user network, TCG, and no host
 port forwarding. It refuses existing output paths and records the source-image
 and serial-log digests. The source QCOW2 and firmware templates remain
 unchanged.
+
+The normal image keeps the initial `northstar` account locked pending a future
+first-boot account workflow. The explicit `--development-autologin` option
+instead enables a passwordless local account so SDDM's FreeBSD PAM account
+check can enter the compatibility session. This is recorded in image
+provenance and is never enabled implicitly. OpenSSH continues to reject empty
+password authentication.

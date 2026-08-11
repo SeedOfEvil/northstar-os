@@ -46,3 +46,10 @@ promoted, import a copy of the QCOW2 into a separate Proxmox VM and validate the
 branded greeter, Northstar session, 1280x800 interaction, clean shutdown, and
 image-local update/rollback. This keeps serial boot evidence distinct from the
 graphical product gate.
+
+The first VM 104 import reached the branded greeter and exposed a development
+image defect: the requested SDDM autologin account remained locked by the base
+image policy. PR76 now unlocks that account only when
+`--development-autologin` is explicit and records the passwordless-local policy
+in image provenance. A rebuilt artifact must repeat boot and graphical
+validation before promotion.

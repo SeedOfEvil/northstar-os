@@ -32,6 +32,14 @@ grep -F 'offline package bootstrap did not converge after three passes' "$ASSEMB
     printf 'FAIL: assembler omits bounded offline package convergence\n' >&2
     exit 1
 }
+grep -F 'pw -R "$MOUNT_ROOT" usermod northstar -w none' "$ASSEMBLER" >/dev/null || {
+    printf 'FAIL: development autologin does not unlock its local image account\n' >&2
+    exit 1
+}
+grep -F 'development_passwordless_local_account=$DEVELOPMENT_AUTOLOGIN' "$ASSEMBLER" >/dev/null || {
+    printf 'FAIL: image provenance omits the development local-account policy\n' >&2
+    exit 1
+}
 if grep -F 'pkg -r "$MOUNT_ROOT"' "$ASSEMBLER" >/dev/null; then
     printf 'FAIL: assembler still uses host-rooted pkg installation\n' >&2
     exit 1

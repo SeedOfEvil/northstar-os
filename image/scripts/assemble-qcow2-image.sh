@@ -342,6 +342,10 @@ if [ ! -e "$MOUNT_ROOT/usr/local/bin/sddm-greeter" ] && \
     ln -s sddm-greeter-qt6 "$MOUNT_ROOT/usr/local/bin/sddm-greeter"
 fi
 if [ "$DEVELOPMENT_AUTOLOGIN" -eq 1 ]; then
+    # The default image account remains locked. The explicit development lane
+    # unlocks only the local empty-password account required by SDDM's
+    # pam_login account check; sshd still rejects empty-password authentication.
+    pw -R "$MOUNT_ROOT" usermod northstar -w none
     cat > "$MOUNT_ROOT/usr/local/etc/sddm.conf.d/30-northstar-development-autologin.conf" <<'EOF'
 [Autologin]
 User=northstar
@@ -355,6 +359,7 @@ printf '%s\n' \
     'image_channel=development' \
     "project_commit=$PROJECT_COMMIT" \
     "development_autologin=$DEVELOPMENT_AUTOLOGIN" \
+    "development_passwordless_local_account=$DEVELOPMENT_AUTOLOGIN" \
     > "$MOUNT_ROOT/var/db/northstar/image-build.conf"
 
 umount "$MOUNT_ROOT/dev"
