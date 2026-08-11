@@ -41,6 +41,7 @@ case "${1-}" in
                 %n) printf '%s\n' "$name" ;;
                 '%n|%v') printf '%s|%s\n' "$name" "$version" ;;
                 '%n|%v|%o') printf '%s|%s|%s\n' "$name" "$version" "$origin" ;;
+                '%At=%Av') printf '%s\n' 'ports_top_git_hash=fixture' ;;
                 *) exit 4 ;;
             esac
         elif [ "${2-}" = -e ]; then
@@ -60,6 +61,7 @@ case "${1-}" in
                         *) exit 6 ;;
                     esac
                     ;;
+                '%At=%Av') printf '%s\n' 'ports_top_git_hash=fixture' ;;
                 *) exit 5 ;;
             esac
         else

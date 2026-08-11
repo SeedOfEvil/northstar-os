@@ -121,7 +121,10 @@ find "$PACKAGE_CACHE" -type f -name '*.pkg' -print | while IFS= read -r package_
     printf '%s\n' "$name" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9+_.-]*$' || exit 34
     printf '%s\n' "$version" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9+_.~,:-]*$' || exit 35
     digest=$(sha256 -q "$package_path")
-    printf '%s|%s|%s|%s\n' "$name" "$version" "$digest" "$package_path"
+    annotation_sha=$(pkg query -F "$package_path" '%At=%Av' | sort | sha256 -q) \
+        || exit 36
+    printf '%s|%s|%s|%s|%s\n' \
+        "$name" "$version" "$annotation_sha" "$digest" "$package_path"
 done | sort > "$cache_records" || die 'package cache contains unsafe metadata'
 
 while IFS= read -r package_name; do
@@ -132,8 +135,11 @@ while IFS= read -r package_name; do
             || die "cannot read installed version: $package_name"
         printf '%s\n' "$installed_version" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9+_.~,:-]*$' \
             || die "installed package version is unsafe: $package_name"
-        match_digest_count=$(awk -F'|' -v name="$package_name" -v version="$installed_version" '
-            $1 == name && $2 == version { seen[$3]=1 }
+        installed_annotation_sha=$(pkg query -e "%n = '$package_name'" '%At=%Av' \
+            | sort | sha256 -q) || die "cannot hash installed package annotations: $package_name"
+        match_digest_count=$(awk -F'|' -v name="$package_name" \
+            -v version="$installed_version" -v annotation="$installed_annotation_sha" '
+            $1 == name && $2 == version && $3 == annotation { seen[$4]=1 }
             END { for (digest in seen) count++; print count + 0 }
         ' "$cache_records")
         if [ "$match_digest_count" -eq 0 ]; then
@@ -142,7 +148,9 @@ while IFS= read -r package_name; do
                 || die "uncached installed package cannot be recreated: $package_name-$installed_version"
         elif [ "$match_digest_count" -eq 1 ]; then
             package_path=$(awk -F'|' -v name="$package_name" -v version="$installed_version" \
-                '$1 == name && $2 == version { print $4; exit }' "$cache_records")
+                -v annotation="$installed_annotation_sha" \
+                '$1 == name && $2 == version && $3 == annotation { print $5; exit }' \
+                "$cache_records")
             filename=$(basename "$package_path")
             [ ! -e "$STAGING/packages/$filename" ] \
                 || die "runtime package filename is duplicated: $filename"
