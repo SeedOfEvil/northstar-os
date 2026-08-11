@@ -36,7 +36,22 @@ disposable import of the accepted image.
 
 ## Disposable-image evidence
 
-Pending. Record the exact QCOW2 SHA-256, PR77 source commit, candidate package
-and signed repository provenance, boot-environment transitions, package
-versions, home-sentinel digest, and final `stage=passed` result here before
-promotion.
+The first disposable execution exposed an image-layout defect and is retained
+as failed evidence rather than promoted:
+
+- injected package failure created and activated
+  `northstar-before-development-r79-1bf935dd2bbf`; reboot restored the baseline
+  and preserved the home sentinel;
+- the real signed transaction upgraded `0.1.4` to `0.1.5` and explicit rollback
+  activated the same verified pre-update environment;
+- after reboot, `/usr/local/bin/northstar-shell` matched the accepted `0.1.4`
+  SHA-256 `6f836f14774ebd76ddbdfa56685e37626a4a8121d0a383358a75ab8143065ddb`,
+  proving root files rolled back;
+- `pkg` still reported `0.1.5` because `/var/db/pkg/local.sqlite` lived on the
+  shared `nstar_41d1b8ba8f8b/var` dataset and retained its post-update state.
+
+PR77 therefore removes the separate `/var` dataset from image assembly and
+requires `/var` to resolve to the active root boot-environment dataset before
+the destructive gate may start. A rebuilt QCOW2 must repeat the complete
+failure, update, rollback, and home-preservation sequence and reach
+`stage=passed` before promotion.

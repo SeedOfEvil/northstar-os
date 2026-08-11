@@ -83,3 +83,9 @@ fallback can paint through `scfb` without that driver, but Proxmox's emulated
 keyboard and QEMU USB Tablet do not become usable Xorg input devices until the
 driver is installed. A painted desktop is therefore not sufficient image
 acceptance; pointer and keyboard interaction are required.
+
+The root boot environment owns `/var`, including `/var/db/pkg`. `/home` remains
+a separate persistent dataset and `/tmp` remains separately constrained. A
+shared `/var` is forbidden because a boot-environment rollback would restore
+package files beneath `/usr/local` while leaving the package database at the
+newer version, producing a split and unverifiable system state.

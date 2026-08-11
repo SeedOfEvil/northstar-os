@@ -55,8 +55,11 @@ require_production_boundary() {
     case "$STATE_DIR" in /home/*) ;; *) fail "$EX_NOPERM" 'validation state must remain beneath /home' ;; esac
     root_dataset=$(df -T / 2>/dev/null | awk 'NR == 2 { print $1 }')
     home_dataset=$(df -T /home 2>/dev/null | awk 'NR == 2 { print $1 }')
+    var_dataset=$(df -T /var 2>/dev/null | awk 'NR == 2 { print $1 }')
     [ -n "$root_dataset" ] && [ -n "$home_dataset" ] && [ "$root_dataset" != "$home_dataset" ] ||
         fail "$EX_NOPERM" '/home must be a separate dataset so rollback preserves evidence'
+    [ -n "$var_dataset" ] && [ "$var_dataset" = "$root_dataset" ] ||
+        fail "$EX_NOPERM" '/var must belong to the root boot environment so package state rolls back'
 }
 
 require_state_boundary() {

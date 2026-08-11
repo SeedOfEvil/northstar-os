@@ -16,6 +16,7 @@ not yet contain it. It refuses to run unless all of these are true:
 - `/var/db/northstar/image-build.conf` identifies an assembled image;
 - the state path is beneath `/home`;
 - `/home` and `/` are different datasets; and
+- `/var` and `/` are the same boot-environment dataset; and
 - `pkg`, `bectl`, and the fixed Northstar transaction runner are executable.
 
 The state directory is root-owned mode `0700`; state and the home sentinel are
