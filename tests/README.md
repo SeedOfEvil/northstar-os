@@ -15,3 +15,7 @@ PR73 adds `vm/signed-development-repository-smoke.sh`. It packages the real
 Northstar install tree, publishes it through external disposable signers and a
 resolved input lock, proves an isolated `pkg` client refreshes it, and requires
 altered signed catalogues to be rejected without package mutation.
+PR74 adds `vm/transactional-update-smoke.sh`, which uses isolated fake broker,
+helper, and package-manager boundaries to prove create-before-mutation ordering,
+post-update verification, explicit rollback, failure-triggered rollback, and
+home-data preservation without touching the host package database or ZFS tree.

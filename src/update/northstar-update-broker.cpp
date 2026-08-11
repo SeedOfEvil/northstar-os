@@ -289,7 +289,13 @@ int main(int argc, char **argv)
         << "STAGED: " << requestPath << Qt::endl
         << "boot_environment=" << authorization.bootEnvironmentName() << Qt::endl
         << "updates=" << plan.updateCount() << Qt::endl
-        << "installs=" << plan.installCount() << Qt::endl
-        << "No pkg or bectl command was run." << Qt::endl;
+        << "installs=" << plan.installCount() << Qt::endl;
+    QTextStream output(stdout);
+    for (const QVariant &entry : plan.packageProvenance()) {
+        const QVariantMap package = entry.toMap();
+        output << "target_package=" << package.value(QStringLiteral("name")).toString()
+               << '|' << package.value(QStringLiteral("version")).toString() << Qt::endl;
+    }
+    output << "No pkg or bectl command was run." << Qt::endl;
     return 0;
 }

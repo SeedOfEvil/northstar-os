@@ -239,6 +239,8 @@ state, validation result, and any gate that remains open.
 | M4 package trust | Pinned Ports/Poudriere inputs, an actual signed repository publication, package provenance, read-only/update-preview behavior, and no unauthorized mutation; policy, fingerprint-store, catalogue-integrity, publication-signature verification, and native `pkg` publication/client smoke foundations are implemented |
 | M4 signed development channel | A native Northstar `.pkg` is published from resolved FreeBSD, Ports, dependency, and project inputs; signing keys remain external; the output records package versions, source-lock/manifest/catalogue digests, and fingerprint provenance; an isolated client accepts the authentic repository and rejects altered signed catalogues; Software Center exposes verified provenance without enabling mutation |
 | M4 update/rollback | Read-only authorization preflight, independent broker verification, bounded root-owned update-helper request contract, N-1 to N upgrade, pre-upgrade `bectl` environment, rollback to the prior environment, package/shell recovery, and home-data preservation |
+| M4 transactional runner | Fixed PolicyKit executable; broker-derived package targets only; boot environment created before `pkg`; target versions verified; failures schedule rollback; explicit rollback uses root-owned state; reboot requirement is visible |
+| VM deployment hygiene | Root-owned schema-2 deployment manifest; clean canonical checkout at the pushed commit; one canonical build; immutable current and previous signed revisions; older state quarantined; strict read-only deployment audit passes before and after handoff |
 | M5 image | Reproducible clean builder, checksums, UEFI GPT/root-on-ZFS installation, first boot, and update/rollback from the produced image |
 | M6 alpha | VM plus declared Intel/AMD hardware matrix, graphics/login, applications, diagnostics, crash recovery, update, rollback, and clean shutdown |
 
@@ -286,6 +288,17 @@ paths clean up their package files, repository metadata, keys, and trust store;
 neither path performs package mutation or installs repository configuration.
 This gate does not substitute for protected Poudriere publication, key
 custody, or the M4 update/rollback gate.
+
+Every persistent Proxmox handoff must also follow
+[`docs/VM_VALIDATION_DEPLOYMENT.md`](VM_VALIDATION_DEPLOYMENT.md) and pass:
+
+```sh
+make validation-deployment-audit
+```
+
+The auditor is deliberately read-only. A failed audit blocks handoff or merge;
+it never authorizes deletion of historical checkouts, builds, repositories,
+signing identities, snapshots, or boot environments.
 
 ## Release gate
 

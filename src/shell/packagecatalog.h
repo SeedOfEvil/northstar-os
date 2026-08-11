@@ -19,7 +19,7 @@ class PackageCatalog final : public QObject
     Q_PROPERTY(QVariantList matchingPackages READ matchingPackages NOTIFY matchingPackagesChanged)
     Q_PROPERTY(QString query READ query WRITE setQuery NOTIFY queryChanged)
     Q_PROPERTY(bool available READ available CONSTANT)
-    Q_PROPERTY(bool refreshing READ refreshing NOTIFY statusChanged)
+    Q_PROPERTY(bool refreshing READ refreshing NOTIFY refreshingChanged)
     Q_PROPERTY(QString statusMessage READ statusMessage NOTIFY statusChanged)
     Q_PROPERTY(QString packageManagerPath READ packageManagerPath CONSTANT)
     Q_PROPERTY(int installedCount READ installedCount NOTIFY packagesChanged)
@@ -52,6 +52,7 @@ signals:
     void matchingPackagesChanged();
     void queryChanged();
     void statusChanged();
+    void refreshingChanged();
 
 private:
     static QVariantList toVariantList(const QList<InstalledPackage> &packages);

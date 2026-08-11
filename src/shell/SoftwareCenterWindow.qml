@@ -27,6 +27,12 @@ Window {
     property int minimumSurfaceHeight: 500
     property bool dragging: false
     property bool maximized: false
+    property int lastTransactionResult: 0
+    property string authorizationStatusText: !software.updateAuthorization
+        ? "Update authorization is unavailable."
+        : software.updateAuthorization.transactionStatus.length > 0
+            ? software.updateAuthorization.transactionStatus
+            : software.updateAuthorization.status
     property point normalGeometryPosition: Qt.point(0, 0)
     property size normalGeometrySize: Qt.size(0, 0)
     property var selectedPackage: null
@@ -67,6 +73,28 @@ Window {
     onActiveChanged: {
         if (active && visible) {
             searchField.forceActiveFocus()
+        }
+    }
+
+    Connections {
+        target: software.updateAuthorization
+
+        function onTransactionFinished(success) {
+            software.lastTransactionResult = success ? 1 : -1
+            if (success && software.packageCatalog) {
+                software.packageCatalog.refresh()
+            }
+            if (software.updatePlan && software.packageCatalog) {
+                software.updatePlan.reload()
+                software.updatePlan.preview(software.packageCatalog.packages)
+            }
+            updatePlanDialog.open()
+        }
+
+        function onTransactionStateChanged() {
+            if (software.updateAuthorization && software.updateAuthorization.transactionBusy) {
+                software.lastTransactionResult = 0
+            }
         }
     }
 
@@ -635,8 +663,10 @@ Window {
             }
 
             Rectangle {
+                id: updateSafetyCard
                 color: software.surfaceRaised
-                height: 72
+                height: software.authorizationStatusText.indexOf("\n") >= 0
+                    || software.lastTransactionResult !== 0 ? 142 : 72
                 radius: 8
                 width: parent.width
 
@@ -670,27 +700,43 @@ Window {
                             Text {
                                 color: !software.updateAuthorization
                                     ? software.surfaceMuted
-                                    : software.updateAuthorization.preflightValid
-                                        ? "#f0b45a" : "#c34f65"
+                                    : software.updateAuthorization.transactionBusy
+                                        ? "#f0b45a"
+                                        : software.updateAuthorization.preflightValid
+                                            && software.updateAuthorization.authorizationAvailable
+                                            ? "#55c58a" : "#c34f65"
                                 font.bold: true
                                 font.pixelSize: 13
                                 text: !software.updateAuthorization
                                     ? "Unavailable"
-                                    : software.updateAuthorization.authorizationAvailable
-                                        ? "Authorized"
-                                        : software.updateAuthorization.preflightValid
-                                            ? "Preflight only" : "Blocked"
+                                    : software.updateAuthorization.transactionBusy
+                                        ? "Working"
+                                        : software.updateAuthorization.authorizationAvailable
+                                            && software.updateAuthorization.preflightValid
+                                            ? "Ready"
+                                            : software.updateAuthorization.preflightValid
+                                                ? "Preflight only" : "Blocked"
                             }
                         }
 
-                        Text {
-                            color: software.surfaceMuted
-                            elide: Text.ElideRight
-                            font.pixelSize: 11
-                            text: software.updateAuthorization
-                                ? software.updateAuthorization.status
-                                : "Update authorization is unavailable."
+                        ScrollView {
+                            id: updateStatusView
+                            clip: true
+                            height: updateSafetyCard.height - 40
                             width: parent.width
+                            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                            ScrollBar.vertical.policy: ScrollBar.AsNeeded
+
+                            Text {
+                                color: software.lastTransactionResult > 0
+                                    ? "#2f8f65"
+                                    : software.lastTransactionResult < 0
+                                        ? "#c34f65" : software.surfaceMuted
+                                font.pixelSize: 11
+                                text: software.authorizationStatusText
+                                width: updateStatusView.availableWidth
+                                wrapMode: Text.WrapAnywhere
+                            }
                         }
                     }
                 }
@@ -1057,14 +1103,17 @@ Window {
                 color: software.surfaceForeground
                 font.bold: true
                 font.pixelSize: 18
-                text: "Review only"
+                text: software.lastTransactionResult > 0
+                    ? "Update completed"
+                    : software.lastTransactionResult < 0
+                        ? "Update did not complete" : "Review only"
             }
 
             Rectangle {
                 color: software.surfaceRaised
                 radius: 8
                 width: parent.width
-                height: 66
+                height: software.lastTransactionResult !== 0 ? 150 : 66
 
                 Column {
                     anchors.fill: parent
@@ -1072,18 +1121,33 @@ Window {
                     spacing: 4
 
                     Text {
-                        color: "#70d6a6"
+                        color: software.lastTransactionResult < 0 ? "#c34f65" : "#70d6a6"
                         font.bold: true
                         font.pixelSize: 12
-                        text: "No changes have been made"
+                        text: software.lastTransactionResult > 0
+                            ? "Protected transaction completed successfully"
+                            : software.lastTransactionResult < 0
+                                ? "Protected transaction requires attention"
+                                : "No changes have been made yet"
                     }
 
-                    Text {
-                        color: software.surfaceMuted
-                        font.pixelSize: 11
-                        text: "This review reads trust and update state only. It does not invoke pkg, write repository configuration, or create a boot environment."
+                    ScrollView {
+                        id: resultStatusView
+                        clip: true
+                        height: parent.height - 26
                         width: parent.width
-                        wrapMode: Text.WordWrap
+                        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                        ScrollBar.vertical.policy: ScrollBar.AsNeeded
+
+                        Text {
+                            color: software.surfaceMuted
+                            font.pixelSize: 11
+                            text: software.lastTransactionResult !== 0
+                                ? software.authorizationStatusText
+                                : "Review is read-only. Applying requires a verified plan, a protected transaction service, explicit confirmation, and PolicyKit authorization."
+                            width: resultStatusView.availableWidth
+                            wrapMode: Text.WrapAnywhere
+                        }
                     }
                 }
             }
@@ -1183,7 +1247,10 @@ Window {
                     elide: Text.ElideRight
                     font.pixelSize: 11
                     text: software.updateAuthorization
-                        ? software.updateAuthorization.status : "Authorization preflight unavailable."
+                        ? (software.updateAuthorization.transactionStatus.length > 0
+                            ? software.updateAuthorization.transactionStatus
+                            : software.updateAuthorization.status)
+                        : "Authorization preflight unavailable."
                     width: updatePlanDialog.width - 220
                 }
             }
@@ -1259,10 +1326,79 @@ Window {
                 wrapMode: Text.WordWrap
             }
 
-            Button {
-                enabled: false
-                text: "Apply Update (protected)"
+            Row {
+                spacing: 10
+
+                Button {
+                    enabled: !!software.updateAuthorization
+                        && software.updateAuthorization.authorizationAvailable
+                        && software.updateAuthorization.preflightValid
+                        && !software.updateAuthorization.transactionBusy
+                        && !!software.updatePlan
+                        && (software.updatePlan.updateCount + software.updatePlan.installCount) > 0
+                    text: software.updateAuthorization && software.updateAuthorization.transactionBusy
+                        ? "Update in progress..." : "Apply Verified Update"
+                    onClicked: updateConfirmationDialog.open()
+                }
+
+                Button {
+                    enabled: !!software.updateAuthorization
+                        && software.updateAuthorization.authorizationAvailable
+                        && !software.updateAuthorization.transactionBusy
+                    text: "Schedule Rollback"
+                    onClicked: rollbackConfirmationDialog.open()
+                }
             }
+        }
+    }
+
+    Dialog {
+        id: updateConfirmationDialog
+        title: "Apply verified update?"
+        modal: true
+        standardButtons: Dialog.Yes | Dialog.No
+        width: Math.min(500, software.width - 48)
+        x: (software.width - width) / 2
+        y: (software.height - height) / 2
+
+        Text {
+            color: software.surfaceForeground
+            text: "Northstar will create '" + (software.updateAuthorization
+                ? software.updateAuthorization.bootEnvironmentName : "")
+                + "' before updating. PolicyKit administrator authorization is required."
+            width: parent.width
+            wrapMode: Text.WordWrap
+        }
+
+        onAccepted: {
+            if (software.updateAuthorization) {
+                software.updateAuthorization.applyUpdate()
+            }
+            updatePlanDialog.close()
+        }
+    }
+
+    Dialog {
+        id: rollbackConfirmationDialog
+        title: "Schedule rollback?"
+        modal: true
+        standardButtons: Dialog.Yes | Dialog.No
+        width: Math.min(500, software.width - 48)
+        x: (software.width - width) / 2
+        y: (software.height - height) / 2
+
+        Text {
+            color: software.surfaceForeground
+            text: "The last verified pre-update boot environment will be activated for the next reboot. Home data is stored outside the root boot environment."
+            width: parent.width
+            wrapMode: Text.WordWrap
+        }
+
+        onAccepted: {
+            if (software.updateAuthorization) {
+                software.updateAuthorization.scheduleRollback()
+            }
+            updatePlanDialog.close()
         }
     }
 

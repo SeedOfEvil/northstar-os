@@ -14,11 +14,14 @@ SKIP_DBUS=${NORTHSTAR_SESSION_SKIP_DBUS:-0}
 DBUS_RUNNER=${NORTHSTAR_SESSION_DBUS_RUNNER:-dbus-run-session}
 COMPOSITOR=${NORTHSTAR_SESSION_COMPOSITOR:-wayfire}
 SHELL_COMMAND=${NORTHSTAR_SESSION_SHELL:-northstar-shell}
+AUTH_AGENT=${NORTHSTAR_SESSION_AUTH_AGENT:-lxqt-policykit-agent}
+SKIP_AUTH_AGENT=${NORTHSTAR_SESSION_SKIP_AUTH_AGENT:-0}
 MAX_SHELL_RESTARTS=${NORTHSTAR_SESSION_MAX_SHELL_RESTARTS:-3}
 RESTART_DELAY=${NORTHSTAR_SESSION_RESTART_DELAY:-1}
 READY_TIMEOUT=${NORTHSTAR_SESSION_READY_TIMEOUT:-10}
 SHELL_PID=
 COMPOSITOR_PID=
+AUTH_AGENT_PID=
 SHUTDOWN_REQUESTED=0
 LOCK_DIR=
 LOCK_ACQUIRED=0
@@ -37,6 +40,8 @@ compositor, and supervises the configured shell.
 Environment:
   NORTHSTAR_SESSION_COMPOSITOR       compositor command (default: wayfire)
   NORTHSTAR_SESSION_SHELL             shell command (default: northstar-shell)
+  NORTHSTAR_SESSION_AUTH_AGENT        PolicyKit agent command (default: lxqt-policykit-agent)
+  NORTHSTAR_SESSION_SKIP_AUTH_AGENT=1 do not start a graphical PolicyKit agent
   NORTHSTAR_SESSION_MAX_SHELL_RESTARTS  crash restart limit (default: 3)
   NORTHSTAR_SESSION_READY_TIMEOUT     compositor socket wait in seconds (default: 10)
   NORTHSTAR_SESSION_WAYLAND_DISPLAY   optional socket name override
@@ -86,6 +91,10 @@ case "$RESTART_DELAY" in
 esac
 case "$READY_TIMEOUT" in
     ''|*[!0-9]*) die 'NORTHSTAR_SESSION_READY_TIMEOUT must be a non-negative integer' ;;
+esac
+case "$SKIP_AUTH_AGENT" in
+    0|1) ;;
+    *) die 'NORTHSTAR_SESSION_SKIP_AUTH_AGENT must be 0 or 1' ;;
 esac
 
 if [ -z "${XDG_RUNTIME_DIR:-}" ]; then
@@ -219,6 +228,13 @@ stop_children() {
         wait "$SHELL_PID" 2>/dev/null || true
         SHELL_PID=
     fi
+    if [ -n "$AUTH_AGENT_PID" ]; then
+        if kill -0 "$AUTH_AGENT_PID" 2>/dev/null; then
+            kill -TERM "$AUTH_AGENT_PID" 2>/dev/null || true
+        fi
+        wait "$AUTH_AGENT_PID" 2>/dev/null || true
+        AUTH_AGENT_PID=
+    fi
     if [ -n "$COMPOSITOR_PID" ]; then
         if kill -0 "$COMPOSITOR_PID" 2>/dev/null; then
             kill -TERM "$COMPOSITOR_PID" 2>/dev/null || true
@@ -305,6 +321,22 @@ log_message 'Compositor started; waiting for its Wayland socket'
 wait_for_wayland
 write_status 'running' 'wayland-ready'
 log_message "Wayland socket ready: $WAYLAND_SOCKET (WAYLAND_DISPLAY=$WAYLAND_DISPLAY)"
+
+if [ "$SKIP_AUTH_AGENT" -eq 0 ]; then
+    auth_agent_path=$(command -v "$AUTH_AGENT" 2>/dev/null || true)
+    if [ -n "$auth_agent_path" ]; then
+        "$auth_agent_path" >> "$SESSION_LOG" 2>&1 &
+        AUTH_AGENT_PID=$!
+        if kill -0 "$AUTH_AGENT_PID" 2>/dev/null; then
+            log_message "PolicyKit authentication agent started: $auth_agent_path"
+        else
+            AUTH_AGENT_PID=
+            log_message "PolicyKit authentication agent exited during startup: $auth_agent_path"
+        fi
+    else
+        log_message "PolicyKit authentication agent unavailable: $AUTH_AGENT"
+    fi
+fi
 
 restart_count=0
 session_status=0

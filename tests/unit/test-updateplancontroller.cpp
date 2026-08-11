@@ -5,6 +5,7 @@
 #include <QCryptographicHash>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -350,11 +351,18 @@ void UpdatePlanControllerTest::verifiesTrustedRsaSignature()
     QVERIFY(authorization.preflightValid());
     QVERIFY(authorization.bectlAvailable());
     QVERIFY(authorization.zfsAvailable());
-    QVERIFY(!authorization.authorizationAvailable());
+    const bool protectedServiceInstalled =
+        QFileInfo(QStringLiteral("/usr/local/libexec/northstar-update-transaction")).isExecutable()
+        && QFileInfo(QStringLiteral("/usr/local/libexec/northstar-update-broker")).isExecutable()
+        && !QStandardPaths::findExecutable(QStringLiteral("pkexec")).isEmpty();
+    QCOMPARE(authorization.authorizationAvailable(), protectedServiceInstalled);
     QCOMPARE(authorization.bootEnvironmentName(),
              QStringLiteral("northstar-before-development-r42-abcdef1"));
-    QVERIFY(authorization.status().contains(QStringLiteral("not connected"), Qt::CaseInsensitive));
-    QVERIFY(authorization.plan().contains(QStringLiteral("Would create boot environment"),
+    QVERIFY(authorization.status().contains(
+        protectedServiceInstalled ? QStringLiteral("ready")
+                                  : QStringLiteral("protected transaction service"),
+        Qt::CaseInsensitive));
+    QVERIFY(authorization.plan().contains(QStringLiteral("Create boot environment"),
                                            Qt::CaseInsensitive));
 
     UpdateAuthorizationController missingTools(&trustController,
