@@ -15,8 +15,24 @@ disposable import of the accepted image.
   and home-sentinel preservation.
 - The production driver requires root, FreeBSD, the installed-image marker,
   and a separate `/home` dataset.
-- The full repository test suite, immutable FreeBSD archive build, and native
-  package publication remain pending.
+- The exact source archive for commit
+  `1bf935dd2bbfe3e81d77d9dc81e9cec2fed903db` had SHA-256
+  `71fd055b5df417fb6e55e32bc6c77df5a2822d9e844c67ff5eeea594608f246e`.
+  It completed the full native script gate and all 22 Qt/CTest targets on
+  `NSTAR-DEV01` without using the canonical build tree.
+- The immutable source produced `northstar-0.1.5-amd64.pkg`, origin
+  `x11/northstar`, SHA-256
+  `80ae5d7d337c7bd6ea90aa1876bc2a5c4158d050a01ece62e890aa4b9b9da193`.
+  Its package manifest includes the installed image acceptance driver.
+- Signed development repository revision 79 records catalogue SHA-256
+  `2885f81f6296f1f6337ad059494de971eeef18f3fe10fb5f15bd99ceff850f20`,
+  metadata SHA-256
+  `8bec63b4757e77741ef62bc51709763ef272901447f86355b30c105a84189c2e`,
+  and fingerprint
+  `cb4ef72e20b344943e986175e7fa5ecb0957d17780b299f44f8dec981f961a24`.
+  An isolated client accepted exactly Northstar `0.1.5`; the package also
+  passed the standard altered-catalogue rejection smoke. Disposable private
+  signing material was removed after publication.
 
 ## Disposable-image evidence
 
