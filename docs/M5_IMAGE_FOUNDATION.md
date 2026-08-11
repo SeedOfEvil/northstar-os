@@ -39,5 +39,24 @@ deterministic output, immutable output refusal, and rejection of tampered,
 unresolved, duplicate, unknown, missing, symlinked, or incorrectly sized
 inputs. It does not close the M5 image gate.
 
-PR76 will add the disposable privileged assembler, UEFI GPT/root-on-ZFS layout,
-QCOW2 conversion, checksum/provenance output, and QEMU/Proxmox boot smoke.
+PR76 adds the disposable privileged assembler, UEFI GPT/root-on-ZFS layout,
+offline exact-package installation, QCOW2 conversion, checksum/provenance
+output, and a bounded snapshot-only QEMU boot smoke. The automated smoke
+requires serial evidence for UEFI boot, ZFS root mount, rc startup, and the
+multi-user login prompt. It deliberately does not claim graphical acceptance;
+the branded greeter and Northstar shell remain a focused Proxmox/noVNC gate.
+
+Run the boot smoke on a disposable FreeBSD builder with headless QEMU and EDK2:
+
+```sh
+image/scripts/boot-smoke-qcow2.sh \
+  --image /path/to/northstar-15.1-amd64.qcow2 \
+  --firmware-code /usr/local/share/edk2-qemu/QEMU_UEFI_CODE-x86_64.fd \
+  --firmware-vars /usr/local/share/edk2-qemu/QEMU_UEFI_VARS-x86_64.fd \
+  --output /new/boot-smoke-evidence
+```
+
+The command runs with `snapshot=on`, a private user network, TCG, and no host
+port forwarding. It refuses existing output paths and records the source-image
+and serial-log digests. The source QCOW2 and firmware templates remain
+unchanged.

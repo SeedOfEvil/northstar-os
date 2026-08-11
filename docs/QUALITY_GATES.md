@@ -243,6 +243,7 @@ state, validation result, and any gate that remains open.
 | VM deployment hygiene | Root-owned schema-2 deployment manifest; clean canonical checkout at the pushed commit; one canonical build; immutable current and previous signed revisions; older state quarantined; strict read-only deployment audit passes before and after handoff |
 | M5 image | Reproducible clean builder, checksums, UEFI GPT/root-on-ZFS installation, first boot, and update/rollback from the produced image |
 | M5 image inputs | Exact FreeBSD release-set names/sizes/hashes, accepted Northstar package/repository provenance, explicit project commit, immutable resolved-input output, and rejection of unresolved or tampered inputs without root or disk mutation |
+| M5 QCOW2 boot smoke | `qemu-img check`, UEFI firmware, virtio disk, snapshot-only source protection, ZFS root-mount evidence, Northstar host identity, bounded multi-user login detection, serial-log digest, and no host port forwarding; graphical login remains a separate Proxmox/noVNC gate |
 | M6 alpha | VM plus declared Intel/AMD hardware matrix, graphics/login, applications, diagnostics, crash recovery, update, rollback, and clean shutdown |
 
 Hold a change when it depends on an unpinned dependency, requires broad root access, changes the FreeBSD base without a compelling reason, couples the shell to undocumented Wayfire internals, adds Apple-owned assets, or breaks the clean-build/clean-install lane.

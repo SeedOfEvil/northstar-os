@@ -301,7 +301,11 @@ PR75 establishes the non-privileged image-input boundary documented in
 release-set and accepted Northstar package provenance, immutable artifact
 verification, and deterministic resolved-input records. It intentionally does
 not mutate disks or claim a bootable artifact. PR76 consumes only those passed
-records on a disposable privileged builder.
+records on a disposable privileged builder. PR76 has now produced a verified
+16 GiB UEFI/GPT/root-on-ZFS QCOW2 from 235 exact offline packages and passed a
+snapshot-only QEMU first-boot smoke through the multi-user login prompt. The
+focused Proxmox import, branded graphical login, shell launch, and image-local
+update/rollback checks remain required before the M5 image gate closes.
 
 Pass only when clean builders produce recorded inputs and checksums, QEMU/Proxmox boots the image, the installer creates UEFI GPT/root-on-ZFS, first boot reaches graphical login and the shell, and update/rollback work after installation.
 
