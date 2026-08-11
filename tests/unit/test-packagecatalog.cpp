@@ -1,5 +1,7 @@
 #include "packagecatalog.h"
 
+#include <QSignalSpy>
+#include <QStandardPaths>
 #include <QtTest>
 
 class PackageCatalogTest final : public QObject
@@ -10,6 +12,7 @@ private slots:
     void parsesAndSortsPackageQueryOutput();
     void ignoresMalformedAndDuplicateRows();
     void filtersAcrossPackageFields();
+    void repeatedRefreshNotifiesCompletion();
 };
 
 void PackageCatalogTest::parsesAndSortsPackageQueryOutput()
@@ -48,6 +51,25 @@ void PackageCatalogTest::filtersAcrossPackageFields()
     QCOMPARE(PackageCatalog::filterPackages(packages, QStringLiteral("TERMINAL")).constFirst().name,
              QStringLiteral("qterminal"));
     QCOMPARE(PackageCatalog::filterPackages(packages, QString()).size(), 2);
+}
+
+void PackageCatalogTest::repeatedRefreshNotifiesCompletion()
+{
+    const QString echoPath = QStandardPaths::findExecutable(QStringLiteral("echo"));
+    if (echoPath.isEmpty()) {
+        QSKIP("echo is required for the package refresh signal test");
+    }
+
+    PackageCatalog catalog(echoPath);
+    QSignalSpy refreshingSpy(&catalog, &PackageCatalog::refreshingChanged);
+
+    QVERIFY(catalog.refresh());
+    QVERIFY(!catalog.refreshing());
+    QCOMPARE(refreshingSpy.count(), 2);
+
+    QVERIFY(catalog.refresh());
+    QVERIFY(!catalog.refreshing());
+    QCOMPARE(refreshingSpy.count(), 4);
 }
 
 QTEST_MAIN(PackageCatalogTest)

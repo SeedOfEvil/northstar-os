@@ -101,7 +101,7 @@ bool PackageCatalog::refresh()
     }
 
     m_refreshing = true;
-    emit statusChanged();
+    emit refreshingChanged();
 
     QProcess process;
     process.setProgram(m_packageManagerPath);
@@ -111,6 +111,7 @@ bool PackageCatalog::refresh()
 
     if (!process.waitForStarted(1500)) {
         m_refreshing = false;
+        emit refreshingChanged();
         setStatusMessage(QStringLiteral("Unable to start FreeBSD pkg."));
         return false;
     }
@@ -118,11 +119,13 @@ bool PackageCatalog::refresh()
         process.kill();
         process.waitForFinished(1000);
         m_refreshing = false;
+        emit refreshingChanged();
         setStatusMessage(QStringLiteral("FreeBSD pkg did not finish the inventory query."));
         return false;
     }
     if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0) {
         m_refreshing = false;
+        emit refreshingChanged();
         setStatusMessage(QStringLiteral("FreeBSD pkg could not read the installed package inventory."));
         return false;
     }
@@ -132,6 +135,7 @@ bool PackageCatalog::refresh()
     emit matchingPackagesChanged();
     m_lastRefresh = QDateTime::currentDateTime().toString(Qt::ISODate);
     m_refreshing = false;
+    emit refreshingChanged();
     setStatusMessage(m_packages.isEmpty()
             ? QStringLiteral("No installed packages were reported by FreeBSD pkg.")
             : QStringLiteral("%1 installed package%2 loaded.")
