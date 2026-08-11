@@ -7,6 +7,7 @@ set -eu
 
 ROOTS=
 NORTHSTAR_PACKAGE=
+PACKAGE_CACHE=
 OUTPUT=
 SOURCE_DATE_EPOCH=
 STAGING=
@@ -14,12 +15,13 @@ STAGING=
 usage() {
     cat <<'USAGE'
 Usage: capture-runtime-bundle.sh --roots FILE --northstar-package FILE \
+  --package-cache DIRECTORY \
   --source-date-epoch UNIX_SECONDS --output NEW_DIRECTORY
 
 All root packages must already be installed. Dependencies are traversed from
-the local pkg database, exact installed packages are recreated with pkg create,
-and the reviewed Northstar package is copied from its immutable publication.
-No package is downloaded or installed.
+the local pkg database and matched to exact-version artifacts in a previously
+staged package cache. The reviewed Northstar package is copied from its
+immutable publication. No package is downloaded, created, or installed.
 USAGE
 }
 
@@ -39,6 +41,7 @@ while [ "$#" -gt 0 ]; do
     case "$1" in
         --roots) ROOTS=${2-}; shift 2 ;;
         --northstar-package) NORTHSTAR_PACKAGE=${2-}; shift 2 ;;
+        --package-cache) PACKAGE_CACHE=${2-}; shift 2 ;;
         --source-date-epoch) SOURCE_DATE_EPOCH=${2-}; shift 2 ;;
         --output) OUTPUT=${2-}; shift 2 ;;
         --help|-h) usage; exit 0 ;;
@@ -54,6 +57,8 @@ done
 [ -f "$ROOTS" ] && [ ! -L "$ROOTS" ] || die 'roots must be a regular non-symlink file'
 [ -f "$NORTHSTAR_PACKAGE" ] && [ ! -L "$NORTHSTAR_PACKAGE" ] \
     || die 'Northstar package must be a regular non-symlink file'
+[ -d "$PACKAGE_CACHE" ] && [ ! -L "$PACKAGE_CACHE" ] \
+    || die 'package cache must be a real directory'
 [ -n "$OUTPUT" ] || die 'output is required'
 printf '%s\n' "$SOURCE_DATE_EPOCH" | grep -Eq '^[0-9]{10}$' \
     || die 'source-date-epoch must be ten decimal digits'
@@ -102,13 +107,38 @@ northstar_name=$(pkg query -F "$NORTHSTAR_PACKAGE" '%n') \
     || die 'cannot read Northstar package metadata'
 [ "$northstar_name" = northstar ] || die 'reviewed package is not named northstar'
 
+cache_records=$STAGING/cache-records
+: > "$cache_records"
+find "$PACKAGE_CACHE" -type f -name '*.pkg' -print | while IFS= read -r package_path; do
+    [ ! -L "$package_path" ] || exit 30
+    case "$package_path" in *'|'*) exit 31 ;; esac
+    metadata=$(pkg query -F "$package_path" '%n|%v') || exit 32
+    [ "$(printf '%s\n' "$metadata" | wc -l | tr -d ' ')" = 1 ] || exit 33
+    name=$(printf '%s' "$metadata" | awk -F'|' '{ print $1 }')
+    version=$(printf '%s' "$metadata" | awk -F'|' '{ print $2 }')
+    printf '%s\n' "$name" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9+_.-]*$' || exit 34
+    printf '%s\n' "$version" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9+_.~,:-]*$' || exit 35
+    printf '%s|%s|%s\n' "$name" "$version" "$package_path"
+done | sort > "$cache_records" || die 'package cache contains unsafe metadata'
+
 while IFS= read -r package_name; do
     if [ "$package_name" = northstar ]; then
         cp -p "$NORTHSTAR_PACKAGE" "$STAGING/packages/"
     else
-        pkg create -q -l 1 -T 2 -t "$SOURCE_DATE_EPOCH" \
-            -o "$STAGING/packages" "$package_name" \
-            || die "failed to recreate installed package: $package_name"
+        installed_version=$(pkg query -e "%n = '$package_name'" '%v') \
+            || die "cannot read installed version: $package_name"
+        printf '%s\n' "$installed_version" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9+_.~,:-]*$' \
+            || die "installed package version is unsafe: $package_name"
+        match_count=$(awk -F'|' -v name="$package_name" -v version="$installed_version" \
+            '$1 == name && $2 == version { count++ } END { print count + 0 }' "$cache_records")
+        [ "$match_count" -eq 1 ] \
+            || die "package cache must contain one exact installed artifact: $package_name-$installed_version"
+        package_path=$(awk -F'|' -v name="$package_name" -v version="$installed_version" \
+            '$1 == name && $2 == version { print $3 }' "$cache_records")
+        filename=$(basename "$package_path")
+        [ ! -e "$STAGING/packages/$filename" ] \
+            || die "runtime package filename is duplicated: $filename"
+        cp -p "$package_path" "$STAGING/packages/$filename"
     fi
 done < "$seen"
 
@@ -133,7 +163,7 @@ find "$STAGING/packages" -type f -name '*.pkg' -print | while IFS= read -r packa
 done > "$records_unsorted" || die 'runtime package metadata is missing or unsafe'
 
 sort -t '|' -k4,4 "$records_unsorted" > "$records"
-rm -f "$records_unsorted" "$pending" "$seen"
+rm -f "$cache_records" "$records_unsorted" "$pending" "$seen"
 [ -s "$records" ] || die 'runtime bundle is empty'
 awk -F'|' 'seen[$4]++ { exit 1 }' "$records" \
     || die 'runtime bundle contains duplicate package names'

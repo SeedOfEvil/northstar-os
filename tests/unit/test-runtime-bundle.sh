@@ -12,8 +12,10 @@ CAPTURE=$ROOT/image/scripts/capture-runtime-bundle.sh
 TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/northstar-runtime-bundle.XXXXXX")
 trap 'rm -rf "$TMP_DIR"' EXIT HUP INT TERM
 mkdir -p "$TMP_DIR/bin"
+mkdir -p "$TMP_DIR/cache"
 
 printf 'northstar package fixture\n' > "$TMP_DIR/northstar-0.1.4-amd64.pkg"
+printf 'qt package fixture\n' > "$TMP_DIR/cache/qt6-base-6.11.1.pkg"
 printf '%s\n' northstar qt6-base > "$TMP_DIR/roots"
 
 cat > "$TMP_DIR/bin/pkg" <<'EOF'
@@ -36,28 +38,32 @@ case "${1-}" in
             esac
             case "$format" in
                 %n) printf '%s\n' "$name" ;;
+                '%n|%v') printf '%s|%s\n' "$name" "$version" ;;
                 '%n|%v|%o') printf '%s|%s|%s\n' "$name" "$version" "$origin" ;;
                 *) exit 4 ;;
             esac
         elif [ "${2-}" = -e ]; then
             expression=${3-}
             format=${4-}
-            [ "$format" = %dn ] || exit 5
-            case "$expression" in
-                *northstar*) printf '%s\n' qt6-base ;;
-                *qt6-base*) : ;;
-                *) exit 6 ;;
+            case "$format" in
+                %dn)
+                    case "$expression" in
+                        *northstar*) printf '%s\n' qt6-base ;;
+                        *qt6-base*) : ;;
+                        *) exit 6 ;;
+                    esac
+                    ;;
+                %v)
+                    case "$expression" in
+                        *qt6-base*) printf '%s\n' 6.11.1 ;;
+                        *) exit 6 ;;
+                    esac
+                    ;;
+                *) exit 5 ;;
             esac
         else
             exit 7
         fi
-        ;;
-    create)
-        [ "${2-}" = -q ] && [ "${3-}" = -l ] && [ "${5-}" = -T ] \
-            && [ "${7-}" = -t ] && [ "${9-}" = -o ] || exit 8
-        output=${10-}
-        package=${11-}
-        printf 'fixture for %s\n' "$package" > "$output/$package-6.11.1.pkg"
         ;;
     *) exit 9 ;;
 esac
@@ -67,6 +73,7 @@ chmod +x "$TMP_DIR/bin/pkg"
 PATH="$TMP_DIR/bin:$PATH" "$CAPTURE" \
     --roots "$TMP_DIR/roots" \
     --northstar-package "$TMP_DIR/northstar-0.1.4-amd64.pkg" \
+    --package-cache "$TMP_DIR/cache" \
     --source-date-epoch 1781274780 \
     --output "$TMP_DIR/output" >/dev/null
 
@@ -79,6 +86,7 @@ grep -F '|qt6-base|6.11.1|devel/qt6-base' \
 if PATH="$TMP_DIR/bin:$PATH" "$CAPTURE" \
     --roots "$TMP_DIR/roots" \
     --northstar-package "$TMP_DIR/northstar-0.1.4-amd64.pkg" \
+    --package-cache "$TMP_DIR/cache" \
     --source-date-epoch 1781274780 \
     --output "$TMP_DIR/output" >/dev/null 2>&1; then
     printf 'FAIL: runtime capture replaced immutable output\n' >&2
@@ -89,6 +97,7 @@ printf 'missing-package\n' > "$TMP_DIR/missing-roots"
 if PATH="$TMP_DIR/bin:$PATH" "$CAPTURE" \
     --roots "$TMP_DIR/missing-roots" \
     --northstar-package "$TMP_DIR/northstar-0.1.4-amd64.pkg" \
+    --package-cache "$TMP_DIR/cache" \
     --source-date-epoch 1781274780 \
     --output "$TMP_DIR/missing-output" >/dev/null 2>&1; then
     printf 'FAIL: runtime capture accepted a missing root package\n' >&2

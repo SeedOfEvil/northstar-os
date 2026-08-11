@@ -21,5 +21,6 @@ post-update verification, explicit rollback, failure-triggered rollback, and
 home-data preservation without touching the host package database or ZFS tree.
 PR76 adds `unit/test-runtime-bundle.sh` for the offline package-closure capture
 contract. The production capture reads the accepted local pkg database and
-recreates exact package artifacts without downloading, installing, upgrading,
-or modifying repository configuration.
+matches its exact dependency versions to a previously staged package cache
+without downloading, installing, upgrading, or modifying repository
+configuration.
