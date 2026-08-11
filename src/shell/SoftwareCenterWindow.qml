@@ -27,6 +27,12 @@ Window {
     property int minimumSurfaceHeight: 500
     property bool dragging: false
     property bool maximized: false
+    property int lastTransactionResult: 0
+    property string authorizationStatusText: !software.updateAuthorization
+        ? "Update authorization is unavailable."
+        : software.updateAuthorization.transactionStatus.length > 0
+            ? software.updateAuthorization.transactionStatus
+            : software.updateAuthorization.status
     property point normalGeometryPosition: Qt.point(0, 0)
     property size normalGeometrySize: Qt.size(0, 0)
     property var selectedPackage: null
@@ -74,6 +80,7 @@ Window {
         target: software.updateAuthorization
 
         function onTransactionFinished(success) {
+            software.lastTransactionResult = success ? 1 : -1
             if (success && software.packageCatalog) {
                 software.packageCatalog.refresh()
             }
@@ -82,6 +89,12 @@ Window {
                 software.updatePlan.preview(software.packageCatalog.packages)
             }
             updatePlanDialog.open()
+        }
+
+        function onTransactionStateChanged() {
+            if (software.updateAuthorization && software.updateAuthorization.transactionBusy) {
+                software.lastTransactionResult = 0
+            }
         }
     }
 
@@ -650,8 +663,10 @@ Window {
             }
 
             Rectangle {
+                id: updateSafetyCard
                 color: software.surfaceRaised
-                height: 72
+                height: software.authorizationStatusText.indexOf("\n") >= 0
+                    || software.lastTransactionResult !== 0 ? 142 : 72
                 radius: 8
                 width: parent.width
 
@@ -704,16 +719,24 @@ Window {
                             }
                         }
 
-                        Text {
-                            color: software.surfaceMuted
-                            elide: Text.ElideRight
-                            font.pixelSize: 11
-                            text: software.updateAuthorization
-                                ? (software.updateAuthorization.transactionStatus.length > 0
-                                    ? software.updateAuthorization.transactionStatus
-                                    : software.updateAuthorization.status)
-                                : "Update authorization is unavailable."
+                        ScrollView {
+                            id: updateStatusView
+                            clip: true
+                            height: updateSafetyCard.height - 40
                             width: parent.width
+                            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                            ScrollBar.vertical.policy: ScrollBar.AsNeeded
+
+                            Text {
+                                color: software.lastTransactionResult > 0
+                                    ? "#2f8f65"
+                                    : software.lastTransactionResult < 0
+                                        ? "#c34f65" : software.surfaceMuted
+                                font.pixelSize: 11
+                                text: software.authorizationStatusText
+                                width: updateStatusView.availableWidth
+                                wrapMode: Text.WrapAnywhere
+                            }
                         }
                     }
                 }
@@ -1080,14 +1103,17 @@ Window {
                 color: software.surfaceForeground
                 font.bold: true
                 font.pixelSize: 18
-                text: "Review only"
+                text: software.lastTransactionResult > 0
+                    ? "Update completed"
+                    : software.lastTransactionResult < 0
+                        ? "Update did not complete" : "Review only"
             }
 
             Rectangle {
                 color: software.surfaceRaised
                 radius: 8
                 width: parent.width
-                height: 66
+                height: software.lastTransactionResult !== 0 ? 150 : 66
 
                 Column {
                     anchors.fill: parent
@@ -1095,18 +1121,33 @@ Window {
                     spacing: 4
 
                     Text {
-                        color: "#70d6a6"
+                        color: software.lastTransactionResult < 0 ? "#c34f65" : "#70d6a6"
                         font.bold: true
                         font.pixelSize: 12
-                        text: "No changes have been made yet"
+                        text: software.lastTransactionResult > 0
+                            ? "Protected transaction completed successfully"
+                            : software.lastTransactionResult < 0
+                                ? "Protected transaction requires attention"
+                                : "No changes have been made yet"
                     }
 
-                    Text {
-                        color: software.surfaceMuted
-                        font.pixelSize: 11
-                        text: "Review is read-only. Applying requires a verified plan, a protected transaction service, explicit confirmation, and PolicyKit authorization."
+                    ScrollView {
+                        id: resultStatusView
+                        clip: true
+                        height: parent.height - 26
                         width: parent.width
-                        wrapMode: Text.WordWrap
+                        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                        ScrollBar.vertical.policy: ScrollBar.AsNeeded
+
+                        Text {
+                            color: software.surfaceMuted
+                            font.pixelSize: 11
+                            text: software.lastTransactionResult !== 0
+                                ? software.authorizationStatusText
+                                : "Review is read-only. Applying requires a verified plan, a protected transaction service, explicit confirmation, and PolicyKit authorization."
+                            width: resultStatusView.availableWidth
+                            wrapMode: Text.WrapAnywhere
+                        }
                     }
                 }
             }

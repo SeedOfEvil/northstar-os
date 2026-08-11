@@ -284,6 +284,12 @@ they are not an instruction to create dozens of trivial branches.
 
 The Software Center and signed development-channel foundations are documented in [`docs/M4_SOFTWARE.md`](M4_SOFTWARE.md) and [`docs/M4_SIGNED_DEVELOPMENT_CHANNEL.md`](M4_SIGNED_DEVELOPMENT_CHANNEL.md). PR74 adds the fixed PolicyKit transaction boundary, creates a named ZFS boot environment before repository-scoped package mutation, verifies target versions, schedules recovery after injected failure, and exposes explicit rollback. Protected Poudriere production publication, persistent key custody, and stable hosting remain release-infrastructure gates.
 
+Persistent VM handoffs now follow the canonical deployment and retention
+contract in [`docs/VM_VALIDATION_DEPLOYMENT.md`](VM_VALIDATION_DEPLOYMENT.md).
+The schema-2 manifest and strict read-only audit make stale checkouts, builds,
+repositories, or active configuration drift a blocking quality failure instead
+of allowing historical state to accumulate silently.
+
 Pass only when project components install through `pkg`, repository metadata is signed, N-1 to N upgrades work, rollback restores the prior shell and package set, and user documents survive.
 
 ## M5: Reproducible image and installer

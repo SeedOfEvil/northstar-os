@@ -28,6 +28,14 @@ package inputs through external catalogue and manifest signers. Its resolved
 input, key-custody, provenance, and validation contract is documented in
 `docs/M4_SIGNED_DEVELOPMENT_CHANNEL.md`.
 
+`tools/audit-validation-deployment.sh` is the read-only guard for the canonical
+Proxmox validation deployment. It verifies the root-owned schema-2 manifest,
+clean checkout and exact commit, canonical build, signed repository digests,
+package artifact, active `pkg` configuration, installed development shell, and
+declared retention boundaries. Run `make validation-deployment-audit` before
+and after every VM validation handoff. It reports historical state but never
+moves or removes it; cleanup remains an explicit, reviewed quarantine step.
+
 On the Proxmox basic-VGA validation lane, the stock FreeBSD Wayfire package
 cannot start without a DRM render node. After installing the optional build
 dependencies documented in `docs/M0_PROXMOX.md`, use:

@@ -2,7 +2,7 @@ SHELL := /bin/sh
 
 .DEFAULT_GOAL := help
 
-.PHONY: help check-host bootstrap configure build test welcome-app-test qml-surface-test update-helper-test update-broker-smoke transactional-update-smoke run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package pkg-repository-smoke signed-development-repository-smoke vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
+.PHONY: help check-host bootstrap configure build test welcome-app-test qml-surface-test validation-deployment-audit update-helper-test update-broker-smoke transactional-update-smoke run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package pkg-repository-smoke signed-development-repository-smoke vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
 
 MANIFEST ?= packaging/manifests/bootstrap-packages.txt
 NORTHSTAR_USER ?=
@@ -14,6 +14,7 @@ NORTHSTAR_PREFIX ?= $(HOME)/.local
 NORTHSTAR_SHELL_BIN ?= $(NORTHSTAR_PREFIX)/bin/northstar-shell
 NORTHSTAR_PKG_CLIENT ?= 0
 NORTHSTAR_UPDATE_BROKER_BIN ?= $(BUILD_DIR)/src/update/northstar-update-broker
+VALIDATION_DEPLOYMENT_MANIFEST ?= /usr/local/etc/northstar/validation-deployment.conf
 
 help:
 	@printf '%s\n' 'Northstar development commands:'
@@ -24,6 +25,7 @@ help:
 	@printf '%s\n' '  make test         Run unit and integration tests'
 	@printf '%s\n' '  make welcome-app-test  Test the bundled Northstar Welcome launcher'
 	@printf '%s\n' '  make qml-surface-test  Check product-critical QML surface wiring'
+	@printf '%s\n' '  make validation-deployment-audit  Audit the canonical VM deployment (read-only)'
 	@printf '%s\n' '  make update-helper-test  Test the bounded update-helper request contract'
 	@printf '%s\n' '  make update-broker-smoke  Verify and stage a disposable update request (root)'
 	@printf '%s\n' '  make transactional-update-smoke  Prove update/rollback ordering with isolated tools (root)'
@@ -67,6 +69,7 @@ test:
 	@sh tests/unit/test-sddm-fallback.sh
 	@sh tests/unit/test-session-script.sh
 	@sh tests/unit/test-update-helper.sh
+	@sh tests/unit/test-validation-deployment-audit.sh
 	@$(MAKE) build
 	@sh tests/unit/test-session-entrypoint.sh "$(BUILD_DIR)"
 	@ctest --test-dir "$(BUILD_DIR)" --output-on-failure
@@ -76,6 +79,9 @@ welcome-app-test:
 
 qml-surface-test:
 	@sh tests/unit/test-qml-surfaces.sh
+
+validation-deployment-audit:
+	@sh tools/audit-validation-deployment.sh --manifest "$(VALIDATION_DEPLOYMENT_MANIFEST)" --strict
 
 update-helper-test:
 	@sh tests/unit/test-update-helper.sh

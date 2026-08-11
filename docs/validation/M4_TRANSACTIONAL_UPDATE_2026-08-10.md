@@ -50,9 +50,31 @@ mutation, post-update verification, failure recovery, and explicit rollback.
   report an explicit result instead of appearing frozen. All 22 CTest targets,
   the session-supervisor test, and QML contracts passed in a clean VM archive
   build before redeployment.
+- Manual acceptance then exposed a repeated-refresh notification latch. Commit
+  `eef25c9b2af93858dc54f9cca22a320b12afad94` gives `refreshing` its own notifier;
+  all 22 CTest targets passed before publishing immutable repository revision
+  76 and package `northstar-0.1.2` (package SHA-256
+  `c52cd199e4d23f905e639c07183c32cdeb65fc8e68d210eb2b0ab21f6862d455`).
+- The isolated FreeBSD `pkg` client accepted revision 76, catalogue SHA-256
+  `65610102d7ce8026c6922d2f8372590709f04f59d9bcd38b6751780d76845b5b`,
+  metadata SHA-256
+  `fdbb91cb9a871a6a7d1c5a6a53084909cd0617b6165d5e266cb200b412ca521e`,
+  and fingerprint
+  `5225f94b43b4e41138ce0c71409d34bf41b8ea8c8bf474a58d224fe401cf836f`.
+- Interactive noVNC acceptance completed the authorized transaction after the
+  PolicyKit administrator prompt and upgraded the installed Northstar package
+  from `0.0.9` to `0.1.2`. Repository policy and publication verification
+  remained green and repeated Refresh operations completed normally.
+- The post-transaction output was functionally correct but clipped by a fixed
+  72-pixel status card. The follow-up presents explicit success/failure state
+  and scrollable multiline verification output.
+- Canonical VM deployment hygiene is now repository-owned through a root-owned
+  schema-2 manifest, strict read-only auditor, retention/quarantine contract,
+  and branch/PR handoff procedure.
 
 ## Manual noVNC acceptance
 
-Pending user validation of the verified update confirmation, PolicyKit prompt,
-post-update state, rollback confirmation, reboot-required messaging, window
-movement, both themes, and 1280x800 clipping.
+Verified update confirmation, PolicyKit authorization, package mutation to
+`0.1.2`, repository refresh, window movement, and the core 1280x800 flow pass.
+Explicit rollback/reboot evidence and the final scrollable completion-result
+visual check remain before PR promotion.
