@@ -24,8 +24,9 @@ remain outside Git beneath `.artifacts/`.
 `image/scripts/prepare-image-inputs.sh` has two modes. `--check-lock` validates
 the repository contract without artifacts. Normal mode verifies already staged
 files and atomically creates a read-only input lock, sorted artifact records,
-and resolved image-input manifest. The output includes the explicit project
-commit and hashes of both the lock and artifact record.
+and resolved image-input manifest. Normal mode requires a clean Git checkout;
+its actual `HEAD` must equal the explicit project commit written to the output.
+The output also hashes both the lock and artifact record.
 
 The script deliberately has no fetch, extraction, mount, `mdconfig`, `gpart`,
 ZFS, package-mutation, conversion, or signing command. Existing output paths

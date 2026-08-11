@@ -9,6 +9,7 @@ LOCK=
 ARTIFACTS=
 OUTPUT=
 PROJECT_COMMIT=
+PROJECT_ROOT=
 CHECK_LOCK=0
 STAGING=
 
@@ -16,7 +17,7 @@ usage() {
     cat <<'USAGE'
 Usage: prepare-image-inputs.sh --lock FILE --check-lock
        prepare-image-inputs.sh --lock FILE --artifacts DIR --output DIR \
-         --project-commit FULL_GIT_COMMIT
+         --project-root CLEAN_GIT_CHECKOUT --project-commit FULL_GIT_COMMIT
 
 The preparation stage validates a strict input lock and, in normal mode,
 verifies staged base.txz, kernel.txz, and Northstar package artifacts before
@@ -43,6 +44,7 @@ while [ "$#" -gt 0 ]; do
         --artifacts) ARTIFACTS=${2-}; shift 2 ;;
         --output) OUTPUT=${2-}; shift 2 ;;
         --project-commit) PROJECT_COMMIT=${2-}; shift 2 ;;
+        --project-root) PROJECT_ROOT=${2-}; shift 2 ;;
         --check-lock) CHECK_LOCK=1; shift ;;
         --help|-h) usage; exit 0 ;;
         *) die "unknown option: $1" ;;
@@ -142,16 +144,26 @@ printf '%s\n' "$(lock_value NORTHSTAR_PACKAGE_VERSION)" \
     | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || die 'invalid Northstar package version'
 
 if [ "$CHECK_LOCK" -eq 1 ]; then
-    [ -z "$ARTIFACTS$OUTPUT$PROJECT_COMMIT" ] \
+    [ -z "$ARTIFACTS$OUTPUT$PROJECT_COMMIT$PROJECT_ROOT" ] \
         || die '--check-lock cannot be combined with staging arguments'
     printf 'PASS: validated pinned Northstar M5 QCOW2 input lock\n'
     exit 0
 fi
 
 [ -n "$ARTIFACTS" ] && [ -n "$OUTPUT" ] && [ -n "$PROJECT_COMMIT" ] \
-    || die 'normal mode requires --artifacts, --output, and --project-commit'
+    && [ -n "$PROJECT_ROOT" ] \
+    || die 'normal mode requires --artifacts, --output, --project-root, and --project-commit'
 printf '%s\n' "$PROJECT_COMMIT" | grep -Eq '^[0-9a-f]{40}$' \
     || die 'project commit must be a full lowercase Git revision'
+[ -d "$PROJECT_ROOT/.git" ] && [ ! -L "$PROJECT_ROOT" ] \
+    || die 'project root must be a real Git checkout'
+command -v git >/dev/null 2>&1 || die 'git is required to bind the project checkout'
+PROJECT_ROOT=$(CDPATH= cd -- "$PROJECT_ROOT" && pwd)
+actual_project_commit=$(git -C "$PROJECT_ROOT" rev-parse HEAD 2>/dev/null || true)
+[ "$actual_project_commit" = "$PROJECT_COMMIT" ] \
+    || die 'project commit does not match the selected checkout HEAD'
+[ -z "$(git -C "$PROJECT_ROOT" status --porcelain 2>/dev/null)" ] \
+    || die 'project checkout contains uncommitted changes'
 [ -d "$ARTIFACTS" ] && [ ! -L "$ARTIFACTS" ] \
     || die 'artifacts path must be a real directory'
 [ ! -e "$OUTPUT" ] && [ ! -L "$OUTPUT" ] || die 'output already exists'

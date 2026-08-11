@@ -25,7 +25,8 @@ make prepare-image-inputs \
 ```
 
 This stage verifies names, sizes, SHA-256 digests, source revision, repository
-revision, catalogue/metadata provenance, and the current project commit. It
+revision, catalogue/metadata provenance, and a clean project checkout whose
+actual Git `HEAD` equals the recorded project commit. It
 does not download, extract, mount, partition, invoke ZFS, or create a QCOW2
 file. Root-owned disk assembly begins only after this gate is accepted.
 

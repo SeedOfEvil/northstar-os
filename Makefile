@@ -19,6 +19,7 @@ IMAGE_LOCK ?= image/manifests/northstar-15.1-amd64-qcow2.lock
 IMAGE_ARTIFACTS ?= .artifacts/m5-inputs
 IMAGE_INPUT_OUTPUT ?= .artifacts/m5-resolved-inputs
 PROJECT_COMMIT ?= $(shell git rev-parse HEAD 2>/dev/null)
+PROJECT_ROOT ?= .
 
 help:
 	@printf '%s\n' 'Northstar development commands:'
@@ -95,6 +96,7 @@ prepare-image-inputs:
 		--lock "$(IMAGE_LOCK)" \
 		--artifacts "$(IMAGE_ARTIFACTS)" \
 		--output "$(IMAGE_INPUT_OUTPUT)" \
+		--project-root "$(PROJECT_ROOT)" \
 		--project-commit "$(PROJECT_COMMIT)"
 
 validation-deployment-audit:

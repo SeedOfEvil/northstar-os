@@ -10,7 +10,15 @@ trap 'rm -rf "$TMP_DIR"' EXIT HUP INT TERM
 
 ARTIFACTS=$TMP_DIR/artifacts
 LOCK=$TMP_DIR/test.lock
-mkdir -p "$ARTIFACTS"
+PROJECT_ROOT=$TMP_DIR/project
+mkdir -p "$ARTIFACTS" "$PROJECT_ROOT"
+git -C "$PROJECT_ROOT" init -q
+git -C "$PROJECT_ROOT" config user.name Northstar
+git -C "$PROJECT_ROOT" config user.email northstar@localhost.invalid
+printf 'project fixture\n' > "$PROJECT_ROOT/README"
+git -C "$PROJECT_ROOT" add README
+git -C "$PROJECT_ROOT" commit -qm fixture
+PROJECT_COMMIT=$(git -C "$PROJECT_ROOT" rev-parse HEAD)
 printf 'base fixture\n' > "$ARTIFACTS/base.txz"
 printf 'kernel fixture\n' > "$ARTIFACTS/kernel.txz"
 printf 'northstar fixture\n' > "$ARTIFACTS/northstar-0.1.4-amd64.pkg"
@@ -60,16 +68,16 @@ write_lock
 "$PREPARE" --lock "$LOCK" --check-lock >/dev/null
 "$PREPARE" --lock "$LOCK" --artifacts "$ARTIFACTS" \
     --output "$TMP_DIR/prepared" \
-    --project-commit 0123456789abcdef0123456789abcdef01234567 >/dev/null
+    --project-root "$PROJECT_ROOT" --project-commit "$PROJECT_COMMIT" >/dev/null
 
 grep -F 'target_format=qcow2' "$TMP_DIR/prepared/resolved-image-inputs.conf" >/dev/null
-grep -F 'project_commit=0123456789abcdef0123456789abcdef01234567' \
+grep -F "project_commit=$PROJECT_COMMIT" \
     "$TMP_DIR/prepared/resolved-image-inputs.conf" >/dev/null
 [ "$(wc -l < "$TMP_DIR/prepared/artifact-records" | tr -d ' ')" -eq 3 ]
 
 if "$PREPARE" --lock "$LOCK" --artifacts "$ARTIFACTS" \
     --output "$TMP_DIR/prepared" \
-    --project-commit 0123456789abcdef0123456789abcdef01234567 >/dev/null 2>&1; then
+    --project-root "$PROJECT_ROOT" --project-commit "$PROJECT_COMMIT" >/dev/null 2>&1; then
     printf 'FAIL: preparation replaced an immutable output\n' >&2
     exit 1
 fi
@@ -77,7 +85,7 @@ fi
 printf 'tampered\n' >> "$ARTIFACTS/base.txz"
 if "$PREPARE" --lock "$LOCK" --artifacts "$ARTIFACTS" \
     --output "$TMP_DIR/tampered" \
-    --project-commit 0123456789abcdef0123456789abcdef01234567 >/dev/null 2>&1; then
+    --project-root "$PROJECT_ROOT" --project-commit "$PROJECT_COMMIT" >/dev/null 2>&1; then
     printf 'FAIL: preparation accepted a tampered artifact\n' >&2
     exit 1
 fi
@@ -93,7 +101,7 @@ fi
 sed 's/BASE_SIZE=[0-9]*/BASE_SIZE=999999/' "$LOCK" > "$TMP_DIR/wrong-size.lock"
 if "$PREPARE" --lock "$TMP_DIR/wrong-size.lock" --artifacts "$ARTIFACTS" \
     --output "$TMP_DIR/wrong-size" \
-    --project-commit 0123456789abcdef0123456789abcdef01234567 >/dev/null 2>&1; then
+    --project-root "$PROJECT_ROOT" --project-commit "$PROJECT_COMMIT" >/dev/null 2>&1; then
     printf 'FAIL: preparation accepted an incorrectly sized artifact\n' >&2
     exit 1
 fi
@@ -110,7 +118,7 @@ ln -s kernel.txz.real "$ARTIFACTS/kernel.txz"
 if [ -L "$ARTIFACTS/kernel.txz" ]; then
     if "$PREPARE" --lock "$LOCK" --artifacts "$ARTIFACTS" \
         --output "$TMP_DIR/symlinked" \
-        --project-commit 0123456789abcdef0123456789abcdef01234567 >/dev/null 2>&1; then
+        --project-root "$PROJECT_ROOT" --project-commit "$PROJECT_COMMIT" >/dev/null 2>&1; then
         printf 'FAIL: preparation accepted a symlinked artifact\n' >&2
         exit 1
     fi
@@ -119,6 +127,22 @@ else
 fi
 rm -f "$ARTIFACTS/kernel.txz"
 mv "$ARTIFACTS/kernel.txz.real" "$ARTIFACTS/kernel.txz"
+
+if "$PREPARE" --lock "$LOCK" --artifacts "$ARTIFACTS" \
+    --output "$TMP_DIR/wrong-project" --project-root "$PROJECT_ROOT" \
+    --project-commit 0123456789abcdef0123456789abcdef01234567 >/dev/null 2>&1; then
+    printf 'FAIL: preparation accepted a project commit that does not match HEAD\n' >&2
+    exit 1
+fi
+
+printf 'dirty\n' >> "$PROJECT_ROOT/README"
+if "$PREPARE" --lock "$LOCK" --artifacts "$ARTIFACTS" \
+    --output "$TMP_DIR/dirty-project" --project-root "$PROJECT_ROOT" \
+    --project-commit "$PROJECT_COMMIT" >/dev/null 2>&1; then
+    printf 'FAIL: preparation accepted a dirty project checkout\n' >&2
+    exit 1
+fi
+git -C "$PROJECT_ROOT" checkout -q -- README
 
 cp "$LOCK" "$TMP_DIR/duplicate.lock"
 printf 'SCHEMA_VERSION=1\n' >> "$TMP_DIR/duplicate.lock"

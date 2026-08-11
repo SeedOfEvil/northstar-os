@@ -31,6 +31,12 @@ and rejection of tampered, unresolved, duplicate, unknown, incorrectly sized,
 and symlinked inputs. All existing shell/QML/integration contracts and all 22
 CTest targets passed from a separate disposable Release build.
 
+A final exact-commit rehearsal exposed provenance drift when a syntactically
+valid but incorrect project commit was supplied. The preparer now requires a
+clean selected Git checkout and refuses a declared commit that differs from
+its actual `HEAD`; the regression fixture covers both mismatch and dirty-tree
+rejection.
+
 The real official release sets and accepted r78 package were staged in `/tmp`
 and prepared twice. Both outputs compared byte-for-byte equal:
 

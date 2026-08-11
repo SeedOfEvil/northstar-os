@@ -18,8 +18,9 @@ The first boundary is unprivileged and non-mutating. A strict repository-owned
 lock pins the FreeBSD release, architecture, firmware, root filesystem,
 official release-set URLs/names/sizes/hashes, accepted Northstar package hash,
 package source revision, repository revision, catalogue/metadata hashes, and
-signature fingerprint. The current project commit is supplied explicitly when
-artifacts are verified. Preparation writes a new immutable resolved-input
+signature fingerprint. The current project commit is supplied explicitly and
+must match `HEAD` in a clean selected Git checkout when artifacts are verified.
+Preparation writes a new immutable resolved-input
 directory atomically and refuses unresolved, duplicate, unknown, symlinked,
 missing, incorrectly sized, or digest-mismatched inputs.
 
