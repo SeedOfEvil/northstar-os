@@ -19,3 +19,7 @@ PR74 adds `vm/transactional-update-smoke.sh`, which uses isolated fake broker,
 helper, and package-manager boundaries to prove create-before-mutation ordering,
 post-update verification, explicit rollback, failure-triggered rollback, and
 home-data preservation without touching the host package database or ZFS tree.
+PR76 adds `unit/test-runtime-bundle.sh` for the offline package-closure capture
+contract. The production capture reads the accepted local pkg database and
+recreates exact package artifacts without downloading, installing, upgrading,
+or modifying repository configuration.

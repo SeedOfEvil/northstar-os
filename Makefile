@@ -2,7 +2,7 @@ SHELL := /bin/sh
 
 .DEFAULT_GOAL := help
 
-.PHONY: help check-host bootstrap configure build test welcome-app-test qml-surface-test image-input-test prepare-image-inputs validation-deployment-audit update-helper-test update-broker-smoke transactional-update-smoke run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package pkg-repository-smoke signed-development-repository-smoke vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
+.PHONY: help check-host bootstrap configure build test welcome-app-test qml-surface-test image-input-test runtime-bundle-test capture-runtime-bundle prepare-image-inputs validation-deployment-audit update-helper-test update-broker-smoke transactional-update-smoke run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package pkg-repository-smoke signed-development-repository-smoke vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
 
 MANIFEST ?= packaging/manifests/bootstrap-packages.txt
 NORTHSTAR_USER ?=
@@ -18,6 +18,9 @@ VALIDATION_DEPLOYMENT_MANIFEST ?= /usr/local/etc/northstar/validation-deployment
 IMAGE_LOCK ?= image/manifests/northstar-15.1-amd64-qcow2.lock
 IMAGE_ARTIFACTS ?= .artifacts/m5-inputs
 IMAGE_INPUT_OUTPUT ?= .artifacts/m5-resolved-inputs
+IMAGE_RUNTIME_ROOTS ?= image/manifests/northstar-runtime-roots.txt
+IMAGE_RUNTIME_OUTPUT ?= .artifacts/m5-runtime-bundle
+NORTHSTAR_IMAGE_PACKAGE ?= .artifacts/m5-inputs/northstar-0.1.4-amd64.pkg
 PROJECT_COMMIT ?= $(shell git rev-parse HEAD 2>/dev/null)
 PROJECT_ROOT ?= .
 
@@ -31,6 +34,8 @@ help:
 	@printf '%s\n' '  make welcome-app-test  Test the bundled Northstar Welcome launcher'
 	@printf '%s\n' '  make qml-surface-test  Check product-critical QML surface wiring'
 	@printf '%s\n' '  make image-input-test  Test pinned M5 image-input preparation'
+	@printf '%s\n' '  make runtime-bundle-test  Test exact offline runtime capture'
+	@printf '%s\n' '  make capture-runtime-bundle  Capture accepted installed runtime packages'
 	@printf '%s\n' '  make prepare-image-inputs  Verify staged M5 artifacts and record provenance'
 	@printf '%s\n' '  make validation-deployment-audit  Audit the canonical VM deployment (read-only)'
 	@printf '%s\n' '  make update-helper-test  Test the bounded update-helper request contract'
@@ -78,6 +83,7 @@ test:
 	@sh tests/unit/test-update-helper.sh
 	@sh tests/unit/test-validation-deployment-audit.sh
 	@sh tests/unit/test-image-inputs.sh
+	@sh tests/unit/test-runtime-bundle.sh
 	@$(MAKE) build
 	@sh tests/unit/test-session-entrypoint.sh "$(BUILD_DIR)"
 	@ctest --test-dir "$(BUILD_DIR)" --output-on-failure
@@ -90,6 +96,15 @@ qml-surface-test:
 
 image-input-test:
 	@sh tests/unit/test-image-inputs.sh
+
+runtime-bundle-test:
+	@sh tests/unit/test-runtime-bundle.sh
+
+capture-runtime-bundle:
+	@sh image/scripts/capture-runtime-bundle.sh \
+		--roots "$(IMAGE_RUNTIME_ROOTS)" \
+		--northstar-package "$(NORTHSTAR_IMAGE_PACKAGE)" \
+		--output "$(IMAGE_RUNTIME_OUTPUT)"
 
 prepare-image-inputs:
 	@sh image/scripts/prepare-image-inputs.sh \
