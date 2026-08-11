@@ -20,6 +20,14 @@ grep -F 'newfs_msdos -F 32 -c 1 -L NSTAR_EFI' "$ASSEMBLER" >/dev/null || {
     printf 'FAIL: assembler does not pin valid FAT32 geometry for the EFI partition\n' >&2
     exit 1
 }
+grep -F 'chroot "$MOUNT_ROOT" /tmp/northstar-pkg-static' "$ASSEMBLER" >/dev/null || {
+    printf 'FAIL: assembler does not install packages inside the image root\n' >&2
+    exit 1
+}
+if grep -F 'pkg -r "$MOUNT_ROOT"' "$ASSEMBLER" >/dev/null; then
+    printf 'FAIL: assembler still uses host-rooted pkg installation\n' >&2
+    exit 1
+fi
 
 digest() {
     if command -v sha256 >/dev/null 2>&1; then sha256 -q "$1"; else sha256sum "$1" | awk '{ print $1 }'; fi

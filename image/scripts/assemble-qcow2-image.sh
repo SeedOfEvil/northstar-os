@@ -22,6 +22,7 @@ POOL=
 MOUNT_ROOT=
 EFI_MOUNTED=0
 DEVFS_MOUNTED=0
+PACKAGE_MOUNTED=0
 POOL_CREATED=0
 SUCCESS=0
 
@@ -42,6 +43,9 @@ die() { printf 'ERROR: %s\n' "$1" >&2; exit 1; }
 
 cleanup() {
     set +e
+    if [ "$PACKAGE_MOUNTED" -eq 1 ] && [ -n "$MOUNT_ROOT" ]; then
+        umount "$MOUNT_ROOT/.northstar-packages" >/dev/null 2>&1
+    fi
     if [ "$DEVFS_MOUNTED" -eq 1 ] && [ -n "$MOUNT_ROOT" ]; then
         umount "$MOUNT_ROOT/dev" >/dev/null 2>&1
     fi
@@ -197,7 +201,7 @@ fi
 
 [ "$(uname -s)" = FreeBSD ] || die 'QCOW2 assembly requires FreeBSD'
 [ "$(id -u)" -eq 0 ] || die 'QCOW2 assembly must run as root on the disposable builder'
-for command_name in cat chmod chown devfs env gpart ln mdconfig mount mount_msdosfs newfs_msdos pkg pw qemu-img sysrc tar truncate umount zfs zpool; do
+for command_name in cat chmod chown chroot devfs env gpart ln mdconfig mount mount_msdosfs mount_nullfs newfs_msdos pkg pkg-static pw qemu-img sysrc tar truncate umount zfs zpool; do
     command -v "$command_name" >/dev/null 2>&1 || die "required builder command is unavailable: $command_name"
 done
 [ -f "$BUILDER_MARKER" ] && [ ! -L "$BUILDER_MARKER" ] || die 'disposable-builder marker is missing or unsafe'
@@ -260,11 +264,33 @@ devfs -m "$MOUNT_ROOT/dev" rule applyset 0 >/dev/null 2>&1 || true
 mount -t devfs devfs "$MOUNT_ROOT/dev"
 DEVFS_MOUNTED=1
 
+package_mount=$MOUNT_ROOT/.northstar-packages
+package_bootstrap=$MOUNT_ROOT/tmp/northstar-pkg-static
+mkdir -p "$package_mount" "$MOUNT_ROOT/tmp/empty-repos"
+mount_nullfs -o ro "$runtime_packages" "$package_mount"
+PACKAGE_MOUNTED=1
+cp "$(command -v pkg-static)" "$package_bootstrap"
+chmod 0555 "$package_bootstrap"
+
 set --
 while IFS='|' read -r filename _rest; do
-    set -- "$@" "$runtime_packages/$filename"
+    set -- "$@" "/.northstar-packages/$filename"
 done < "$runtime_records"
-ASSUME_ALWAYS_YES=yes pkg -r "$MOUNT_ROOT" -o REPOS_DIR="$STAGING/empty-repos" add -f "$@"
+ASSUME_ALWAYS_YES=yes chroot "$MOUNT_ROOT" /tmp/northstar-pkg-static \
+    -o REPOS_DIR=/tmp/empty-repos add -M "$@"
+
+installed_package_count=$(chroot "$MOUNT_ROOT" /tmp/northstar-pkg-static \
+    query '%n|%v' | sort -u | wc -l | tr -d ' ')
+[ "$installed_package_count" -eq "$package_count" ] \
+    || die "installed runtime package count mismatch: expected=$package_count actual=$installed_package_count"
+while IFS='|' read -r _filename _digest _size name version _origin _extra; do
+    chroot "$MOUNT_ROOT" /tmp/northstar-pkg-static info -e "$name-$version" >/dev/null \
+        || die "runtime package was not installed exactly: $name-$version"
+done < "$runtime_records"
+
+umount "$package_mount"
+PACKAGE_MOUNTED=0
+rm -rf "$package_mount" "$package_bootstrap" "$MOUNT_ROOT/tmp/empty-repos"
 
 pw -R "$MOUNT_ROOT" useradd northstar -u 1001 -c 'Northstar User' \
     -d /home/northstar -m -s /bin/sh -G wheel,video -w no
