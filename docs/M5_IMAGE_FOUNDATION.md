@@ -77,3 +77,9 @@ compatibility compositor in the image user's home and the package-managed
 supervisor and shell in `/usr/local/bin`. Keeping this entry separate avoids
 changing package-owned files while making the image independent of older
 package wrappers that assumed a fully user-local installation.
+
+The runtime roots explicitly include `xf86-input-libinput`. The basic-VGA
+fallback can paint through `scfb` without that driver, but Proxmox's emulated
+keyboard and QEMU USB Tablet do not become usable Xorg input devices until the
+driver is installed. A painted desktop is therefore not sufficient image
+acceptance; pointer and keyboard interaction are required.

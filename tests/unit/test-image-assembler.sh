@@ -49,6 +49,10 @@ grep -F 'image/session/northstar-image-session-x11' "$ASSEMBLER" >/dev/null || {
     exit 1
 }
 IMAGE_SESSION=$ROOT/image/session/northstar-image-session-x11
+grep -Fx 'xf86-input-libinput' "$ROOT/image/manifests/northstar-runtime-roots.txt" >/dev/null || {
+    printf 'FAIL: image runtime roots omit the Proxmox Xorg input driver\n' >&2
+    exit 1
+}
 grep -F 'NORTHSTAR_SESSION_BIN=/usr/local/bin/northstar-session' "$IMAGE_SESSION" >/dev/null || {
     printf 'FAIL: image session does not bind the packaged supervisor path\n' >&2
     exit 1

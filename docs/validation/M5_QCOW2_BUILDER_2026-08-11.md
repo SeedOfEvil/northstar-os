@@ -80,3 +80,11 @@ supervisor, compatibility compositor, and Northstar shell alive with
 desktop, top bar, wallpaper, empty-desktop state, and dock. The expected
 pixman-lane warnings about unavailable GLES2 effects and software Xwayland
 glamor remain supplemental-lane limitations rather than session failures.
+
+The first Proxmox import of that candidate painted and remained alive but had
+no usable keyboard or pointer input. Comparison with the accepted M0 evidence
+found that the image runtime roots contained the `libinput` library but omitted
+the separate `xf86-input-libinput` Xorg driver that had made the QEMU USB
+Tablet interactive on NSTAR-DEV01. The driver is now an explicit immutable
+runtime root; the replacement image must repeat the visual gate and prove both
+pointer and keyboard interaction before PR76 promotion.
