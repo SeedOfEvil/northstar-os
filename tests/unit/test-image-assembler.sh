@@ -24,6 +24,10 @@ grep -F 'chroot "$MOUNT_ROOT" /tmp/northstar-pkg-static' "$ASSEMBLER" >/dev/null
     printf 'FAIL: assembler does not install packages inside the image root\n' >&2
     exit 1
 }
+grep -F '"/.northstar-package-index/$name-$version.pkg"' "$ASSEMBLER" >/dev/null || {
+    printf 'FAIL: assembler omits the canonical offline package index\n' >&2
+    exit 1
+}
 if grep -F 'pkg -r "$MOUNT_ROOT"' "$ASSEMBLER" >/dev/null; then
     printf 'FAIL: assembler still uses host-rooted pkg installation\n' >&2
     exit 1

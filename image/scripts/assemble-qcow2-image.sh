@@ -265,16 +265,21 @@ mount -t devfs devfs "$MOUNT_ROOT/dev"
 DEVFS_MOUNTED=1
 
 package_mount=$MOUNT_ROOT/.northstar-packages
+package_index=$MOUNT_ROOT/.northstar-package-index
 package_bootstrap=$MOUNT_ROOT/tmp/northstar-pkg-static
-mkdir -p "$package_mount" "$MOUNT_ROOT/tmp/empty-repos"
+mkdir -p "$package_mount" "$package_index" "$MOUNT_ROOT/tmp/empty-repos"
 mount_nullfs -o ro "$runtime_packages" "$package_mount"
 PACKAGE_MOUNTED=1
 cp "$(command -v pkg-static)" "$package_bootstrap"
 chmod 0555 "$package_bootstrap"
 
 set --
-while IFS='|' read -r filename _rest; do
-    set -- "$@" "/.northstar-packages/$filename"
+while IFS='|' read -r filename _digest _size name version _origin _extra; do
+    canonical_path=$package_index/$name-$version.pkg
+    [ ! -e "$canonical_path" ] && [ ! -L "$canonical_path" ] \
+        || die "duplicate canonical runtime package identity: $name-$version"
+    ln -s "/.northstar-packages/$filename" "$canonical_path"
+    set -- "$@" "/.northstar-package-index/$name-$version.pkg"
 done < "$runtime_records"
 ASSUME_ALWAYS_YES=yes chroot "$MOUNT_ROOT" /tmp/northstar-pkg-static \
     -o REPOS_DIR=/tmp/empty-repos add -M "$@"
@@ -290,7 +295,8 @@ done < "$runtime_records"
 
 umount "$package_mount"
 PACKAGE_MOUNTED=0
-rm -rf "$package_mount" "$package_bootstrap" "$MOUNT_ROOT/tmp/empty-repos"
+rm -rf "$package_mount" "$package_index" "$package_bootstrap" \
+    "$MOUNT_ROOT/tmp/empty-repos"
 
 pw -R "$MOUNT_ROOT" useradd northstar -u 1001 -c 'Northstar User' \
     -d /home/northstar -m -s /bin/sh -G wheel,video -w no
