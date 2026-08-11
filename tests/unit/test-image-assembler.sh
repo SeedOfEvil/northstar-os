@@ -44,12 +44,21 @@ grep -F 'northstar-image-proxmox.desktop' "$ASSEMBLER" >/dev/null || {
     printf 'FAIL: image omits its explicit packaged-runtime session entry\n' >&2
     exit 1
 }
-grep -F 'NORTHSTAR_SESSION_BIN=/usr/local/bin/northstar-session' "$ASSEMBLER" >/dev/null || {
+grep -F 'image/session/northstar-image-session-x11' "$ASSEMBLER" >/dev/null || {
+    printf 'FAIL: image does not install its SDDM authorization launcher\n' >&2
+    exit 1
+}
+IMAGE_SESSION=$ROOT/image/session/northstar-image-session-x11
+grep -F 'NORTHSTAR_SESSION_BIN=/usr/local/bin/northstar-session' "$IMAGE_SESSION" >/dev/null || {
     printf 'FAIL: image session does not bind the packaged supervisor path\n' >&2
     exit 1
 }
-grep -F 'NORTHSTAR_SESSION_SHELL=/usr/local/bin/northstar-shell' "$ASSEMBLER" >/dev/null || {
+grep -F 'NORTHSTAR_SESSION_SHELL=/usr/local/bin/northstar-shell' "$IMAGE_SESSION" >/dev/null || {
     printf 'FAIL: image session does not bind the packaged shell path\n' >&2
+    exit 1
+}
+grep -F 'xauth -f "$candidate" list "$DISPLAY"' "$IMAGE_SESSION" >/dev/null || {
+    printf 'FAIL: image session does not validate the SDDM Xauthority cookie\n' >&2
     exit 1
 }
 if grep -F 'pkg -r "$MOUNT_ROOT"' "$ASSEMBLER" >/dev/null; then

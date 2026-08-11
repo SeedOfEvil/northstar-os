@@ -61,3 +61,12 @@ integration defect in the accepted 0.1.4 package: its X11 wrapper searched only
 with explicit compositor, supervisor, and shell paths; package-owned files are
 left unchanged. The replacement artifact must demonstrate that this session
 remains alive and paints the Northstar desktop.
+
+That corrected entry authenticated and invoked the packaged runtime, but the
+nested compositor then reported `Authorization required, but no authorization
+protocol specified`. SDDM 0.21 had created its protected `/tmp/xauth_*` cookie,
+while the nested X11 client had no usable authorization path. The image-owned
+launcher now accepts an inherited usable authority or resolves exactly one
+regular, mode-0600 SDDM authority file owned by the session user and containing
+a cookie for the active display. It records only the selected path for
+diagnostics and never copies or logs the cookie itself.

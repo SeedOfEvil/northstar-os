@@ -338,12 +338,16 @@ mkdir -p "$MOUNT_ROOT/usr/local/etc/sddm.conf.d"
 cp "$PROJECT_ROOT/config/sddm/northstar-proxmox.conf" \
     "$MOUNT_ROOT/usr/local/etc/sddm.conf.d/20-northstar-proxmox.conf"
 mkdir -p "$MOUNT_ROOT/usr/local/share/xsessions"
+mkdir -p "$MOUNT_ROOT/usr/local/libexec"
+cp "$PROJECT_ROOT/image/session/northstar-image-session-x11" \
+    "$MOUNT_ROOT/usr/local/libexec/northstar-image-session-x11"
+chmod 0555 "$MOUNT_ROOT/usr/local/libexec/northstar-image-session-x11"
 cat > "$MOUNT_ROOT/usr/local/share/xsessions/northstar-image-proxmox.desktop" <<'EOF'
 [Desktop Entry]
 Name=Northstar (Image Proxmox X11 fallback)
-Comment=Northstar image session with explicit packaged runtime paths
-Exec=env NORTHSTAR_WAYFIRE_BIN=/home/northstar/.local/wayfire-nested/bin/wayfire NORTHSTAR_SESSION_BIN=/usr/local/bin/northstar-session NORTHSTAR_SESSION_SHELL=/usr/local/bin/northstar-shell /usr/local/bin/northstar-session-x11
-TryExec=/usr/local/bin/northstar-session-x11
+Comment=Northstar image session with SDDM authorization recovery and explicit packaged runtime paths
+Exec=/usr/local/libexec/northstar-image-session-x11
+TryExec=/usr/local/libexec/northstar-image-session-x11
 Type=Application
 DesktopNames=Northstar
 X-Northstar-Compatibility=proxmox-basic-vga

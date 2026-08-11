@@ -69,7 +69,11 @@ provenance and is never enabled implicitly. OpenSSH continues to reject empty
 password authentication.
 
 The image also owns a separate `northstar-image-proxmox.desktop` entry. It
-binds the accepted compatibility compositor in the image user's home and the
-package-managed supervisor and shell in `/usr/local/bin`. Keeping this entry
-separate avoids changing package-owned files while making the image independent
-of older package wrappers that assumed a fully user-local installation.
+uses an image-owned launcher that validates SDDM's protected, per-user
+`/tmp/xauth_*` cookie before starting the nested compositor. This accommodates
+the FreeBSD SDDM lane where the helper creates the cookie but can leave the
+session without a usable `XAUTHORITY` path. The launcher also binds the accepted
+compatibility compositor in the image user's home and the package-managed
+supervisor and shell in `/usr/local/bin`. Keeping this entry separate avoids
+changing package-owned files while making the image independent of older
+package wrappers that assumed a fully user-local installation.

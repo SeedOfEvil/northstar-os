@@ -1,0 +1,51 @@
+#!/bin/sh
+
+# Image-owned SDDM launcher for Northstar's Proxmox X11 fallback. FreeBSD's
+# SDDM creates a protected /tmp/xauth_* file for the user session, but some
+# releases do not leave a usable XAUTHORITY value in the command environment.
+
+set -eu
+
+die() {
+    printf 'ERROR: %s\n' "$1" >&2
+    exit 1
+}
+
+[ "$(id -u)" -ne 0 ] || die 'image session must run as an unprivileged user'
+[ -n "${DISPLAY:-}" ] || die 'image session requires an SDDM X11 DISPLAY'
+
+auth_works=0
+if [ -n "${XAUTHORITY:-}" ] && [ -f "$XAUTHORITY" ] && [ -r "$XAUTHORITY" ]; then
+    if xauth -f "$XAUTHORITY" list "$DISPLAY" 2>/dev/null | grep -q .; then
+        auth_works=1
+    fi
+fi
+
+if [ "$auth_works" -eq 0 ]; then
+    current_uid=$(id -u)
+    resolved_authority=
+    for candidate in /tmp/xauth_*; do
+        [ -f "$candidate" ] && [ ! -L "$candidate" ] && [ -r "$candidate" ] || continue
+        [ "$(stat -f '%u' "$candidate")" = "$current_uid" ] || continue
+        [ "$(stat -f '%Lp' "$candidate")" = 600 ] || continue
+        if xauth -f "$candidate" list "$DISPLAY" 2>/dev/null | grep -q .; then
+            [ -z "$resolved_authority" ] || die 'multiple usable SDDM Xauthority files were found'
+            resolved_authority=$candidate
+        fi
+    done
+    [ -n "$resolved_authority" ] || die 'no usable SDDM Xauthority file was found'
+    XAUTHORITY=$resolved_authority
+    export XAUTHORITY
+fi
+
+log_dir=${XDG_STATE_HOME:-${HOME:-/tmp}/.local/state}/northstar
+mkdir -p "$log_dir"
+chmod 0700 "$log_dir"
+printf 'display=%s xauthority=%s\n' "$DISPLAY" "$XAUTHORITY" > "$log_dir/image-session.log"
+chmod 0600 "$log_dir/image-session.log"
+
+export NORTHSTAR_WAYFIRE_BIN=/home/northstar/.local/wayfire-nested/bin/wayfire
+export NORTHSTAR_SESSION_BIN=/usr/local/bin/northstar-session
+export NORTHSTAR_SESSION_SHELL=/usr/local/bin/northstar-shell
+
+exec /usr/local/bin/northstar-session-x11
