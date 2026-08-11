@@ -20,8 +20,10 @@ Usage: capture-runtime-bundle.sh --roots FILE --northstar-package FILE \
 
 All root packages must already be installed. Dependencies are traversed from
 the local pkg database and matched to exact-version artifacts in a previously
-staged package cache. The reviewed Northstar package is copied from its
-immutable publication. No package is downloaded, created, or installed.
+staged package cache. An uncached package is recreated deterministically from
+the accepted host only when its installed files are complete. The reviewed
+Northstar package is copied from its immutable publication. No package is
+downloaded or installed.
 USAGE
 }
 
@@ -134,14 +136,20 @@ while IFS= read -r package_name; do
             $1 == name && $2 == version { seen[$3]=1 }
             END { for (digest in seen) count++; print count + 0 }
         ' "$cache_records")
-        [ "$match_digest_count" -eq 1 ] \
-            || die "package cache must contain one exact installed artifact digest: $package_name-$installed_version"
-        package_path=$(awk -F'|' -v name="$package_name" -v version="$installed_version" \
-            '$1 == name && $2 == version { print $4; exit }' "$cache_records")
-        filename=$(basename "$package_path")
-        [ ! -e "$STAGING/packages/$filename" ] \
-            || die "runtime package filename is duplicated: $filename"
-        cp -p "$package_path" "$STAGING/packages/$filename"
+        if [ "$match_digest_count" -eq 0 ]; then
+            pkg create -q -l 1 -T 2 -t "$SOURCE_DATE_EPOCH" \
+                -o "$STAGING/packages" "$package_name" \
+                || die "uncached installed package cannot be recreated: $package_name-$installed_version"
+        elif [ "$match_digest_count" -eq 1 ]; then
+            package_path=$(awk -F'|' -v name="$package_name" -v version="$installed_version" \
+                '$1 == name && $2 == version { print $4; exit }' "$cache_records")
+            filename=$(basename "$package_path")
+            [ ! -e "$STAGING/packages/$filename" ] \
+                || die "runtime package filename is duplicated: $filename"
+            cp -p "$package_path" "$STAGING/packages/$filename"
+        else
+            die "package cache contains conflicting exact artifacts: $package_name-$installed_version"
+        fi
     fi
 done < "$seen"
 
