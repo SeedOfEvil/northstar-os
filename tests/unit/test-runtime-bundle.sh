@@ -28,7 +28,8 @@ case "${1-}" in
         if [ "${2-}" = -F ]; then
             file=${3-}
             format=${4-}
-            case "$file" in
+            filename=${file##*/}
+            case "$filename" in
                 *northstar*) name=northstar; version=0.1.4; origin=x11/northstar ;;
                 *qt6-base*) name=qt6-base; version=6.11.1; origin=devel/qt6-base ;;
                 *) exit 3 ;;
