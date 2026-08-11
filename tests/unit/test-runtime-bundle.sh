@@ -16,6 +16,7 @@ mkdir -p "$TMP_DIR/cache"
 
 printf 'northstar package fixture\n' > "$TMP_DIR/northstar-0.1.4-amd64.pkg"
 printf 'qt package fixture\n' > "$TMP_DIR/cache/qt6-base-6.11.1.pkg"
+cp "$TMP_DIR/cache/qt6-base-6.11.1.pkg" "$TMP_DIR/cache/qt6-base-duplicate.pkg"
 printf '%s\n' northstar qt6-base > "$TMP_DIR/roots"
 
 cat > "$TMP_DIR/bin/pkg" <<'EOF'

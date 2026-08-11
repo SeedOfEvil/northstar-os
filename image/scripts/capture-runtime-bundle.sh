@@ -118,7 +118,8 @@ find "$PACKAGE_CACHE" -type f -name '*.pkg' -print | while IFS= read -r package_
     version=$(printf '%s' "$metadata" | awk -F'|' '{ print $2 }')
     printf '%s\n' "$name" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9+_.-]*$' || exit 34
     printf '%s\n' "$version" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9+_.~,:-]*$' || exit 35
-    printf '%s|%s|%s\n' "$name" "$version" "$package_path"
+    digest=$(sha256 -q "$package_path")
+    printf '%s|%s|%s|%s\n' "$name" "$version" "$digest" "$package_path"
 done | sort > "$cache_records" || die 'package cache contains unsafe metadata'
 
 while IFS= read -r package_name; do
@@ -129,12 +130,14 @@ while IFS= read -r package_name; do
             || die "cannot read installed version: $package_name"
         printf '%s\n' "$installed_version" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9+_.~,:-]*$' \
             || die "installed package version is unsafe: $package_name"
-        match_count=$(awk -F'|' -v name="$package_name" -v version="$installed_version" \
-            '$1 == name && $2 == version { count++ } END { print count + 0 }' "$cache_records")
-        [ "$match_count" -eq 1 ] \
-            || die "package cache must contain one exact installed artifact: $package_name-$installed_version"
+        match_digest_count=$(awk -F'|' -v name="$package_name" -v version="$installed_version" '
+            $1 == name && $2 == version { seen[$3]=1 }
+            END { for (digest in seen) count++; print count + 0 }
+        ' "$cache_records")
+        [ "$match_digest_count" -eq 1 ] \
+            || die "package cache must contain one exact installed artifact digest: $package_name-$installed_version"
         package_path=$(awk -F'|' -v name="$package_name" -v version="$installed_version" \
-            '$1 == name && $2 == version { print $3 }' "$cache_records")
+            '$1 == name && $2 == version { print $4; exit }' "$cache_records")
         filename=$(basename "$package_path")
         [ ! -e "$STAGING/packages/$filename" ] \
             || die "runtime package filename is duplicated: $filename"
