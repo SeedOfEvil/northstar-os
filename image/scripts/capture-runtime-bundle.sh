@@ -121,7 +121,8 @@ find "$PACKAGE_CACHE" -type f -name '*.pkg' -print | while IFS= read -r package_
     printf '%s\n' "$name" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9+_.-]*$' || exit 34
     printf '%s\n' "$version" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9+_.~,:-]*$' || exit 35
     digest=$(sha256 -q "$package_path")
-    annotation_sha=$(pkg query -F "$package_path" '%At=%Av' | sort | sha256 -q) \
+    annotation_sha=$(pkg query -F "$package_path" '%At=%Av' \
+        | grep -Ev '^(repo_type|repository)=' | sort | sha256 -q) \
         || exit 36
     printf '%s|%s|%s|%s|%s\n' \
         "$name" "$version" "$annotation_sha" "$digest" "$package_path"
@@ -136,7 +137,8 @@ while IFS= read -r package_name; do
         printf '%s\n' "$installed_version" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9+_.~,:-]*$' \
             || die "installed package version is unsafe: $package_name"
         installed_annotation_sha=$(pkg query -e "%n = '$package_name'" '%At=%Av' \
-            | sort | sha256 -q) || die "cannot hash installed package annotations: $package_name"
+            | grep -Ev '^(repo_type|repository)=' | sort | sha256 -q) \
+            || die "cannot hash installed package annotations: $package_name"
         match_digest_count=$(awk -F'|' -v name="$package_name" \
             -v version="$installed_version" -v annotation="$installed_annotation_sha" '
             $1 == name && $2 == version && $3 == annotation { seen[$4]=1 }
