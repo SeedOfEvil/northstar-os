@@ -2,7 +2,7 @@ SHELL := /bin/sh
 
 .DEFAULT_GOAL := help
 
-.PHONY: help check-host bootstrap configure build test welcome-app-test qml-surface-test image-input-test runtime-bundle-test nested-wayfire-package-test capture-runtime-bundle prepare-image-inputs validation-deployment-audit update-helper-test update-broker-smoke transactional-update-smoke run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package pkg-repository-smoke signed-development-repository-smoke vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
+.PHONY: help check-host bootstrap configure build test welcome-app-test qml-surface-test image-input-test runtime-bundle-test nested-wayfire-package-test image-assembler-test capture-runtime-bundle prepare-image-inputs validation-deployment-audit update-helper-test update-broker-smoke transactional-update-smoke run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package pkg-repository-smoke signed-development-repository-smoke vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
 
 MANIFEST ?= packaging/manifests/bootstrap-packages.txt
 NORTHSTAR_USER ?=
@@ -39,6 +39,7 @@ help:
 	@printf '%s\n' '  make image-input-test  Test pinned M5 image-input preparation'
 	@printf '%s\n' '  make runtime-bundle-test  Test exact offline runtime capture'
 	@printf '%s\n' '  make nested-wayfire-package-test  Test scfb compatibility packaging'
+	@printf '%s\n' '  make image-assembler-test  Test privileged QCOW2 input preflight'
 	@printf '%s\n' '  make capture-runtime-bundle  Capture accepted installed runtime packages'
 	@printf '%s\n' '  make prepare-image-inputs  Verify staged M5 artifacts and record provenance'
 	@printf '%s\n' '  make validation-deployment-audit  Audit the canonical VM deployment (read-only)'
@@ -89,6 +90,7 @@ test:
 	@sh tests/unit/test-image-inputs.sh
 	@sh tests/unit/test-runtime-bundle.sh
 	@sh tests/unit/test-nested-wayfire-package.sh
+	@sh tests/unit/test-image-assembler.sh
 	@$(MAKE) build
 	@sh tests/unit/test-session-entrypoint.sh "$(BUILD_DIR)"
 	@ctest --test-dir "$(BUILD_DIR)" --output-on-failure
@@ -107,6 +109,9 @@ runtime-bundle-test:
 
 nested-wayfire-package-test:
 	@sh tests/unit/test-nested-wayfire-package.sh
+
+image-assembler-test:
+	@sh tests/unit/test-image-assembler.sh
 
 capture-runtime-bundle:
 	@sh image/scripts/capture-runtime-bundle.sh \
@@ -201,6 +206,6 @@ shell-restart-smoke: install-user
 	@NORTHSTAR_SHELL_BIN="$(NORTHSTAR_SHELL_BIN)" sh tests/integration/test-shell-session.sh --restart
 
 image:
-	@printf '%s\n' 'Northstar: QCOW2 disk assembly begins in PR76 after verified input preparation.' >&2
-	@printf '%s\n' 'Run make prepare-image-inputs for the current safe M5 gate.' >&2
+	@printf '%s\n' 'Northstar: run the guarded PR76 assembler on a marked disposable FreeBSD builder.' >&2
+	@printf '%s\n' 'See docs/M5_QCOW2_BUILDER.md; direct make image remains intentionally non-privileged.' >&2
 	@exit 2

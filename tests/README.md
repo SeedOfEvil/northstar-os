@@ -28,3 +28,7 @@ modifies repository configuration.
 `unit/test-nested-wayfire-package.sh` proves the accepted patched compositor
 tree becomes an immutable, package-managed compatibility artifact instead of
 an untracked user-home dependency.
+`unit/test-image-assembler.sh` exercises the complete non-root QCOW2 preflight
+with fixture release sets and package artifacts, including tamper rejection.
+The production path additionally requires root, FreeBSD, a protected
+disposable-builder marker, and a newly allocated file-backed md device.
