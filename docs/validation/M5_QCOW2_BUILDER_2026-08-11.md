@@ -70,3 +70,13 @@ launcher now accepts an inherited usable authority or resolves exactly one
 regular, mode-0600 SDDM authority file owned by the session user and containing
 a cookie for the active display. It records only the selected path for
 diagnostics and never copies or logs the cookie itself.
+
+The replacement candidate at project commit
+`4893a77e47a18a4b126a3638c2192dc51dcdf317` then passed the bounded
+snapshot-only UEFI/ZFS boot smoke. A separate snapshot-backed VNC boot selected
+`/tmp/xauth_LhQLEk`, reached `state=running` on `wayland-1`, and kept the
+supervisor, compatibility compositor, and Northstar shell alive with
+`restart_count=0`. A 1280x800 framebuffer capture showed the painted Northstar
+desktop, top bar, wallpaper, empty-desktop state, and dock. The expected
+pixman-lane warnings about unavailable GLES2 effects and software Xwayland
+glamor remain supplemental-lane limitations rather than session failures.
