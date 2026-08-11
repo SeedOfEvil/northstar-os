@@ -67,3 +67,9 @@ instead enables a passwordless local account so SDDM's FreeBSD PAM account
 check can enter the compatibility session. This is recorded in image
 provenance and is never enabled implicitly. OpenSSH continues to reject empty
 password authentication.
+
+The image also owns a separate `northstar-image-proxmox.desktop` entry. It
+binds the accepted compatibility compositor in the image user's home and the
+package-managed supervisor and shell in `/usr/local/bin`. Keeping this entry
+separate avoids changing package-owned files while making the image independent
+of older package wrappers that assumed a fully user-local installation.

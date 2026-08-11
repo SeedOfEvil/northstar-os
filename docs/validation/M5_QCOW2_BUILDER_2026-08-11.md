@@ -53,3 +53,11 @@ image policy. PR76 now unlocks that account only when
 `--development-autologin` is explicit and records the passwordless-local policy
 in image provenance. A rebuilt artifact must repeat boot and graphical
 validation before promotion.
+
+The corrected account then authenticated automatically, exposing a second
+integration defect in the accepted 0.1.4 package: its X11 wrapper searched only
+`~/.local/bin` even though the package installed the supervisor and shell in
+`/usr/local/bin`. The image now adds a separate image-managed X11 session entry
+with explicit compositor, supervisor, and shell paths; package-owned files are
+left unchanged. The replacement artifact must demonstrate that this session
+remains alive and paints the Northstar desktop.

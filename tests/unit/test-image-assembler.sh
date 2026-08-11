@@ -40,6 +40,18 @@ grep -F 'development_passwordless_local_account=$DEVELOPMENT_AUTOLOGIN' "$ASSEMB
     printf 'FAIL: image provenance omits the development local-account policy\n' >&2
     exit 1
 }
+grep -F 'northstar-image-proxmox.desktop' "$ASSEMBLER" >/dev/null || {
+    printf 'FAIL: image omits its explicit packaged-runtime session entry\n' >&2
+    exit 1
+}
+grep -F 'NORTHSTAR_SESSION_BIN=/usr/local/bin/northstar-session' "$ASSEMBLER" >/dev/null || {
+    printf 'FAIL: image session does not bind the packaged supervisor path\n' >&2
+    exit 1
+}
+grep -F 'NORTHSTAR_SESSION_SHELL=/usr/local/bin/northstar-shell' "$ASSEMBLER" >/dev/null || {
+    printf 'FAIL: image session does not bind the packaged shell path\n' >&2
+    exit 1
+}
 if grep -F 'pkg -r "$MOUNT_ROOT"' "$ASSEMBLER" >/dev/null; then
     printf 'FAIL: assembler still uses host-rooted pkg installation\n' >&2
     exit 1

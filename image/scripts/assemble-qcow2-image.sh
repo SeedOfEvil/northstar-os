@@ -337,6 +337,18 @@ EOF
 mkdir -p "$MOUNT_ROOT/usr/local/etc/sddm.conf.d"
 cp "$PROJECT_ROOT/config/sddm/northstar-proxmox.conf" \
     "$MOUNT_ROOT/usr/local/etc/sddm.conf.d/20-northstar-proxmox.conf"
+mkdir -p "$MOUNT_ROOT/usr/local/share/xsessions"
+cat > "$MOUNT_ROOT/usr/local/share/xsessions/northstar-image-proxmox.desktop" <<'EOF'
+[Desktop Entry]
+Name=Northstar (Image Proxmox X11 fallback)
+Comment=Northstar image session with explicit packaged runtime paths
+Exec=env NORTHSTAR_WAYFIRE_BIN=/home/northstar/.local/wayfire-nested/bin/wayfire NORTHSTAR_SESSION_BIN=/usr/local/bin/northstar-session NORTHSTAR_SESSION_SHELL=/usr/local/bin/northstar-shell /usr/local/bin/northstar-session-x11
+TryExec=/usr/local/bin/northstar-session-x11
+Type=Application
+DesktopNames=Northstar
+X-Northstar-Compatibility=proxmox-basic-vga
+X-Northstar-Image-Managed=true
+EOF
 if [ ! -e "$MOUNT_ROOT/usr/local/bin/sddm-greeter" ] && \
     [ -x "$MOUNT_ROOT/usr/local/bin/sddm-greeter-qt6" ]; then
     ln -s sddm-greeter-qt6 "$MOUNT_ROOT/usr/local/bin/sddm-greeter"
@@ -349,7 +361,7 @@ if [ "$DEVELOPMENT_AUTOLOGIN" -eq 1 ]; then
     cat > "$MOUNT_ROOT/usr/local/etc/sddm.conf.d/30-northstar-development-autologin.conf" <<'EOF'
 [Autologin]
 User=northstar
-Session=northstar-proxmox.desktop
+Session=northstar-image-proxmox.desktop
 Relogin=false
 EOF
 fi
