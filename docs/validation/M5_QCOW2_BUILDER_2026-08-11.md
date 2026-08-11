@@ -100,3 +100,12 @@ emulated keyboard, Xorg, nested compositor, and Northstar shortcut handler and
 launched QTerminal, providing an end-to-end keyboard-input check. Final
 Proxmox/noVNC acceptance still requires the operator to confirm pointer motion,
 clicking, and ordinary text entry on the imported artifact.
+
+Manual Proxmox acceptance completed on VM 104 at `192.168.1.156`. The exact
+export with SHA-256
+`86ecf0a28993686ed59a425cc4dd0ef2d1e12e97e1e779d23883fff43f14c6ee`
+autologged into the branded desktop. The operator confirmed pointer movement,
+clicking, ordinary keyboard input, terminal and Files interaction, and clean
+shutdown through noVNC. This passes PR76's focused graphical QCOW2 gate. It
+does not by itself close the remaining installer, production first-boot,
+image-local update/rollback, direct DRM/KMS, or alpha hardware gates.

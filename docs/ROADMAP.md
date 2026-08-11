@@ -9,7 +9,7 @@ The project advances through user-visible milestones with explicit pass gates. A
 | M2 | Desktop session | Development session lane validated; production display-manager and service integration pending | Session, services, supervision, notifications, and lifecycle work coherently |
 | M3 | Core desktop | Core workflows, Lunar redesign, shared chrome, Dock v2, unified search, Quick Look, and capability-backed Quick Settings accepted | Filer, branded desktop surface, responsive dock, settings, search, overview, associations, and project apps form a usable desktop |
 | M4 | Packages, updates, rollback | Development update/rollback lane accepted; protected production infrastructure pending | Signed packages and ZFS boot-environment rollback work end to end |
-| M5 | Reproducible image and installer | Input-lock and safe preparation foundation in progress | Pinned inputs produce a bootable UEFI root-on-ZFS image |
+| M5 | Reproducible image and installer | First reproducible QCOW2 accepted; installer and image-local update/rollback pending | Pinned inputs produce a bootable UEFI root-on-ZFS image |
 | M6 | Alpha hardware release | Not started | The supported VM and narrow Intel/AMD hardware matrix meets the alpha definition |
 
 ## Current baseline and clear path forward
@@ -302,10 +302,13 @@ release-set and accepted Northstar package provenance, immutable artifact
 verification, and deterministic resolved-input records. It intentionally does
 not mutate disks or claim a bootable artifact. PR76 consumes only those passed
 records on a disposable privileged builder. PR76 has now produced a verified
-16 GiB UEFI/GPT/root-on-ZFS QCOW2 from 235 exact offline packages and passed a
+16 GiB UEFI/GPT/root-on-ZFS QCOW2 from 236 exact offline packages and passed a
 snapshot-only QEMU first-boot smoke through the multi-user login prompt. The
-focused Proxmox import, branded graphical login, shell launch, and image-local
-update/rollback checks remain required before the M5 image gate closes.
+focused Proxmox VM 104 import also passed branded graphical autologin, shell
+launch, keyboard and pointer interaction, terminal and Files launch, ordinary
+text entry, and clean shutdown at 1280x800. Image-local update/rollback, the
+non-development first-boot account workflow, and installer media remain
+required before the complete M5 image-and-installer gate closes.
 
 Pass only when clean builders produce recorded inputs and checksums, QEMU/Proxmox boots the image, the installer creates UEFI GPT/root-on-ZFS, first boot reaches graphical login and the shell, and update/rollback work after installation.
 
