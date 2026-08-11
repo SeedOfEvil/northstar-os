@@ -8,8 +8,8 @@ The project advances through user-visible milestones with explicit pass gates. A
 | M1 | Shell seed | Single-display product slice validated; multi-display acceptance pending | Top bar and dock render correctly on every connected display |
 | M2 | Desktop session | Development session lane validated; production display-manager and service integration pending | Session, services, supervision, notifications, and lifecycle work coherently |
 | M3 | Core desktop | Core workflows, Lunar redesign, shared chrome, Dock v2, unified search, Quick Look, and capability-backed Quick Settings accepted | Filer, branded desktop surface, responsive dock, settings, search, overview, associations, and project apps form a usable desktop |
-| M4 | Packages, updates, rollback | Signed development channel merged; transactional update and rollback is in progress | Signed packages and ZFS boot-environment rollback work end to end |
-| M5 | Reproducible image and installer | Not started | Pinned inputs produce a bootable UEFI root-on-ZFS image |
+| M4 | Packages, updates, rollback | Development update/rollback lane accepted; protected production infrastructure pending | Signed packages and ZFS boot-environment rollback work end to end |
+| M5 | Reproducible image and installer | Input-lock and safe preparation foundation in progress | Pinned inputs produce a bootable UEFI root-on-ZFS image |
 | M6 | Alpha hardware release | Not started | The supported VM and narrow Intel/AMD hardware matrix meets the alpha definition |
 
 ## Current baseline and clear path forward
@@ -295,6 +295,13 @@ Pass only when project components install through `pkg`, repository metadata is 
 ## M5: Reproducible image and installer
 
 Produce a ZFS QCOW2 image first, then raw and USB images, and only then an ISO. Use official release sets, pinned package repositories, project configuration, and established FreeBSD release tooling.
+
+PR75 establishes the non-privileged image-input boundary documented in
+[`docs/M5_IMAGE_FOUNDATION.md`](M5_IMAGE_FOUNDATION.md): exact official
+release-set and accepted Northstar package provenance, immutable artifact
+verification, and deterministic resolved-input records. It intentionally does
+not mutate disks or claim a bootable artifact. PR76 consumes only those passed
+records on a disposable privileged builder.
 
 Pass only when clean builders produce recorded inputs and checksums, QEMU/Proxmox boots the image, the installer creates UEFI GPT/root-on-ZFS, first boot reaches graphical login and the shell, and update/rollback work after installation.
 

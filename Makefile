@@ -2,7 +2,7 @@ SHELL := /bin/sh
 
 .DEFAULT_GOAL := help
 
-.PHONY: help check-host bootstrap configure build test welcome-app-test qml-surface-test validation-deployment-audit update-helper-test update-broker-smoke transactional-update-smoke run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package pkg-repository-smoke signed-development-repository-smoke vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
+.PHONY: help check-host bootstrap configure build test welcome-app-test qml-surface-test image-input-test prepare-image-inputs validation-deployment-audit update-helper-test update-broker-smoke transactional-update-smoke run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package pkg-repository-smoke signed-development-repository-smoke vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
 
 MANIFEST ?= packaging/manifests/bootstrap-packages.txt
 NORTHSTAR_USER ?=
@@ -15,6 +15,11 @@ NORTHSTAR_SHELL_BIN ?= $(NORTHSTAR_PREFIX)/bin/northstar-shell
 NORTHSTAR_PKG_CLIENT ?= 0
 NORTHSTAR_UPDATE_BROKER_BIN ?= $(BUILD_DIR)/src/update/northstar-update-broker
 VALIDATION_DEPLOYMENT_MANIFEST ?= /usr/local/etc/northstar/validation-deployment.conf
+IMAGE_LOCK ?= image/manifests/northstar-15.1-amd64-qcow2.lock
+IMAGE_ARTIFACTS ?= .artifacts/m5-inputs
+IMAGE_INPUT_OUTPUT ?= .artifacts/m5-resolved-inputs
+PROJECT_COMMIT ?= $(shell git rev-parse HEAD 2>/dev/null)
+PROJECT_ROOT ?= .
 
 help:
 	@printf '%s\n' 'Northstar development commands:'
@@ -25,6 +30,8 @@ help:
 	@printf '%s\n' '  make test         Run unit and integration tests'
 	@printf '%s\n' '  make welcome-app-test  Test the bundled Northstar Welcome launcher'
 	@printf '%s\n' '  make qml-surface-test  Check product-critical QML surface wiring'
+	@printf '%s\n' '  make image-input-test  Test pinned M5 image-input preparation'
+	@printf '%s\n' '  make prepare-image-inputs  Verify staged M5 artifacts and record provenance'
 	@printf '%s\n' '  make validation-deployment-audit  Audit the canonical VM deployment (read-only)'
 	@printf '%s\n' '  make update-helper-test  Test the bounded update-helper request contract'
 	@printf '%s\n' '  make update-broker-smoke  Verify and stage a disposable update request (root)'
@@ -70,6 +77,7 @@ test:
 	@sh tests/unit/test-session-script.sh
 	@sh tests/unit/test-update-helper.sh
 	@sh tests/unit/test-validation-deployment-audit.sh
+	@sh tests/unit/test-image-inputs.sh
 	@$(MAKE) build
 	@sh tests/unit/test-session-entrypoint.sh "$(BUILD_DIR)"
 	@ctest --test-dir "$(BUILD_DIR)" --output-on-failure
@@ -79,6 +87,17 @@ welcome-app-test:
 
 qml-surface-test:
 	@sh tests/unit/test-qml-surfaces.sh
+
+image-input-test:
+	@sh tests/unit/test-image-inputs.sh
+
+prepare-image-inputs:
+	@sh image/scripts/prepare-image-inputs.sh \
+		--lock "$(IMAGE_LOCK)" \
+		--artifacts "$(IMAGE_ARTIFACTS)" \
+		--output "$(IMAGE_INPUT_OUTPUT)" \
+		--project-root "$(PROJECT_ROOT)" \
+		--project-commit "$(PROJECT_COMMIT)"
 
 validation-deployment-audit:
 	@sh tools/audit-validation-deployment.sh --manifest "$(VALIDATION_DEPLOYMENT_MANIFEST)" --strict
@@ -155,6 +174,7 @@ shell-smoke: build
 shell-restart-smoke: install-user
 	@NORTHSTAR_SHELL_BIN="$(NORTHSTAR_SHELL_BIN)" sh tests/integration/test-shell-session.sh --restart
 
-package image:
-	@printf '%s\n' "Northstar: '$@' is planned for a later milestone." >&2
+image:
+	@printf '%s\n' 'Northstar: QCOW2 disk assembly begins in PR76 after verified input preparation.' >&2
+	@printf '%s\n' 'Run make prepare-image-inputs for the current safe M5 gate.' >&2
 	@exit 2
