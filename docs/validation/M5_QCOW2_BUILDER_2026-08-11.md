@@ -109,3 +109,10 @@ clicking, ordinary keyboard input, terminal and Files interaction, and clean
 shutdown through noVNC. This passes PR76's focused graphical QCOW2 gate. It
 does not by itself close the remaining installer, production first-boot,
 image-local update/rollback, direct DRM/KMS, or alpha hardware gates.
+
+After acceptance, the operator archive retained the QCOW2, checksum, image and
+boot-smoke provenance, exact FreeBSD release sets, Northstar and compatibility
+packages, resolved-input records, and the complete 236-package offline runtime
+bundle. Every retained package and release artifact was rehashed against its
+manifest after transfer. The disposable builder is therefore no longer the
+sole copy of the inputs required to reproduce this accepted development image.
