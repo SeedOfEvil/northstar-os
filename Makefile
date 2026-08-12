@@ -2,7 +2,7 @@ SHELL := /bin/sh
 
 .DEFAULT_GOAL := help
 
-.PHONY: help check-host bootstrap configure build test welcome-app-test qml-surface-test image-input-test runtime-bundle-test nested-wayfire-package-test image-assembler-test image-boot-smoke-test image-update-rollback-gate-test capture-runtime-bundle prepare-image-inputs validation-deployment-audit update-helper-test update-broker-smoke transactional-update-smoke run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package pkg-repository-smoke signed-development-repository-smoke vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
+.PHONY: help check-host bootstrap configure build test welcome-app-test first-boot-provision-test qml-surface-test image-input-test runtime-bundle-test nested-wayfire-package-test image-assembler-test image-boot-smoke-test image-update-rollback-gate-test capture-runtime-bundle prepare-image-inputs validation-deployment-audit update-helper-test update-broker-smoke transactional-update-smoke run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package pkg-repository-smoke signed-development-repository-smoke vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
 
 MANIFEST ?= packaging/manifests/bootstrap-packages.txt
 NORTHSTAR_USER ?=
@@ -35,6 +35,7 @@ help:
 	@printf '%s\n' '  make build        Build project components'
 	@printf '%s\n' '  make test         Run unit and integration tests'
 	@printf '%s\n' '  make welcome-app-test  Test the bundled Northstar Welcome launcher'
+	@printf '%s\n' '  make first-boot-provision-test  Test one-time account provisioning and secret handling'
 	@printf '%s\n' '  make qml-surface-test  Check product-critical QML surface wiring'
 	@printf '%s\n' '  make image-input-test  Test pinned M5 image-input preparation'
 	@printf '%s\n' '  make runtime-bundle-test  Test exact offline runtime capture'
@@ -81,6 +82,7 @@ bootstrap:
 test:
 	@sh tests/unit/test-m0-scripts.sh
 	@$(MAKE) welcome-app-test
+	@$(MAKE) first-boot-provision-test
 	@$(MAKE) qml-surface-test
 	@sh tests/unit/test-nested-wayfire-session.sh
 	@sh tests/unit/test-console-autostart.sh
@@ -100,6 +102,9 @@ test:
 
 welcome-app-test:
 	@sh tests/unit/test-welcome-app.sh
+
+first-boot-provision-test:
+	@sh tests/unit/test-first-boot-provision.sh
 
 qml-surface-test:
 	@sh tests/unit/test-qml-surfaces.sh

@@ -40,6 +40,22 @@ grep -F 'development_passwordless_local_account=$DEVELOPMENT_AUTOLOGIN' "$ASSEMB
     printf 'FAIL: image provenance omits the development local-account policy\n' >&2
     exit 1
 }
+grep -F "useradd northstar-setup -u 1001" "$ASSEMBLER" >/dev/null || {
+    printf 'FAIL: production image does not create the bounded setup identity\n' >&2
+    exit 1
+}
+grep -F 'Session=northstar-first-boot.desktop' "$ASSEMBLER" >/dev/null || {
+    printf 'FAIL: production image does not enter the first-boot session\n' >&2
+    exit 1
+}
+grep -F 'status=pending' "$ASSEMBLER" >/dev/null || {
+    printf 'FAIL: production image omits protected pending state\n' >&2
+    exit 1
+}
+grep -F 'runtime bundle omits production first-boot component' "$ASSEMBLER" >/dev/null || {
+    printf 'FAIL: production image does not require packaged first-boot components\n' >&2
+    exit 1
+}
 if grep -F 'zfs create -o mountpoint=/var "$POOL/var"' "$ASSEMBLER" >/dev/null; then
     printf 'FAIL: assembler places the package database outside boot environments\n' >&2
     exit 1

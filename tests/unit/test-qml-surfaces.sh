@@ -36,6 +36,7 @@ src/shell/SoftwareCenterWindow.qml \
 src/shell/SystemMenu.qml"
 required_files="$required_files src/shell/SearchOverlay.qml"
 required_files="$required_files src/shell/QuickLookWindow.qml"
+required_files="$required_files apps/first-boot/FirstBootWindow.qml"
 
 for file in $required_files; do
     [ -r "$ROOT/$file" ] || fail "missing QML surface: $file"
@@ -182,6 +183,16 @@ contains apps/text-editor/TextEditorWindow.qml '"Save As..."'
 contains apps/text-editor/TextEditorWindow.qml 'defaultSaveDirectory'
 contains apps/text-editor/TextEditorWindow.qml 'saveAsDialog'
 contains apps/text-editor/TextEditorWindow.qml 'anchors.right: parent.right'
+contains apps/first-boot/FirstBootWindow.qml 'Welcome to Northstar'
+contains apps/first-boot/FirstBootWindow.qml 'firstBootController.validateProfile('
+contains apps/first-boot/FirstBootWindow.qml 'firstBootController.provision('
+contains apps/first-boot/FirstBootWindow.qml 'echoMode: TextInput.Password'
+contains apps/first-boot/FirstBootWindow.qml 'function onSecretsCleared()'
+contains apps/first-boot/FirstBootWindow.qml 'import Northstar.Ui 1.0'
+contains packaging/polkit/org.northstar.firstboot.policy '<allow_active>yes</allow_active>'
+contains packaging/polkit/org.northstar.firstboot.policy '/usr/local/libexec/northstar-first-boot-provision'
+contains apps/first-boot/northstar-first-boot-session 'first-boot.pending'
+contains apps/first-boot/northstar-first-boot-session 'exec "$WIZARD"'
 
 for surface in \
     src/shell/FileBrowserWindow.qml \

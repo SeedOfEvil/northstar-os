@@ -22,6 +22,7 @@ find_package(Qt6 6.6 REQUIRED COMPONENTS Concurrent Core Gui Network Qml Quick Q
 include(CTest)
 
 add_subdirectory(src/ui)
+add_subdirectory(apps/first-boot)
 add_subdirectory(apps/welcome)
 add_subdirectory(apps/text-editor)
 add_subdirectory(src/session)
@@ -53,6 +54,7 @@ set(CPACK_FREEBSD_PACKAGE_DEPS
 )
 
 install(FILES packaging/polkit/org.northstar.update.policy
+              packaging/polkit/org.northstar.firstboot.policy
     DESTINATION share/polkit-1/actions
 )
 

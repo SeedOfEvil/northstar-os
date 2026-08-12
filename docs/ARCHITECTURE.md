@@ -69,6 +69,16 @@ Planned services include launcher, notifications, settings, file associations, v
 
 Application discovery starts with standard FreeBSD `.desktop` files. A project `.app` bundle is a presentation and portability format, not a replacement for FreeBSD package management. The launcher supports both formats and resolves file associations through project-owned interfaces.
 
+### First boot
+
+A production image enters a dedicated unprivileged setup session while a
+root-owned pending marker exists. The first-boot GUI passes bounded non-secret
+profile data to a fixed PolicyKit helper and streams the password once over
+standard input. The helper independently validates the active setup identity,
+request ownership, pending state, and allowlisted values before creating the
+first administrator and permanently sealing the temporary setup path. See
+[`ADR 0010`](adr/0010-first-boot-provisioning-boundary.md).
+
 ## Packaging and update model
 
 FreeBSD base and kernel updates use the official FreeBSD mechanism. Third-party desktop dependencies come from a pinned FreeBSD package source. Northstar components are built in clean Poudriere jails and published through a signed `pkg` repository. The Northstar publication sidecar records the repository revision, target ABI, package origins, source inputs, and project revisions for read-only planning; its local signature envelope verifies the sidecar/catalogue binding but does not replace `pkg` catalogue files or the repository's own signature path. Development `.app` bundles expose manifest-level provenance now. The update helper accepts only a verified, root-owned request bound to the publication identity and derived boot-environment name; actual package mutation, broker authorization, and rollback remain part of M4.
