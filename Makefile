@@ -2,7 +2,7 @@ SHELL := /bin/sh
 
 .DEFAULT_GOAL := help
 
-.PHONY: help check-host bootstrap configure build test welcome-app-test first-boot-provision-test installer-disk-test installer-source-test installer-engine-test installer-executor-test installer-recovery-test boot-environment-recovery-test installer-media-test qml-surface-test image-input-test runtime-bundle-test nested-wayfire-package-test image-assembler-test image-boot-smoke-test image-update-rollback-gate-test capture-runtime-bundle prepare-image-inputs validation-deployment-audit update-helper-test update-broker-smoke transactional-update-smoke run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package pkg-repository-smoke signed-development-repository-smoke vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
+.PHONY: help check-host bootstrap configure build test welcome-app-test first-boot-provision-test installer-disk-test installer-source-test installer-engine-test installer-executor-test installer-recovery-test boot-environment-recovery-test installer-media-test installer-rc-test qml-surface-test image-input-test runtime-bundle-test nested-wayfire-package-test image-assembler-test image-boot-smoke-test image-update-rollback-gate-test capture-runtime-bundle prepare-image-inputs validation-deployment-audit update-helper-test update-broker-smoke transactional-update-smoke run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package pkg-repository-smoke signed-development-repository-smoke vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
 
 MANIFEST ?= packaging/manifests/bootstrap-packages.txt
 NORTHSTAR_USER ?=
@@ -43,6 +43,7 @@ help:
 	@printf '%s\n' '  make installer-recovery-test  Test the fixed non-mutating recovery PolicyKit boundary'
 	@printf '%s\n' '  make boot-environment-recovery-test  Test bounded boot-environment inventory and activation'
 	@printf '%s\n' '  make installer-media-test  Test signed rootfs source and disk-device-free raw USB assembly'
+	@printf '%s\n' '  make installer-rc-test  Test integrated QCOW2, signed-source, and raw-media orchestration'
 	@printf '%s\n' '  make qml-surface-test  Check product-critical QML surface wiring'
 	@printf '%s\n' '  make image-input-test  Test pinned M5 image-input preparation'
 	@printf '%s\n' '  make runtime-bundle-test  Test exact offline runtime capture'
@@ -97,6 +98,7 @@ test:
 	@$(MAKE) installer-recovery-test
 	@$(MAKE) boot-environment-recovery-test
 	@$(MAKE) installer-media-test
+	@$(MAKE) installer-rc-test
 	@$(MAKE) qml-surface-test
 	@sh tests/unit/test-nested-wayfire-session.sh
 	@sh tests/unit/test-console-autostart.sh
@@ -140,6 +142,9 @@ boot-environment-recovery-test:
 
 installer-media-test:
 	@sh tests/unit/test-installer-media.sh
+
+installer-rc-test:
+	@sh tests/unit/test-installer-rc.sh
 
 qml-surface-test:
 	@sh tests/unit/test-qml-surfaces.sh

@@ -364,6 +364,11 @@ file with a labeled read-only source partition and non-inheritable live-media
 session. The assembler accepts no host disk. Its routine boundary and deferred
 acceptance are documented in
 [`docs/M5_INSTALLER_MEDIA.md`](M5_INSTALLER_MEDIA.md).
+The integrated checkpoint is now driven by one ordered, provenance-emitting
+orchestrator and the disposable-builder/Proxmox checklist in
+[`docs/M5_INSTALLER_RELEASE_CANDIDATE.md`](M5_INSTALLER_RELEASE_CANDIDATE.md).
+Artifact construction and manual installation evidence remain in progress on
+the dedicated RC branch until every deferred M5 claim is resolved.
 Actual disposable-disk acceptance, recovery-point reboot proof, and media outputs
 use routine DEV01, native FreeBSD, and file-backed validation on their focused
 PRs. Their image-level claims remain explicitly deferred to one integrated
