@@ -34,6 +34,14 @@ The first Northstar artifact target remains a reproducible ZFS QCOW2 image for
 QEMU/Proxmox, followed by raw and USB images. Northstar ISO assembly is later
 M5 work.
 
+Full artifacts are assembled and manually imported at named milestone
+checkpoints, not for every image-related PR. Intermediate first-boot,
+installer, recovery, diagnostics, and media changes use routine DEV01 and
+non-destructive/file-backed tests and record image acceptance as deferred. The
+next integrated artifact checkpoint is **M5 Installer Release Candidate**.
+See
+[`docs/MILESTONE_IMAGE_VALIDATION.md`](../docs/MILESTONE_IMAGE_VALIDATION.md).
+
 The installed-image update and rollback gate is documented in
 [`docs/M5_IMAGE_UPDATE_ROLLBACK.md`](../docs/M5_IMAGE_UPDATE_ROLLBACK.md). Its
 deterministic test is `make image-update-rollback-gate-test`; production phases

@@ -31,4 +31,11 @@ The exact FreeBSD release and package source are part of the job evidence.
 
 Package repositories, image assembly, QEMU smoke tests, and signed artifacts run only from protected branches or manually approved workflows. Use disposable VMs where possible. Public pull requests and forks must not reach persistent privileged runners, package-signing keys, or production repository credentials.
 
+Protected capability does not make complete image assembly a per-PR gate.
+Routine image/installer PRs run non-destructive contracts and may use bounded
+automated fixture or boot smoke where justified. Promotable image artifacts
+and manual Proxmox/noVNC acceptance are produced at the named M5/M6 release-
+candidate checkpoints in
+[`docs/MILESTONE_IMAGE_VALIDATION.md`](MILESTONE_IMAGE_VALIDATION.md).
+
 The workflow implementation is planned for PR 3. This document defines the contract without falsely claiming that CI is active in PR 2.

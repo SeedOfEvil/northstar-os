@@ -11,6 +11,26 @@ PR 2 adds `unit/test-m0-scripts.sh` for deterministic command stubs and `vm/m0-s
 
 Tests must state the required FreeBSD release, packages, privileges, and cleanup behavior.
 
+## Image-test cadence
+
+Image-related source changes do not trigger a complete QCOW2 rebuild and
+manual Proxmox import for every PR. Routine PRs use unit/integration contracts,
+temporary roots, fake tools, file-backed disk fixtures on disposable builders,
+native FreeBSD checks, and focused DEV01 interaction. Their validation record
+names the future image checkpoint and marks unperformed image behavior
+`DEFERRED`.
+
+Complete image assembly, transfer, fresh Proxmox import, provisioning, and the
+full boot/install/update/rollback/noVNC suite run at named release-candidate
+checkpoints. The next one is **M5 Installer Release Candidate**, followed by
+**M6 Alpha RC** and **M6 Alpha release**. See
+[`docs/MILESTONE_IMAGE_VALIDATION.md`](../docs/MILESTONE_IMAGE_VALIDATION.md).
+
+Bootloader, GPT/ZFS layout, package-database placement, or early-service
+changes receive the least expensive useful automated smoke first. An
+unscheduled manual image cycle requires a recorded risk justification and
+explicit operator approval.
+
 PR73 adds `vm/signed-development-repository-smoke.sh`. It packages the real
 Northstar install tree, publishes it through external disposable signers and a
 resolved input lock, proves an isolated `pkg` client refreshes it, and requires
