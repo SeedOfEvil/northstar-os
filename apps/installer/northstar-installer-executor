@@ -81,12 +81,16 @@ Usage: northstar-installer-executor --capabilities
        northstar-installer-executor --preflight TRANSACTION_ID
        northstar-installer-executor --execute TRANSACTION_ID --confirm-device DEVICE
        northstar-installer-executor --status TRANSACTION_ID
+       northstar-installer-executor --diagnostics TRANSACTION_ID
+       northstar-installer-executor --prepare-retry TRANSACTION_ID --confirm-device DEVICE
        northstar-installer-executor --finalize TRANSACTION_ID
 
 The executor consumes only protected staged state. Production execution also
 requires the fixed root-owned installer-media marker and exact device
 confirmation. --finalize archives an already completed transaction after an
-interrupted final state publication; it never mutates a disk.
+interrupted final state publication. --prepare-retry archives a verified,
+quiescent interrupted attempt so a new reviewed transaction can be staged.
+Neither recovery operation mutates a disk.
 EOF
 }
 
@@ -295,6 +299,45 @@ validate_completed_journal() {
         || fail "$EX_DATAERR" 'completed execution lacks a final completion event'
 }
 
+validate_interrupted_journal() {
+    validate_journal_sequence
+    journal_position=0
+    execution_position=0
+    interruption_seen=0
+    while IFS= read -r journal_line || [ -n "${journal_line:-}" ]; do
+        journal_position=$((journal_position + 1))
+        journal_event=${journal_line#*|}
+        case "$journal_position:$journal_event" in
+            1:request-validated|2:source-verified|3:target-revalidated|4:transaction-staged) continue ;;
+        esac
+        if [ "$execution_position" -eq 0 ] && [ "$journal_event" = transaction-recovered ]; then
+            continue
+        fi
+        case "$execution_position:$journal_event" in
+            0:execution-authorized) execution_position=1 ;;
+            1:source-reverified) execution_position=2 ;;
+            2:target-revalidated-final) execution_position=3 ;;
+            3:payload-preflight-passed) execution_position=4 ;;
+            4:mutation-started) execution_position=5 ;;
+            5:partition-table-created) execution_position=6 ;;
+            6:efi-formatted) execution_position=7 ;;
+            7:zpool-created) execution_position=8 ;;
+            8:datasets-created) execution_position=9 ;;
+            9:payload-extracted) execution_position=10 ;;
+            10:payload-verified) execution_position=11 ;;
+            11:bootloader-installed) execution_position=12 ;;
+            12:installation-verified) execution_position=13 ;;
+            *:execution-interrupted)
+                [ "$journal_position" -eq "$journal_count" ] \
+                    || fail "$EX_DATAERR" 'interruption is not the final journal event'
+                interruption_seen=1 ;;
+            *) fail "$EX_DATAERR" 'interrupted transaction journal phase order is invalid' ;;
+        esac
+    done < "$journal_file"
+    [ "$execution_position" -ge 1 ] && [ "$interruption_seen" -eq 1 ] \
+        || fail "$EX_DATAERR" 'interrupted transaction journal is incomplete'
+}
+
 verify_source() {
     [ -x "$SOURCE_VERIFY" ] || fail "$EX_UNAVAILABLE" 'fixed installer source verifier is unavailable'
     if ! source_report=$("$SOURCE_VERIFY" --verify "$txn_manifest_sha"); then
@@ -464,6 +507,7 @@ efi_mounted=0
 pool_created=0
 mutation_started=no
 execution_complete=0
+execution_attempt=0
 last_phase=preflight
 mount_root=
 transaction_dir=
@@ -482,10 +526,10 @@ cleanup() {
         "$ZPOOL" export "$txn_pool" >/dev/null 2>&1
         pool_created=0
     fi
-    if [ "$execution_complete" -ne 1 ] && [ "$mutation_started" = yes ] \
+    if [ "$execution_complete" -ne 1 ] && [ "$execution_attempt" -eq 1 ] \
         && [ -n "$transaction_dir" ] && [ -f "$journal_file" ]; then
         append_journal execution-interrupted >/dev/null 2>&1
-        write_execution interrupted "$last_phase" yes cleanup-and-restart-required >/dev/null 2>&1
+        write_execution interrupted "$last_phase" "$mutation_started" cleanup-and-restart-required >/dev/null 2>&1
     fi
     if [ -n "$mount_root" ]; then
         case "$mount_root" in
@@ -503,17 +547,17 @@ trap 'exit 143' TERM
 case "$1" in
     --capabilities)
         [ "$#" -eq 1 ] || fail "$EX_USAGE" '--capabilities takes no arguments'
-        printf '%s\n' 'protocol=1' 'operations=preflight,execute,status,finalize' \
+        printf '%s\n' 'protocol=1' 'operations=preflight,execute,status,diagnostics,prepare-retry,finalize' \
             'authorization=installer-media-marker-plus-exact-confirmation' \
             'layout=gpt-uefi-zfs' 'payload=northstar-rootfs-v1' \
             'journal=phase-sequenced' 'failure=cleanup-and-restart-required'
         execution_complete=1
         exit 0 ;;
-    --preflight|--status|--finalize)
+    --preflight|--status|--diagnostics|--finalize)
         [ "$#" -eq 2 ] || fail "$EX_USAGE" "$1 requires TRANSACTION_ID" ;;
-    --execute)
+    --execute|--prepare-retry)
         [ "$#" -eq 4 ] && [ "$3" = --confirm-device ] \
-            || fail "$EX_USAGE" '--execute requires TRANSACTION_ID --confirm-device DEVICE' ;;
+            || fail "$EX_USAGE" "$1 requires TRANSACTION_ID --confirm-device DEVICE" ;;
     --help|-h) usage; execution_complete=1; exit 0 ;;
     *) usage >&2; exit "$EX_USAGE" ;;
 esac
@@ -551,7 +595,56 @@ if [ "$mode" = --status ]; then
     exit 0
 fi
 
+if [ "$mode" = --diagnostics ]; then
+    load_active
+    [ "$active_id" = "$transaction_id" ] \
+        || fail "$EX_NOPERM" 'diagnostics require the exact active transaction'
+    load_transaction "$transaction_id"
+    load_execution
+    case "$exec_status" in
+        interrupted) validate_interrupted_journal ;;
+        completed) validate_completed_journal ;;
+        *) fail "$EX_NOPERM" 'diagnostics are available only after execution stops' ;;
+    esac
+    printf '%s\n' 'NORTHSTAR_INSTALLER_DIAGNOSTICS=1' \
+        "TRANSACTION_ID=$transaction_id" "STATUS=$exec_status" 'LOCATION=active' \
+        "TARGET=$txn_target" "TARGET_MEDIASIZE=$txn_mediasize" \
+        "TARGET_SECTORSIZE=$txn_sectorsize" "LAYOUT=$txn_layout" \
+        "POOL_NAME=$txn_pool" "SOURCE_MANIFEST_SHA256=$txn_manifest_sha" \
+        "PAYLOAD_SHA256=$txn_payload_sha" "PROJECT_COMMIT=$txn_project_commit" \
+        "LAST_PHASE=$exec_phase" "MUTATION_STARTED=$exec_mutation" \
+        "RECOVERY_ACTION=$exec_recovery" "JOURNAL_EVENT_COUNT=$journal_count" \
+        "JOURNAL_LAST_EVENT=$journal_last" 'PRIVATE_DATA=excluded'
+    execution_complete=1
+    exit 0
+fi
+
 load_marker
+if [ "$mode" = --prepare-retry ]; then
+    load_active
+    [ "$active_id" = "$transaction_id" ] \
+        || fail "$EX_NOPERM" 'retry preparation requires the exact active transaction'
+    load_transaction "$transaction_id"
+    [ "$marker_manifest" = "$txn_manifest_sha" ] \
+        || fail "$EX_NOPERM" 'installer-media marker is not bound to this source manifest'
+    [ "$4" = "$txn_target" ] || fail "$EX_NOPERM" 'typed target confirmation does not match the interrupted transaction'
+    load_execution
+    [ "$exec_status" = interrupted ] && [ "$exec_recovery" = cleanup-and-restart-required ] \
+        || fail "$EX_NOPERM" 'transaction is not an interrupted attempt awaiting a clean retry'
+    validate_interrupted_journal
+    revalidate_target
+    archive_dir=$state_dir/archive/$transaction_id
+    [ ! -e "$archive_dir" ] || fail "$EX_NOPERM" 'transaction archive already exists'
+    append_journal retry-prepared
+    "$RM" -f "$active_file"
+    "$MV" "$transaction_dir" "$archive_dir"
+    transaction_dir=$archive_dir
+    execution_complete=1
+    printf '%s\n' 'INSTALLER_RETRY=READY' "TRANSACTION_ID=$transaction_id" \
+        "TARGET=$txn_target" "ARCHIVE=$archive_dir" \
+        'NEXT_ACTION=stage-new-reviewed-transaction' 'DISK_MUTATION=none'
+    exit 0
+fi
 if [ "$mode" = --finalize ]; then
     if [ -d "$state_dir/archive/$transaction_id" ]; then
         transaction_dir=$state_dir/archive/$transaction_id
@@ -624,6 +717,7 @@ mount_root=$run_root/$transaction_id
 [ ! -e "$mount_root" ] || fail "$EX_NOPERM" 'transaction mount root already exists'
 "$INSTALL" -d -o root -g wheel -m 0700 "$mount_root"
 
+execution_attempt=1
 write_execution executing execution-authorized no cleanup-and-restart-required
 phase_done execution-authorized
 verify_source

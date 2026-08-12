@@ -490,11 +490,13 @@ if [ "$mode" = --status ]; then
         if [ -e "$transaction_dir/execution.conf" ]; then
             load_execution_state
             printf '%s\n' "INSTALLER_STATUS=$execution_status" "TRANSACTION_ID=$active_transaction_id" \
+                "TARGET=$txn_target" \
                 "LAST_PHASE=$execution_phase" "MUTATION_STARTED=$execution_mutation" \
                 "RECOVERY_ACTION=$execution_recovery" 'DISK_MUTATION=executor-controlled'
             exit 0
         fi
         printf '%s\n' 'INSTALLER_STATUS=staged' "TRANSACTION_ID=$active_transaction_id" \
+            "TARGET=$txn_target" \
             'RECOVERY_ACTION=resume-or-abandon-required' 'DISK_MUTATION=none'
         exit 0
     fi
@@ -504,6 +506,7 @@ if [ "$mode" = --status ]; then
         1)
             load_transaction "$orphan_id"
             printf '%s\n' 'INSTALLER_STATUS=interrupted' "TRANSACTION_ID=$orphan_id" \
+                "TARGET=$txn_target" \
                 'RECOVERY_ACTION=recover-or-abandon-required' 'DISK_MUTATION=none' ;;
         *) fail "$EX_DATAERR" 'multiple interrupted installer transactions require manual recovery' ;;
     esac

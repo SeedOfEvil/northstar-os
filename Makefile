@@ -2,7 +2,7 @@ SHELL := /bin/sh
 
 .DEFAULT_GOAL := help
 
-.PHONY: help check-host bootstrap configure build test welcome-app-test first-boot-provision-test installer-disk-test installer-source-test installer-engine-test installer-executor-test qml-surface-test image-input-test runtime-bundle-test nested-wayfire-package-test image-assembler-test image-boot-smoke-test image-update-rollback-gate-test capture-runtime-bundle prepare-image-inputs validation-deployment-audit update-helper-test update-broker-smoke transactional-update-smoke run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package pkg-repository-smoke signed-development-repository-smoke vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
+.PHONY: help check-host bootstrap configure build test welcome-app-test first-boot-provision-test installer-disk-test installer-source-test installer-engine-test installer-executor-test installer-recovery-test qml-surface-test image-input-test runtime-bundle-test nested-wayfire-package-test image-assembler-test image-boot-smoke-test image-update-rollback-gate-test capture-runtime-bundle prepare-image-inputs validation-deployment-audit update-helper-test update-broker-smoke transactional-update-smoke run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package pkg-repository-smoke signed-development-repository-smoke vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
 
 MANIFEST ?= packaging/manifests/bootstrap-packages.txt
 NORTHSTAR_USER ?=
@@ -39,7 +39,8 @@ help:
 	@printf '%s\n' '  make installer-disk-test  Test read-only installer target discovery'
 	@printf '%s\n' '  make installer-source-test  Test signed installer-source verification'
 	@printf '%s\n' '  make installer-engine-test  Test protected preflight and recoverable journal staging'
-	@printf '%s\n' '  make installer-executor-test  Test guarded execution ordering and interruption cleanup'
+	@printf '%s\n' '  make installer-executor-test  Test guarded execution, diagnostics, and clean retry preparation'
+	@printf '%s\n' '  make installer-recovery-test  Test the fixed non-mutating recovery PolicyKit boundary'
 	@printf '%s\n' '  make qml-surface-test  Check product-critical QML surface wiring'
 	@printf '%s\n' '  make image-input-test  Test pinned M5 image-input preparation'
 	@printf '%s\n' '  make runtime-bundle-test  Test exact offline runtime capture'
@@ -91,6 +92,7 @@ test:
 	@$(MAKE) installer-source-test
 	@$(MAKE) installer-engine-test
 	@$(MAKE) installer-executor-test
+	@$(MAKE) installer-recovery-test
 	@$(MAKE) qml-surface-test
 	@sh tests/unit/test-nested-wayfire-session.sh
 	@sh tests/unit/test-console-autostart.sh
@@ -125,6 +127,9 @@ installer-engine-test:
 
 installer-executor-test:
 	@sh tests/unit/test-installer-executor.sh
+
+installer-recovery-test:
+	@sh tests/unit/test-installer-recovery.sh
 
 qml-surface-test:
 	@sh tests/unit/test-qml-surfaces.sh

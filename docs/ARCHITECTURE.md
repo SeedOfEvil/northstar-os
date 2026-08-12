@@ -112,6 +112,15 @@ failure, and never honors production environment overrides; see
 [`ADR 0014`](adr/0014-guarded-installer-execution.md). Ordinary installed
 systems and DEV01 do not receive the execution marker.
 
+An interrupted execution is never resumed in place. A separate fixed
+non-mutating recovery helper can export only a bounded allowlisted diagnostic
+record or, after marker, journal, target identity, quiescence, and exact-device
+confirmation checks, archive the failed attempt and release the engine for a
+brand-new reviewed transaction. The unprivileged installer writes the
+sanitized diagnostic record to the user's Documents directory; root paths,
+raw journals, requests, logs, credentials, and environment are excluded. See
+[`ADR 0015`](adr/0015-installer-clean-retry-and-diagnostics.md).
+
 ## Packaging and update model
 
 FreeBSD base and kernel updates use the official FreeBSD mechanism. Third-party desktop dependencies come from a pinned FreeBSD package source. Northstar components are built in clean Poudriere jails and published through a signed `pkg` repository. The Northstar publication sidecar records the repository revision, target ABI, package origins, source inputs, and project revisions for read-only planning; its local signature envelope verifies the sidecar/catalogue binding but does not replace `pkg` catalogue files or the repository's own signature path. Development `.app` bundles expose manifest-level provenance now. The update helper accepts only a verified, root-owned request bound to the publication identity and derived boot-environment name; actual package mutation, broker authorization, and rollback remain part of M4.

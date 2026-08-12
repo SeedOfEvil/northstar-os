@@ -58,7 +58,14 @@ boundary under a temporary root.
 active transaction, source, target, archive, and typed-confirmation boundaries;
 orders fake GPT, EFI, ZFS, extraction, installed-runtime, bootloader, and export
 operations; archives success; and injects a post-dataset failure to verify pool
-cleanup plus engine-visible interrupted state without exposing a host disk.
+cleanup plus engine-visible interrupted state without exposing a host disk. It
+also verifies bounded privacy-preserving diagnostics, exact interrupted-journal
+ordering, target revalidation, typed retry confirmation, archival preservation,
+and a no-mutation clean-retry transition. The Qt recovery-controller test
+rejects unexpected diagnostic fields and writes only the sanitized report.
+`unit/test-installer-recovery.sh` verifies that the separate PolicyKit-facing
+wrapper accepts only the two fixed recovery operations and cannot dispatch
+unsafe transaction or device arguments.
 `unit/test-image-assembler.sh` exercises the complete non-root QCOW2 preflight
 with fixture release sets and package artifacts, including tamper rejection.
 The production path additionally requires root, FreeBSD, a protected

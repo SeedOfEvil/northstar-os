@@ -230,6 +230,9 @@ add_test(NAME northstar-first-boot-qml COMMAND northstar-first-boot --self-test)
 qt_add_executable(test-installercontroller test-installercontroller.cpp)
 target_link_libraries(test-installercontroller PRIVATE northstar-installer-core Qt6::Test)
 add_test(NAME northstar-installercontroller COMMAND test-installercontroller)
+qt_add_executable(test-installerrecoverycontroller test-installerrecoverycontroller.cpp)
+target_link_libraries(test-installerrecoverycontroller PRIVATE northstar-installer-core Qt6::Test)
+add_test(NAME northstar-installerrecoverycontroller COMMAND test-installerrecoverycontroller)
 add_test(NAME northstar-installer-qml COMMAND northstar-installer --self-test)
 
 add_test(NAME northstar-welcome-gui COMMAND northstar-welcome-gui --self-test)
@@ -285,6 +288,7 @@ set_tests_properties(
     northstar-firstbootcontroller
     northstar-first-boot-qml
     northstar-installercontroller
+    northstar-installerrecoverycontroller
     northstar-installer-qml
     northstar-welcome-gui
     northstar-texteditorcontroller

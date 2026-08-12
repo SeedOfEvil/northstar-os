@@ -1,6 +1,7 @@
 add_library(northstar-installer-core STATIC
     installerdiskmodel.cpp
     installercontroller.cpp
+    installerrecoverycontroller.cpp
 )
 
 target_include_directories(northstar-installer-core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
@@ -27,3 +28,4 @@ install(PROGRAMS northstar-installer-disks DESTINATION libexec)
 install(PROGRAMS northstar-installer-engine DESTINATION libexec)
 install(PROGRAMS northstar-installer-source-verify DESTINATION libexec)
 install(PROGRAMS northstar-installer-executor DESTINATION libexec)
+install(PROGRAMS northstar-installer-recovery DESTINATION libexec)
