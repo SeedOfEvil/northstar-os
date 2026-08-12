@@ -306,17 +306,21 @@ records on a disposable privileged builder. PR76 has now produced a verified
 snapshot-only QEMU first-boot smoke through the multi-user login prompt. The
 focused Proxmox VM 104 import also passed branded graphical autologin, shell
 launch, keyboard and pointer interaction, terminal and Files launch, ordinary
-text entry, and clean shutdown at 1280x800. Image-local update/rollback, the
-non-development first-boot account workflow, and installer media remain
-required before the complete M5 image-and-installer gate closes.
+text entry, and clean shutdown at 1280x800. A corrected image at `e015330`
+also keeps `/var` inside the root boot environment and has passed image-local
+signed update, injected-failure recovery, explicit rollback, and `/home`
+preservation on disposable Proxmox VM 104. The non-development first-boot
+account workflow and installer media remain required before the complete M5
+image-and-installer gate closes.
 
 PR77 adds the reboot-spanning installed-image acceptance gate documented in
 [`docs/M5_IMAGE_UPDATE_ROLLBACK.md`](M5_IMAGE_UPDATE_ROLLBACK.md). It keeps
 mutation off the persistent development VM, injects a package failure, proves
 recovery through a real boot-environment reboot, performs a signed N-1 to N
 package update, explicitly rolls back, and verifies `/home` preservation. The
-deterministic contract is implemented; the disposable-image execution remains
-required before PR77 promotion.
+deterministic contract and corrected disposable-image execution now pass; the
+validation evidence is recorded with the exact image, gate, package, and
+repository hashes.
 
 Pass only when clean builders produce recorded inputs and checksums, QEMU/Proxmox boots the image, the installer creates UEFI GPT/root-on-ZFS, first boot reaches graphical login and the shell, and update/rollback work after installation.
 

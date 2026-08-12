@@ -55,3 +55,40 @@ requires `/var` to resolve to the active root boot-environment dataset before
 the destructive gate may start. A rebuilt QCOW2 must repeat the complete
 failure, update, rollback, and home-preservation sequence and reach
 `stage=passed` before promotion.
+
+## Corrected-image acceptance
+
+The corrected source at
+`e015330cda7c56d8003edad381cefa564d932236` rebuilt the 16 GiB development
+QCOW2 on the sequentially reused disposable VM 104 builder. The retained
+artifact is 3,351,314,432 bytes with SHA-256
+`fa79de31aa0d631e3516185d10c86ae0577c6fb78a29420b7e0cfcfd65628844`.
+An independent `qemu-img check` found no errors. Its recorded ZFS layout has
+only `ROOT/default`, `/home`, and `/tmp`; `/var` is part of the active root
+boot environment rather than a shared dataset.
+
+The exact artifact was imported into disposable Proxmox VM 104. Before any
+mutation, the live image reported Northstar `0.1.4`, one `default` boot
+environment, `/` and `/var` on
+`nstar_e015330cda7c/ROOT/default`, and `/home` on the separate
+`nstar_e015330cda7c/home` dataset. The acceptance driver staged from exact
+commit `e015330` had SHA-256
+`fdac3bb1cf0e6325a21b86344ce6eaf03978d32ec8ae38f674dc6c4407ac5b44`.
+
+The complete production sequence then passed:
+
+- the injected package failure created and activated
+  `northstar-before-development-r79-1bf935dd2bbf`;
+- reboot restored Northstar `0.1.4`, kept `/var` with that root dataset, and
+  preserved the `/home` sentinel;
+- normalization returned the VM to one `default` boot environment;
+- the signed revision-79 repository upgraded exactly Northstar `0.1.4` to
+  `0.1.5` and the gate verified the candidate;
+- explicit rollback activated the verified pre-update environment;
+- the second reboot restored both the Northstar files and package database to
+  `0.1.4`, while `/home` remained separate and unchanged; and
+- the terminal driver output was `IMAGE_UPDATE_ROLLBACK_GATE=PASS`, with
+  `HOME_PRESERVED=yes`.
+
+This closes the PR77 disposable-image execution gate. The imported VM remains
+disposable evidence and is not a replacement for `NSTAR-DEV01`.
