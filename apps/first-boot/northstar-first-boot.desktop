@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Northstar First Boot
+Comment=Create the first Northstar administrator
+Exec=/usr/local/libexec/northstar-first-boot-session
+TryExec=/usr/local/libexec/northstar-first-boot-session
+Type=Application
+DesktopNames=Northstar
+X-Northstar-FirstBoot=true

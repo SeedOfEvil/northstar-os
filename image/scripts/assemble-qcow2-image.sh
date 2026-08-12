@@ -309,12 +309,27 @@ PACKAGE_MOUNTED=0
 rm -rf "$package_mount" "$package_index" "$package_bootstrap" \
     "$MOUNT_ROOT/tmp/empty-repos"
 
-pw -R "$MOUNT_ROOT" useradd northstar -u 1001 -c 'Northstar User' \
-    -d /home/northstar -m -s /bin/sh -G wheel,video -w no
-chown -R 1001:1001 "$MOUNT_ROOT/home/northstar"
-mkdir -p "$MOUNT_ROOT/home/northstar/.config"
-cp "$PROJECT_ROOT/config/wayfire-nested.ini" "$MOUNT_ROOT/home/northstar/.config/wayfire.ini"
-chown -R 1001:1001 "$MOUNT_ROOT/home/northstar/.config"
+mkdir -p "$MOUNT_ROOT/var/db/northstar"
+if [ "$DEVELOPMENT_AUTOLOGIN" -eq 1 ]; then
+    pw -R "$MOUNT_ROOT" useradd northstar -u 1001 -c 'Northstar User' \
+        -d /home/northstar -m -s /bin/sh -G wheel,video -w no
+    chown -R 1001:1001 "$MOUNT_ROOT/home/northstar"
+    mkdir -p "$MOUNT_ROOT/home/northstar/.config"
+    cp "$PROJECT_ROOT/config/wayfire-nested.ini" "$MOUNT_ROOT/home/northstar/.config/wayfire.ini"
+    chown -R 1001:1001 "$MOUNT_ROOT/home/northstar/.config"
+else
+    for first_boot_path in \
+        usr/local/libexec/northstar-first-boot \
+        usr/local/libexec/northstar-first-boot-session \
+        usr/local/libexec/northstar-first-boot-provision \
+        usr/local/share/xsessions/northstar-first-boot.desktop; do
+        [ -e "$MOUNT_ROOT/$first_boot_path" ] \
+            || die "runtime bundle omits production first-boot component: $first_boot_path"
+    done
+    pw -R "$MOUNT_ROOT" useradd northstar-setup -u 1001 -c 'Northstar Setup' \
+        -d /home/northstar-setup -m -s /bin/sh -G video -w none
+    chown -R 1001:1001 "$MOUNT_ROOT/home/northstar-setup"
+fi
 
 cat > "$MOUNT_ROOT/etc/rc.conf" <<'EOF'
 hostname="northstar-image"
@@ -367,8 +382,20 @@ User=northstar
 Session=northstar-image-proxmox.desktop
 Relogin=false
 EOF
+else
+    cat > "$MOUNT_ROOT/usr/local/etc/sddm.conf.d/30-northstar-first-boot-autologin.conf" <<'EOF'
+[Autologin]
+User=northstar-setup
+Session=northstar-first-boot.desktop
+Relogin=false
+EOF
+    printf '%s\n' \
+        'schema_version=1' \
+        'status=pending' \
+        > "$MOUNT_ROOT/var/db/northstar/first-boot.pending"
+    chown root:wheel "$MOUNT_ROOT/var/db/northstar/first-boot.pending"
+    chmod 0600 "$MOUNT_ROOT/var/db/northstar/first-boot.pending"
 fi
-mkdir -p "$MOUNT_ROOT/var/db/northstar"
 printf '%s\n' \
     'schema_version=1' \
     'image_channel=development' \

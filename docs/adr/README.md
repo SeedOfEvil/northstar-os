@@ -27,3 +27,4 @@ Accepted records in the initial foundation:
 - [0007: Independent verified-plan update broker](0007-update-broker-verification.md)
 - [0008: Transactional package update and boot-environment rollback](0008-transactional-update-and-rollback.md)
 - [0009: Image input and privileged builder boundary](0009-image-input-and-builder-boundary.md)
+- [0010: One-time first-boot provisioning boundary](0010-first-boot-provisioning-boundary.md)

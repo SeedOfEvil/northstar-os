@@ -1,0 +1,26 @@
+#!/bin/sh
+
+set -eu
+
+PENDING=${NORTHSTAR_FIRST_BOOT_PENDING:-/var/db/northstar/first-boot.pending}
+COMPLETE=${NORTHSTAR_FIRST_BOOT_COMPLETE:-/var/db/northstar/first-boot.conf}
+WIZARD=${NORTHSTAR_FIRST_BOOT_BIN:-/usr/local/libexec/northstar-first-boot}
+
+[ "$(id -u)" -ne 0 ] || {
+    printf '%s\n' 'ERROR: first-boot session must be unprivileged' >&2
+    exit 77
+}
+[ -f "$PENDING" ] && [ ! -L "$PENDING" ] || {
+    printf '%s\n' 'ERROR: this installation is not awaiting first-boot setup' >&2
+    exit 77
+}
+[ ! -e "$COMPLETE" ] || {
+    printf '%s\n' 'ERROR: first-boot setup is already complete' >&2
+    exit 77
+}
+[ -x "$WIZARD" ] || {
+    printf '%s\n' "ERROR: first-boot wizard is unavailable: $WIZARD" >&2
+    exit 69
+}
+
+exec "$WIZARD"

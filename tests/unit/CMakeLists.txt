@@ -214,6 +214,19 @@ target_link_libraries(test-quicksettingscontroller
 
 add_test(NAME northstar-quicksettingscontroller COMMAND test-quicksettingscontroller)
 
+qt_add_executable(test-firstbootcontroller
+    test-firstbootcontroller.cpp
+)
+
+target_link_libraries(test-firstbootcontroller
+    PRIVATE
+        northstar-first-boot-core
+        Qt6::Test
+)
+
+add_test(NAME northstar-firstbootcontroller COMMAND test-firstbootcontroller)
+add_test(NAME northstar-first-boot-qml COMMAND northstar-first-boot --self-test)
+
 add_test(NAME northstar-welcome-gui COMMAND northstar-welcome-gui --self-test)
 set_tests_properties(northstar-welcome-gui PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
@@ -264,6 +277,8 @@ set_tests_properties(
     northstar-searchcontroller
     northstar-previewcontroller
     northstar-quicksettingscontroller
+    northstar-firstbootcontroller
+    northstar-first-boot-qml
     northstar-welcome-gui
     northstar-texteditorcontroller
     northstar-text-editor-qml

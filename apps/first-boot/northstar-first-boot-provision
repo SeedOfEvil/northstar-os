@@ -1,0 +1,258 @@
+#!/bin/sh
+
+# Fixed privileged boundary for one-time Northstar account provisioning.
+# Profile data comes from a bounded request. The password is read once from
+# standard input and is never accepted in the request, environment, or argv.
+
+set -eu
+
+EX_USAGE=64
+EX_DATAERR=65
+EX_UNAVAILABLE=69
+EX_NOPERM=77
+
+TEST_MODE=${NORTHSTAR_FIRST_BOOT_TEST_MODE:-0}
+ROOT=${NORTHSTAR_FIRST_BOOT_ROOT:-/}
+PW_PATH=${NORTHSTAR_FIRST_BOOT_PW_PATH:-/usr/sbin/pw}
+SYSRC_PATH=${NORTHSTAR_FIRST_BOOT_SYSRC_PATH:-/usr/sbin/sysrc}
+STAT_PATH=${NORTHSTAR_FIRST_BOOT_STAT_PATH:-/usr/bin/stat}
+INSTALL_PATH=${NORTHSTAR_FIRST_BOOT_INSTALL_PATH:-/usr/bin/install}
+CHOWN_PATH=${NORTHSTAR_FIRST_BOOT_CHOWN_PATH:-/usr/sbin/chown}
+CHMOD_PATH=${NORTHSTAR_FIRST_BOOT_CHMOD_PATH:-/bin/chmod}
+CP_PATH=${NORTHSTAR_FIRST_BOOT_CP_PATH:-/bin/cp}
+RM_PATH=${NORTHSTAR_FIRST_BOOT_RM_PATH:-/bin/rm}
+ID_PATH=${NORTHSTAR_FIRST_BOOT_ID_PATH:-/usr/bin/id}
+MARKER_REL=var/db/northstar/first-boot.conf
+PENDING_REL=var/db/northstar/first-boot.pending
+AUTOLOGIN_REL=usr/local/etc/sddm.conf.d/30-northstar-first-boot-autologin.conf
+SETUP_USER=${NORTHSTAR_FIRST_BOOT_SETUP_USER:-northstar-setup}
+
+fail() {
+    status=$1
+    shift
+    printf 'ERROR: %s\n' "$*" >&2
+    exit "$status"
+}
+
+usage() {
+    cat <<'EOF'
+Usage: northstar-first-boot-provision --validate REQUEST
+       northstar-first-boot-provision --apply REQUEST
+
+--validate checks non-secret profile fields without changing the system.
+--apply requires root, reads one password line from stdin, creates exactly one
+administrator, applies bounded regional settings, and seals first-boot setup.
+EOF
+}
+
+matches() { printf '%s\n' "$1" | grep -Eq "$2"; }
+
+root_path() {
+    case "$ROOT" in
+        /) printf '/%s' "$1" ;;
+        *) printf '%s/%s' "${ROOT%/}" "$1" ;;
+    esac
+}
+
+validate_request() {
+    request=$1
+    [ -f "$request" ] && [ ! -L "$request" ] && [ -r "$request" ] \
+        || fail "$EX_DATAERR" 'setup request is missing or unsafe'
+
+    if [ "$TEST_MODE" != 1 ]; then
+        invoking_uid=${PKEXEC_UID:-}
+        matches "$invoking_uid" '^[0-9]+$' \
+            || fail "$EX_NOPERM" 'protected setup requires a PolicyKit caller identity'
+        owner=$($STAT_PATH -f '%u' "$request") \
+            || fail "$EX_DATAERR" 'could not inspect request ownership'
+        mode=$($STAT_PATH -f '%Lp' "$request") \
+            || fail "$EX_DATAERR" 'could not inspect request mode'
+        [ "$owner" = "$invoking_uid" ] \
+            || fail "$EX_NOPERM" 'setup request is not owned by its caller'
+        [ "$mode" = 600 ] || fail "$EX_NOPERM" 'setup request must have mode 0600'
+        caller_name=$($ID_PATH -nu "$invoking_uid" 2>/dev/null) \
+            || fail "$EX_NOPERM" 'could not resolve the protected setup caller'
+        [ "$caller_name" = "$SETUP_USER" ] \
+            || fail "$EX_NOPERM" 'first-boot provisioning is restricted to the setup session'
+    fi
+
+    protocol=
+    username=
+    display_name=
+    locale=
+    timezone=
+    keyboard=
+    admin_confirmation=
+    seen='|'
+    count=0
+    while IFS='=' read -r key value || [ -n "${key:-}" ]; do
+        [ -n "${key:-}" ] || fail "$EX_DATAERR" 'setup request contains a blank field'
+        case "$seen" in *"|$key|"*) fail "$EX_DATAERR" "setup request repeats field: $key" ;; esac
+        seen="${seen}${key}|"
+        case "$key" in
+            protocol) protocol=$value ;;
+            username) username=$value ;;
+            display_name) display_name=$value ;;
+            locale) locale=$value ;;
+            timezone) timezone=$value ;;
+            keyboard) keyboard=$value ;;
+            admin_confirmation) admin_confirmation=$value ;;
+            password|password_confirmation|password_hash)
+                fail "$EX_DATAERR" 'password material is forbidden in setup requests'
+                ;;
+            *) fail "$EX_DATAERR" "setup request contains unknown field: $key" ;;
+        esac
+        count=$((count + 1))
+    done < "$request"
+
+    [ "$count" -eq 7 ] || fail "$EX_DATAERR" 'setup request has an unexpected field count'
+    [ "$protocol" = 1 ] || fail "$EX_DATAERR" 'unsupported setup request protocol'
+    matches "$username" '^[a-z][a-z0-9_-]{0,30}$' \
+        || fail "$EX_DATAERR" 'username is outside the supported format'
+    [ -n "$display_name" ] && [ "${#display_name}" -le 80 ] \
+        || fail "$EX_DATAERR" 'display name is outside the supported length'
+    matches "$display_name" '^[[:print:]]+$' \
+        || fail "$EX_DATAERR" 'display name contains unsupported characters'
+    case "$display_name" in *:*) fail "$EX_DATAERR" 'display name cannot contain a colon' ;; esac
+    case "$locale" in
+        en_US.UTF-8|en_CA.UTF-8|en_GB.UTF-8|es_ES.UTF-8|fr_FR.UTF-8|de_DE.UTF-8) ;;
+        *) fail "$EX_DATAERR" 'locale is not supported' ;;
+    esac
+    case "$timezone" in
+        UTC|America/Denver|America/Los_Angeles|America/Chicago|America/New_York|America/Toronto|Europe/London|Europe/Paris|Europe/Berlin) ;;
+        *) fail "$EX_DATAERR" 'timezone is not supported' ;;
+    esac
+    case "$keyboard" in us|uk|es|fr|de) ;; *) fail "$EX_DATAERR" 'keyboard layout is not supported' ;; esac
+    [ "$admin_confirmation" = yes ] \
+        || fail "$EX_DATAERR" 'administrator creation was not confirmed'
+}
+
+[ "$#" -eq 2 ] || { usage >&2; exit "$EX_USAGE"; }
+mode=$1
+request=$2
+case "$mode" in --validate|--apply) ;; *) usage >&2; exit "$EX_USAGE" ;; esac
+
+if [ "$TEST_MODE" != 1 ]; then
+    [ "$ROOT" = / ] || fail "$EX_NOPERM" 'alternate roots are test-only'
+fi
+validate_request "$request"
+
+if [ "$mode" = --validate ]; then
+    printf '%s\n' 'FIRST_BOOT_REQUEST=VALID'
+    exit 0
+fi
+
+[ "$TEST_MODE" = 1 ] || [ "$(id -u)" -eq 0 ] \
+    || fail "$EX_NOPERM" '--apply requires root'
+[ -x "$PW_PATH" ] || fail "$EX_UNAVAILABLE" 'pw is unavailable'
+[ -x "$SYSRC_PATH" ] || fail "$EX_UNAVAILABLE" 'sysrc is unavailable'
+[ -x "$INSTALL_PATH" ] || fail "$EX_UNAVAILABLE" 'install is unavailable'
+[ -x "$CHOWN_PATH" ] || fail "$EX_UNAVAILABLE" 'chown is unavailable'
+[ -x "$CHMOD_PATH" ] || fail "$EX_UNAVAILABLE" 'chmod is unavailable'
+[ -x "$CP_PATH" ] || fail "$EX_UNAVAILABLE" 'cp is unavailable'
+[ -x "$RM_PATH" ] || fail "$EX_UNAVAILABLE" 'rm is unavailable'
+
+marker=$(root_path "$MARKER_REL")
+pending=$(root_path "$PENDING_REL")
+[ ! -e "$marker" ] && [ ! -L "$marker" ] \
+    || fail "$EX_NOPERM" 'Northstar first-boot setup is already complete'
+if [ "$TEST_MODE" != 1 ]; then
+    [ -f "$pending" ] && [ ! -L "$pending" ] \
+        || fail "$EX_NOPERM" 'this installation is not awaiting first-boot setup'
+    [ "$($STAT_PATH -f '%u' "$pending")" = 0 ] \
+        || fail "$EX_NOPERM" 'first-boot pending state has an unsafe owner'
+    [ "$($STAT_PATH -f '%Lp' "$pending")" = 600 ] \
+        || fail "$EX_NOPERM" 'first-boot pending state has an unsafe mode'
+fi
+[ "$username" != "$SETUP_USER" ] \
+    || fail "$EX_DATAERR" 'the setup-session identity cannot become the administrator'
+if "$PW_PATH" -R "$ROOT" usershow "$username" >/dev/null 2>&1; then
+    fail "$EX_DATAERR" 'requested username already exists'
+fi
+zone_source=$(root_path "usr/share/zoneinfo/$timezone")
+[ -f "$zone_source" ] || fail "$EX_UNAVAILABLE" 'selected timezone data is unavailable'
+
+IFS= read -r password || fail "$EX_DATAERR" 'password was not supplied on standard input'
+[ "${#password}" -ge 8 ] && [ "${#password}" -le 128 ] \
+    || fail "$EX_DATAERR" 'password must contain between 8 and 128 characters'
+matches "$password" '^[[:print:]]+$' \
+    || fail "$EX_DATAERR" 'password contains unsupported control characters'
+
+created=0
+setup_locked=0
+autologin_removed=0
+cleanup() {
+    status=$?
+    trap - EXIT HUP INT TERM
+    password=
+    if [ "$status" -ne 0 ] && [ "$created" -eq 1 ]; then
+        "$PW_PATH" -R "$ROOT" userdel "$username" -r >/dev/null 2>&1 || true
+    fi
+    if [ "$status" -ne 0 ] && [ "$setup_locked" -eq 1 ]; then
+        "$PW_PATH" -R "$ROOT" usermod "$SETUP_USER" -w none >/dev/null 2>&1 || true
+    fi
+    if [ "$status" -ne 0 ] && [ "$autologin_removed" -eq 1 ]; then
+        autologin=$(root_path "$AUTOLOGIN_REL")
+        umask 022
+        {
+            printf '%s\n' '[Autologin]'
+            printf 'User=%s\n' "$SETUP_USER"
+            printf '%s\n' 'Session=northstar-first-boot.desktop' 'Relogin=false'
+        } > "$autologin" || true
+        "$CHOWN_PATH" root:wheel "$autologin" >/dev/null 2>&1 || true
+        "$CHMOD_PATH" 0644 "$autologin" >/dev/null 2>&1 || true
+    fi
+    exit "$status"
+}
+trap cleanup EXIT HUP INT TERM
+
+printf '%s\n' "$password" | "$PW_PATH" -R "$ROOT" useradd "$username" \
+    -c "$display_name" -m -s /bin/sh -G wheel,video -h 0
+password=
+created=1
+
+home=$(root_path "home/$username")
+$INSTALL_PATH -d -o "$username" -g "$username" -m 0700 "$home"
+login_conf=$home/.login_conf
+umask 077
+printf 'me:\\\n\t:charset=UTF-8:\\\n\t:lang=%s:\n' "$locale" > "$login_conf"
+$CHOWN_PATH "$username:$username" "$login_conf"
+$CHMOD_PATH 0600 "$login_conf"
+
+$CP_PATH "$zone_source" "$(root_path etc/localtime)"
+printf '%s\n' "$timezone" > "$(root_path var/db/zoneinfo)"
+
+"$SYSRC_PATH" -R "$ROOT" "keymap=$keyboard" >/dev/null
+
+# Seal the temporary console identity before publishing completion. The
+# current graphical session may continue until restart, but cannot log in
+# again and SDDM no longer selects it automatically.
+if "$PW_PATH" -R "$ROOT" usershow "$SETUP_USER" >/dev/null 2>&1; then
+    "$PW_PATH" -R "$ROOT" usermod "$SETUP_USER" -w no
+    setup_locked=1
+fi
+$RM_PATH -f "$(root_path "$AUTOLOGIN_REL")"
+autologin_removed=1
+
+$INSTALL_PATH -d -o root -g wheel -m 0755 "$(root_path var/db/northstar)"
+umask 077
+{
+    printf '%s\n' 'schema_version=1'
+    printf 'administrator=%s\n' "$username"
+    printf 'locale=%s\n' "$locale"
+    printf 'timezone=%s\n' "$timezone"
+    printf 'keyboard=%s\n' "$keyboard"
+    printf '%s\n' 'status=complete'
+} > "$marker"
+$CHOWN_PATH root:wheel "$marker"
+$CHMOD_PATH 0600 "$marker"
+$RM_PATH -f "$pending"
+
+created=0
+setup_locked=0
+autologin_removed=0
+trap - EXIT HUP INT TERM
+printf '%s\n' \
+    'FIRST_BOOT_PROVISIONING=PASS' \
+    "ADMINISTRATOR=$username" \
+    'RESTART_REQUIRED=yes'
