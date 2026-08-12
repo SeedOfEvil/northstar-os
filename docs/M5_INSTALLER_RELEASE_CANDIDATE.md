@@ -50,14 +50,15 @@ four vCPUs, 8 GiB RAM, and 64 GiB free storage. Install build dependencies and
 agent only on this disposable builder. Do not repurpose DEV01 as the privileged
 builder.
 
-Create these root-owned mode-`0600` markers with the exact RC commit:
+Create these separate root-owned mode-`0600` markers. The media marker binds
+the exact RC commit; the image marker uses the established PR76 authorization
+schema and is independently hashed into image provenance:
 
 ```text
 # /etc/northstar/disposable-image-builder.conf
 SCHEMA_VERSION=1
 PURPOSE=northstar-disposable-image-builder
-ALLOW_IMAGE_ASSEMBLY=YES
-EXPECTED_PROJECT_COMMIT=<full-commit>
+ALLOW_DISK_IMAGE_ASSEMBLY=YES
 BUILDER_ID=<builder-id>
 ```
 
