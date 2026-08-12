@@ -88,6 +88,7 @@ run_helper() {
         NORTHSTAR_FIRST_BOOT_CHMOD_PATH="$BIN/chmod" \
         NORTHSTAR_FIRST_BOOT_CP_PATH="$BIN/cp" \
         NORTHSTAR_FIRST_BOOT_RM_PATH=/bin/rm \
+        NORTHSTAR_TEST_FAIL_SYSRC="${NORTHSTAR_TEST_FAIL_SYSRC:-0}" \
         NORTHSTAR_TEST_EVENTS="$TMP_DIR/events" \
         sh "$HELPER" "$@"
 }
