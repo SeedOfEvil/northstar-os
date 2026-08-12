@@ -367,8 +367,13 @@ acceptance are documented in
 The integrated checkpoint is now driven by one ordered, provenance-emitting
 orchestrator and the disposable-builder/Proxmox checklist in
 [`docs/M5_INSTALLER_RELEASE_CANDIDATE.md`](M5_INSTALLER_RELEASE_CANDIDATE.md).
-Artifact construction and manual installation evidence remain in progress on
-the dedicated RC branch until every deferred M5 claim is resolved.
+PR87 has assembled the integrated QCOW2, signed source, and sparse raw
+installer media on the disposable builder. `qemu-img check` passed and the
+QCOW2 reached a ZFS multi-user login in snapshot-only UEFI QEMU; exact evidence
+is recorded in
+[`docs/validation/M5_INSTALLER_RC_ASSEMBLY_2026-08-12.md`](validation/M5_INSTALLER_RC_ASSEMBLY_2026-08-12.md).
+Raw-media transfer and manual Proxmox installation evidence remain in progress
+on the dedicated RC branch until every deferred M5 claim is resolved.
 Actual disposable-disk acceptance, recovery-point reboot proof, and media outputs
 use routine DEV01, native FreeBSD, and file-backed validation on their focused
 PRs. Their image-level claims remain explicitly deferred to one integrated

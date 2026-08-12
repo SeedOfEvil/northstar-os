@@ -48,10 +48,13 @@ bundle pending direct transfer to the disposable builder.
 - clean immutable FreeBSD build: pass; and
 - Qt/CTest suite: 29 of 29 passed.
 
-## Deferred milestone evidence
+## Follow-on milestone evidence
 
-The following still blocks promotion and merge: disposable-builder preflight
-and assembly, `qemu-img check`, snapshot-only boot smoke, raw-media transfer,
-and the complete Proxmox/noVNC installation, failure/retry, first-boot,
-desktop, update, rollback, and home-preservation checklist. PR 87 remains draft
-until that evidence is added.
+Disposable-builder assembly, `qemu-img check`, and snapshot-only boot smoke
+subsequently passed at commit `0d38a445f7efd9a2cd5e8c9dd9a8c870d3c76f53`.
+The resulting hashes and serial evidence are recorded in
+[`M5_INSTALLER_RC_ASSEMBLY_2026-08-12.md`](M5_INSTALLER_RC_ASSEMBLY_2026-08-12.md).
+Raw-media transfer and the complete Proxmox/noVNC installation,
+failure/retry, first-boot, desktop, update, rollback, and home-preservation
+checklist still block promotion and merge. PR 87 remains draft until that
+evidence is added.
