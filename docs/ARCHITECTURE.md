@@ -121,6 +121,16 @@ sanitized diagnostic record to the user's Documents directory; root paths,
 raw journals, requests, logs, credentials, and environment are excluded. See
 [`ADR 0015`](adr/0015-installer-clean-retry-and-diagnostics.md).
 
+Installer media is assembled from the accepted production QCOW2 and its
+matching rootfs payload, not from the mutable development VM. The payload is
+captured before live-media state exists, bound to an externally signed source
+manifest, and copied onto a labeled read-only UFS partition. The assembler can
+create only a new raw file on a marked disposable FreeBSD builder; it accepts
+no host disk. A dedicated passwordless live-media identity receives only the
+three fixed installer PolicyKit actions, and that identity, rule, key, mount,
+and execution marker are excluded from the installed payload. See
+[`ADR 0017`](adr/0017-installer-media-assembly-boundary.md).
+
 ## Packaging and update model
 
 FreeBSD base and kernel updates use the official FreeBSD mechanism. Third-party desktop dependencies come from a pinned FreeBSD package source. Northstar components are built in clean Poudriere jails and published through a signed `pkg` repository. The Northstar publication sidecar records the repository revision, target ABI, package origins, source inputs, and project revisions for read-only planning; its local signature envelope verifies the sidecar/catalogue binding but does not replace `pkg` catalogue files or the repository's own signature path. Development `.app` bundles expose manifest-level provenance now. The update helper accepts only a verified, root-owned request bound to the publication identity and derived boot-environment name; actual package mutation, broker authorization, and rollback remain part of M4.

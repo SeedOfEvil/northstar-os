@@ -403,6 +403,25 @@ printf '%s\n' \
     "development_autologin=$DEVELOPMENT_AUTOLOGIN" \
     "development_passwordless_local_account=$DEVELOPMENT_AUTOLOGIN" \
     > "$MOUNT_ROOT/var/db/northstar/image-build.conf"
+runtime_records_sha256=$(file_sha256 "$runtime_records")
+printf '%s\n' \
+    'schema_version=1' \
+    'product=Northstar' \
+    'freebsd_release=15.1-RELEASE' \
+    'architecture=amd64' \
+    "project_commit=$PROJECT_COMMIT" \
+    "runtime_package_records_sha256=$runtime_records_sha256" \
+    "runtime_package_count=$package_count" \
+    > "$STAGING/runtime-manifest.conf"
+cp "$STAGING/runtime-manifest.conf" "$MOUNT_ROOT/var/db/northstar/runtime-manifest.conf"
+chown root:wheel "$MOUNT_ROOT/var/db/northstar/runtime-manifest.conf"
+chmod 0444 "$MOUNT_ROOT/var/db/northstar/runtime-manifest.conf"
+installer_payload=$STAGING/northstar-rootfs-v1-$(printf '%s' "$PROJECT_COMMIT" | cut -c1-12).txz
+tar --one-file-system --numeric-owner -cJpf "$installer_payload" \
+    --exclude './boot/efi' --exclude './dev' --exclude './home' --exclude './tmp' \
+    -C "$MOUNT_ROOT" .
+installer_payload_sha256=$(file_sha256 "$installer_payload")
+installer_payload_size=$(file_size "$installer_payload")
 
 umount "$MOUNT_ROOT/dev"
 DEVFS_MOUNTED=0
@@ -419,7 +438,6 @@ qemu-img info -f qcow2 "$qcow2" > "$STAGING/qcow2-info.txt"
 qcow2_sha256=$(file_sha256 "$qcow2")
 qcow2_size=$(file_size "$qcow2")
 builder_marker_sha256=$(file_sha256 "$BUILDER_MARKER")
-runtime_records_sha256=$(file_sha256 "$runtime_records")
 resolved_sha256=$(file_sha256 "$resolved_conf")
 printf '%s\n' \
     'schema_version=1' \
@@ -437,12 +455,16 @@ printf '%s\n' \
     "resolved_inputs_sha256=$resolved_sha256" \
     "runtime_package_records_sha256=$runtime_records_sha256" \
     "runtime_package_count=$package_count" \
+    "installer_payload=$(basename "$installer_payload")" \
+    "installer_payload_sha256=$installer_payload_sha256" \
+    "installer_payload_size=$installer_payload_size" \
     "development_autologin=$DEVELOPMENT_AUTOLOGIN" \
     > "$STAGING/image-provenance.conf"
 cp "$resolved_conf" "$STAGING/resolved-image-inputs.conf"
 cp "$runtime_records" "$STAGING/runtime-package-records"
 rm -rf "$MOUNT_ROOT" "$STAGING/empty-repos" "$raw"
 chmod 0444 "$qcow2" "$STAGING/image-provenance.conf" \
+    "$installer_payload" "$STAGING/runtime-manifest.conf" \
     "$STAGING/partition-layout.txt" "$STAGING/zfs-layout.txt" \
     "$STAGING/qcow2-check.txt" "$STAGING/qcow2-info.txt" \
     "$STAGING/resolved-image-inputs.conf" "$STAGING/runtime-package-records"

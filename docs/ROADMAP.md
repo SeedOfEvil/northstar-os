@@ -357,6 +357,13 @@ bounded read-only ZFS boot-environment inventory, exact-confirmation protected
 activation of verified Northstar pre-update environments, post-action
 next-boot verification, and sanitized diagnostics, as documented in
 [`docs/M5_BOOT_ENVIRONMENT_RECOVERY.md`](M5_BOOT_ENVIRONMENT_RECOVERY.md).
+The installer-media slice now emits a runtime-bound rootfs payload from future
+production image builds, prepares a detached-signature source directory with
+external key custody, and converts only an accepted QCOW2 into a new raw USB
+file with a labeled read-only source partition and non-inheritable live-media
+session. The assembler accepts no host disk. Its routine boundary and deferred
+acceptance are documented in
+[`docs/M5_INSTALLER_MEDIA.md`](M5_INSTALLER_MEDIA.md).
 Actual disposable-disk acceptance, recovery-point reboot proof, and media outputs
 use routine DEV01, native FreeBSD, and file-backed validation on their focused
 PRs. Their image-level claims remain explicitly deferred to one integrated

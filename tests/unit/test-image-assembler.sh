@@ -40,6 +40,20 @@ grep -F 'development_passwordless_local_account=$DEVELOPMENT_AUTOLOGIN' "$ASSEMB
     printf 'FAIL: image provenance omits the development local-account policy\n' >&2
     exit 1
 }
+grep -F 'runtime-manifest.conf' "$ASSEMBLER" >/dev/null || {
+    printf 'FAIL: assembler omits the installed runtime manifest\n' >&2
+    exit 1
+}
+grep -F 'northstar-rootfs-v1-$(printf' "$ASSEMBLER" >/dev/null || {
+    printf 'FAIL: assembler omits the installer rootfs payload\n' >&2
+    exit 1
+}
+for field in installer_payload installer_payload_sha256 installer_payload_size; do
+    grep -F "${field}=" "$ASSEMBLER" >/dev/null || {
+        printf 'FAIL: image provenance omits %s\n' "$field" >&2
+        exit 1
+    }
+done
 grep -F "useradd northstar-setup -u 1001" "$ASSEMBLER" >/dev/null || {
     printf 'FAIL: production image does not create the bounded setup identity\n' >&2
     exit 1

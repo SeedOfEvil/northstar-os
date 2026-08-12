@@ -31,8 +31,13 @@ does not download, extract, mount, partition, invoke ZFS, or create a QCOW2
 file. Root-owned disk assembly begins only after this gate is accepted.
 
 The first Northstar artifact target remains a reproducible ZFS QCOW2 image for
-QEMU/Proxmox, followed by raw and USB images. Northstar ISO assembly is later
-M5 work.
+QEMU/Proxmox. A future milestone build also emits its matching
+`northstar-rootfs-v1-<commit>.txz` before any live-media privilege is added.
+`prepare-installer-source.sh` binds that payload and runtime manifest to an
+external signing key, while `assemble-installer-usb.sh` converts the accepted
+QCOW2 into a raw USB image and adds a read-only signed-source partition plus
+installer-only session state. The private key is never copied into either
+output. Northstar ISO assembly remains later M5 work.
 
 Full artifacts are assembled and manually imported at named milestone
 checkpoints, not for every image-related PR. Intermediate first-boot,
@@ -53,3 +58,8 @@ configuration, local Git transfer, and native acceptance steps.
 
 Generated images, installer media, release sets, package repositories, and
 signing material are ignored by Git.
+
+The raw USB assembler never accepts a destination device. It creates a new
+file only; writing that artifact to removable hardware remains an explicit
+operator action outside the builder. See
+[`docs/M5_INSTALLER_MEDIA.md`](../docs/M5_INSTALLER_MEDIA.md).
