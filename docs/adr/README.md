@@ -28,3 +28,4 @@ Accepted records in the initial foundation:
 - [0008: Transactional package update and boot-environment rollback](0008-transactional-update-and-rollback.md)
 - [0009: Image input and privileged builder boundary](0009-image-input-and-builder-boundary.md)
 - [0010: One-time first-boot provisioning boundary](0010-first-boot-provisioning-boundary.md)
+- [0011: Installer target selection before mutation](0011-installer-target-selection-boundary.md)

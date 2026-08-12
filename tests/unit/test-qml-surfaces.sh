@@ -37,6 +37,7 @@ src/shell/SystemMenu.qml"
 required_files="$required_files src/shell/SearchOverlay.qml"
 required_files="$required_files src/shell/QuickLookWindow.qml"
 required_files="$required_files apps/first-boot/FirstBootWindow.qml"
+required_files="$required_files apps/installer/InstallerWindow.qml"
 
 for file in $required_files; do
     [ -r "$ROOT/$file" ] || fail "missing QML surface: $file"
@@ -193,6 +194,12 @@ contains packaging/polkit/org.northstar.firstboot.policy '<allow_active>yes</all
 contains packaging/polkit/org.northstar.firstboot.policy '/usr/local/libexec/northstar-first-boot-provision'
 contains apps/first-boot/northstar-first-boot-session 'first-boot.pending'
 contains apps/first-boot/northstar-first-boot-session 'exec "$WIZARD"'
+contains apps/installer/InstallerWindow.qml 'Select a destination'
+contains apps/installer/InstallerWindow.qml 'Type " + installerController.selectedDevice'
+contains apps/installer/InstallerWindow.qml 'permanently erased'
+contains apps/installer/InstallerWindow.qml 'installerController.confirmationReady'
+contains apps/installer/InstallerWindow.qml 'Install unavailable'
+contains apps/installer/InstallerWindow.qml 'It cannot partition or erase a disk.'
 
 for surface in \
     src/shell/FileBrowserWindow.qml \
