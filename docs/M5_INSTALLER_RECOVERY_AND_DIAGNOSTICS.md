@@ -63,6 +63,9 @@ Routine tests use temporary state and fake disk tools. They must prove that
 wrong confirmation, target drift, journal tampering, malformed diagnostics,
 and unsafe wrapper arguments make no disk-tool call.
 
+The accepted immutable routine evidence is recorded in
+[`validation/M5_INSTALLER_RECOVERY_2026-08-12.md`](validation/M5_INSTALLER_RECOVERY_2026-08-12.md).
+
 ## Deferred image acceptance
 
 Image checkpoint: M5 Installer Release Candidate
