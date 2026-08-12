@@ -21,7 +21,7 @@ IMAGE_INPUT_OUTPUT ?= .artifacts/m5-resolved-inputs
 IMAGE_RUNTIME_ROOTS ?= image/manifests/northstar-runtime-roots.txt
 IMAGE_RUNTIME_OUTPUT ?= .artifacts/m5-runtime-bundle
 IMAGE_PACKAGE_CACHE ?= .artifacts/m5-package-cache
-NORTHSTAR_IMAGE_PACKAGE ?= .artifacts/m5-inputs/northstar-0.1.4-amd64.pkg
+NORTHSTAR_IMAGE_PACKAGE ?= .artifacts/m5-inputs/northstar-0.2.0-amd64.pkg
 NORTHSTAR_COMPAT_PACKAGE ?= .artifacts/m5-compat-package/northstar-wayfire-nested-0.10.1.746bc7e.pkg
 IMAGE_SOURCE_DATE_EPOCH ?= $(shell sed -n 's/^SOURCE_DATE_EPOCH=//p' "$(IMAGE_LOCK)")
 PROJECT_COMMIT ?= $(shell git rev-parse HEAD 2>/dev/null)

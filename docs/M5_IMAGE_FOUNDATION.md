@@ -11,8 +11,8 @@ The QCOW2 lock records:
 - FreeBSD `15.1-RELEASE`, amd64, UEFI, and ZFS;
 - the official release `MANIFEST` digest plus `base.txz` and `kernel.txz`
   names, byte sizes, and SHA-256 digests;
-- the accepted Northstar `0.1.4` package SHA-256;
-- Northstar source commit and signed repository revision 78;
+- the accepted Northstar `0.2.0` release-candidate package SHA-256;
+- Northstar source commit and signed repository revision 80;
 - catalogue, publication metadata, and signing fingerprint digests; and
 - a fixed source-date epoch from the FreeBSD release build.
 
