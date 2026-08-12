@@ -237,7 +237,10 @@ truncate -s "+${SOURCE_SIZE_GB}G" "$raw"
 MD_DEVICE=$(mdconfig -a -t vnode -f "$raw")
 printf '%s\n' "$MD_DEVICE" | grep -Eq '^md[0-9]+$' || die 'mdconfig returned an unsafe device identity'
 gpart recover "$MD_DEVICE" >/dev/null
-SOURCE_PROVIDER=$(gpart add -a 1m -t freebsd-ufs -l NSTAR_SOURCE "$MD_DEVICE")
+source_provider_output=$(gpart add -a 1m -t freebsd-ufs -l NSTAR_SOURCE "$MD_DEVICE")
+SOURCE_PROVIDER=$(printf '%s\n' "$source_provider_output" | awk 'NR == 1 { print $1 }')
+printf '%s\n' "$SOURCE_PROVIDER" | grep -Eq '^md[0-9]+p[0-9]+$' \
+    || die 'gpart returned an unsafe source-partition provider'
 [ "$SOURCE_PROVIDER" = "${MD_DEVICE}p3" ] || die 'accepted image did not produce the expected isolated source partition'
 gpart show "$MD_DEVICE" > "$STAGING/partition-layout.txt"
 newfs -U -L NSTAR_SOURCE "/dev/$SOURCE_PROVIDER" >/dev/null
