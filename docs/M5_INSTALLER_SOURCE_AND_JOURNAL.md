@@ -81,3 +81,6 @@ read-only media mounting, final pre-mutation source and target revalidation,
 GPT/UEFI/ZFS execution on a disposable destination, payload extraction,
 bootloader installation, interruption during destructive phases, installed
 boot, and preservation of every non-target disk.
+
+The routine native evidence is recorded in
+[`validation/M5_INSTALLER_SOURCE_JOURNAL_2026-08-12.md`](validation/M5_INSTALLER_SOURCE_JOURNAL_2026-08-12.md).
