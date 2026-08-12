@@ -33,6 +33,11 @@ VM disk was selected or changed. Unit contracts passed before the clean retry.
   - virtual size: 20 GiB
   - allocated sparse size on ZFS: 3.5 GiB
   - SHA-256: `11df9722d4f635b975226ed261f1deb17cb683fbfae9dd38ce937ed4c02afcf4`
+- compressed raw-installer transfer copy:
+  `northstar-15.1-amd64-installer-usb.img.zst`
+  - compressed size: 2.8 GiB
+  - expanded size verified by `zstd -t`: 21,474,836,480 bytes
+  - SHA-256: `b5579445d523cf104ce4e0ea3b4d122476e917025585323ddac83f1942dc7874`
 - rootfs payload SHA-256: `50998781bc565b12b85a3e18c8c92ed89d5a2e52afdb5db8fa1e4ff22baab64c`
 - release-candidate record SHA-256: `f74de82a59c764c12acedcb2860dc81464a1a58e071218e05c83c3f96b67e163`
 - image provenance SHA-256: `3b0598e6e5d6fa6dee7a9f1f3e8c5956979b74fade91c03bdaf3aa9f29f37ec3`
