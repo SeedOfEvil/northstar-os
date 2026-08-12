@@ -217,6 +217,19 @@ contains packaging/polkit/org.northstar.installer.policy '/usr/local/libexec/nor
 contains packaging/polkit/org.northstar.installer.policy '/usr/local/libexec/northstar-installer-executor'
 contains packaging/polkit/org.northstar.installer.policy '/usr/local/libexec/northstar-installer-recovery'
 contains packaging/polkit/org.northstar.installer.policy '<allow_active>auth_admin</allow_active>'
+contains apps/recovery/RecoveryWindow.qml 'NorthstarWindowTitleBar {'
+contains apps/recovery/RecoveryWindow.qml 'NativeWindowResizeHandler {'
+contains apps/recovery/RecoveryWindow.qml 'bootEnvironmentController.refresh()'
+contains apps/recovery/RecoveryWindow.qml 'if (!recoverySelfTest)'
+contains apps/recovery/RecoveryWindow.qml 'bootEnvironmentController.scheduleActivation()'
+contains apps/recovery/RecoveryWindow.qml 'Use Recovery Point...'
+contains apps/recovery/northstar-boot-environment '--activate NAME --confirm NAME'
+contains apps/recovery/northstar-boot-environment 'destructive-operations=none'
+contains packaging/polkit/org.northstar.recovery.policy '/usr/local/libexec/northstar-boot-environment'
+contains packaging/polkit/org.northstar.recovery.policy '<allow_active>auth_admin</allow_active>'
+[ -r "$ROOT/apps/samples/NorthstarRecovery.app/Contents/Info.plist" ] \
+    || fail 'Northstar Recovery bundle manifest is missing'
+contains apps/samples/NorthstarRecovery.app/Contents/Info.plist 'org.northstar.Recovery'
 
 for surface in \
     src/shell/FileBrowserWindow.qml \
