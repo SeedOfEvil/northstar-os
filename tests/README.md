@@ -70,6 +70,13 @@ unsafe transaction or device arguments.
 with fixture release sets and package artifacts, including tamper rejection.
 The production path additionally requires root, FreeBSD, a protected
 disposable-builder marker, and a newly allocated file-backed md device.
+`unit/test-installer-media.sh` builds a rootfs fixture with an embedded runtime
+manifest, signs its strict source manifest using an external disposable key,
+verifies the complete image/source/provenance binding, and rejects a project-
+internal key, mismatched manifest, unknown provenance, development-autologin
+image, and altered QCOW2. Media assembly preflight is output-free and
+disk-device-free. Production raw assembly and boot/install behavior remain
+deferred to the M5 Installer Release Candidate.
 PR77 adds `unit/test-image-update-rollback-gate.sh` and the installed-image
 `image/scripts/validate-image-update-rollback.sh` acceptance driver. The unit
 test simulates both reboot boundaries. Production use is root-only, requires
