@@ -54,6 +54,11 @@ signature, payload, and path tampering. `unit/test-installer-engine.sh` then
 proves source-before-target staging, durable sequenced state, interruption
 detection, explicit recovery, archival abandonment, and the no-disk-mutation
 boundary under a temporary root.
+`unit/test-installer-executor.sh` proves the separate installer-media marker,
+active transaction, source, target, archive, and typed-confirmation boundaries;
+orders fake GPT, EFI, ZFS, extraction, installed-runtime, bootloader, and export
+operations; archives success; and injects a post-dataset failure to verify pool
+cleanup plus engine-visible interrupted state without exposing a host disk.
 `unit/test-image-assembler.sh` exercises the complete non-root QCOW2 preflight
 with fixture release sets and package artifacts, including tamper rejection.
 The production path additionally requires root, FreeBSD, a protected

@@ -204,8 +204,12 @@ contains apps/installer/CMakeLists.txt 'northstar-installer-source-verify'
 contains apps/installer/northstar-installer-source-verify '/var/run/northstar-installer/source'
 contains apps/installer/northstar-installer-source-verify '/usr/local/share/northstar/installer/source-signing.pem'
 contains apps/installer/northstar-installer-engine 'SOURCE_VERIFY=/usr/local/libexec/northstar-installer-source-verify'
-contains apps/installer/northstar-installer-engine 'recovery=resume-or-abandon-required'
+contains apps/installer/northstar-installer-engine 'execution=guarded-executor-only'
+contains apps/installer/northstar-installer-executor '/etc/northstar/installer-execution.conf'
+contains apps/installer/northstar-installer-executor '--confirm-device DEVICE'
+contains apps/installer/northstar-installer-executor 'installer source media must be mounted read-only'
 contains packaging/polkit/org.northstar.installer.policy '/usr/local/libexec/northstar-installer-engine'
+contains packaging/polkit/org.northstar.installer.policy '/usr/local/libexec/northstar-installer-executor'
 contains packaging/polkit/org.northstar.installer.policy '<allow_active>auth_admin</allow_active>'
 
 for surface in \

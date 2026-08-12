@@ -40,9 +40,11 @@ cat > "$BIN/source-verify" <<'EOF'
 [ "$1" = --verify ] && [ "$#" -eq 2 ] || exit 64
 [ "${NORTHSTAR_TEST_SOURCE_FAIL:-0}" != 1 ] || exit 77
 printf '%s\n' 'SOURCE_VERIFICATION=PASS' "MANIFEST_SHA256=$2" \
-  'PAYLOAD_NAME=northstar-runtime.txz' 'PAYLOAD_SIZE=4096' \
+  'PAYLOAD_KIND=northstar-rootfs-v1' 'PAYLOAD_NAME=northstar-runtime.txz' 'PAYLOAD_SIZE=4096' \
   'PAYLOAD_SHA256=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef' \
-  'PROJECT_COMMIT=0123456789abcdef0123456789abcdef01234567' 'SOURCE_MUTATION=none'
+  'PROJECT_COMMIT=0123456789abcdef0123456789abcdef01234567' \
+  'RUNTIME_MANIFEST_SHA256=abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789' \
+  'SOURCE_MUTATION=none'
 EOF
 cat > "$BIN/install" <<'EOF'
 #!/bin/sh
@@ -137,7 +139,8 @@ STATE=$FAKE_ROOT/var/db/northstar/installer/transactions/$TRANSACTION_ID/transac
 JOURNAL=$FAKE_ROOT/var/db/northstar/installer/transactions/$TRANSACTION_ID/journal.log
 [ -f "$STATE" ] && [ -f "$JOURNAL" ] || fail 'root-owned transaction and journal were not staged'
 grep -Fx 'status=staged' "$STATE" >/dev/null || fail 'staged status is wrong'
-grep -Fx 'execution=disabled' "$STATE" >/dev/null || fail 'staged state does not disable execution'
+grep -Fx 'execution=guarded-executor-only' "$STATE" >/dev/null \
+    || fail 'staged state is not restricted to the guarded executor'
 grep -Fx 'target_device=da1' "$STATE" >/dev/null || fail 'staged target is wrong'
 grep -Fx 'payload_name=northstar-runtime.txz' "$STATE" >/dev/null \
     || fail 'staged state does not bind the verified payload'

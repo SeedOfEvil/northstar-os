@@ -35,11 +35,12 @@ write_manifest() {
     payload_size=$(wc -c < "$SOURCE/northstar-runtime.txz" | tr -d ' ')
     payload_sha=$("$BIN/sha256" -q "$SOURCE/northstar-runtime.txz")
     cat > "$SOURCE/source-manifest.conf" <<EOF
-schema_version=1
+schema_version=2
 product=Northstar
 freebsd_release=15.1-RELEASE
 architecture=amd64
 project_commit=0123456789abcdef0123456789abcdef01234567
+payload_kind=northstar-rootfs-v1
 payload_name=northstar-runtime.txz
 payload_size=$payload_size
 payload_sha256=$payload_sha
@@ -69,6 +70,8 @@ grep -Fx 'SOURCE_VERIFICATION=PASS' "$TMP_DIR/verified.out" >/dev/null \
     || fail 'valid signed source was rejected'
 grep -Fx 'PAYLOAD_NAME=northstar-runtime.txz' "$TMP_DIR/verified.out" >/dev/null \
     || fail 'verified payload identity was not reported'
+grep -Fx 'PAYLOAD_KIND=northstar-rootfs-v1' "$TMP_DIR/verified.out" >/dev/null \
+    || fail 'verified payload kind was not reported'
 grep -Fx 'SOURCE_MUTATION=none' "$TMP_DIR/verified.out" >/dev/null \
     || fail 'source verifier did not report its no-mutation contract'
 

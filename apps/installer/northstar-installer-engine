@@ -162,8 +162,9 @@ verify_source() {
     if ! source_report=$("$SOURCE_VERIFY" --verify "$source_manifest_sha256"); then
         fail "$EX_NOPERM" 'trusted installer source verification failed'
     fi
-    source_verification= source_manifest= source_payload_name= source_payload_size=
-    source_payload_sha256= source_project_commit= source_mutation=
+    source_verification= source_manifest= source_payload_kind= source_payload_name=
+    source_payload_size= source_payload_sha256= source_project_commit=
+    source_runtime_manifest_sha256= source_mutation=
     source_seen='|'
     source_count=0
     while IFS='=' read -r key value || [ -n "${key:-}" ]; do
@@ -173,10 +174,12 @@ verify_source() {
         case "$key" in
             SOURCE_VERIFICATION) source_verification=$value ;;
             MANIFEST_SHA256) source_manifest=$value ;;
+            PAYLOAD_KIND) source_payload_kind=$value ;;
             PAYLOAD_NAME) source_payload_name=$value ;;
             PAYLOAD_SIZE) source_payload_size=$value ;;
             PAYLOAD_SHA256) source_payload_sha256=$value ;;
             PROJECT_COMMIT) source_project_commit=$value ;;
+            RUNTIME_MANIFEST_SHA256) source_runtime_manifest_sha256=$value ;;
             SOURCE_MUTATION) source_mutation=$value ;;
             *) fail "$EX_DATAERR" "source verifier returned unknown field: $key" ;;
         esac
@@ -184,10 +187,12 @@ verify_source() {
     done <<EOF
 $source_report
 EOF
-    [ "$source_count" -eq 7 ] || fail "$EX_DATAERR" 'source verifier returned an unexpected field count'
+    [ "$source_count" -eq 9 ] || fail "$EX_DATAERR" 'source verifier returned an unexpected field count'
     [ "$source_verification" = PASS ] || fail "$EX_NOPERM" 'source verifier did not report PASS'
     [ "$source_manifest" = "$(printf '%s' "$source_manifest_sha256" | tr '[:upper:]' '[:lower:]')" ] \
         || fail "$EX_DATAERR" 'verified source is not bound to the reviewed manifest'
+    [ "$source_payload_kind" = northstar-rootfs-v1 ] \
+        || fail "$EX_DATAERR" 'source verifier returned an unsupported payload kind'
     matches "$source_payload_name" '^[A-Za-z0-9][A-Za-z0-9._-]{0,79}\.txz$' \
         || fail "$EX_DATAERR" 'source verifier returned an unsafe payload name'
     matches "$source_payload_size" '^[0-9]{1,12}$' || fail "$EX_DATAERR" 'source verifier returned an invalid payload size'
@@ -195,6 +200,8 @@ EOF
         || fail "$EX_DATAERR" 'source verifier returned a payload outside the safety bound'
     matches "$source_payload_sha256" '^[0-9a-f]{64}$' || fail "$EX_DATAERR" 'source verifier returned an invalid payload digest'
     matches "$source_project_commit" '^[0-9a-f]{40}$' || fail "$EX_DATAERR" 'source verifier returned an invalid project commit'
+    matches "$source_runtime_manifest_sha256" '^[0-9a-f]{64}$' \
+        || fail "$EX_DATAERR" 'source verifier returned an invalid runtime manifest digest'
     [ "$source_mutation" = none ] || fail "$EX_NOPERM" 'source verifier reported an unexpected mutation mode'
 }
 
@@ -284,7 +291,8 @@ load_transaction() {
     require_state_file "$request_file" 'staged installer request'
     txn_schema= txn_id= txn_status= txn_request_sha= txn_target= txn_mediasize=
     txn_sectorsize= txn_description_sha= txn_layout= txn_pool= txn_manifest_sha=
-    txn_payload_name= txn_payload_size= txn_payload_sha= txn_project_commit=
+    txn_payload_kind= txn_payload_name= txn_payload_size= txn_payload_sha= txn_project_commit=
+    txn_runtime_manifest_sha=
     txn_confirmation= txn_execution= txn_recovery= txn_seen='|' txn_count=0
     while IFS='=' read -r key value || [ -n "${key:-}" ]; do
         [ -n "${key:-}" ] || fail "$EX_DATAERR" 'transaction state contains a blank field'
@@ -302,10 +310,12 @@ load_transaction() {
             layout) txn_layout=$value ;;
             pool_name) txn_pool=$value ;;
             source_manifest_sha256) txn_manifest_sha=$value ;;
+            payload_kind) txn_payload_kind=$value ;;
             payload_name) txn_payload_name=$value ;;
             payload_size) txn_payload_size=$value ;;
             payload_sha256) txn_payload_sha=$value ;;
             project_commit) txn_project_commit=$value ;;
+            runtime_manifest_sha256) txn_runtime_manifest_sha=$value ;;
             confirmation) txn_confirmation=$value ;;
             execution) txn_execution=$value ;;
             recovery) txn_recovery=$value ;;
@@ -313,7 +323,7 @@ load_transaction() {
         esac
         txn_count=$((txn_count + 1))
     done < "$transaction_file"
-    [ "$txn_count" -eq 18 ] && [ "$txn_schema" = 1 ] && [ "$txn_id" = "$transaction_id" ] \
+    [ "$txn_count" -eq 20 ] && [ "$txn_schema" = 1 ] && [ "$txn_id" = "$transaction_id" ] \
         && [ "$txn_status" = staged ] || fail "$EX_DATAERR" 'transaction state identity or status is invalid'
     matches "$txn_request_sha" '^[0-9a-f]{64}$' || fail "$EX_DATAERR" 'transaction request digest is invalid'
     matches "$txn_target" '^[A-Za-z][A-Za-z0-9._-]{0,31}$' || fail "$EX_DATAERR" 'transaction target is invalid'
@@ -323,6 +333,7 @@ load_transaction() {
     [ "$txn_layout" = gpt-uefi-zfs ] || fail "$EX_DATAERR" 'transaction layout is invalid'
     matches "$txn_pool" '^nstar_[0-9a-f]{12}$' || fail "$EX_DATAERR" 'transaction pool name is invalid'
     matches "$txn_manifest_sha" '^[0-9a-f]{64}$' || fail "$EX_DATAERR" 'transaction manifest digest is invalid'
+    [ "$txn_payload_kind" = northstar-rootfs-v1 ] || fail "$EX_DATAERR" 'transaction payload kind is invalid'
     matches "$txn_payload_name" '^[A-Za-z0-9][A-Za-z0-9._-]{0,79}\.txz$' \
         || fail "$EX_DATAERR" 'transaction payload name is invalid'
     matches "$txn_payload_size" '^[0-9]{1,12}$' || fail "$EX_DATAERR" 'transaction payload size is invalid'
@@ -330,8 +341,11 @@ load_transaction() {
         || fail "$EX_DATAERR" 'transaction payload is outside the safety bound'
     matches "$txn_payload_sha" '^[0-9a-f]{64}$' || fail "$EX_DATAERR" 'transaction payload digest is invalid'
     matches "$txn_project_commit" '^[0-9a-f]{40}$' || fail "$EX_DATAERR" 'transaction project commit is invalid'
+    matches "$txn_runtime_manifest_sha" '^[0-9a-f]{64}$' \
+        || fail "$EX_DATAERR" 'transaction runtime manifest digest is invalid'
     [ "$txn_confirmation" = erase-target ] || fail "$EX_DATAERR" 'transaction confirmation is invalid'
-    [ "$txn_execution" = disabled ] || fail "$EX_NOPERM" 'transaction execution boundary is not disabled'
+    [ "$txn_execution" = guarded-executor-only ] \
+        || fail "$EX_NOPERM" 'transaction execution boundary is invalid'
     [ "$txn_recovery" = resume-or-abandon-required ] || fail "$EX_DATAERR" 'transaction recovery policy is missing'
     actual_request_sha=$($SHA256 -q "$request_file" | tr '[:upper:]' '[:lower:]') \
         || fail "$EX_DATAERR" 'could not verify staged request digest'
@@ -350,10 +364,44 @@ load_transaction() {
         case "$journal_count:$journal_event" in
             1:request-validated|2:source-verified|3:target-revalidated|4:transaction-staged) ;;
             *:transaction-recovered) ;;
+            *:execution-authorized|*:source-reverified|*:target-revalidated-final|*:payload-preflight-passed) ;;
+            *:mutation-started|*:partition-table-created|*:efi-formatted|*:zpool-created) ;;
+            *:datasets-created|*:payload-extracted|*:payload-verified|*:bootloader-installed) ;;
+            *:installation-verified|*:transaction-completed|*:execution-interrupted) ;;
             *) fail "$EX_DATAERR" 'transaction journal contains an invalid event transition' ;;
         esac
     done < "$journal_file"
     [ "$journal_count" -ge 4 ] || fail "$EX_DATAERR" 'transaction journal is incomplete'
+}
+
+load_execution_state() {
+    execution_file=$transaction_dir/execution.conf
+    require_state_file "$execution_file" 'installer execution state'
+    execution_schema= execution_id= execution_status= execution_phase=
+    execution_mutation= execution_recovery= execution_seen='|' execution_count=0
+    while IFS='=' read -r key value || [ -n "${key:-}" ]; do
+        case "$execution_seen" in *"|$key|"*) fail "$EX_DATAERR" "execution state repeats field: $key" ;; esac
+        execution_seen="${execution_seen}${key}|"
+        case "$key" in
+            schema_version) execution_schema=$value ;;
+            transaction_id) execution_id=$value ;;
+            status) execution_status=$value ;;
+            last_phase) execution_phase=$value ;;
+            mutation_started) execution_mutation=$value ;;
+            recovery) execution_recovery=$value ;;
+            *) fail "$EX_DATAERR" "execution state contains unknown field: $key" ;;
+        esac
+        execution_count=$((execution_count + 1))
+    done < "$execution_file"
+    [ "$execution_count" -eq 6 ] && [ "$execution_schema" = 1 ] \
+        && [ "$execution_id" = "$transaction_id" ] \
+        || fail "$EX_DATAERR" 'execution state identity is invalid'
+    matches "$execution_status" '^(executing|interrupted|completed)$' \
+        || fail "$EX_DATAERR" 'execution status is invalid'
+    matches "$execution_phase" '^[a-z][a-z-]{0,63}$' || fail "$EX_DATAERR" 'execution phase is invalid'
+    matches "$execution_mutation" '^(yes|no)$' || fail "$EX_DATAERR" 'execution mutation state is invalid'
+    matches "$execution_recovery" '^(none|cleanup-and-restart-required|finalize-required)$' \
+        || fail "$EX_DATAERR" 'execution recovery state is invalid'
 }
 
 write_active() {
@@ -437,7 +485,15 @@ if [ "$mode" = --status ]; then
     fi
     if [ -e "$state_dir/active.conf" ]; then
         load_active
+        transaction_id=$active_transaction_id
         load_transaction "$active_transaction_id"
+        if [ -e "$transaction_dir/execution.conf" ]; then
+            load_execution_state
+            printf '%s\n' "INSTALLER_STATUS=$execution_status" "TRANSACTION_ID=$active_transaction_id" \
+                "LAST_PHASE=$execution_phase" "MUTATION_STARTED=$execution_mutation" \
+                "RECOVERY_ACTION=$execution_recovery" 'DISK_MUTATION=executor-controlled'
+            exit 0
+        fi
         printf '%s\n' 'INSTALLER_STATUS=staged' "TRANSACTION_ID=$active_transaction_id" \
             'RECOVERY_ACTION=resume-or-abandon-required' 'DISK_MUTATION=none'
         exit 0
@@ -464,6 +520,8 @@ if [ "$mode" = --recover ]; then
     [ "$orphan_count" -eq 1 ] && [ "$orphan_id" = "$transaction_id" ] \
         || fail "$EX_DATAERR" 'recovery requires exactly one matching interrupted transaction'
     load_transaction "$transaction_id"
+    [ ! -e "$transaction_dir/execution.conf" ] \
+        || fail "$EX_NOPERM" 'an executing or interrupted transaction cannot use preflight recovery'
     append_journal 'transaction-recovered'
     write_active "$transaction_id"
     printf '%s\n' 'INSTALLER_RECOVERY=PASS' "TRANSACTION_ID=$transaction_id" \
@@ -476,6 +534,8 @@ if [ "$mode" = --abandon ]; then
     prepare_state_dirs
     transaction_id=$2
     load_transaction "$transaction_id"
+    [ ! -e "$transaction_dir/execution.conf" ] \
+        || fail "$EX_NOPERM" 'an executing or interrupted transaction cannot be abandoned'
     if [ -e "$state_dir/active.conf" ]; then
         load_active
         [ "$active_transaction_id" = "$transaction_id" ] \
@@ -537,11 +597,13 @@ $CP "$request" "$staging_dir/request.conf"
     printf 'layout=%s\n' "$layout"
     printf 'pool_name=%s\n' "$pool_name"
     printf 'source_manifest_sha256=%s\n' "$source_manifest"
+    printf 'payload_kind=%s\n' "$source_payload_kind"
     printf 'payload_name=%s\n' "$source_payload_name"
     printf 'payload_size=%s\n' "$source_payload_size"
     printf 'payload_sha256=%s\n' "$source_payload_sha256"
     printf 'project_commit=%s\n' "$source_project_commit"
-    printf '%s\n' 'confirmation=erase-target' 'execution=disabled' \
+    printf 'runtime_manifest_sha256=%s\n' "$source_runtime_manifest_sha256"
+    printf '%s\n' 'confirmation=erase-target' 'execution=guarded-executor-only' \
         'recovery=resume-or-abandon-required'
 } > "$staging_dir/transaction.conf"
 {
