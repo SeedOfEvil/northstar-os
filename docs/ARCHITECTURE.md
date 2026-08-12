@@ -94,6 +94,15 @@ refuses active, changed, undersized, partition, or unresolved prior targets;
 see [`ADR 0012`](adr/0012-installer-engine-preflight-boundary.md). Actual disk
 mutation remains a separate reviewed boundary.
 
+Installer source trust is a second fixed boundary. Production accepts only a
+root-controlled source root and release public key, verifies a detached
+RSA/SHA-256 manifest signature plus payload size and digest, and stages only
+after that source and the target both pass independent checks. Root-owned
+sequenced journals expose active and interrupted transactions and require
+explicit authenticated recovery or archival abandonment; see
+[`ADR 0013`](adr/0013-installer-source-trust-and-journal.md). Signing private
+keys remain external, and journal recovery still cannot mutate a disk.
+
 ## Packaging and update model
 
 FreeBSD base and kernel updates use the official FreeBSD mechanism. Third-party desktop dependencies come from a pinned FreeBSD package source. Northstar components are built in clean Poudriere jails and published through a signed `pkg` repository. The Northstar publication sidecar records the repository revision, target ABI, package origins, source inputs, and project revisions for read-only planning; its local signature envelope verifies the sidecar/catalogue binding but does not replace `pkg` catalogue files or the repository's own signature path. Development `.app` bundles expose manifest-level provenance now. The update helper accepts only a verified, root-owned request bound to the publication identity and derived boot-environment name; actual package mutation, broker authorization, and rollback remain part of M4.

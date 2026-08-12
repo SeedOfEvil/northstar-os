@@ -1,0 +1,166 @@
+#!/bin/sh
+
+# Verify fixed-path Northstar installer media without mutating it. The private
+# signing key is external to the repository and installer runtime.
+set -eu
+
+EX_USAGE=64
+EX_DATAERR=65
+EX_UNAVAILABLE=69
+EX_NOPERM=77
+
+TEST_MODE=${NORTHSTAR_INSTALLER_SOURCE_TEST_MODE:-0}
+SOURCE_ROOT=${NORTHSTAR_INSTALLER_SOURCE_ROOT:-/var/run/northstar-installer/source}
+TRUST_KEY=${NORTHSTAR_INSTALLER_SOURCE_TRUST_KEY:-/usr/local/share/northstar/installer/source-signing.pem}
+OPENSSL=${NORTHSTAR_INSTALLER_SOURCE_OPENSSL:-/usr/bin/openssl}
+SHA256=${NORTHSTAR_INSTALLER_SOURCE_SHA256:-/sbin/sha256}
+STAT=${NORTHSTAR_INSTALLER_SOURCE_STAT:-/usr/bin/stat}
+if [ "$TEST_MODE" != 1 ]; then
+    PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin
+    export PATH
+    SOURCE_ROOT=/var/run/northstar-installer/source
+    TRUST_KEY=/usr/local/share/northstar/installer/source-signing.pem
+    OPENSSL=/usr/bin/openssl
+    SHA256=/sbin/sha256
+    STAT=/usr/bin/stat
+fi
+MANIFEST=$SOURCE_ROOT/source-manifest.conf
+SIGNATURE=$SOURCE_ROOT/source-manifest.conf.sig
+MAX_PAYLOAD_BYTES=137438953472
+
+fail() { status=$1; shift; printf 'ERROR: %s\n' "$*" >&2; exit "$status"; }
+matches() { printf '%s\n' "$1" | grep -Eq "$2"; }
+digest_file() { "$SHA256" -q "$1"; }
+
+if [ "$TEST_MODE" = 1 ] && [ "$(/usr/bin/id -u)" -eq 0 ]; then
+    fail "$EX_NOPERM" 'installer source test mode is forbidden for root'
+fi
+
+require_root_controlled() {
+    controlled_path=$1
+    controlled_label=$2
+    owner=$($STAT -f '%u' "$controlled_path") \
+        || fail "$EX_DATAERR" "could not inspect $controlled_label owner"
+    mode=$($STAT -f '%Lp' "$controlled_path") \
+        || fail "$EX_DATAERR" "could not inspect $controlled_label mode"
+    [ "$owner" = 0 ] || fail "$EX_NOPERM" "$controlled_label must be owned by root"
+    matches "$mode" '^[0-7]{3}$' || fail "$EX_NOPERM" "$controlled_label has an invalid mode"
+    case "$mode" in
+        ?[2367]?|??[2367]) fail "$EX_NOPERM" "$controlled_label must not be group/world writable" ;;
+    esac
+}
+
+usage() {
+    cat <<'EOF'
+Usage: northstar-installer-source-verify --capabilities
+       northstar-installer-source-verify --verify EXPECTED_MANIFEST_SHA256
+
+The verifier reads only the fixed installer source root and fixed trust key.
+It verifies the detached signature, manifest digest, and payload digest/size.
+EOF
+}
+
+[ "$#" -ge 1 ] || { usage >&2; exit "$EX_USAGE"; }
+case "$1" in
+    --capabilities)
+        [ "$#" -eq 1 ] || fail "$EX_USAGE" '--capabilities takes no arguments'
+        printf '%s\n' 'protocol=1' 'signature=rsa-sha256-detached' \
+            'manifest=bounded-key-value' 'payload=sha256-and-size' \
+            'private_key=external' 'mutation=none'
+        exit 0 ;;
+    --verify) [ "$#" -eq 2 ] || fail "$EX_USAGE" '--verify requires a manifest digest' ;;
+    --help|-h) usage; exit 0 ;;
+    *) usage >&2; exit "$EX_USAGE" ;;
+esac
+
+expected=$2
+matches "$expected" '^[0-9A-Fa-f]{64}$' || fail "$EX_DATAERR" 'expected manifest digest is invalid'
+[ -d "$SOURCE_ROOT" ] && [ ! -L "$SOURCE_ROOT" ] || fail "$EX_DATAERR" 'installer source root is missing or unsafe'
+for file in "$MANIFEST" "$SIGNATURE" "$TRUST_KEY"; do
+    [ -f "$file" ] && [ ! -L "$file" ] && [ -r "$file" ] \
+        || fail "$EX_DATAERR" "required installer trust file is missing or unsafe: $file"
+done
+for tool in "$OPENSSL" "$SHA256" "$STAT"; do
+    [ -x "$tool" ] || fail "$EX_UNAVAILABLE" "required source verification tool is unavailable: $tool"
+done
+
+manifest_size=$(wc -c < "$MANIFEST" | tr -d ' ')
+[ "$manifest_size" -gt 0 ] && [ "$manifest_size" -le 8192 ] \
+    || fail "$EX_DATAERR" 'installer source manifest is empty or oversized'
+signature_size=$(wc -c < "$SIGNATURE" | tr -d ' ')
+[ "$signature_size" -gt 0 ] && [ "$signature_size" -le 8192 ] \
+    || fail "$EX_DATAERR" 'installer source signature is empty or oversized'
+trust_key_size=$(wc -c < "$TRUST_KEY" | tr -d ' ')
+[ "$trust_key_size" -gt 0 ] && [ "$trust_key_size" -le 16384 ] \
+    || fail "$EX_DATAERR" 'installer trust key is empty or oversized'
+if [ "$TEST_MODE" != 1 ]; then
+    require_root_controlled "$SOURCE_ROOT" 'installer source root'
+    require_root_controlled "$MANIFEST" 'installer source manifest'
+    require_root_controlled "$SIGNATURE" 'installer source signature'
+    require_root_controlled "$TRUST_KEY" 'installer trust key'
+    mode=$($STAT -f '%Lp' "$TRUST_KEY")
+    case "$mode" in 444|644) ;; *) fail "$EX_NOPERM" 'installer trust key must have mode 0444 or 0644' ;; esac
+fi
+
+actual=$(digest_file "$MANIFEST" | tr '[:upper:]' '[:lower:]') \
+    || fail "$EX_DATAERR" 'could not digest installer source manifest'
+matches "$actual" '^[0-9a-f]{64}$' || fail "$EX_DATAERR" 'source manifest digest tool returned invalid output'
+[ "$actual" = "$(printf '%s' "$expected" | tr '[:upper:]' '[:lower:]')" ] \
+    || fail "$EX_DATAERR" 'installer source manifest digest does not match the reviewed plan'
+"$OPENSSL" dgst -sha256 -verify "$TRUST_KEY" -signature "$SIGNATURE" "$MANIFEST" >/dev/null 2>&1 \
+    || fail "$EX_NOPERM" 'installer source signature verification failed'
+
+schema_version= product= freebsd_release= architecture= project_commit=
+payload_name= payload_size= payload_sha256= runtime_manifest_sha256=
+seen='|'
+count=0
+while IFS='=' read -r key value || [ -n "${key:-}" ]; do
+    [ -n "${key:-}" ] || fail "$EX_DATAERR" 'source manifest contains a blank field'
+    case "$seen" in *"|$key|"*) fail "$EX_DATAERR" "source manifest repeats field: $key" ;; esac
+    seen="${seen}${key}|"
+    case "$key" in
+        schema_version) schema_version=$value ;;
+        product) product=$value ;;
+        freebsd_release) freebsd_release=$value ;;
+        architecture) architecture=$value ;;
+        project_commit) project_commit=$value ;;
+        payload_name) payload_name=$value ;;
+        payload_size) payload_size=$value ;;
+        payload_sha256) payload_sha256=$value ;;
+        runtime_manifest_sha256) runtime_manifest_sha256=$value ;;
+        *) fail "$EX_DATAERR" "source manifest contains unknown field: $key" ;;
+    esac
+    count=$((count + 1))
+done < "$MANIFEST"
+
+[ "$count" -eq 9 ] || fail "$EX_DATAERR" 'source manifest has an unexpected field count'
+[ "$schema_version" = 1 ] || fail "$EX_DATAERR" 'unsupported source manifest schema'
+[ "$product" = Northstar ] || fail "$EX_DATAERR" 'source manifest product is not Northstar'
+[ "$freebsd_release" = 15.1-RELEASE ] || fail "$EX_DATAERR" 'source manifest FreeBSD release is unsupported'
+[ "$architecture" = amd64 ] || fail "$EX_DATAERR" 'source manifest architecture is unsupported'
+matches "$project_commit" '^[0-9A-Fa-f]{40}$' || fail "$EX_DATAERR" 'source project commit is invalid'
+matches "$payload_name" '^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$' || fail "$EX_DATAERR" 'payload name is unsafe'
+case "$payload_name" in *.txz) ;; *) fail "$EX_DATAERR" 'payload must be a txz archive' ;; esac
+matches "$payload_size" '^[0-9]{1,12}$' || fail "$EX_DATAERR" 'payload size is invalid'
+[ "$payload_size" -gt 0 ] || fail "$EX_DATAERR" 'payload size must be positive'
+[ "$payload_size" -le "$MAX_PAYLOAD_BYTES" ] || fail "$EX_DATAERR" 'payload exceeds the installer safety bound'
+matches "$payload_sha256" '^[0-9A-Fa-f]{64}$' || fail "$EX_DATAERR" 'payload digest is invalid'
+matches "$runtime_manifest_sha256" '^[0-9A-Fa-f]{64}$' || fail "$EX_DATAERR" 'runtime manifest digest is invalid'
+
+payload=$SOURCE_ROOT/$payload_name
+[ -f "$payload" ] && [ ! -L "$payload" ] || fail "$EX_DATAERR" 'installer payload is missing or unsafe'
+if [ "$TEST_MODE" != 1 ]; then
+    require_root_controlled "$payload" 'installer payload'
+fi
+actual_size=$(wc -c < "$payload" | tr -d ' ')
+[ "$actual_size" = "$payload_size" ] || fail "$EX_DATAERR" 'installer payload size does not match its manifest'
+actual_payload=$(digest_file "$payload" | tr '[:upper:]' '[:lower:]') \
+    || fail "$EX_DATAERR" 'could not digest installer payload'
+matches "$actual_payload" '^[0-9a-f]{64}$' || fail "$EX_DATAERR" 'payload digest tool returned invalid output'
+[ "$actual_payload" = "$(printf '%s' "$payload_sha256" | tr '[:upper:]' '[:lower:]')" ] \
+    || fail "$EX_DATAERR" 'installer payload digest does not match its manifest'
+
+printf '%s\n' 'SOURCE_VERIFICATION=PASS' "MANIFEST_SHA256=$actual" \
+    "PAYLOAD_NAME=$payload_name" "PAYLOAD_SIZE=$payload_size" \
+    "PAYLOAD_SHA256=$actual_payload" "PROJECT_COMMIT=$(printf '%s' "$project_commit" | tr '[:upper:]' '[:lower:]')" \
+    'SOURCE_MUTATION=none'

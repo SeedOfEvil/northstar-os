@@ -338,6 +338,11 @@ The protected installer-engine foundation now independently revalidates target
 identity and stages non-overwritable root-owned state with execution disabled,
 as documented in
 [`docs/M5_INSTALLER_ENGINE_FOUNDATION.md`](M5_INSTALLER_ENGINE_FOUNDATION.md).
+The trusted-source and journal slice now authenticates a fixed release-media
+manifest and payload, rejects tampering before staging, and gives interrupted
+transactions explicit status, recovery, and archival abandonment without disk
+mutation, as documented in
+[`docs/M5_INSTALLER_SOURCE_AND_JOURNAL.md`](M5_INSTALLER_SOURCE_AND_JOURNAL.md).
 Privileged disk execution, installation
 safety/recovery, diagnostics, boot-environment management, and media outputs
 use routine DEV01, native FreeBSD, and file-backed validation on their focused

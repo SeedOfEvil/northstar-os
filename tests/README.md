@@ -48,6 +48,12 @@ modifies repository configuration.
 `unit/test-nested-wayfire-package.sh` proves the accepted patched compositor
 tree becomes an immutable, package-managed compatibility artifact instead of
 an untracked user-home dependency.
+`unit/test-installer-source-verify.sh` generates an external disposable RSA
+key, verifies authentic fixed-layout source media, and rejects manifest-digest,
+signature, payload, and path tampering. `unit/test-installer-engine.sh` then
+proves source-before-target staging, durable sequenced state, interruption
+detection, explicit recovery, archival abandonment, and the no-disk-mutation
+boundary under a temporary root.
 `unit/test-image-assembler.sh` exercises the complete non-root QCOW2 preflight
 with fixture release sets and package artifacts, including tamper rejection.
 The production path additionally requires root, FreeBSD, a protected

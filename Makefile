@@ -2,7 +2,7 @@ SHELL := /bin/sh
 
 .DEFAULT_GOAL := help
 
-.PHONY: help check-host bootstrap configure build test welcome-app-test first-boot-provision-test installer-disk-test installer-engine-test qml-surface-test image-input-test runtime-bundle-test nested-wayfire-package-test image-assembler-test image-boot-smoke-test image-update-rollback-gate-test capture-runtime-bundle prepare-image-inputs validation-deployment-audit update-helper-test update-broker-smoke transactional-update-smoke run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package pkg-repository-smoke signed-development-repository-smoke vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
+.PHONY: help check-host bootstrap configure build test welcome-app-test first-boot-provision-test installer-disk-test installer-source-test installer-engine-test qml-surface-test image-input-test runtime-bundle-test nested-wayfire-package-test image-assembler-test image-boot-smoke-test image-update-rollback-gate-test capture-runtime-bundle prepare-image-inputs validation-deployment-audit update-helper-test update-broker-smoke transactional-update-smoke run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package pkg-repository-smoke signed-development-repository-smoke vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
 
 MANIFEST ?= packaging/manifests/bootstrap-packages.txt
 NORTHSTAR_USER ?=
@@ -37,7 +37,8 @@ help:
 	@printf '%s\n' '  make welcome-app-test  Test the bundled Northstar Welcome launcher'
 	@printf '%s\n' '  make first-boot-provision-test  Test one-time account provisioning and secret handling'
 	@printf '%s\n' '  make installer-disk-test  Test read-only installer target discovery'
-	@printf '%s\n' '  make installer-engine-test  Test protected installer preflight and staging'
+	@printf '%s\n' '  make installer-source-test  Test signed installer-source verification'
+	@printf '%s\n' '  make installer-engine-test  Test protected preflight and recoverable journal staging'
 	@printf '%s\n' '  make qml-surface-test  Check product-critical QML surface wiring'
 	@printf '%s\n' '  make image-input-test  Test pinned M5 image-input preparation'
 	@printf '%s\n' '  make runtime-bundle-test  Test exact offline runtime capture'
@@ -86,6 +87,7 @@ test:
 	@$(MAKE) welcome-app-test
 	@$(MAKE) first-boot-provision-test
 	@$(MAKE) installer-disk-test
+	@$(MAKE) installer-source-test
 	@$(MAKE) installer-engine-test
 	@$(MAKE) qml-surface-test
 	@sh tests/unit/test-nested-wayfire-session.sh
@@ -112,6 +114,9 @@ first-boot-provision-test:
 
 installer-disk-test:
 	@sh tests/unit/test-installer-disks.sh
+
+installer-source-test:
+	@sh tests/unit/test-installer-source-verify.sh
 
 installer-engine-test:
 	@sh tests/unit/test-installer-engine.sh

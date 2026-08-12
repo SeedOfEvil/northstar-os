@@ -48,7 +48,10 @@ Routine evidence: request and permission contracts, fake-target identity drift
 and active-use rejection, root-state transaction staging, unresolved-state
 guard, native FreeBSD tests, and read-only DEV01 system-disk exclusion.
 
-Deferred evidence: trusted installer-source verification, final immutable disk
-identity, destructive execution on a disposable target, GPT/UEFI/ZFS creation,
-progress journaling, interruption recovery, installed boot, and preservation of
-every non-target disk.
+Follow-on evidence: trusted installer-source verification, root-owned progress
+journaling, and explicit interruption recovery are implemented in
+[`M5_INSTALLER_SOURCE_AND_JOURNAL.md`](M5_INSTALLER_SOURCE_AND_JOURNAL.md).
+
+Deferred evidence: final pre-mutation disk identity, destructive execution on
+a disposable target, GPT/UEFI/ZFS creation, destructive-phase recovery,
+installed boot, and preservation of every non-target disk.

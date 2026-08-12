@@ -28,6 +28,9 @@ pool creation, extraction, or bootloader installation. Staged state records
 `execution=disabled`. A later execution helper must consume this state,
 revalidate the target again immediately before mutation, verify the source
 manifest against trusted installer media, and maintain a recoverable journal.
+The source and journal portion is implemented by
+[`ADR 0013`](0013-installer-source-trust-and-journal.md); destructive execution
+remains deferred.
 
 ## Consequences
 

@@ -23,8 +23,29 @@ CHOWN=${NORTHSTAR_INSTALLER_ENGINE_CHOWN:-/usr/sbin/chown}
 CHMOD=${NORTHSTAR_INSTALLER_ENGINE_CHMOD:-/bin/chmod}
 MV=${NORTHSTAR_INSTALLER_ENGINE_MV:-/bin/mv}
 RM=${NORTHSTAR_INSTALLER_ENGINE_RM:-/bin/rm}
+CP=${NORTHSTAR_INSTALLER_ENGINE_CP:-/bin/cp}
 SHA256=${NORTHSTAR_INSTALLER_ENGINE_SHA256:-/sbin/sha256}
 UNAME=${NORTHSTAR_INSTALLER_ENGINE_UNAME:-/usr/bin/uname}
+SOURCE_VERIFY=${NORTHSTAR_INSTALLER_ENGINE_SOURCE_VERIFY:-/usr/local/libexec/northstar-installer-source-verify}
+if [ "$TEST_MODE" != 1 ]; then
+    PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin
+    export PATH
+    ROOT=/
+    GEOM=/sbin/geom
+    MOUNT=/sbin/mount
+    ZPOOL=/sbin/zpool
+    SWAPINFO=/usr/sbin/swapinfo
+    STAT=/usr/bin/stat
+    INSTALL=/usr/bin/install
+    CHOWN=/usr/sbin/chown
+    CHMOD=/bin/chmod
+    MV=/bin/mv
+    RM=/bin/rm
+    CP=/bin/cp
+    SHA256=/sbin/sha256
+    UNAME=/usr/bin/uname
+    SOURCE_VERIFY=/usr/local/libexec/northstar-installer-source-verify
+fi
 STATE_REL=var/db/northstar/installer
 MINIMUM_BYTES=17179869184
 
@@ -32,15 +53,24 @@ fail() { status=$1; shift; printf 'ERROR: %s\n' "$*" >&2; exit "$status"; }
 matches() { printf '%s\n' "$1" | grep -Eq "$2"; }
 root_path() { case "$ROOT" in /) printf '/%s' "$1" ;; *) printf '%s/%s' "${ROOT%/}" "$1" ;; esac; }
 
+if [ "$TEST_MODE" = 1 ] && [ "$(/usr/bin/id -u)" -eq 0 ]; then
+    fail "$EX_NOPERM" 'installer engine test mode is forbidden for root'
+fi
+
 usage() {
     cat <<'EOF'
 Usage: northstar-installer-engine --capabilities
        northstar-installer-engine --validate REQUEST
        northstar-installer-engine --stage REQUEST
+       northstar-installer-engine --status
+       northstar-installer-engine --recover TRANSACTION_ID
+       northstar-installer-engine --abandon TRANSACTION_ID --confirm
 
 --validate checks a bounded non-secret request without changing state.
---stage requires root, independently revalidates the target, and writes only a
-root-owned transaction request. Disk partitioning and installation are absent.
+--stage requires root, verifies the immutable source, independently revalidates
+the target, and writes a root-owned journal. Disk mutation remains absent.
+--status reports staged or interrupted state. --recover makes one orphaned
+staged transaction active again. --abandon archives it without touching disks.
 EOF
 }
 
@@ -90,7 +120,7 @@ validate_request() {
     matches "$target_device" '^[A-Za-z][A-Za-z0-9._-]{0,31}$' \
         || fail "$EX_DATAERR" 'target device is outside the whole-disk format'
     case "$target_device" in *p[0-9]*|*s[0-9]*) fail "$EX_DATAERR" 'target must be a whole disk' ;; esac
-    matches "$target_mediasize" '^[0-9]{8,20}$' || fail "$EX_DATAERR" 'target mediasize is invalid'
+    matches "$target_mediasize" '^[0-9]{8,18}$' || fail "$EX_DATAERR" 'target mediasize is invalid'
     [ "$target_mediasize" -ge "$MINIMUM_BYTES" ] || fail "$EX_DATAERR" 'target is below the 16 GiB minimum'
     matches "$target_sectorsize" '^(512|4096)$' || fail "$EX_DATAERR" 'target sector size is unsupported'
     matches "$target_description_sha256" '^[0-9A-Fa-f]{64}$' || fail "$EX_DATAERR" 'target description digest is invalid'
@@ -118,7 +148,7 @@ revalidate_target() {
     actual_size=$(printf '%s\n' "$info" | awk -F: '/^[[:space:]]*Mediasize:/ { sub(/^[[:space:]]*/, "", $2); split($2, a, /[[:space:]]/); print a[1]; exit }')
     actual_sector=$(printf '%s\n' "$info" | awk -F: '/^[[:space:]]*Sectorsize:/ { gsub(/[[:space:]]/, "", $2); print $2; exit }')
     description=$(printf '%s\n' "$info" | awk -F: '/^[[:space:]]*descr:/ { sub(/^[[:space:]]*/, "", $2); print $2; exit }')
-    actual_digest=$(printf '%s' "$description" | "$SHA256" -q)
+    actual_digest=$(printf '%s' "$description" | "$SHA256" -q | tr '[:upper:]' '[:lower:]')
     [ "$actual_size" = "$target_mediasize" ] || fail "$EX_DATAERR" 'target mediasize changed after review'
     [ "$actual_sector" = "$target_sectorsize" ] || fail "$EX_DATAERR" 'target sector size changed after review'
     [ "$actual_digest" = "$target_description_sha256" ] || fail "$EX_DATAERR" 'target description changed after review'
@@ -127,58 +157,405 @@ revalidate_target() {
     fi
 }
 
+verify_source() {
+    [ -x "$SOURCE_VERIFY" ] || fail "$EX_UNAVAILABLE" 'fixed installer source verifier is unavailable'
+    if ! source_report=$("$SOURCE_VERIFY" --verify "$source_manifest_sha256"); then
+        fail "$EX_NOPERM" 'trusted installer source verification failed'
+    fi
+    source_verification= source_manifest= source_payload_name= source_payload_size=
+    source_payload_sha256= source_project_commit= source_mutation=
+    source_seen='|'
+    source_count=0
+    while IFS='=' read -r key value || [ -n "${key:-}" ]; do
+        [ -n "${key:-}" ] || fail "$EX_DATAERR" 'source verifier returned a blank field'
+        case "$source_seen" in *"|$key|"*) fail "$EX_DATAERR" "source verifier repeated field: $key" ;; esac
+        source_seen="${source_seen}${key}|"
+        case "$key" in
+            SOURCE_VERIFICATION) source_verification=$value ;;
+            MANIFEST_SHA256) source_manifest=$value ;;
+            PAYLOAD_NAME) source_payload_name=$value ;;
+            PAYLOAD_SIZE) source_payload_size=$value ;;
+            PAYLOAD_SHA256) source_payload_sha256=$value ;;
+            PROJECT_COMMIT) source_project_commit=$value ;;
+            SOURCE_MUTATION) source_mutation=$value ;;
+            *) fail "$EX_DATAERR" "source verifier returned unknown field: $key" ;;
+        esac
+        source_count=$((source_count + 1))
+    done <<EOF
+$source_report
+EOF
+    [ "$source_count" -eq 7 ] || fail "$EX_DATAERR" 'source verifier returned an unexpected field count'
+    [ "$source_verification" = PASS ] || fail "$EX_NOPERM" 'source verifier did not report PASS'
+    [ "$source_manifest" = "$(printf '%s' "$source_manifest_sha256" | tr '[:upper:]' '[:lower:]')" ] \
+        || fail "$EX_DATAERR" 'verified source is not bound to the reviewed manifest'
+    matches "$source_payload_name" '^[A-Za-z0-9][A-Za-z0-9._-]{0,79}\.txz$' \
+        || fail "$EX_DATAERR" 'source verifier returned an unsafe payload name'
+    matches "$source_payload_size" '^[0-9]{1,12}$' || fail "$EX_DATAERR" 'source verifier returned an invalid payload size'
+    [ "$source_payload_size" -gt 0 ] && [ "$source_payload_size" -le 137438953472 ] \
+        || fail "$EX_DATAERR" 'source verifier returned a payload outside the safety bound'
+    matches "$source_payload_sha256" '^[0-9a-f]{64}$' || fail "$EX_DATAERR" 'source verifier returned an invalid payload digest'
+    matches "$source_project_commit" '^[0-9a-f]{40}$' || fail "$EX_DATAERR" 'source verifier returned an invalid project commit'
+    [ "$source_mutation" = none ] || fail "$EX_NOPERM" 'source verifier reported an unexpected mutation mode'
+}
+
+require_protected_runtime() {
+    [ "$TEST_MODE" = 1 ] || [ "$(id -u)" -eq 0 ] || fail "$EX_NOPERM" "$1 requires root"
+    [ "$TEST_MODE" = 1 ] || [ "$ROOT" = / ] || fail "$EX_NOPERM" 'alternate roots are test-only'
+    [ "$TEST_MODE" = 1 ] || [ "$($UNAME -s)" = FreeBSD ] \
+        || fail "$EX_UNAVAILABLE" 'installer state operations are supported only on FreeBSD'
+}
+
+prepare_state_dirs() {
+    for tool in "$INSTALL" "$CHOWN" "$CHMOD" "$MV" "$RM" "$CP" "$SHA256"; do
+        [ -x "$tool" ] || fail "$EX_UNAVAILABLE" "required state tool is unavailable: $tool"
+    done
+    state_dir=$(root_path "$STATE_REL")
+    for directory in "$state_dir" "$state_dir/transactions" "$state_dir/archive"; do
+        if [ -e "$directory" ]; then
+            require_state_dir "$directory" 'installer state directory'
+        else
+            $INSTALL -d -o root -g wheel -m 0700 "$directory"
+            require_state_dir "$directory" 'installer state directory'
+        fi
+    done
+}
+
+validate_transaction_id() {
+    matches "$1" '^nstar-install-[0-9a-f]{16}-[0-9]{1,10}$' \
+        || fail "$EX_DATAERR" 'transaction identity is invalid'
+}
+
+require_state_dir() {
+    state_directory=$1
+    state_label=$2
+    [ -d "$state_directory" ] && [ ! -L "$state_directory" ] \
+        || fail "$EX_DATAERR" "$state_label is missing or unsafe"
+    if [ "$TEST_MODE" != 1 ]; then
+        owner=$($STAT -f '%u' "$state_directory") || fail "$EX_DATAERR" "could not inspect $state_label owner"
+        mode=$($STAT -f '%Lp' "$state_directory") || fail "$EX_DATAERR" "could not inspect $state_label mode"
+        [ "$owner" = 0 ] && [ "$mode" = 700 ] \
+            || fail "$EX_NOPERM" "$state_label must be root-owned mode 0700"
+    fi
+}
+
+require_state_file() {
+    state_file=$1
+    state_label=$2
+    [ -f "$state_file" ] && [ ! -L "$state_file" ] && [ -r "$state_file" ] \
+        || fail "$EX_DATAERR" "$state_label is missing or unsafe"
+    if [ "$TEST_MODE" != 1 ]; then
+        owner=$($STAT -f '%u' "$state_file") || fail "$EX_DATAERR" "could not inspect $state_label owner"
+        mode=$($STAT -f '%Lp' "$state_file") || fail "$EX_DATAERR" "could not inspect $state_label mode"
+        [ "$owner" = 0 ] && [ "$mode" = 600 ] \
+            || fail "$EX_NOPERM" "$state_label must be root-owned mode 0600"
+    fi
+}
+
+load_active() {
+    active_file=$state_dir/active.conf
+    require_state_file "$active_file" 'active transaction state'
+    active_schema= active_transaction_id= active_status= active_count=0 active_seen='|'
+    while IFS='=' read -r key value || [ -n "${key:-}" ]; do
+        case "$active_seen" in *"|$key|"*) fail "$EX_DATAERR" "active state repeats field: $key" ;; esac
+        active_seen="${active_seen}${key}|"
+        case "$key" in
+            schema_version) active_schema=$value ;;
+            transaction_id) active_transaction_id=$value ;;
+            status) active_status=$value ;;
+            *) fail "$EX_DATAERR" "active state contains unknown field: $key" ;;
+        esac
+        active_count=$((active_count + 1))
+    done < "$active_file"
+    [ "$active_count" -eq 3 ] && [ "$active_schema" = 1 ] && [ "$active_status" = staged ] \
+        || fail "$EX_DATAERR" 'active transaction state is invalid'
+    validate_transaction_id "$active_transaction_id"
+}
+
+load_transaction() {
+    transaction_id=$1
+    validate_transaction_id "$transaction_id"
+    transaction_dir=$state_dir/transactions/$transaction_id
+    require_state_dir "$transaction_dir" 'transaction directory'
+    transaction_file=$transaction_dir/transaction.conf
+    journal_file=$transaction_dir/journal.log
+    request_file=$transaction_dir/request.conf
+    require_state_file "$transaction_file" 'transaction state'
+    require_state_file "$journal_file" 'transaction journal'
+    require_state_file "$request_file" 'staged installer request'
+    txn_schema= txn_id= txn_status= txn_request_sha= txn_target= txn_mediasize=
+    txn_sectorsize= txn_description_sha= txn_layout= txn_pool= txn_manifest_sha=
+    txn_payload_name= txn_payload_size= txn_payload_sha= txn_project_commit=
+    txn_confirmation= txn_execution= txn_recovery= txn_seen='|' txn_count=0
+    while IFS='=' read -r key value || [ -n "${key:-}" ]; do
+        [ -n "${key:-}" ] || fail "$EX_DATAERR" 'transaction state contains a blank field'
+        case "$txn_seen" in *"|$key|"*) fail "$EX_DATAERR" "transaction state repeats field: $key" ;; esac
+        txn_seen="${txn_seen}${key}|"
+        case "$key" in
+            schema_version) txn_schema=$value ;;
+            transaction_id) txn_id=$value ;;
+            status) txn_status=$value ;;
+            request_sha256) txn_request_sha=$value ;;
+            target_device) txn_target=$value ;;
+            target_mediasize) txn_mediasize=$value ;;
+            target_sectorsize) txn_sectorsize=$value ;;
+            target_description_sha256) txn_description_sha=$value ;;
+            layout) txn_layout=$value ;;
+            pool_name) txn_pool=$value ;;
+            source_manifest_sha256) txn_manifest_sha=$value ;;
+            payload_name) txn_payload_name=$value ;;
+            payload_size) txn_payload_size=$value ;;
+            payload_sha256) txn_payload_sha=$value ;;
+            project_commit) txn_project_commit=$value ;;
+            confirmation) txn_confirmation=$value ;;
+            execution) txn_execution=$value ;;
+            recovery) txn_recovery=$value ;;
+            *) fail "$EX_DATAERR" "transaction state contains unknown field: $key" ;;
+        esac
+        txn_count=$((txn_count + 1))
+    done < "$transaction_file"
+    [ "$txn_count" -eq 18 ] && [ "$txn_schema" = 1 ] && [ "$txn_id" = "$transaction_id" ] \
+        && [ "$txn_status" = staged ] || fail "$EX_DATAERR" 'transaction state identity or status is invalid'
+    matches "$txn_request_sha" '^[0-9a-f]{64}$' || fail "$EX_DATAERR" 'transaction request digest is invalid'
+    matches "$txn_target" '^[A-Za-z][A-Za-z0-9._-]{0,31}$' || fail "$EX_DATAERR" 'transaction target is invalid'
+    matches "$txn_mediasize" '^[0-9]{8,18}$' || fail "$EX_DATAERR" 'transaction media size is invalid'
+    matches "$txn_sectorsize" '^(512|4096)$' || fail "$EX_DATAERR" 'transaction sector size is invalid'
+    matches "$txn_description_sha" '^[0-9a-f]{64}$' || fail "$EX_DATAERR" 'transaction target digest is invalid'
+    [ "$txn_layout" = gpt-uefi-zfs ] || fail "$EX_DATAERR" 'transaction layout is invalid'
+    matches "$txn_pool" '^nstar_[0-9a-f]{12}$' || fail "$EX_DATAERR" 'transaction pool name is invalid'
+    matches "$txn_manifest_sha" '^[0-9a-f]{64}$' || fail "$EX_DATAERR" 'transaction manifest digest is invalid'
+    matches "$txn_payload_name" '^[A-Za-z0-9][A-Za-z0-9._-]{0,79}\.txz$' \
+        || fail "$EX_DATAERR" 'transaction payload name is invalid'
+    matches "$txn_payload_size" '^[0-9]{1,12}$' || fail "$EX_DATAERR" 'transaction payload size is invalid'
+    [ "$txn_payload_size" -gt 0 ] && [ "$txn_payload_size" -le 137438953472 ] \
+        || fail "$EX_DATAERR" 'transaction payload is outside the safety bound'
+    matches "$txn_payload_sha" '^[0-9a-f]{64}$' || fail "$EX_DATAERR" 'transaction payload digest is invalid'
+    matches "$txn_project_commit" '^[0-9a-f]{40}$' || fail "$EX_DATAERR" 'transaction project commit is invalid'
+    [ "$txn_confirmation" = erase-target ] || fail "$EX_DATAERR" 'transaction confirmation is invalid'
+    [ "$txn_execution" = disabled ] || fail "$EX_NOPERM" 'transaction execution boundary is not disabled'
+    [ "$txn_recovery" = resume-or-abandon-required ] || fail "$EX_DATAERR" 'transaction recovery policy is missing'
+    actual_request_sha=$($SHA256 -q "$request_file" | tr '[:upper:]' '[:lower:]') \
+        || fail "$EX_DATAERR" 'could not verify staged request digest'
+    [ "$actual_request_sha" = "$txn_request_sha" ] || fail "$EX_DATAERR" 'staged installer request was altered'
+    journal_size=$(wc -c < "$journal_file" | tr -d ' ')
+    [ "$journal_size" -gt 0 ] && [ "$journal_size" -le 65536 ] \
+        || fail "$EX_DATAERR" 'transaction journal is empty or oversized'
+    journal_count=0
+    while IFS= read -r journal_line || [ -n "${journal_line:-}" ]; do
+        matches "$journal_line" '^[0-9]{4}\|[a-z-]+$' || fail "$EX_DATAERR" 'transaction journal contains a malformed event'
+        journal_count=$((journal_count + 1))
+        journal_sequence=${journal_line%%|*}
+        journal_event=${journal_line#*|}
+        expected_sequence=$(printf '%04d' "$journal_count")
+        [ "$journal_sequence" = "$expected_sequence" ] || fail "$EX_DATAERR" 'transaction journal sequence is broken'
+        case "$journal_count:$journal_event" in
+            1:request-validated|2:source-verified|3:target-revalidated|4:transaction-staged) ;;
+            *:transaction-recovered) ;;
+            *) fail "$EX_DATAERR" 'transaction journal contains an invalid event transition' ;;
+        esac
+    done < "$journal_file"
+    [ "$journal_count" -ge 4 ] || fail "$EX_DATAERR" 'transaction journal is incomplete'
+}
+
+write_active() {
+    transaction_id=$1
+    active_staging=$state_dir/.active.$$
+    umask 077
+    {
+        printf '%s\n' 'schema_version=1'
+        printf 'transaction_id=%s\n' "$transaction_id"
+        printf '%s\n' 'status=staged'
+    } > "$active_staging"
+    $CHOWN root:wheel "$active_staging"
+    $CHMOD 0600 "$active_staging"
+    $MV "$active_staging" "$state_dir/active.conf"
+}
+
+append_journal() {
+    event=$1
+    journal_staging=$transaction_dir/.journal.$$
+    $CP "$journal_file" "$journal_staging"
+    journal_lines=$(wc -l < "$journal_file" | tr -d ' ')
+    [ "$journal_lines" -ge 1 ] && [ "$journal_lines" -lt 9999 ] \
+        || fail "$EX_DATAERR" 'transaction journal event count is invalid'
+    printf '%04d|%s\n' "$((journal_lines + 1))" "$event" >> "$journal_staging"
+    $CHOWN root:wheel "$journal_staging"
+    $CHMOD 0600 "$journal_staging"
+    $MV "$journal_staging" "$journal_file"
+}
+
+find_orphan() {
+    orphan_id=
+    orphan_count=0
+    for candidate in "$state_dir"/transactions/nstar-install-*; do
+        [ -e "$candidate" ] || continue
+        [ -d "$candidate" ] && [ ! -L "$candidate" ] \
+            || fail "$EX_DATAERR" 'installer transaction collection contains an unsafe entry'
+        candidate_id=${candidate##*/}
+        validate_transaction_id "$candidate_id"
+        orphan_id=$candidate_id
+        orphan_count=$((orphan_count + 1))
+    done
+}
+
 [ "$#" -ge 1 ] || { usage >&2; exit "$EX_USAGE"; }
 case "$1" in
     --capabilities)
         [ "$#" -eq 1 ] || fail "$EX_USAGE" '--capabilities takes no arguments'
-        printf '%s\n' 'protocol=1' 'operations=validate,stage' \
+        printf '%s\n' 'protocol=1' 'operations=validate,stage,status,recover,abandon' \
             'layout=gpt-uefi-zfs' 'minimum_bytes=17179869184' \
+            'source=rsa-sha256-detached' 'journal=append-only-sequenced' \
             'disk_mutation=not-implemented' 'transaction_state=root-owned-mode-0600'
         exit 0 ;;
     --validate|--stage) [ "$#" -eq 2 ] || fail "$EX_USAGE" "$1 requires REQUEST" ;;
+    --status) [ "$#" -eq 1 ] || fail "$EX_USAGE" '--status takes no arguments' ;;
+    --recover) [ "$#" -eq 2 ] || fail "$EX_USAGE" '--recover requires TRANSACTION_ID' ;;
+    --abandon)
+        [ "$#" -eq 3 ] && [ "$3" = --confirm ] \
+            || fail "$EX_USAGE" '--abandon requires TRANSACTION_ID --confirm' ;;
     --help|-h) usage; exit 0 ;;
     *) usage >&2; exit "$EX_USAGE" ;;
 esac
 
 mode=$1
+state_dir=$(root_path "$STATE_REL")
+
+if [ "$mode" = --status ]; then
+    require_protected_runtime '--status'
+    [ -x "$STAT" ] && [ -x "$SHA256" ] || fail "$EX_UNAVAILABLE" 'state inspection tool is unavailable'
+    if [ ! -e "$state_dir" ]; then
+        printf '%s\n' 'INSTALLER_STATUS=idle' 'RECOVERY_ACTION=none' 'DISK_MUTATION=none'
+        exit 0
+    fi
+    require_state_dir "$state_dir" 'installer state root'
+    if [ -e "$state_dir/transactions" ]; then
+        require_state_dir "$state_dir/transactions" 'installer transaction collection'
+    fi
+    if [ -e "$state_dir/transaction.request" ]; then
+        printf '%s\n' 'INSTALLER_STATUS=legacy-blocked' \
+            'RECOVERY_ACTION=manual-legacy-resolution-required' 'DISK_MUTATION=none'
+        exit 0
+    fi
+    if [ -e "$state_dir/active.conf" ]; then
+        load_active
+        load_transaction "$active_transaction_id"
+        printf '%s\n' 'INSTALLER_STATUS=staged' "TRANSACTION_ID=$active_transaction_id" \
+            'RECOVERY_ACTION=resume-or-abandon-required' 'DISK_MUTATION=none'
+        exit 0
+    fi
+    find_orphan
+    case "$orphan_count" in
+        0) printf '%s\n' 'INSTALLER_STATUS=idle' 'RECOVERY_ACTION=none' 'DISK_MUTATION=none' ;;
+        1)
+            load_transaction "$orphan_id"
+            printf '%s\n' 'INSTALLER_STATUS=interrupted' "TRANSACTION_ID=$orphan_id" \
+                'RECOVERY_ACTION=recover-or-abandon-required' 'DISK_MUTATION=none' ;;
+        *) fail "$EX_DATAERR" 'multiple interrupted installer transactions require manual recovery' ;;
+    esac
+    exit 0
+fi
+
+if [ "$mode" = --recover ]; then
+    require_protected_runtime '--recover'
+    prepare_state_dirs
+    [ ! -e "$state_dir/transaction.request" ] || fail "$EX_NOPERM" 'legacy installer state must be resolved first'
+    [ ! -e "$state_dir/active.conf" ] || fail "$EX_NOPERM" 'an installer transaction is already active'
+    transaction_id=$2
+    find_orphan
+    [ "$orphan_count" -eq 1 ] && [ "$orphan_id" = "$transaction_id" ] \
+        || fail "$EX_DATAERR" 'recovery requires exactly one matching interrupted transaction'
+    load_transaction "$transaction_id"
+    append_journal 'transaction-recovered'
+    write_active "$transaction_id"
+    printf '%s\n' 'INSTALLER_RECOVERY=PASS' "TRANSACTION_ID=$transaction_id" \
+        'RECOVERY_ACTION=resume-or-abandon-required' 'DISK_MUTATION=none'
+    exit 0
+fi
+
+if [ "$mode" = --abandon ]; then
+    require_protected_runtime '--abandon'
+    prepare_state_dirs
+    transaction_id=$2
+    load_transaction "$transaction_id"
+    if [ -e "$state_dir/active.conf" ]; then
+        load_active
+        [ "$active_transaction_id" = "$transaction_id" ] \
+            || fail "$EX_NOPERM" 'a different installer transaction is active'
+        $RM -f "$state_dir/active.conf"
+    fi
+    archive_dir=$state_dir/archive/$transaction_id
+    [ ! -e "$archive_dir" ] || fail "$EX_NOPERM" 'transaction archive already exists'
+    append_journal 'transaction-abandoned'
+    $MV "$transaction_dir" "$archive_dir"
+    printf '%s\n' 'INSTALLER_ABANDON=PASS' "TRANSACTION_ID=$transaction_id" \
+        "ARCHIVE=$archive_dir" 'DISK_MUTATION=none'
+    exit 0
+fi
+
 request=$2
-if [ "$mode" = --stage ]; then
-    [ "$TEST_MODE" = 1 ] || [ "$(id -u)" -eq 0 ] || fail "$EX_NOPERM" '--stage requires root'
-    [ "$TEST_MODE" = 1 ] || [ "$ROOT" = / ] || fail "$EX_NOPERM" 'alternate roots are test-only'
-    [ "$TEST_MODE" = 1 ] || [ "$($UNAME -s)" = FreeBSD ] \
-        || fail "$EX_UNAVAILABLE" 'installer staging is supported only on FreeBSD'
-    validate_request "$request" 1
-    revalidate_target
-else
+if [ "$mode" = --validate ]; then
     validate_request "$request" 0
     printf '%s\n' 'INSTALLER_REQUEST=VALID' 'DISK_MUTATION=none'
     exit 0
 fi
 
-for tool in "$INSTALL" "$CHOWN" "$CHMOD" "$MV" "$RM"; do
-    [ -x "$tool" ] || fail "$EX_UNAVAILABLE" "required state tool is unavailable: $tool"
-done
-state_dir=$(root_path "$STATE_REL")
-$INSTALL -d -o root -g wheel -m 0700 "$state_dir"
+require_protected_runtime '--stage'
+validate_request "$request" 1
+target_description_sha256=$(printf '%s' "$target_description_sha256" | tr '[:upper:]' '[:lower:]')
+verify_source
+revalidate_target
+prepare_state_dirs
 [ ! -e "$state_dir/transaction.request" ] \
+    || fail "$EX_NOPERM" 'legacy installer state must be resolved first'
+[ ! -e "$state_dir/active.conf" ] \
     || fail "$EX_NOPERM" 'an installer transaction is already staged and must be resolved first'
-staging="$state_dir/transaction.request.$$"
-trap '$RM -f "$staging"' EXIT HUP INT TERM
+find_orphan
+[ "$orphan_count" -eq 0 ] \
+    || fail "$EX_NOPERM" 'an interrupted installer transaction must be recovered or abandoned first'
+
+request_digest=$($SHA256 -q "$request" | tr '[:upper:]' '[:lower:]') \
+    || fail "$EX_DATAERR" 'could not digest installer request'
+matches "$request_digest" '^[0-9a-f]{64}$' || fail "$EX_DATAERR" 'request digest tool returned invalid output'
+transaction_id=nstar-install-$(printf '%.16s' "$request_digest")-$$
+transaction_dir=$state_dir/transactions/$transaction_id
+staging_dir=$state_dir/transactions/.stage.$$
+[ ! -e "$transaction_dir" ] && [ ! -e "$staging_dir" ] \
+    || fail "$EX_NOPERM" 'installer transaction identity already exists'
+$INSTALL -d -o root -g wheel -m 0700 "$staging_dir"
+active_staging=$state_dir/.active.$$
+trap '$RM -rf "$staging_dir"; $RM -f "$active_staging"' EXIT HUP INT TERM
 umask 077
+$CP "$request" "$staging_dir/request.conf"
 {
-    printf '%s\n' 'schema_version=1' 'status=preflight-passed'
+    printf '%s\n' 'schema_version=1'
+    printf 'transaction_id=%s\n' "$transaction_id"
+    printf '%s\n' 'status=staged'
+    printf 'request_sha256=%s\n' "$request_digest"
     printf 'target_device=%s\n' "$target_device"
     printf 'target_mediasize=%s\n' "$target_mediasize"
     printf 'target_sectorsize=%s\n' "$target_sectorsize"
     printf 'target_description_sha256=%s\n' "$target_description_sha256"
     printf 'layout=%s\n' "$layout"
     printf 'pool_name=%s\n' "$pool_name"
-    printf 'source_manifest_sha256=%s\n' "$source_manifest_sha256"
-    printf '%s\n' 'confirmation=erase-target' 'execution=disabled'
-} > "$staging"
-$CHOWN root:wheel "$staging"
-$CHMOD 0600 "$staging"
-$MV "$staging" "$state_dir/transaction.request"
+    printf 'source_manifest_sha256=%s\n' "$source_manifest"
+    printf 'payload_name=%s\n' "$source_payload_name"
+    printf 'payload_size=%s\n' "$source_payload_size"
+    printf 'payload_sha256=%s\n' "$source_payload_sha256"
+    printf 'project_commit=%s\n' "$source_project_commit"
+    printf '%s\n' 'confirmation=erase-target' 'execution=disabled' \
+        'recovery=resume-or-abandon-required'
+} > "$staging_dir/transaction.conf"
+{
+    printf '%s\n' '0001|request-validated' '0002|source-verified' \
+        '0003|target-revalidated' '0004|transaction-staged'
+} > "$staging_dir/journal.log"
+for state_file in "$staging_dir/request.conf" "$staging_dir/transaction.conf" "$staging_dir/journal.log"; do
+    $CHOWN root:wheel "$state_file"
+    $CHMOD 0600 "$state_file"
+done
+$MV "$staging_dir" "$transaction_dir"
+write_active "$transaction_id"
 trap - EXIT HUP INT TERM
-printf '%s\n' 'INSTALLER_PREFLIGHT=PASS' "TARGET=$target_device" \
-    "STATE=$state_dir/transaction.request" 'DISK_MUTATION=none'
+printf '%s\n' 'INSTALLER_PREFLIGHT=PASS' 'SOURCE_VERIFICATION=PASS' \
+    "TARGET=$target_device" "TRANSACTION_ID=$transaction_id" \
+    "STATE=$transaction_dir" 'RECOVERY_ACTION=resume-or-abandon-required' \
+    'DISK_MUTATION=none'
