@@ -37,7 +37,13 @@ exit 0
 EOF
 cat > "$BIN/geom" <<'EOF'
 #!/bin/sh
-printf '  descr: Test disk %s\n' "$3"
+case "$3" in
+    da0) size=34359738368 ;;
+    da1) size=68719476736 ;;
+    da2) size=8589934592 ;;
+    *) exit 1 ;;
+esac
+printf '  Mediasize: %s (fixture)\n  descr: Test disk %s\n' "$size" "$3"
 EOF
 chmod +x "$BIN"/*
 

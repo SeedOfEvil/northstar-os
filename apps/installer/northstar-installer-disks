@@ -13,7 +13,7 @@ GEOM=${NORTHSTAR_INSTALLER_GEOM:-/sbin/geom}
 MINIMUM_BYTES=17179869184
 
 fail() { printf 'ERROR: %s\n' "$*" >&2; exit 69; }
-for tool in "$SYSCTL" "$DISKINFO" "$MOUNT"; do
+for tool in "$SYSCTL" "$MOUNT" "$GEOM"; do
     [ -x "$tool" ] || fail "required read-only discovery tool is unavailable: $tool"
 done
 
@@ -29,16 +29,18 @@ for disk in $disks; do
     case "$disk" in
         *[!A-Za-z0-9._-]*|'') continue ;;
     esac
-    info=$($DISKINFO -v "/dev/$disk" 2>/dev/null) || continue
-    size=$(printf '%s\n' "$info" | awk '/# mediasize in bytes/ { print $1; exit }')
+    geom_info=$($GEOM disk list "$disk" 2>/dev/null) || continue
+    size=$(printf '%s\n' "$geom_info" | awk -F: '/^[[:space:]]*Mediasize:/ { sub(/^[[:space:]]*/, "", $2); split($2, value, /[[:space:]]/); print value[1]; exit }')
+    if [ -z "$size" ] && [ -x "$DISKINFO" ]; then
+        info=$($DISKINFO -v "/dev/$disk" 2>/dev/null || true)
+        size=$(printf '%s\n' "$info" | awk '/# mediasize in bytes/ { print $1; exit }')
+    fi
     case "$size" in *[!0-9]*|'') continue ;; esac
 
     description="FreeBSD disk $disk"
-    if [ -x "$GEOM" ]; then
-        discovered=$($GEOM disk list "$disk" 2>/dev/null \
-            | awk -F: '/^[[:space:]]*descr:/ { sub(/^[[:space:]]*/, "", $2); print $2; exit }')
-        [ -z "$discovered" ] || description=$discovered
-    fi
+    discovered=$(printf '%s\n' "$geom_info" \
+        | awk -F: '/^[[:space:]]*descr:/ { sub(/^[[:space:]]*/, "", $2); print $2; exit }')
+    [ -z "$discovered" ] || description=$discovered
     description=$(printf '%s' "$description" | tr '\t\r\n' '   ' | cut -c1-100)
 
     system=no
