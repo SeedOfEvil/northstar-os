@@ -8,6 +8,12 @@ validation, but it does not close the direct DRM/KMS graphics gate. A gate is
 closed only when the required evidence exists on the declared environment;
 the fact that a surface started once is not sufficient.
 
+Full disk-image assembly and manual Proxmox import are not per-PR requirements.
+Routine PRs use the development lane and may defer image-level claims to a
+named release-candidate checkpoint. The authoritative batching, exception,
+and evidence policy is
+[`docs/MILESTONE_IMAGE_VALIDATION.md`](MILESTONE_IMAGE_VALIDATION.md).
+
 ## Pull request gate
 
 Every pull request must satisfy:
@@ -63,6 +69,12 @@ Run the relevant manual acceptance flow in the VM after restarting the
 installed shell. Record the FreeBSD release, VM identity, source commit,
 commands, test count, and any deliberately deferred gate. Documentation-only
 changes still require `git diff --check` and link/heading inspection.
+
+For image and installer work, this routine PR step means DEV01, native
+FreeBSD, and non-destructive file-backed/model validation. It does not mean
+building, transferring, importing, or reprovisioning a QCOW2. Record the named
+future checkpoint and the exact deferred image behaviors in the PR. The next
+checkpoint is **M5 Installer Release Candidate**.
 
 ## Consolidated sprint acceptance checklist
 
@@ -201,6 +213,12 @@ Open a draft PR from that cloud branch to `main`. The PR must state:
 - exact local and FreeBSD VM validation;
 - known deferred gates or limitations;
 - rollback/revert behavior and any stacked-PR dependency.
+
+An intermediate image/installer PR also states `Image checkpoint`, `Image
+status`, `Routine evidence`, and `Deferred evidence` using the template in
+[`docs/MILESTONE_IMAGE_VALIDATION.md`](MILESTONE_IMAGE_VALIDATION.md). A
+documented `DEFERRED` image gate is compatible with merge; it is not image
+acceptance.
 
 ### 4. Promote, squash-merge, and synchronize
 

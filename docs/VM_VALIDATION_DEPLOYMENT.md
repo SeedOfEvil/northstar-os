@@ -5,6 +5,11 @@ to `NSTAR-DEV01`. It prevents the canonical checkout, build trees, signed
 repositories, installed shell, and rollback evidence from drifting into an
 unreviewed collection of historical deployments.
 
+This is the routine PR validation lane. It does not require a fresh QCOW2 or
+Proxmox disk import for each PR. Full image cycles are batched under
+[`docs/MILESTONE_IMAGE_VALIDATION.md`](MILESTONE_IMAGE_VALIDATION.md); image-
+level claims from intermediate PRs remain deferred to their named checkpoint.
+
 ## Invariants
 
 - `/home/northstar/src/northstar` is the only canonical checkout. It is clean,

@@ -9,7 +9,7 @@ The project advances through user-visible milestones with explicit pass gates. A
 | M2 | Desktop session | Development session lane validated; production display-manager and service integration pending | Session, services, supervision, notifications, and lifecycle work coherently |
 | M3 | Core desktop | Core workflows, Lunar redesign, shared chrome, Dock v2, unified search, Quick Look, and capability-backed Quick Settings accepted | Filer, branded desktop surface, responsive dock, settings, search, overview, associations, and project apps form a usable desktop |
 | M4 | Packages, updates, rollback | Development update/rollback lane accepted; protected production infrastructure pending | Signed packages and ZFS boot-environment rollback work end to end |
-| M5 | Reproducible image and installer | First reproducible QCOW2 accepted; installer and image-local update/rollback pending | Pinned inputs produce a bootable UEFI root-on-ZFS image |
+| M5 | Reproducible image and installer | First QCOW2 and image-local update/rollback accepted; installer release candidate pending | Pinned inputs produce a bootable UEFI root-on-ZFS image |
 | M6 | Alpha hardware release | Not started | The supported VM and narrow Intel/AMD hardware matrix meets the alpha definition |
 
 ## Current baseline and clear path forward
@@ -80,9 +80,12 @@ The next work is ordered as follows:
    environment before upgrades, validate N-1 to N upgrades and rollback, and
    prove that home data survives both paths. No package mutation is exposed
    before these gates pass.
-5. **Produce the reproducible image and installer.** Only after M4 has current
-   evidence, pin the image inputs, build QCOW2 first, validate UEFI GPT/root-on-
-   ZFS installation and first boot, then add raw/USB/ISO outputs.
+5. **Produce the reproducible image and installer.** The first QCOW2 and its
+   update/rollback gate are accepted. Develop first-boot setup, installer,
+   recovery, diagnostics, and media outputs through routine DEV01 and
+   file-backed validation, then perform one integrated **M5 Installer Release
+   Candidate** image cycle. Do not rebuild and manually import a disk image for
+   each contributing PR.
 6. **Run the alpha hardware matrix.** Validate the supported VM plus the
    declared Intel and AMD graphics lanes, networking, applications,
    diagnostics, crash recovery, updates, rollback, and clean shutdown.
@@ -91,7 +94,10 @@ Each step becomes a small, reviewable branch and PR. A milestone moves to
 complete only when its quality-gate evidence is current, reproducible, and
 documented; interactive success on one session is useful evidence but is not
 itself a release claim. The branch, validation, squash-merge, and cleanup
-workflow is defined in [`docs/QUALITY_GATES.md`](QUALITY_GATES.md).
+workflow is defined in [`docs/QUALITY_GATES.md`](QUALITY_GATES.md). Full image
+assembly and manual Proxmox import are separately batched at named release-
+candidate checkpoints under
+[`docs/MILESTONE_IMAGE_VALIDATION.md`](MILESTONE_IMAGE_VALIDATION.md).
 
 ## M0: Reproducible development desktop
 
@@ -321,6 +327,15 @@ package update, explicitly rolls back, and verifies `/home` preservation. The
 deterministic contract and corrected disposable-image execution now pass; the
 validation evidence is recorded with the exact image, gate, package, and
 repository hashes.
+
+The next M5 implementation work is intentionally batched before another full
+image cycle. Production first-boot setup, installer UI and engine, installation
+safety/recovery, diagnostics, boot-environment management, and media outputs
+use routine DEV01, native FreeBSD, and file-backed validation on their focused
+PRs. Their image-level claims remain explicitly deferred to one integrated
+**M5 Installer Release Candidate** checkpoint. The policy and exceptional
+early-image criteria are defined in
+[`docs/MILESTONE_IMAGE_VALIDATION.md`](MILESTONE_IMAGE_VALIDATION.md).
 
 Pass only when clean builders produce recorded inputs and checksums, QEMU/Proxmox boots the image, the installer creates UEFI GPT/root-on-ZFS, first boot reaches graphical login and the shell, and update/rollback work after installation.
 
