@@ -34,6 +34,12 @@ The first Northstar artifact target remains a reproducible ZFS QCOW2 image for
 QEMU/Proxmox, followed by raw and USB images. Northstar ISO assembly is later
 M5 work.
 
+The installed-image update and rollback gate is documented in
+[`docs/M5_IMAGE_UPDATE_ROLLBACK.md`](../docs/M5_IMAGE_UPDATE_ROLLBACK.md). Its
+deterministic test is `make image-update-rollback-gate-test`; production phases
+are destructive and belong only on a disposable VM imported from the accepted
+QCOW2.
+
 See [`docs/M0_PROXMOX.md`](../docs/M0_PROXMOX.md) for installer upload, VM
 configuration, local Git transfer, and native acceptance steps.
 

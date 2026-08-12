@@ -40,6 +40,15 @@ grep -F 'development_passwordless_local_account=$DEVELOPMENT_AUTOLOGIN' "$ASSEMB
     printf 'FAIL: image provenance omits the development local-account policy\n' >&2
     exit 1
 }
+if grep -F 'zfs create -o mountpoint=/var "$POOL/var"' "$ASSEMBLER" >/dev/null; then
+    printf 'FAIL: assembler places the package database outside boot environments\n' >&2
+    exit 1
+fi
+grep -F "'/var must belong to the root boot environment so package state rolls back'" \
+    "$ROOT/image/scripts/validate-image-update-rollback.sh" >/dev/null || {
+    printf 'FAIL: installed-image gate does not reject shared package state\n' >&2
+    exit 1
+}
 grep -F 'northstar-image-proxmox.desktop' "$ASSEMBLER" >/dev/null || {
     printf 'FAIL: image omits its explicit packaged-runtime session entry\n' >&2
     exit 1

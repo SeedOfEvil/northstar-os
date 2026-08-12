@@ -15,5 +15,6 @@ install(TARGETS northstar-update-broker
 install(PROGRAMS
     northstar-update-helper
     northstar-update-transaction
+    ${PROJECT_SOURCE_DIR}/image/scripts/validate-image-update-rollback.sh
     DESTINATION libexec
 )
