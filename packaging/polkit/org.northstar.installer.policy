@@ -27,4 +27,15 @@
     <annotate key="org.freedesktop.policykit.exec.path">/usr/local/libexec/northstar-installer-executor</annotate>
     <annotate key="org.freedesktop.policykit.exec.allow_gui">true</annotate>
   </action>
+  <action id="org.northstar.installer.recovery">
+    <description>Review or reset an interrupted Northstar installation</description>
+    <message>Administrator authentication is required to review protected installer state</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/local/libexec/northstar-installer-recovery</annotate>
+    <annotate key="org.freedesktop.policykit.exec.allow_gui">true</annotate>
+  </action>
 </policyconfig>

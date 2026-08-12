@@ -348,8 +348,11 @@ a separate PolicyKit action and installer-media marker, repeats every trust and
 device check, journals ordered GPT/EFI/ZFS/rootfs/bootloader phases, and marks
 post-mutation failures for cleanup and restart, as documented in
 [`docs/M5_INSTALLER_EXECUTION_FOUNDATION.md`](M5_INSTALLER_EXECUTION_FOUNDATION.md).
-Actual disposable-disk acceptance, retry UX, diagnostics, boot-environment
-management, and media outputs
+The interrupted-install recovery slice adds bounded sanitized diagnostic
+export and an exact-confirmation clean-retry transition that archives failed
+evidence instead of resuming destructive phases, as documented in
+[`docs/M5_INSTALLER_RECOVERY_AND_DIAGNOSTICS.md`](M5_INSTALLER_RECOVERY_AND_DIAGNOSTICS.md).
+Actual disposable-disk acceptance, boot-environment management, and media outputs
 use routine DEV01, native FreeBSD, and file-backed validation on their focused
 PRs. Their image-level claims remain explicitly deferred to one integrated
 **M5 Installer Release Candidate** checkpoint. The policy and exceptional

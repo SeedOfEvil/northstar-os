@@ -1,4 +1,5 @@
 #include "installercontroller.h"
+#include "installerrecoverycontroller.h"
 #include "northstarappearance.h"
 #include "northstarui.h"
 
@@ -23,8 +24,10 @@ int main(int argc, char *argv[])
 
     NorthstarUi::registerTypes();
     InstallerController controller;
+    InstallerRecoveryController recoveryController;
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty(QStringLiteral("installerController"), &controller);
+    engine.rootContext()->setContextProperty(QStringLiteral("installerRecoveryController"), &recoveryController);
     engine.rootContext()->setContextProperty(QStringLiteral("northstarDarkMode"), NorthstarAppearance::darkMode());
     engine.rootContext()->setContextProperty(QStringLiteral("installerSelfTest"), parser.isSet(selfTest));
     engine.load(QUrl(QStringLiteral("qrc:/Northstar/Installer/InstallerWindow.qml")));

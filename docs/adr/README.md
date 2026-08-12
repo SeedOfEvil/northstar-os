@@ -32,3 +32,4 @@ Accepted records in the initial foundation:
 - [0012: Installer engine preflight and transaction staging](0012-installer-engine-preflight-boundary.md)
 - [0013: Installer source trust and recoverable journal](0013-installer-source-trust-and-journal.md)
 - [0014: Guarded installer execution](0014-guarded-installer-execution.md)
+- [0015: Installer clean retry and sanitized diagnostics](0015-installer-clean-retry-and-diagnostics.md)

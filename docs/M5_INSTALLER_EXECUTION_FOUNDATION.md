@@ -89,5 +89,7 @@ interrupted state; native FreeBSD clean build and tests.
 Deferred evidence: protected marker and public-key provisioning in generated
 installer media; actual file-backed md/GPT/EFI/ZFS execution on a disposable
 privileged builder; physical virtio/SATA/NVMe target installation; reboot after
-installation; retry from an interrupted destructive transaction; diagnostic
-export; preservation of every non-target disk; and complete noVNC acceptance.
+installation; actual retry from an interrupted destructive transaction;
+preservation of every non-target disk; and complete noVNC acceptance. The
+non-destructive retry and diagnostic contracts are continued in
+[`M5_INSTALLER_RECOVERY_AND_DIAGNOSTICS.md`](M5_INSTALLER_RECOVERY_AND_DIAGNOSTICS.md).

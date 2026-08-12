@@ -5,6 +5,7 @@ import Northstar.Ui 1.0
 
 ApplicationWindow {
     id: root
+    property bool recoveryOpen: false
     LunarPalette { id: lunar; darkMode: northstarDarkMode }
 
     color: lunar.background
@@ -53,7 +54,7 @@ ApplicationWindow {
                 }
             }
             Item { Layout.fillHeight: true }
-            Label { Layout.fillWidth: true; color: lunar.muted; font.pixelSize: 11; text: "This slice prepares a reviewed plan only. It cannot partition or erase a disk."; wrapMode: Text.WordWrap }
+            Label { Layout.fillWidth: true; color: lunar.muted; font.pixelSize: 11; text: "Installation media revalidates every protected phase. Interrupted attempts restart from a new reviewed plan."; wrapMode: Text.WordWrap }
         }
 
         NorthstarWindowFrame {
@@ -71,16 +72,29 @@ ApplicationWindow {
                     ColumnLayout {
                         Layout.fillWidth: true
                         spacing: 2
-                        Label { color: lunar.foreground; font.bold: true; font.pixelSize: 27; text: installerController.planReady ? "Review installation plan" : "Select a destination" }
-                        Label { color: lunar.muted; text: installerController.statusMessage; wrapMode: Text.WordWrap; Layout.fillWidth: true }
+                        Label { color: lunar.foreground; font.bold: true; font.pixelSize: 27; text: root.recoveryOpen ? "Installation recovery" : installerController.planReady ? "Review installation plan" : "Select a destination" }
+                        Label { color: lunar.muted; text: root.recoveryOpen ? installerRecoveryController.statusMessage : installerController.statusMessage; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                     }
-                    Button { text: installerController.busy ? "Refreshing..." : "Refresh"; enabled: !installerController.busy && !installerController.planReady; onClicked: installerController.refresh() }
+                    Button {
+                        text: root.recoveryOpen ? "Destinations" : "Recovery"
+                        enabled: !installerController.busy && !installerRecoveryController.busy
+                        onClicked: {
+                            if (root.recoveryOpen) {
+                                root.recoveryOpen = false
+                                installerRecoveryController.reset()
+                            } else {
+                                root.recoveryOpen = true
+                                installerRecoveryController.checkStatus()
+                            }
+                        }
+                    }
+                    Button { visible: !root.recoveryOpen; text: installerController.busy ? "Refreshing..." : "Refresh"; enabled: !installerController.busy && !installerController.planReady; onClicked: installerController.refresh() }
                 }
 
                 StackLayout {
                     Layout.fillHeight: true
                     Layout.fillWidth: true
-                    currentIndex: installerController.planReady ? 1 : 0
+                    currentIndex: root.recoveryOpen ? 2 : installerController.planReady ? 1 : 0
 
                     ColumnLayout {
                         spacing: 12
@@ -144,15 +158,126 @@ ApplicationWindow {
                             color: lunar.raised; border.color: lunar.accent; radius: 16
                             Label { anchors.fill: parent; anchors.margins: 24; color: lunar.foreground; font.pixelSize: 15; text: installerController.planSummary; wrapMode: Text.WordWrap }
                         }
-                        Label { Layout.fillWidth: true; color: lunar.warning; font.bold: true; text: "Installation execution is intentionally disabled until the privileged engine and recovery contract are reviewed."; wrapMode: Text.WordWrap }
+                        Label { Layout.fillWidth: true; color: lunar.warning; font.bold: true; text: "This review does not start installation. Execution remains gated by authenticated Northstar release media."; wrapMode: Text.WordWrap }
+                    }
+
+                    ColumnLayout {
+                        spacing: 14
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 170
+                            color: lunar.raised
+                            border.color: installerRecoveryController.interruptedExecution ? lunar.warning : lunar.borderSoft
+                            radius: 16
+
+                            GridLayout {
+                                anchors.fill: parent
+                                anchors.margins: 18
+                                columns: 2
+                                columnSpacing: 20
+                                rowSpacing: 8
+                                Label { color: lunar.muted; text: "State" }
+                                Label { color: lunar.foreground; font.bold: true; text: installerRecoveryController.state }
+                                Label { color: lunar.muted; text: "Transaction" }
+                                Label { color: lunar.foreground; elide: Text.ElideMiddle; Layout.fillWidth: true; text: installerRecoveryController.transactionId || "—" }
+                                Label { color: lunar.muted; text: "Target" }
+                                Label { color: lunar.foreground; font.bold: true; text: installerRecoveryController.targetDevice ? "/dev/" + installerRecoveryController.targetDevice : "—" }
+                                Label { color: lunar.muted; text: "Last safe phase" }
+                                Label { color: lunar.foreground; text: installerRecoveryController.lastPhase || "—" }
+                                Label { color: lunar.muted; text: "Disk changes started" }
+                                Label { color: installerRecoveryController.mutationStarted ? lunar.warning : lunar.success; font.bold: true; text: installerRecoveryController.mutationStarted ? "Yes" : "No" }
+                            }
+                        }
+
+                        Rectangle {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: installerRecoveryController.interruptedExecution ? 190 : 120
+                            color: lunar.panelStrong
+                            border.color: lunar.borderSoft
+                            radius: 16
+
+                            ColumnLayout {
+                                anchors.fill: parent
+                                anchors.margins: 16
+                                spacing: 9
+                                Label {
+                                    Layout.fillWidth: true
+                                    color: lunar.foreground
+                                    font.bold: true
+                                    text: installerRecoveryController.interruptedExecution
+                                        ? "Start over safely"
+                                        : installerRecoveryController.state === "idle"
+                                            ? "Ready to install"
+                                            : "Protected state requires attention"
+                                }
+                                Label {
+                                    Layout.fillWidth: true
+                                    color: lunar.muted
+                                    text: installerRecoveryController.interruptedExecution
+                                        ? "The interrupted attempt is never resumed midway. Export its sanitized evidence, type the exact target again, and archive it before creating a new plan."
+                                        : installerRecoveryController.state === "idle"
+                                            ? "No unfinished installation is blocking a new destination review."
+                                            : "Do not remove installer media or alter disks until the protected state has been reviewed."
+                                    wrapMode: Text.WordWrap
+                                }
+                                TextField {
+                                    Layout.fillWidth: true
+                                    visible: installerRecoveryController.interruptedExecution
+                                    placeholderText: "Type " + installerRecoveryController.targetDevice
+                                    onTextChanged: installerRecoveryController.setRetryConfirmationText(text)
+                                }
+                                Label {
+                                    Layout.fillWidth: true
+                                    visible: installerRecoveryController.diagnosticsReady
+                                    color: lunar.success
+                                    text: installerRecoveryController.diagnosticPreview
+                                    wrapMode: Text.WordWrap
+                                }
+                            }
+                        }
+
+                        Item { Layout.fillHeight: true }
+
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Button {
+                                text: installerRecoveryController.busy ? "Working..." : "Check again"
+                                enabled: !installerRecoveryController.busy
+                                onClicked: installerRecoveryController.checkStatus()
+                            }
+                            Button {
+                                visible: installerRecoveryController.interruptedExecution
+                                text: "Export Diagnostics"
+                                enabled: !installerRecoveryController.busy
+                                onClicked: installerRecoveryController.exportDiagnostics()
+                            }
+                            Item { Layout.fillWidth: true }
+                            Button {
+                                visible: installerRecoveryController.interruptedExecution
+                                text: "Prepare Clean Retry"
+                                enabled: !installerRecoveryController.busy && installerRecoveryController.retryConfirmationReady
+                                onClicked: installerRecoveryController.prepareCleanRetry()
+                            }
+                            Button {
+                                visible: installerRecoveryController.state === "idle" || installerRecoveryController.state === "retry-ready"
+                                text: "Return to Destinations"
+                                enabled: !installerRecoveryController.busy
+                                onClicked: {
+                                    root.recoveryOpen = false
+                                    installerRecoveryController.reset()
+                                    installerController.refresh()
+                                }
+                            }
+                        }
                     }
                 }
 
                 RowLayout {
                     Layout.fillWidth: true
-                    Button { text: "Back"; visible: installerController.planReady; onClicked: installerController.resetPlan() }
+                    Button { text: "Back"; visible: !root.recoveryOpen && installerController.planReady; onClicked: installerController.resetPlan() }
                     Item { Layout.fillWidth: true }
-                    Button { text: installerController.planReady ? "Install unavailable" : "Review Plan"; enabled: !installerController.planReady && installerController.confirmationReady; onClicked: installerController.preparePlan() }
+                    Button { visible: !root.recoveryOpen; text: installerController.planReady ? "Awaiting Release Media" : "Review Plan"; enabled: !installerController.planReady && installerController.confirmationReady; onClicked: installerController.preparePlan() }
                 }
             }
         }

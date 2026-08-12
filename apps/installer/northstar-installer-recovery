@@ -1,0 +1,64 @@
+#!/bin/sh
+
+# Fixed non-mutating PolicyKit boundary for interrupted installer diagnostics
+# and clean-retry preparation. Production always dispatches to the fixed
+# guarded executor and accepts no arbitrary command or path.
+set -eu
+
+EX_USAGE=64
+EX_NOPERM=77
+TEST_MODE=${NORTHSTAR_INSTALLER_RECOVERY_TEST_MODE:-0}
+EXECUTOR=${NORTHSTAR_INSTALLER_RECOVERY_EXECUTOR:-/usr/local/libexec/northstar-installer-executor}
+ENGINE=${NORTHSTAR_INSTALLER_RECOVERY_ENGINE:-/usr/local/libexec/northstar-installer-engine}
+
+fail() { status=$1; shift; printf 'ERROR: %s\n' "$*" >&2; exit "$status"; }
+matches() { printf '%s\n' "$1" | grep -Eq "$2"; }
+
+if [ "$TEST_MODE" = 1 ] && [ "$(id -u)" -eq 0 ]; then
+    fail "$EX_NOPERM" 'installer recovery test mode is forbidden for root'
+fi
+if [ "$TEST_MODE" != 1 ]; then
+    PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin
+    export PATH
+    EXECUTOR=/usr/local/libexec/northstar-installer-executor
+    ENGINE=/usr/local/libexec/northstar-installer-engine
+fi
+
+usage() {
+    cat <<'EOF'
+Usage: northstar-installer-recovery --capabilities
+       northstar-installer-recovery --status
+       northstar-installer-recovery --diagnostics TRANSACTION_ID
+       northstar-installer-recovery --prepare-retry TRANSACTION_ID --confirm-device DEVICE
+
+This fixed helper reads bounded status, exports bounded diagnostics, or
+archives a verified, quiescent interrupted attempt. It never performs disk
+mutation.
+EOF
+}
+
+[ "$#" -ge 1 ] || { usage >&2; exit "$EX_USAGE"; }
+case "$1" in
+    --capabilities)
+        [ "$#" -eq 1 ] || fail "$EX_USAGE" '--capabilities takes no arguments'
+        printf '%s\n' 'protocol=1' 'operations=status,diagnostics,prepare-retry' \
+            'authorization=auth-admin' 'disk_mutation=none'
+        exit 0 ;;
+    --status)
+        [ "$#" -eq 1 ] || fail "$EX_USAGE" '--status takes no arguments'
+        [ -x "$ENGINE" ] || fail 69 'fixed installer engine is unavailable'
+        exec "$ENGINE" --status ;;
+    --diagnostics)
+        [ "$#" -eq 2 ] || fail "$EX_USAGE" '--diagnostics requires TRANSACTION_ID' ;;
+    --prepare-retry)
+        [ "$#" -eq 4 ] && [ "$3" = --confirm-device ] \
+            || fail "$EX_USAGE" '--prepare-retry requires TRANSACTION_ID --confirm-device DEVICE'
+        matches "$4" '^[A-Za-z][A-Za-z0-9._-]{0,31}$' \
+            || fail "$EX_USAGE" 'confirmed target device is invalid' ;;
+    --help|-h) usage; exit 0 ;;
+    *) usage >&2; exit "$EX_USAGE" ;;
+esac
+matches "$2" '^nstar-install-[0-9a-f]{16}-[0-9]{1,10}$' \
+    || fail "$EX_USAGE" 'transaction identity is invalid'
+[ -x "$EXECUTOR" ] || fail 69 'fixed guarded installer executor is unavailable'
+exec "$EXECUTOR" "$@"

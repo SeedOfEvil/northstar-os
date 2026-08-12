@@ -316,13 +316,58 @@ if grep -F 'tar -xpf ' "$LOG" >/dev/null; then
 fi
 run_executor --status "$FAILED_ID" | grep -Fx 'INSTALLER_EXECUTION_STATUS=interrupted' >/dev/null \
     || fail 'interrupted status was not readable'
+run_executor --diagnostics "$FAILED_ID" > "$TMP_DIR/failure-diagnostics.out"
+grep -Fx 'NORTHSTAR_INSTALLER_DIAGNOSTICS=1' "$TMP_DIR/failure-diagnostics.out" >/dev/null \
+    || fail 'interrupted diagnostics were not available'
+grep -Fx 'PRIVATE_DATA=excluded' "$TMP_DIR/failure-diagnostics.out" >/dev/null \
+    || fail 'interrupted diagnostics omit the privacy boundary'
+grep -Fx 'LAST_PHASE=datasets-created' "$TMP_DIR/failure-diagnostics.out" >/dev/null \
+    || fail 'interrupted diagnostics omit the last safe phase'
+if grep -Eq 'request\.conf|journal\.log|runtime-manifest|/home/|password' "$TMP_DIR/failure-diagnostics.out"; then
+    fail 'interrupted diagnostics exposed private files or unbounded logs'
+fi
 env NORTHSTAR_INSTALLER_ENGINE_TEST_MODE=1 \
   NORTHSTAR_INSTALLER_ENGINE_ROOT="$FAKE_ROOT" \
   NORTHSTAR_INSTALLER_ENGINE_SHA256="$BIN/sha256" \
   sh "$ENGINE" --status | grep -Fx 'INSTALLER_STATUS=interrupted' >/dev/null \
   || fail 'installer engine did not surface the interrupted executor state'
 
+: > "$LOG"
+if run_executor --prepare-retry "$FAILED_ID" --confirm-device md41 >/dev/null 2>&1; then
+    fail 'clean retry accepted the wrong typed target'
+fi
+if [ -s "$LOG" ]; then fail 'wrong retry confirmation invoked a disk tool'; fi
+if NORTHSTAR_TEST_TARGET_DRIFT=1 \
+    run_executor --prepare-retry "$FAILED_ID" --confirm-device md42 >/dev/null 2>&1; then
+    fail 'clean retry accepted target identity drift'
+fi
+if [ -s "$LOG" ]; then fail 'retry target drift invoked a disk tool'; fi
+cp "$FAILED_DIR/journal.log" "$TMP_DIR/interrupted-journal.clean"
+printf '%s\n' '9999|execution-interrupted' >> "$FAILED_DIR/journal.log"
+if run_executor --prepare-retry "$FAILED_ID" --confirm-device md42 >/dev/null 2>&1; then
+    fail 'clean retry accepted a tampered interruption journal'
+fi
+mv "$TMP_DIR/interrupted-journal.clean" "$FAILED_DIR/journal.log"
+if [ -s "$LOG" ]; then fail 'retry journal tampering invoked a disk tool'; fi
+run_executor --prepare-retry "$FAILED_ID" --confirm-device md42 > "$TMP_DIR/retry.out"
+grep -Fx 'INSTALLER_RETRY=READY' "$TMP_DIR/retry.out" >/dev/null \
+    || fail 'interrupted execution was not prepared for a clean retry'
+grep -Fx 'DISK_MUTATION=none' "$TMP_DIR/retry.out" >/dev/null \
+    || fail 'retry preparation did not report its no-mutation boundary'
+[ ! -e "$FAKE_ROOT/var/db/northstar/installer/active.conf" ] \
+    || fail 'retry-ready transaction remained active'
+[ -d "$FAKE_ROOT/var/db/northstar/installer/archive/$FAILED_ID" ] \
+    || fail 'failed attempt evidence was not archived'
+grep -F '|retry-prepared' "$FAKE_ROOT/var/db/northstar/installer/archive/$FAILED_ID/journal.log" >/dev/null \
+    || fail 'clean retry preparation was not journaled'
+if [ -s "$LOG" ]; then fail 'clean retry preparation invoked a disk tool'; fi
+env NORTHSTAR_INSTALLER_ENGINE_TEST_MODE=1 \
+  NORTHSTAR_INSTALLER_ENGINE_ROOT="$FAKE_ROOT" \
+  NORTHSTAR_INSTALLER_ENGINE_SHA256="$BIN/sha256" \
+  sh "$ENGINE" --status | grep -Fx 'INSTALLER_STATUS=idle' >/dev/null \
+  || fail 'clean retry did not release the protected engine for a new review'
+
 if grep -Eq 'mdconfig|qemu-img|/dev/(ada|da|nda|vtbd)[0-9]+' "$EXECUTOR"; then
     fail 'executor contains a host-disk allocator or hard-coded physical target'
 fi
-printf '%s\n' 'PASS: guarded installer execution enforces revalidation, phase ordering, completion, and interruption cleanup'
+printf '%s\n' 'PASS: guarded installer execution enforces revalidation, ordered recovery diagnostics, and clean retry preparation'
