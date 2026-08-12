@@ -133,6 +133,13 @@ bectl create northstar-before-<version>
 
 The upgrade is successful only when the new environment boots, the shell and applications start, package metadata is valid, and user documents remain available. A failed upgrade can select the prior boot environment. Rollback protects the operating system and installed packages; it must not delete user home data.
 
+The Northstar Recovery application exposes a separate narrow recovery view.
+Its unprivileged inventory accepts only bounded, validated `bectl list -H`
+records. Its authenticated action can activate only an existing environment in
+the update broker's `northstar-before-...` namespace after exact-name
+confirmation and post-action verification. It cannot create, delete, rename,
+mount, export, or reboot; see [`ADR 0016`](adr/0016-boot-environment-recovery-boundary.md).
+
 ## Reproducibility
 
 Every release definition records the FreeBSD release, architecture, Ports branch and commit, resolved package versions, project commit, build host, compiler, and artifact checksum. Release builds reject `latest`, unpinned source branches, arbitrary downloads, missing checksums, and unresolved package versions.

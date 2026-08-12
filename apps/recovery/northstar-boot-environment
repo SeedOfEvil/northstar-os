@@ -1,0 +1,153 @@
+#!/bin/sh
+
+# Fixed boot-environment recovery boundary. Inventory is read-only and may be
+# requested by a desktop user. Activation requires root, accepts one bounded
+# Northstar-generated environment name, and never reboots or mutates datasets.
+
+set -eu
+
+EX_USAGE=64
+EX_DATAERR=65
+EX_UNAVAILABLE=69
+EX_NOPERM=77
+
+TEST_MODE=${NORTHSTAR_BOOT_ENVIRONMENT_TEST_MODE:-0}
+if [ "$TEST_MODE" = 1 ]; then
+    [ "$(id -u)" -ne 0 ] || {
+        printf '%s\n' 'ERROR: boot-environment test mode is forbidden for root' >&2
+        exit "$EX_NOPERM"
+    }
+    BECTL=${NORTHSTAR_BOOT_ENVIRONMENT_BECTL:-/sbin/bectl}
+else
+    BECTL=/sbin/bectl
+fi
+
+fail() {
+    status=$1
+    shift
+    printf 'ERROR: %s\n' "$*" >&2
+    exit "$status"
+}
+
+matches() {
+    printf '%s\n' "$1" | grep -Eq "$2"
+}
+
+valid_environment_name() {
+    matches "$1" '^[A-Za-z0-9][A-Za-z0-9._-]{0,95}$'
+}
+
+managed_environment_name() {
+    matches "$1" '^northstar-before-(development|stable)-r[0-9]{1,9}-[0-9a-f]{7,12}$'
+}
+
+inventory() {
+    [ -x "$BECTL" ] || fail "$EX_UNAVAILABLE" "bectl is unavailable: $BECTL"
+    output=$($BECTL list -H) || fail "$EX_UNAVAILABLE" 'could not read boot environments'
+    [ "${#output}" -le 32768 ] || fail "$EX_DATAERR" 'boot-environment inventory is oversized'
+
+    count=0
+    records=
+    tab=$(printf '\t')
+    while IFS="$tab" read -r name flags mountpoint space created || [ -n "${name:-}" ]; do
+        [ -n "${name:-}" ] || continue
+        count=$((count + 1))
+        [ "$count" -le 64 ] || fail "$EX_DATAERR" 'too many boot environments'
+        valid_environment_name "$name" || fail "$EX_DATAERR" 'boot-environment inventory contains an unsafe name'
+        matches "$flags" '^(-|N|R|NR|RN)$' || fail "$EX_DATAERR" 'boot-environment inventory contains invalid activation flags'
+        [ -n "$mountpoint" ] && [ "${#mountpoint}" -le 256 ] \
+            && ! printf '%s' "$mountpoint" | grep -Eq '[|[:cntrl:]]' \
+            || fail "$EX_DATAERR" 'boot-environment inventory contains an unsafe mount point'
+        matches "$space" '^[0-9]+([.][0-9]+)?[KMGTPE]?$' \
+            || fail "$EX_DATAERR" 'boot-environment inventory contains an invalid space value'
+        matches "$created" '^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}$' \
+            || fail "$EX_DATAERR" 'boot-environment inventory contains an invalid creation time'
+
+        active_now=no
+        active_next=no
+        case "$flags" in *N*) active_now=yes ;; esac
+        case "$flags" in *R*) active_next=yes ;; esac
+        managed=no
+        activatable=no
+        if managed_environment_name "$name"; then
+            managed=yes
+            [ "$active_next" = yes ] || activatable=yes
+        fi
+        record="$name|$flags|$mountpoint|$space|$created|$active_now|$active_next|$managed|$activatable"
+        if [ -z "$records" ]; then records=$record; else records="$records
+$record"; fi
+    done <<EOF
+$output
+EOF
+
+    [ "$count" -gt 0 ] || fail "$EX_DATAERR" 'no boot environments were reported'
+    printf 'BOOT_ENVIRONMENT_RECOVERY=1\nCOUNT=%s\n' "$count"
+    index=0
+    printf '%s\n' "$records" | while IFS= read -r record; do
+        printf 'ENTRY_%s=%s\n' "$index" "$record"
+        index=$((index + 1))
+    done
+}
+
+case "${1:-}" in
+    --capabilities)
+        [ "$#" -eq 1 ] || fail "$EX_USAGE" '--capabilities takes no arguments'
+        printf '%s\n' \
+            'protocol=1' \
+            'operations=status,activate' \
+            'activation-namespace=northstar-before-<channel>-r<revision>-<source>' \
+            'activation=administrator-authentication' \
+            'reboot=never-automatic' \
+            'destructive-operations=none'
+        ;;
+    --status)
+        [ "$#" -eq 1 ] || fail "$EX_USAGE" '--status takes no arguments'
+        inventory
+        ;;
+    --activate)
+        [ "$#" -eq 4 ] && [ "$3" = --confirm ] \
+            || fail "$EX_USAGE" 'use --activate NAME --confirm NAME'
+        target=$2
+        confirmation=$4
+        [ "$target" = "$confirmation" ] || fail "$EX_NOPERM" 'boot-environment confirmation does not match'
+        managed_environment_name "$target" \
+            || fail "$EX_DATAERR" 'target is outside the Northstar recovery namespace'
+        if [ "$TEST_MODE" != 1 ]; then
+            [ "$(id -u)" -eq 0 ] || fail "$EX_NOPERM" 'activation requires root'
+        fi
+        status_output=$(inventory)
+        target_record=$(printf '%s\n' "$status_output" \
+            | sed -n "s/^ENTRY_[0-9][0-9]*=\($target|.*\)$/\1/p")
+        [ -n "$target_record" ] || fail "$EX_DATAERR" 'target boot environment does not exist'
+        old_ifs=$IFS
+        IFS='|'
+        set -- $target_record
+        IFS=$old_ifs
+        [ "$7" = no ] || {
+            printf '%s\n' 'BOOT_ENVIRONMENT_RECOVERY=1' 'ACTIVATION=already-selected' \
+                "TARGET=$target" 'REBOOT_REQUIRED=yes' 'ACTIVE_NEXT=yes'
+            exit 0
+        }
+        "$BECTL" activate "$target" || fail "$EX_UNAVAILABLE" 'bectl activation failed'
+        verified=$(inventory)
+        verified_record=$(printf '%s\n' "$verified" \
+            | sed -n "s/^ENTRY_[0-9][0-9]*=\($target|.*\)$/\1/p")
+        old_ifs=$IFS
+        IFS='|'
+        set -- $verified_record
+        IFS=$old_ifs
+        [ "${7:-}" = yes ] || fail "$EX_UNAVAILABLE" 'activation could not be verified'
+        printf '%s\n' 'BOOT_ENVIRONMENT_RECOVERY=1' 'ACTIVATION=scheduled' \
+            "TARGET=$target" 'REBOOT_REQUIRED=yes' 'ACTIVE_NEXT=yes'
+        ;;
+    --help|-h)
+        cat <<USAGE
+Usage: $0 --capabilities
+       $0 --status
+       $0 --activate NAME --confirm NAME
+USAGE
+        ;;
+    *)
+        fail "$EX_USAGE" 'use --capabilities, --status, or --activate NAME --confirm NAME'
+        ;;
+esac

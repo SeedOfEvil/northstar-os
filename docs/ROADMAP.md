@@ -352,7 +352,12 @@ The interrupted-install recovery slice adds bounded sanitized diagnostic
 export and an exact-confirmation clean-retry transition that archives failed
 evidence instead of resuming destructive phases, as documented in
 [`docs/M5_INSTALLER_RECOVERY_AND_DIAGNOSTICS.md`](M5_INSTALLER_RECOVERY_AND_DIAGNOSTICS.md).
-Actual disposable-disk acceptance, boot-environment management, and media outputs
+The boot-environment recovery slice now adds a first-party Recovery app,
+bounded read-only ZFS boot-environment inventory, exact-confirmation protected
+activation of verified Northstar pre-update environments, post-action
+next-boot verification, and sanitized diagnostics, as documented in
+[`docs/M5_BOOT_ENVIRONMENT_RECOVERY.md`](M5_BOOT_ENVIRONMENT_RECOVERY.md).
+Actual disposable-disk acceptance, recovery-point reboot proof, and media outputs
 use routine DEV01, native FreeBSD, and file-backed validation on their focused
 PRs. Their image-level claims remain explicitly deferred to one integrated
 **M5 Installer Release Candidate** checkpoint. The policy and exceptional

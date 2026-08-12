@@ -235,6 +235,11 @@ target_link_libraries(test-installerrecoverycontroller PRIVATE northstar-install
 add_test(NAME northstar-installerrecoverycontroller COMMAND test-installerrecoverycontroller)
 add_test(NAME northstar-installer-qml COMMAND northstar-installer --self-test)
 
+qt_add_executable(test-bootenvironmentcontroller test-bootenvironmentcontroller.cpp)
+target_link_libraries(test-bootenvironmentcontroller PRIVATE northstar-recovery-core Qt6::Test)
+add_test(NAME northstar-bootenvironmentcontroller COMMAND test-bootenvironmentcontroller)
+add_test(NAME northstar-recovery-qml COMMAND northstar-recovery --self-test)
+
 add_test(NAME northstar-welcome-gui COMMAND northstar-welcome-gui --self-test)
 set_tests_properties(northstar-welcome-gui PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
@@ -290,6 +295,8 @@ set_tests_properties(
     northstar-installercontroller
     northstar-installerrecoverycontroller
     northstar-installer-qml
+    northstar-bootenvironmentcontroller
+    northstar-recovery-qml
     northstar-welcome-gui
     northstar-texteditorcontroller
     northstar-text-editor-qml

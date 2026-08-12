@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+    <key>BundleIdentifier</key>
+    <string>org.northstar.Recovery</string>
+    <key>DisplayName</key>
+    <string>Northstar Recovery</string>
+    <key>Version</key>
+    <string>0.1.0</string>
+    <key>Executable</key>
+    <string>northstar-recovery</string>
+    <key>Icon</key>
+    <string>northstar-recovery.png</string>
+    <key>Categories</key>
+    <array>
+        <string>System</string>
+        <string>Utility</string>
+        <string>Northstar</string>
+    </array>
+    <key>Provenance</key>
+    <dict>
+        <key>Source</key>
+        <string>northstar-project</string>
+        <key>Package</key>
+        <string>northstar-recovery</string>
+        <key>Revision</key>
+        <string>development</string>
+    </dict>
+</dict>
+</plist>
