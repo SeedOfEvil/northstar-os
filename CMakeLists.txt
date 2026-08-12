@@ -22,6 +22,7 @@ find_package(Qt6 6.6 REQUIRED COMPONENTS Concurrent Core Gui Network Qml Quick Q
 include(CTest)
 
 add_subdirectory(src/ui)
+add_subdirectory(apps/installer)
 add_subdirectory(apps/first-boot)
 add_subdirectory(apps/welcome)
 add_subdirectory(apps/text-editor)

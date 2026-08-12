@@ -79,6 +79,15 @@ request ownership, pending state, and allowlisted values before creating the
 first administrator and permanently sealing the temporary setup path. See
 [`ADR 0010`](adr/0010-first-boot-provisioning-boundary.md).
 
+### Installer
+
+Installer target discovery is an unprivileged read-only boundary. The UI
+rejects malformed records, blocks active and undersized disks, and requires an
+exact device-name plus erasure acknowledgement before it can prepare a review
+plan. It cannot mutate storage. A later fixed privileged engine must rediscover
+and revalidate target identity immediately before any destructive operation;
+see [`ADR 0011`](adr/0011-installer-target-selection-boundary.md).
+
 ## Packaging and update model
 
 FreeBSD base and kernel updates use the official FreeBSD mechanism. Third-party desktop dependencies come from a pinned FreeBSD package source. Northstar components are built in clean Poudriere jails and published through a signed `pkg` repository. The Northstar publication sidecar records the repository revision, target ABI, package origins, source inputs, and project revisions for read-only planning; its local signature envelope verifies the sidecar/catalogue binding but does not replace `pkg` catalogue files or the repository's own signature path. Development `.app` bundles expose manifest-level provenance now. The update helper accepts only a verified, root-owned request bound to the publication identity and derived boot-environment name; actual package mutation, broker authorization, and rollback remain part of M4.

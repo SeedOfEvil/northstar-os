@@ -331,7 +331,10 @@ repository hashes.
 The next M5 implementation work is intentionally batched before another full
 image cycle. The production first-boot setup foundation is implemented and
 documented in [`docs/M5_FIRST_BOOT_SETUP.md`](M5_FIRST_BOOT_SETUP.md), with its
-integrated image acceptance deferred. Installer UI and engine, installation
+integrated image acceptance deferred. The installer now has a read-only,
+system-disk-aware destination and explicit erase-confirmation flow documented
+in [`docs/M5_INSTALLER_TARGET_SELECTION.md`](M5_INSTALLER_TARGET_SELECTION.md).
+The privileged installer engine, installation
 safety/recovery, diagnostics, boot-environment management, and media outputs
 use routine DEV01, native FreeBSD, and file-backed validation on their focused
 PRs. Their image-level claims remain explicitly deferred to one integrated

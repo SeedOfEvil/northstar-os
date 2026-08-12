@@ -1,0 +1,59 @@
+#!/bin/sh
+
+# Read-only FreeBSD disk discovery for the Northstar installer. This helper
+# deliberately contains no mutation commands and does not require root.
+set -eu
+
+SYSCTL=${NORTHSTAR_INSTALLER_SYSCTL:-/sbin/sysctl}
+DISKINFO=${NORTHSTAR_INSTALLER_DISKINFO:-/usr/sbin/diskinfo}
+MOUNT=${NORTHSTAR_INSTALLER_MOUNT:-/sbin/mount}
+ZPOOL=${NORTHSTAR_INSTALLER_ZPOOL:-/sbin/zpool}
+SWAPINFO=${NORTHSTAR_INSTALLER_SWAPINFO:-/usr/sbin/swapinfo}
+GEOM=${NORTHSTAR_INSTALLER_GEOM:-/sbin/geom}
+MINIMUM_BYTES=17179869184
+
+fail() { printf 'ERROR: %s\n' "$*" >&2; exit 69; }
+for tool in "$SYSCTL" "$MOUNT" "$GEOM"; do
+    [ -x "$tool" ] || fail "required read-only discovery tool is unavailable: $tool"
+done
+
+disks=$($SYSCTL -n kern.disks) || fail 'could not enumerate FreeBSD disks'
+usage=$($MOUNT -p 2>/dev/null || true)
+if [ -x "$ZPOOL" ]; then usage="$usage
+$($ZPOOL status -P 2>/dev/null || true)"; fi
+if [ -x "$SWAPINFO" ]; then usage="$usage
+$($SWAPINFO -k 2>/dev/null || true)"; fi
+
+printf '%s\n' 'protocol=1'
+for disk in $disks; do
+    case "$disk" in
+        *[!A-Za-z0-9._-]*|'') continue ;;
+    esac
+    geom_info=$($GEOM disk list "$disk" 2>/dev/null) || continue
+    size=$(printf '%s\n' "$geom_info" | awk -F: '/^[[:space:]]*Mediasize:/ { sub(/^[[:space:]]*/, "", $2); split($2, value, /[[:space:]]/); print value[1]; exit }')
+    if [ -z "$size" ] && [ -x "$DISKINFO" ]; then
+        info=$($DISKINFO -v "/dev/$disk" 2>/dev/null || true)
+        size=$(printf '%s\n' "$info" | awk '/# mediasize in bytes/ { print $1; exit }')
+    fi
+    case "$size" in *[!0-9]*|'') continue ;; esac
+
+    description="FreeBSD disk $disk"
+    discovered=$(printf '%s\n' "$geom_info" \
+        | awk -F: '/^[[:space:]]*descr:/ { sub(/^[[:space:]]*/, "", $2); print $2; exit }')
+    [ -z "$discovered" ] || description=$discovered
+    description=$(printf '%s' "$description" | tr '\t\r\n' '   ' | cut -c1-100)
+
+    system=no
+    reason='Available installation destination'
+    eligible=yes
+    if printf '%s\n' "$usage" | grep -Eq "(^|[^[:alnum:]_])(/dev/)?${disk}((p|s)[0-9]+)?([^[:alnum:]_]|$)"; then
+        system=yes
+        eligible=no
+        reason='Contains the running system, a mounted filesystem, or active swap'
+    elif [ "$size" -lt "$MINIMUM_BYTES" ]; then
+        eligible=no
+        reason='Smaller than the 16 GiB Northstar minimum'
+    fi
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+        "$disk" "$size" "$description" unknown "$system" "$eligible" "$reason"
+done
