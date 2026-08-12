@@ -88,6 +88,12 @@ plan. It cannot mutate storage. A later fixed privileged engine must rediscover
 and revalidate target identity immediately before any destructive operation;
 see [`ADR 0011`](adr/0011-installer-target-selection-boundary.md).
 
+The first protected engine boundary independently revalidates the selected
+whole disk and stages one root-owned transaction with execution disabled. It
+refuses active, changed, undersized, partition, or unresolved prior targets;
+see [`ADR 0012`](adr/0012-installer-engine-preflight-boundary.md). Actual disk
+mutation remains a separate reviewed boundary.
+
 ## Packaging and update model
 
 FreeBSD base and kernel updates use the official FreeBSD mechanism. Third-party desktop dependencies come from a pinned FreeBSD package source. Northstar components are built in clean Poudriere jails and published through a signed `pkg` repository. The Northstar publication sidecar records the repository revision, target ABI, package origins, source inputs, and project revisions for read-only planning; its local signature envelope verifies the sidecar/catalogue binding but does not replace `pkg` catalogue files or the repository's own signature path. Development `.app` bundles expose manifest-level provenance now. The update helper accepts only a verified, root-owned request bound to the publication identity and derived boot-environment name; actual package mutation, broker authorization, and rollback remain part of M4.

@@ -1,0 +1,184 @@
+#!/bin/sh
+
+# Narrow privileged boundary for staging a Northstar disk installation.
+# This slice performs independent read-only target revalidation and publishes
+# root-owned transaction state. It contains no partition or filesystem mutation.
+
+set -eu
+
+EX_USAGE=64
+EX_DATAERR=65
+EX_UNAVAILABLE=69
+EX_NOPERM=77
+
+TEST_MODE=${NORTHSTAR_INSTALLER_ENGINE_TEST_MODE:-0}
+ROOT=${NORTHSTAR_INSTALLER_ENGINE_ROOT:-/}
+GEOM=${NORTHSTAR_INSTALLER_ENGINE_GEOM:-/sbin/geom}
+MOUNT=${NORTHSTAR_INSTALLER_ENGINE_MOUNT:-/sbin/mount}
+ZPOOL=${NORTHSTAR_INSTALLER_ENGINE_ZPOOL:-/sbin/zpool}
+SWAPINFO=${NORTHSTAR_INSTALLER_ENGINE_SWAPINFO:-/usr/sbin/swapinfo}
+STAT=${NORTHSTAR_INSTALLER_ENGINE_STAT:-/usr/bin/stat}
+INSTALL=${NORTHSTAR_INSTALLER_ENGINE_INSTALL:-/usr/bin/install}
+CHOWN=${NORTHSTAR_INSTALLER_ENGINE_CHOWN:-/usr/sbin/chown}
+CHMOD=${NORTHSTAR_INSTALLER_ENGINE_CHMOD:-/bin/chmod}
+MV=${NORTHSTAR_INSTALLER_ENGINE_MV:-/bin/mv}
+RM=${NORTHSTAR_INSTALLER_ENGINE_RM:-/bin/rm}
+SHA256=${NORTHSTAR_INSTALLER_ENGINE_SHA256:-/sbin/sha256}
+UNAME=${NORTHSTAR_INSTALLER_ENGINE_UNAME:-/usr/bin/uname}
+STATE_REL=var/db/northstar/installer
+MINIMUM_BYTES=17179869184
+
+fail() { status=$1; shift; printf 'ERROR: %s\n' "$*" >&2; exit "$status"; }
+matches() { printf '%s\n' "$1" | grep -Eq "$2"; }
+root_path() { case "$ROOT" in /) printf '/%s' "$1" ;; *) printf '%s/%s' "${ROOT%/}" "$1" ;; esac; }
+
+usage() {
+    cat <<'EOF'
+Usage: northstar-installer-engine --capabilities
+       northstar-installer-engine --validate REQUEST
+       northstar-installer-engine --stage REQUEST
+
+--validate checks a bounded non-secret request without changing state.
+--stage requires root, independently revalidates the target, and writes only a
+root-owned transaction request. Disk partitioning and installation are absent.
+EOF
+}
+
+validate_request() {
+    request=$1
+    protected=$2
+    [ -f "$request" ] && [ ! -L "$request" ] && [ -r "$request" ] \
+        || fail "$EX_DATAERR" 'installer request is missing or unsafe'
+    if [ "$protected" -eq 1 ] && [ "$TEST_MODE" != 1 ]; then
+        caller=${PKEXEC_UID:-}
+        matches "$caller" '^[0-9]+$' || fail "$EX_NOPERM" 'PolicyKit caller identity is required'
+        owner=$($STAT -f '%u' "$request") || fail "$EX_DATAERR" 'could not inspect request owner'
+        mode=$($STAT -f '%Lp' "$request") || fail "$EX_DATAERR" 'could not inspect request mode'
+        [ "$owner" = "$caller" ] || fail "$EX_NOPERM" 'installer request is not owned by its caller'
+        [ "$mode" = 600 ] || fail "$EX_NOPERM" 'installer request must have mode 0600'
+    fi
+
+    protocol= operation= target_device= target_mediasize= target_sectorsize=
+    target_description_sha256= layout= pool_name= source_manifest_sha256=
+    confirmation= plan_status=
+    seen='|'
+    count=0
+    while IFS='=' read -r key value || [ -n "${key:-}" ]; do
+        [ -n "${key:-}" ] || fail "$EX_DATAERR" 'installer request contains a blank field'
+        case "$seen" in *"|$key|"*) fail "$EX_DATAERR" "installer request repeats field: $key" ;; esac
+        seen="${seen}${key}|"
+        case "$key" in
+            protocol) protocol=$value ;;
+            operation) operation=$value ;;
+            target_device) target_device=$value ;;
+            target_mediasize) target_mediasize=$value ;;
+            target_sectorsize) target_sectorsize=$value ;;
+            target_description_sha256) target_description_sha256=$value ;;
+            layout) layout=$value ;;
+            pool_name) pool_name=$value ;;
+            source_manifest_sha256) source_manifest_sha256=$value ;;
+            confirmation) confirmation=$value ;;
+            plan_status) plan_status=$value ;;
+            *) fail "$EX_DATAERR" "installer request contains unknown field: $key" ;;
+        esac
+        count=$((count + 1))
+    done < "$request"
+
+    [ "$count" -eq 11 ] || fail "$EX_DATAERR" 'installer request has an unexpected field count'
+    [ "$protocol" = 1 ] || fail "$EX_DATAERR" 'unsupported installer request protocol'
+    [ "$operation" = install ] || fail "$EX_DATAERR" 'installer operation is not allowed'
+    matches "$target_device" '^[A-Za-z][A-Za-z0-9._-]{0,31}$' \
+        || fail "$EX_DATAERR" 'target device is outside the whole-disk format'
+    case "$target_device" in *p[0-9]*|*s[0-9]*) fail "$EX_DATAERR" 'target must be a whole disk' ;; esac
+    matches "$target_mediasize" '^[0-9]{8,20}$' || fail "$EX_DATAERR" 'target mediasize is invalid'
+    [ "$target_mediasize" -ge "$MINIMUM_BYTES" ] || fail "$EX_DATAERR" 'target is below the 16 GiB minimum'
+    matches "$target_sectorsize" '^(512|4096)$' || fail "$EX_DATAERR" 'target sector size is unsupported'
+    matches "$target_description_sha256" '^[0-9A-Fa-f]{64}$' || fail "$EX_DATAERR" 'target description digest is invalid'
+    [ "$layout" = gpt-uefi-zfs ] || fail "$EX_DATAERR" 'installer layout is not allowed'
+    matches "$pool_name" '^nstar_[0-9a-f]{12}$' || fail "$EX_DATAERR" 'pool name is outside the installer namespace'
+    matches "$source_manifest_sha256" '^[0-9A-Fa-f]{64}$' || fail "$EX_DATAERR" 'source manifest digest is invalid'
+    [ "$confirmation" = erase-target ] || fail "$EX_DATAERR" 'installer request lacks erase confirmation'
+    [ "$plan_status" = verified ] || fail "$EX_DATAERR" 'installer plan is not verified'
+}
+
+target_usage() {
+    usage=$($MOUNT -p 2>/dev/null || true)
+    [ ! -x "$ZPOOL" ] || usage="$usage
+$($ZPOOL status -P 2>/dev/null || true)"
+    [ ! -x "$SWAPINFO" ] || usage="$usage
+$($SWAPINFO -k 2>/dev/null || true)"
+    printf '%s\n' "$usage"
+}
+
+revalidate_target() {
+    [ -x "$GEOM" ] && [ -x "$MOUNT" ] && [ -x "$SHA256" ] \
+        || fail "$EX_UNAVAILABLE" 'required read-only target tools are unavailable'
+    info=$($GEOM disk list "$target_device" 2>/dev/null) \
+        || fail "$EX_UNAVAILABLE" 'target disk no longer exists'
+    actual_size=$(printf '%s\n' "$info" | awk -F: '/^[[:space:]]*Mediasize:/ { sub(/^[[:space:]]*/, "", $2); split($2, a, /[[:space:]]/); print a[1]; exit }')
+    actual_sector=$(printf '%s\n' "$info" | awk -F: '/^[[:space:]]*Sectorsize:/ { gsub(/[[:space:]]/, "", $2); print $2; exit }')
+    description=$(printf '%s\n' "$info" | awk -F: '/^[[:space:]]*descr:/ { sub(/^[[:space:]]*/, "", $2); print $2; exit }')
+    actual_digest=$(printf '%s' "$description" | "$SHA256" -q)
+    [ "$actual_size" = "$target_mediasize" ] || fail "$EX_DATAERR" 'target mediasize changed after review'
+    [ "$actual_sector" = "$target_sectorsize" ] || fail "$EX_DATAERR" 'target sector size changed after review'
+    [ "$actual_digest" = "$target_description_sha256" ] || fail "$EX_DATAERR" 'target description changed after review'
+    if target_usage | grep -Eq "(^|[^[:alnum:]_])(/dev/)?${target_device}((p|s)[0-9]+)?([^[:alnum:]_]|$)"; then
+        fail "$EX_NOPERM" 'target is now mounted, pooled, or active swap'
+    fi
+}
+
+[ "$#" -ge 1 ] || { usage >&2; exit "$EX_USAGE"; }
+case "$1" in
+    --capabilities)
+        [ "$#" -eq 1 ] || fail "$EX_USAGE" '--capabilities takes no arguments'
+        printf '%s\n' 'protocol=1' 'operations=validate,stage' \
+            'layout=gpt-uefi-zfs' 'minimum_bytes=17179869184' \
+            'disk_mutation=not-implemented' 'transaction_state=root-owned-mode-0600'
+        exit 0 ;;
+    --validate|--stage) [ "$#" -eq 2 ] || fail "$EX_USAGE" "$1 requires REQUEST" ;;
+    --help|-h) usage; exit 0 ;;
+    *) usage >&2; exit "$EX_USAGE" ;;
+esac
+
+mode=$1
+request=$2
+if [ "$mode" = --stage ]; then
+    [ "$TEST_MODE" = 1 ] || [ "$(id -u)" -eq 0 ] || fail "$EX_NOPERM" '--stage requires root'
+    [ "$TEST_MODE" = 1 ] || [ "$ROOT" = / ] || fail "$EX_NOPERM" 'alternate roots are test-only'
+    [ "$TEST_MODE" = 1 ] || [ "$($UNAME -s)" = FreeBSD ] \
+        || fail "$EX_UNAVAILABLE" 'installer staging is supported only on FreeBSD'
+    validate_request "$request" 1
+    revalidate_target
+else
+    validate_request "$request" 0
+    printf '%s\n' 'INSTALLER_REQUEST=VALID' 'DISK_MUTATION=none'
+    exit 0
+fi
+
+for tool in "$INSTALL" "$CHOWN" "$CHMOD" "$MV" "$RM"; do
+    [ -x "$tool" ] || fail "$EX_UNAVAILABLE" "required state tool is unavailable: $tool"
+done
+state_dir=$(root_path "$STATE_REL")
+$INSTALL -d -o root -g wheel -m 0700 "$state_dir"
+[ ! -e "$state_dir/transaction.request" ] \
+    || fail "$EX_NOPERM" 'an installer transaction is already staged and must be resolved first'
+staging="$state_dir/transaction.request.$$"
+trap '$RM -f "$staging"' EXIT HUP INT TERM
+umask 077
+{
+    printf '%s\n' 'schema_version=1' 'status=preflight-passed'
+    printf 'target_device=%s\n' "$target_device"
+    printf 'target_mediasize=%s\n' "$target_mediasize"
+    printf 'target_sectorsize=%s\n' "$target_sectorsize"
+    printf 'target_description_sha256=%s\n' "$target_description_sha256"
+    printf 'layout=%s\n' "$layout"
+    printf 'pool_name=%s\n' "$pool_name"
+    printf 'source_manifest_sha256=%s\n' "$source_manifest_sha256"
+    printf '%s\n' 'confirmation=erase-target' 'execution=disabled'
+} > "$staging"
+$CHOWN root:wheel "$staging"
+$CHMOD 0600 "$staging"
+$MV "$staging" "$state_dir/transaction.request"
+trap - EXIT HUP INT TERM
+printf '%s\n' 'INSTALLER_PREFLIGHT=PASS' "TARGET=$target_device" \
+    "STATE=$state_dir/transaction.request" 'DISK_MUTATION=none'

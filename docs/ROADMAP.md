@@ -334,7 +334,11 @@ documented in [`docs/M5_FIRST_BOOT_SETUP.md`](M5_FIRST_BOOT_SETUP.md), with its
 integrated image acceptance deferred. The installer now has a read-only,
 system-disk-aware destination and explicit erase-confirmation flow documented
 in [`docs/M5_INSTALLER_TARGET_SELECTION.md`](M5_INSTALLER_TARGET_SELECTION.md).
-The privileged installer engine, installation
+The protected installer-engine foundation now independently revalidates target
+identity and stages non-overwritable root-owned state with execution disabled,
+as documented in
+[`docs/M5_INSTALLER_ENGINE_FOUNDATION.md`](M5_INSTALLER_ENGINE_FOUNDATION.md).
+Privileged disk execution, installation
 safety/recovery, diagnostics, boot-environment management, and media outputs
 use routine DEV01, native FreeBSD, and file-backed validation on their focused
 PRs. Their image-level claims remain explicitly deferred to one integrated

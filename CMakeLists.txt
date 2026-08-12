@@ -56,6 +56,7 @@ set(CPACK_FREEBSD_PACKAGE_DEPS
 
 install(FILES packaging/polkit/org.northstar.update.policy
               packaging/polkit/org.northstar.firstboot.policy
+              packaging/polkit/org.northstar.installer.policy
     DESTINATION share/polkit-1/actions
 )
 

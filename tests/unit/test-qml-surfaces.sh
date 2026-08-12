@@ -200,6 +200,8 @@ contains apps/installer/InstallerWindow.qml 'permanently erased'
 contains apps/installer/InstallerWindow.qml 'installerController.confirmationReady'
 contains apps/installer/InstallerWindow.qml 'Install unavailable'
 contains apps/installer/InstallerWindow.qml 'It cannot partition or erase a disk.'
+contains packaging/polkit/org.northstar.installer.policy '/usr/local/libexec/northstar-installer-engine'
+contains packaging/polkit/org.northstar.installer.policy '<allow_active>auth_admin</allow_active>'
 
 for surface in \
     src/shell/FileBrowserWindow.qml \

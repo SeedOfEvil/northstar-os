@@ -24,3 +24,4 @@ target_link_libraries(northstar-installer PRIVATE
 
 install(TARGETS northstar-installer RUNTIME DESTINATION libexec)
 install(PROGRAMS northstar-installer-disks DESTINATION libexec)
+install(PROGRAMS northstar-installer-engine DESTINATION libexec)
