@@ -71,6 +71,9 @@ failure cleanup without exposing any host disk. Native execution of those
 contracts and a staged-install packaging check run from an immutable DEV01
 archive.
 
+The accepted immutable validation evidence is recorded in
+[`validation/M5_INSTALLER_EXECUTION_2026-08-12.md`](validation/M5_INSTALLER_EXECUTION_2026-08-12.md).
+
 ## Deferred image acceptance
 
 Image checkpoint: M5 Installer Release Candidate
