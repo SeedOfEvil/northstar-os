@@ -23,14 +23,13 @@ used by mounts, ZFS, or swap, and targets below 16 GiB. It then publishes one
 root-owned mode-0600 transaction request under `/var/db/northstar/installer`.
 An unresolved transaction cannot be overwritten.
 
-This foundation deliberately implements no partitioning, filesystem creation,
-pool creation, extraction, or bootloader installation. Staged state records
-`execution=disabled`. A later execution helper must consume this state,
-revalidate the target again immediately before mutation, verify the source
-manifest against trusted installer media, and maintain a recoverable journal.
-The source and journal portion is implemented by
-[`ADR 0013`](0013-installer-source-trust-and-journal.md); destructive execution
-remains deferred.
+This engine deliberately implements no partitioning, filesystem creation, pool
+creation, extraction, or bootloader installation. Its original staged state
+recorded `execution=disabled`; after the separate executor was accepted it
+records `execution=guarded-executor-only`. The source and journal portion is
+implemented by [`ADR 0013`](0013-installer-source-trust-and-journal.md), and the
+only destructive consumer is the independently reviewed boundary in
+[`ADR 0014`](0014-guarded-installer-execution.md).
 
 ## Consequences
 

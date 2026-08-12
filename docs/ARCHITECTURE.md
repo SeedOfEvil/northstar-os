@@ -103,6 +103,15 @@ explicit authenticated recovery or archival abandonment; see
 [`ADR 0013`](adr/0013-installer-source-trust-and-journal.md). Signing private
 keys remain external, and journal recovery still cannot mutate a disk.
 
+Destructive installation is isolated in a separate fixed executor and separate
+administrator-authenticated PolicyKit action. It consumes only the active
+protected transaction and requires a root-owned installer-media marker plus
+exact whole-disk confirmation. It repeats source and target verification,
+journals GPT/EFI/ZFS/extraction/bootloader phases, cleans up mounts and pools on
+failure, and never honors production environment overrides; see
+[`ADR 0014`](adr/0014-guarded-installer-execution.md). Ordinary installed
+systems and DEV01 do not receive the execution marker.
+
 ## Packaging and update model
 
 FreeBSD base and kernel updates use the official FreeBSD mechanism. Third-party desktop dependencies come from a pinned FreeBSD package source. Northstar components are built in clean Poudriere jails and published through a signed `pkg` repository. The Northstar publication sidecar records the repository revision, target ABI, package origins, source inputs, and project revisions for read-only planning; its local signature envelope verifies the sidecar/catalogue binding but does not replace `pkg` catalogue files or the repository's own signature path. Development `.app` bundles expose manifest-level provenance now. The update helper accepts only a verified, root-owned request bound to the publication identity and derived boot-environment name; actual package mutation, broker authorization, and rollback remain part of M4.

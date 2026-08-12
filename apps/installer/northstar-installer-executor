@@ -1,0 +1,717 @@
+#!/bin/sh
+
+# Fixed privileged executor for a previously staged Northstar transaction.
+# Production paths cannot be overridden. Tests use fake tools as an
+# unprivileged account; root can never enable test mode.
+set -eu
+
+EX_USAGE=64
+EX_DATAERR=65
+EX_UNAVAILABLE=69
+EX_NOPERM=77
+
+TEST_MODE=${NORTHSTAR_INSTALLER_EXECUTOR_TEST_MODE:-0}
+ROOT=${NORTHSTAR_INSTALLER_EXECUTOR_ROOT:-/}
+MARKER=${NORTHSTAR_INSTALLER_EXECUTOR_MARKER:-/etc/northstar/installer-execution.conf}
+SOURCE_ROOT=${NORTHSTAR_INSTALLER_EXECUTOR_SOURCE_ROOT:-/var/run/northstar-installer/source}
+SOURCE_VERIFY=${NORTHSTAR_INSTALLER_EXECUTOR_SOURCE_VERIFY:-/usr/local/libexec/northstar-installer-source-verify}
+GEOM=${NORTHSTAR_INSTALLER_EXECUTOR_GEOM:-/sbin/geom}
+MOUNT=${NORTHSTAR_INSTALLER_EXECUTOR_MOUNT:-/sbin/mount}
+ZPOOL=${NORTHSTAR_INSTALLER_EXECUTOR_ZPOOL:-/sbin/zpool}
+ZFS=${NORTHSTAR_INSTALLER_EXECUTOR_ZFS:-/sbin/zfs}
+SWAPINFO=${NORTHSTAR_INSTALLER_EXECUTOR_SWAPINFO:-/usr/sbin/swapinfo}
+GPART=${NORTHSTAR_INSTALLER_EXECUTOR_GPART:-/sbin/gpart}
+NEWFS_MSDOS=${NORTHSTAR_INSTALLER_EXECUTOR_NEWFS_MSDOS:-/sbin/newfs_msdos}
+MOUNT_MSDOSFS=${NORTHSTAR_INSTALLER_EXECUTOR_MOUNT_MSDOSFS:-/sbin/mount_msdosfs}
+UMOUNT=${NORTHSTAR_INSTALLER_EXECUTOR_UMOUNT:-/sbin/umount}
+TAR=${NORTHSTAR_INSTALLER_EXECUTOR_TAR:-/usr/bin/tar}
+STAT=${NORTHSTAR_INSTALLER_EXECUTOR_STAT:-/usr/bin/stat}
+SHA256=${NORTHSTAR_INSTALLER_EXECUTOR_SHA256:-/sbin/sha256}
+INSTALL=${NORTHSTAR_INSTALLER_EXECUTOR_INSTALL:-/usr/bin/install}
+CHOWN=${NORTHSTAR_INSTALLER_EXECUTOR_CHOWN:-/usr/sbin/chown}
+CHMOD=${NORTHSTAR_INSTALLER_EXECUTOR_CHMOD:-/bin/chmod}
+CP=${NORTHSTAR_INSTALLER_EXECUTOR_CP:-/bin/cp}
+MV=${NORTHSTAR_INSTALLER_EXECUTOR_MV:-/bin/mv}
+RM=${NORTHSTAR_INSTALLER_EXECUTOR_RM:-/bin/rm}
+UNAME=${NORTHSTAR_INSTALLER_EXECUTOR_UNAME:-/usr/bin/uname}
+INJECT_AFTER=${NORTHSTAR_INSTALLER_EXECUTOR_INJECT_AFTER:-}
+STATE_REL=var/db/northstar/installer
+RUN_REL=var/run/northstar-installer/execution
+
+if [ "$TEST_MODE" != 1 ]; then
+    PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin
+    export PATH
+    ROOT=/
+    MARKER=/etc/northstar/installer-execution.conf
+    SOURCE_ROOT=/var/run/northstar-installer/source
+    SOURCE_VERIFY=/usr/local/libexec/northstar-installer-source-verify
+    GEOM=/sbin/geom
+    MOUNT=/sbin/mount
+    ZPOOL=/sbin/zpool
+    ZFS=/sbin/zfs
+    SWAPINFO=/usr/sbin/swapinfo
+    GPART=/sbin/gpart
+    NEWFS_MSDOS=/sbin/newfs_msdos
+    MOUNT_MSDOSFS=/sbin/mount_msdosfs
+    UMOUNT=/sbin/umount
+    TAR=/usr/bin/tar
+    STAT=/usr/bin/stat
+    SHA256=/sbin/sha256
+    INSTALL=/usr/bin/install
+    CHOWN=/usr/sbin/chown
+    CHMOD=/bin/chmod
+    CP=/bin/cp
+    MV=/bin/mv
+    RM=/bin/rm
+    UNAME=/usr/bin/uname
+    INJECT_AFTER=
+fi
+
+fail() { status=$1; shift; printf 'ERROR: %s\n' "$*" >&2; exit "$status"; }
+matches() { printf '%s\n' "$1" | grep -Eq "$2"; }
+root_path() { case "$ROOT" in /) printf '/%s' "$1" ;; *) printf '%s/%s' "${ROOT%/}" "$1" ;; esac; }
+
+if [ "$TEST_MODE" = 1 ] && [ "$(/usr/bin/id -u)" -eq 0 ]; then
+    fail "$EX_NOPERM" 'installer executor test mode is forbidden for root'
+fi
+
+usage() {
+    cat <<'EOF'
+Usage: northstar-installer-executor --capabilities
+       northstar-installer-executor --preflight TRANSACTION_ID
+       northstar-installer-executor --execute TRANSACTION_ID --confirm-device DEVICE
+       northstar-installer-executor --status TRANSACTION_ID
+       northstar-installer-executor --finalize TRANSACTION_ID
+
+The executor consumes only protected staged state. Production execution also
+requires the fixed root-owned installer-media marker and exact device
+confirmation. --finalize archives an already completed transaction after an
+interrupted final state publication; it never mutates a disk.
+EOF
+}
+
+require_runtime() {
+    [ "$TEST_MODE" = 1 ] || [ "$(id -u)" -eq 0 ] || fail "$EX_NOPERM" "$1 requires root"
+    [ "$TEST_MODE" = 1 ] || [ "$($UNAME -s)" = FreeBSD ] \
+        || fail "$EX_UNAVAILABLE" 'installer execution is supported only on FreeBSD'
+}
+
+require_file() {
+    checked_file=$1
+    checked_label=$2
+    [ -f "$checked_file" ] && [ ! -L "$checked_file" ] && [ -r "$checked_file" ] \
+        || fail "$EX_DATAERR" "$checked_label is missing or unsafe"
+    if [ "$TEST_MODE" != 1 ]; then
+        owner=$($STAT -f '%u' "$checked_file") || fail "$EX_DATAERR" "could not inspect $checked_label owner"
+        mode=$($STAT -f '%Lp' "$checked_file") || fail "$EX_DATAERR" "could not inspect $checked_label mode"
+        [ "$owner" = 0 ] && [ "$mode" = 600 ] \
+            || fail "$EX_NOPERM" "$checked_label must be root-owned mode 0600"
+    fi
+}
+
+require_directory() {
+    checked_directory=$1
+    checked_label=$2
+    [ -d "$checked_directory" ] && [ ! -L "$checked_directory" ] \
+        || fail "$EX_DATAERR" "$checked_label is missing or unsafe"
+    if [ "$TEST_MODE" != 1 ]; then
+        owner=$($STAT -f '%u' "$checked_directory") || fail "$EX_DATAERR" "could not inspect $checked_label owner"
+        mode=$($STAT -f '%Lp' "$checked_directory") || fail "$EX_DATAERR" "could not inspect $checked_label mode"
+        [ "$owner" = 0 ] && [ "$mode" = 700 ] \
+            || fail "$EX_NOPERM" "$checked_label must be root-owned mode 0700"
+    fi
+}
+
+validate_transaction_id() {
+    matches "$1" '^nstar-install-[0-9a-f]{16}-[0-9]{1,10}$' \
+        || fail "$EX_DATAERR" 'transaction identity is invalid'
+}
+
+load_marker() {
+    [ -f "$MARKER" ] && [ ! -L "$MARKER" ] && [ -r "$MARKER" ] \
+        || fail "$EX_NOPERM" 'installer-media execution marker is missing or unsafe'
+    if [ "$TEST_MODE" != 1 ]; then
+        owner=$($STAT -f '%u' "$MARKER") || fail "$EX_DATAERR" 'could not inspect execution-marker owner'
+        mode=$($STAT -f '%Lp' "$MARKER") || fail "$EX_DATAERR" 'could not inspect execution-marker mode'
+        [ "$owner" = 0 ] || fail "$EX_NOPERM" 'execution marker must be owned by root'
+        case "$mode" in 400|600) ;; *) fail "$EX_NOPERM" 'execution marker must have mode 0400 or 0600' ;; esac
+    fi
+    marker_schema= marker_purpose= marker_boot= marker_allow= marker_scope= marker_manifest=
+    marker_seen='|' marker_count=0
+    while IFS='=' read -r key value || [ -n "${key:-}" ]; do
+        [ -n "${key:-}" ] || fail "$EX_DATAERR" 'execution marker contains a blank field'
+        case "$marker_seen" in *"|$key|"*) fail "$EX_DATAERR" "execution marker repeats field: $key" ;; esac
+        marker_seen="${marker_seen}${key}|"
+        case "$key" in
+            schema_version) marker_schema=$value ;;
+            purpose) marker_purpose=$value ;;
+            boot_environment) marker_boot=$value ;;
+            allow_installer_execution) marker_allow=$value ;;
+            execution_scope) marker_scope=$value ;;
+            source_manifest_sha256) marker_manifest=$value ;;
+            *) fail "$EX_DATAERR" "execution marker contains unknown field: $key" ;;
+        esac
+        marker_count=$((marker_count + 1))
+    done < "$MARKER"
+    [ "$marker_count" -eq 6 ] && [ "$marker_schema" = 1 ] \
+        || fail "$EX_DATAERR" 'execution marker schema is invalid'
+    [ "$marker_purpose" = northstar-installer-media ] \
+        || fail "$EX_NOPERM" 'host is not declared installer media'
+    [ "$marker_boot" = installer-media ] || fail "$EX_NOPERM" 'host is not booted in installer-media mode'
+    [ "$marker_allow" = YES ] || fail "$EX_NOPERM" 'execution marker does not authorize installation'
+    [ "$marker_scope" = confirmed-whole-disk ] || fail "$EX_NOPERM" 'execution marker scope is invalid'
+    matches "$marker_manifest" '^[0-9a-f]{64}$' || fail "$EX_DATAERR" 'execution marker manifest digest is invalid'
+}
+
+load_active() {
+    active_file=$state_dir/active.conf
+    require_file "$active_file" 'active transaction state'
+    active_schema= active_id= active_status= active_seen='|' active_count=0
+    while IFS='=' read -r key value || [ -n "${key:-}" ]; do
+        case "$active_seen" in *"|$key|"*) fail "$EX_DATAERR" "active state repeats field: $key" ;; esac
+        active_seen="${active_seen}${key}|"
+        case "$key" in
+            schema_version) active_schema=$value ;;
+            transaction_id) active_id=$value ;;
+            status) active_status=$value ;;
+            *) fail "$EX_DATAERR" "active state contains unknown field: $key" ;;
+        esac
+        active_count=$((active_count + 1))
+    done < "$active_file"
+    [ "$active_count" -eq 3 ] && [ "$active_schema" = 1 ] && [ "$active_status" = staged ] \
+        || fail "$EX_DATAERR" 'active transaction state is invalid'
+    validate_transaction_id "$active_id"
+}
+
+load_transaction() {
+    transaction_id=$1
+    validate_transaction_id "$transaction_id"
+    transaction_dir=$state_dir/transactions/$transaction_id
+    require_directory "$transaction_dir" 'transaction directory'
+    transaction_file=$transaction_dir/transaction.conf
+    request_file=$transaction_dir/request.conf
+    journal_file=$transaction_dir/journal.log
+    execution_file=$transaction_dir/execution.conf
+    require_file "$transaction_file" 'transaction state'
+    require_file "$request_file" 'staged installer request'
+    require_file "$journal_file" 'transaction journal'
+    txn_schema= txn_id= txn_status= txn_request_sha= txn_target= txn_mediasize=
+    txn_sectorsize= txn_description_sha= txn_layout= txn_pool= txn_manifest_sha=
+    txn_payload_kind= txn_payload_name= txn_payload_size= txn_payload_sha=
+    txn_project_commit= txn_runtime_manifest_sha= txn_confirmation= txn_execution=
+    txn_recovery= txn_seen='|' txn_count=0
+    while IFS='=' read -r key value || [ -n "${key:-}" ]; do
+        [ -n "${key:-}" ] || fail "$EX_DATAERR" 'transaction state contains a blank field'
+        case "$txn_seen" in *"|$key|"*) fail "$EX_DATAERR" "transaction state repeats field: $key" ;; esac
+        txn_seen="${txn_seen}${key}|"
+        case "$key" in
+            schema_version) txn_schema=$value ;;
+            transaction_id) txn_id=$value ;;
+            status) txn_status=$value ;;
+            request_sha256) txn_request_sha=$value ;;
+            target_device) txn_target=$value ;;
+            target_mediasize) txn_mediasize=$value ;;
+            target_sectorsize) txn_sectorsize=$value ;;
+            target_description_sha256) txn_description_sha=$value ;;
+            layout) txn_layout=$value ;;
+            pool_name) txn_pool=$value ;;
+            source_manifest_sha256) txn_manifest_sha=$value ;;
+            payload_kind) txn_payload_kind=$value ;;
+            payload_name) txn_payload_name=$value ;;
+            payload_size) txn_payload_size=$value ;;
+            payload_sha256) txn_payload_sha=$value ;;
+            project_commit) txn_project_commit=$value ;;
+            runtime_manifest_sha256) txn_runtime_manifest_sha=$value ;;
+            confirmation) txn_confirmation=$value ;;
+            execution) txn_execution=$value ;;
+            recovery) txn_recovery=$value ;;
+            *) fail "$EX_DATAERR" "transaction state contains unknown field: $key" ;;
+        esac
+        txn_count=$((txn_count + 1))
+    done < "$transaction_file"
+    [ "$txn_count" -eq 20 ] && [ "$txn_schema" = 1 ] && [ "$txn_id" = "$transaction_id" ] \
+        && [ "$txn_status" = staged ] || fail "$EX_DATAERR" 'transaction identity or status is invalid'
+    matches "$txn_request_sha" '^[0-9a-f]{64}$' || fail "$EX_DATAERR" 'transaction request digest is invalid'
+    matches "$txn_target" '^[A-Za-z][A-Za-z0-9._-]{0,31}$' || fail "$EX_DATAERR" 'transaction target is invalid'
+    case "$txn_target" in *p[0-9]*|*s[0-9]*) fail "$EX_DATAERR" 'transaction target is not a whole disk' ;; esac
+    matches "$txn_mediasize" '^[0-9]{8,18}$' || fail "$EX_DATAERR" 'transaction media size is invalid'
+    matches "$txn_sectorsize" '^(512|4096)$' || fail "$EX_DATAERR" 'transaction sector size is invalid'
+    matches "$txn_description_sha" '^[0-9a-f]{64}$' || fail "$EX_DATAERR" 'transaction target digest is invalid'
+    [ "$txn_layout" = gpt-uefi-zfs ] || fail "$EX_DATAERR" 'transaction layout is invalid'
+    matches "$txn_pool" '^nstar_[0-9a-f]{12}$' || fail "$EX_DATAERR" 'transaction pool name is invalid'
+    matches "$txn_manifest_sha" '^[0-9a-f]{64}$' || fail "$EX_DATAERR" 'transaction source digest is invalid'
+    [ "$txn_payload_kind" = northstar-rootfs-v1 ] || fail "$EX_DATAERR" 'transaction payload kind is invalid'
+    matches "$txn_payload_name" '^[A-Za-z0-9][A-Za-z0-9._-]{0,79}\.txz$' \
+        || fail "$EX_DATAERR" 'transaction payload name is invalid'
+    matches "$txn_payload_size" '^[0-9]{1,12}$' || fail "$EX_DATAERR" 'transaction payload size is invalid'
+    [ "$txn_payload_size" -gt 0 ] && [ "$txn_payload_size" -le 137438953472 ] \
+        || fail "$EX_DATAERR" 'transaction payload is outside the safety bound'
+    matches "$txn_payload_sha" '^[0-9a-f]{64}$' || fail "$EX_DATAERR" 'transaction payload digest is invalid'
+    matches "$txn_project_commit" '^[0-9a-f]{40}$' || fail "$EX_DATAERR" 'transaction project commit is invalid'
+    matches "$txn_runtime_manifest_sha" '^[0-9a-f]{64}$' || fail "$EX_DATAERR" 'runtime manifest digest is invalid'
+    [ "$txn_confirmation" = erase-target ] || fail "$EX_DATAERR" 'transaction confirmation is invalid'
+    [ "$txn_execution" = guarded-executor-only ] || fail "$EX_NOPERM" 'transaction is not armed for the guarded executor'
+    [ "$txn_recovery" = resume-or-abandon-required ] || fail "$EX_DATAERR" 'transaction recovery policy is invalid'
+    actual_request_sha=$($SHA256 -q "$request_file" | tr '[:upper:]' '[:lower:]') \
+        || fail "$EX_DATAERR" 'could not verify staged request digest'
+    [ "$actual_request_sha" = "$txn_request_sha" ] || fail "$EX_DATAERR" 'staged installer request was altered'
+}
+
+validate_journal_sequence() {
+    journal_size=$(wc -c < "$journal_file" | tr -d ' ')
+    [ "$journal_size" -gt 0 ] && [ "$journal_size" -le 65536 ] \
+        || fail "$EX_DATAERR" 'transaction journal is empty or oversized'
+    journal_count=0
+    journal_last=
+    while IFS= read -r journal_line || [ -n "${journal_line:-}" ]; do
+        matches "$journal_line" '^[0-9]{4}\|[a-z-]+$' \
+            || fail "$EX_DATAERR" 'transaction journal contains a malformed event'
+        journal_count=$((journal_count + 1))
+        journal_sequence=${journal_line%%|*}
+        journal_last=${journal_line#*|}
+        [ "$journal_sequence" = "$(printf '%04d' "$journal_count")" ] \
+            || fail "$EX_DATAERR" 'transaction journal sequence is broken'
+    done < "$journal_file"
+    [ "$journal_count" -ge 4 ] || fail "$EX_DATAERR" 'transaction journal is incomplete'
+}
+
+validate_preexecution_journal() {
+    validate_journal_sequence
+    journal_count=0
+    while IFS= read -r journal_line || [ -n "${journal_line:-}" ]; do
+        journal_count=$((journal_count + 1))
+        journal_event=${journal_line#*|}
+        case "$journal_count:$journal_event" in
+            1:request-validated|2:source-verified|3:target-revalidated|4:transaction-staged) ;;
+            *:transaction-recovered) ;;
+            *) fail "$EX_DATAERR" 'transaction journal contains pre-existing execution events' ;;
+        esac
+    done < "$journal_file"
+}
+
+validate_completed_journal() {
+    validate_journal_sequence
+    [ "$journal_last" = transaction-completed ] \
+        || fail "$EX_DATAERR" 'completed execution lacks a final completion event'
+}
+
+verify_source() {
+    [ -x "$SOURCE_VERIFY" ] || fail "$EX_UNAVAILABLE" 'fixed installer source verifier is unavailable'
+    if ! source_report=$("$SOURCE_VERIFY" --verify "$txn_manifest_sha"); then
+        fail "$EX_NOPERM" 'trusted installer source revalidation failed'
+    fi
+    source_verification= source_manifest= source_payload_kind= source_payload_name=
+    source_payload_size= source_payload_sha= source_project_commit=
+    source_runtime_manifest_sha= source_mutation= source_seen='|' source_count=0
+    while IFS='=' read -r key value || [ -n "${key:-}" ]; do
+        case "$source_seen" in *"|$key|"*) fail "$EX_DATAERR" "source verifier repeats field: $key" ;; esac
+        source_seen="${source_seen}${key}|"
+        case "$key" in
+            SOURCE_VERIFICATION) source_verification=$value ;;
+            MANIFEST_SHA256) source_manifest=$value ;;
+            PAYLOAD_KIND) source_payload_kind=$value ;;
+            PAYLOAD_NAME) source_payload_name=$value ;;
+            PAYLOAD_SIZE) source_payload_size=$value ;;
+            PAYLOAD_SHA256) source_payload_sha=$value ;;
+            PROJECT_COMMIT) source_project_commit=$value ;;
+            RUNTIME_MANIFEST_SHA256) source_runtime_manifest_sha=$value ;;
+            SOURCE_MUTATION) source_mutation=$value ;;
+            *) fail "$EX_DATAERR" "source verifier returned unknown field: $key" ;;
+        esac
+        source_count=$((source_count + 1))
+    done <<EOF
+$source_report
+EOF
+    [ "$source_count" -eq 9 ] && [ "$source_verification" = PASS ] && [ "$source_mutation" = none ] \
+        || fail "$EX_DATAERR" 'source verifier report is incomplete'
+    [ "$source_manifest" = "$txn_manifest_sha" ] \
+        && [ "$source_payload_kind" = "$txn_payload_kind" ] \
+        && [ "$source_payload_name" = "$txn_payload_name" ] \
+        && [ "$source_payload_size" = "$txn_payload_size" ] \
+        && [ "$source_payload_sha" = "$txn_payload_sha" ] \
+        && [ "$source_project_commit" = "$txn_project_commit" ] \
+        && [ "$source_runtime_manifest_sha" = "$txn_runtime_manifest_sha" ] \
+        || fail "$EX_DATAERR" 'revalidated source no longer matches the staged transaction'
+    payload=$SOURCE_ROOT/$txn_payload_name
+    [ -f "$payload" ] && [ ! -L "$payload" ] && [ -r "$payload" ] \
+        || fail "$EX_DATAERR" 'verified installer payload is unavailable'
+}
+
+require_readonly_source_mount() {
+    [ "$TEST_MODE" = 1 ] && return 0
+    source_options=$($MOUNT -p | awk -v source="$SOURCE_ROOT" '$2 == source { print $4; exit }')
+    [ -n "$source_options" ] || fail "$EX_NOPERM" 'installer source is not mounted at the fixed media path'
+    case ",$source_options," in
+        *,ro,*) ;;
+        *) fail "$EX_NOPERM" 'installer source media must be mounted read-only' ;;
+    esac
+}
+
+target_usage() {
+    usage=$($MOUNT -p 2>/dev/null || true)
+    usage="$usage
+$($ZPOOL status -P 2>/dev/null || true)
+$($SWAPINFO -k 2>/dev/null || true)"
+    printf '%s\n' "$usage"
+}
+
+revalidate_target() {
+    info=$($GEOM disk list "$txn_target" 2>/dev/null) \
+        || fail "$EX_UNAVAILABLE" 'target disk no longer exists'
+    actual_size=$(printf '%s\n' "$info" | awk -F: '/^[[:space:]]*Mediasize:/ { sub(/^[[:space:]]*/, "", $2); split($2, a, /[[:space:]]/); print a[1]; exit }')
+    actual_sector=$(printf '%s\n' "$info" | awk -F: '/^[[:space:]]*Sectorsize:/ { gsub(/[[:space:]]/, "", $2); print $2; exit }')
+    description=$(printf '%s\n' "$info" | awk -F: '/^[[:space:]]*descr:/ { sub(/^[[:space:]]*/, "", $2); print $2; exit }')
+    actual_digest=$(printf '%s' "$description" | "$SHA256" -q | tr '[:upper:]' '[:lower:]')
+    [ "$actual_size" = "$txn_mediasize" ] && [ "$actual_sector" = "$txn_sectorsize" ] \
+        && [ "$actual_digest" = "$txn_description_sha" ] \
+        || fail "$EX_DATAERR" 'target identity changed after transaction staging'
+    if target_usage | grep -Eq "(^|[^[:alnum:]_])(/dev/)?${txn_target}((p|s)[0-9]+)?([^[:alnum:]_]|$)"; then
+        fail "$EX_NOPERM" 'target is mounted, pooled, or active swap'
+    fi
+    if [ "$TEST_MODE" != 1 ]; then
+        [ -c "/dev/$txn_target" ] && [ ! -L "/dev/$txn_target" ] \
+            || fail "$EX_DATAERR" 'target is not a direct FreeBSD character device'
+    fi
+}
+
+preflight_payload() {
+    listing=$transaction_dir/payload-entries.list
+    "$TAR" -tf "$payload" > "$listing" || fail "$EX_DATAERR" 'installer payload could not be listed'
+    listing_size=$(wc -c < "$listing" | tr -d ' ')
+    [ "$listing_size" -gt 0 ] && [ "$listing_size" -le 4194304 ] \
+        || fail "$EX_DATAERR" 'installer payload listing is empty or oversized'
+    while IFS= read -r entry || [ -n "${entry:-}" ]; do
+        [ -n "${entry:-}" ] || fail "$EX_DATAERR" 'installer payload contains a blank entry'
+        case "$entry" in
+            /*|../*|*/../*|*/..) fail "$EX_DATAERR" 'installer payload contains an unsafe path' ;;
+        esac
+    done < "$listing"
+    $CHOWN root:wheel "$listing"
+    $CHMOD 0600 "$listing"
+}
+
+append_journal() {
+    event=$1
+    journal_staging=$transaction_dir/.journal.$$
+    $CP "$journal_file" "$journal_staging"
+    journal_lines=$(wc -l < "$journal_file" | tr -d ' ')
+    [ "$journal_lines" -ge 4 ] && [ "$journal_lines" -lt 9999 ] \
+        || fail "$EX_DATAERR" 'transaction journal event count is invalid'
+    printf '%04d|%s\n' "$((journal_lines + 1))" "$event" >> "$journal_staging"
+    $CHOWN root:wheel "$journal_staging"
+    $CHMOD 0600 "$journal_staging"
+    $MV "$journal_staging" "$journal_file"
+}
+
+write_execution() {
+    execution_status=$1
+    execution_phase=$2
+    execution_mutation=$3
+    execution_recovery=$4
+    execution_staging=$transaction_dir/.execution.$$
+    umask 077
+    {
+        printf '%s\n' 'schema_version=1'
+        printf 'transaction_id=%s\n' "$transaction_id"
+        printf 'status=%s\n' "$execution_status"
+        printf 'last_phase=%s\n' "$execution_phase"
+        printf 'mutation_started=%s\n' "$execution_mutation"
+        printf 'recovery=%s\n' "$execution_recovery"
+    } > "$execution_staging"
+    $CHOWN root:wheel "$execution_staging"
+    $CHMOD 0600 "$execution_staging"
+    $MV "$execution_staging" "$execution_file"
+}
+
+load_execution() {
+    require_file "$execution_file" 'installer execution state'
+    exec_schema= exec_id= exec_status= exec_phase= exec_mutation= exec_recovery=
+    exec_seen='|' exec_count=0
+    while IFS='=' read -r key value || [ -n "${key:-}" ]; do
+        case "$exec_seen" in *"|$key|"*) fail "$EX_DATAERR" "execution state repeats field: $key" ;; esac
+        exec_seen="${exec_seen}${key}|"
+        case "$key" in
+            schema_version) exec_schema=$value ;;
+            transaction_id) exec_id=$value ;;
+            status) exec_status=$value ;;
+            last_phase) exec_phase=$value ;;
+            mutation_started) exec_mutation=$value ;;
+            recovery) exec_recovery=$value ;;
+            *) fail "$EX_DATAERR" "execution state contains unknown field: $key" ;;
+        esac
+        exec_count=$((exec_count + 1))
+    done < "$execution_file"
+    [ "$exec_count" -eq 6 ] && [ "$exec_schema" = 1 ] && [ "$exec_id" = "$transaction_id" ] \
+        || fail "$EX_DATAERR" 'execution state identity is invalid'
+    matches "$exec_status" '^(executing|interrupted|completed)$' || fail "$EX_DATAERR" 'execution status is invalid'
+    matches "$exec_phase" '^[a-z][a-z-]{0,63}$' || fail "$EX_DATAERR" 'execution phase is invalid'
+    matches "$exec_mutation" '^(yes|no)$' || fail "$EX_DATAERR" 'execution mutation state is invalid'
+    matches "$exec_recovery" '^(none|cleanup-and-restart-required|finalize-required)$' \
+        || fail "$EX_DATAERR" 'execution recovery state is invalid'
+}
+
+phase_done() {
+    completed_phase=$1
+    append_journal "$completed_phase"
+    last_phase=$completed_phase
+    write_execution executing "$last_phase" "$mutation_started" cleanup-and-restart-required
+    if [ "$TEST_MODE" = 1 ] && [ "$INJECT_AFTER" = "$completed_phase" ]; then
+        fail "$EX_UNAVAILABLE" "injected failure after $completed_phase"
+    fi
+}
+
+efi_mounted=0
+pool_created=0
+mutation_started=no
+execution_complete=0
+last_phase=preflight
+mount_root=
+transaction_dir=
+journal_file=
+execution_file=
+
+cleanup() {
+    status=$?
+    trap - EXIT HUP INT TERM
+    set +e
+    if [ "$efi_mounted" -eq 1 ] && [ -n "$mount_root" ]; then
+        "$UMOUNT" "$mount_root/boot/efi" >/dev/null 2>&1
+        efi_mounted=0
+    fi
+    if [ "$pool_created" -eq 1 ] && [ -n "${txn_pool:-}" ]; then
+        "$ZPOOL" export "$txn_pool" >/dev/null 2>&1
+        pool_created=0
+    fi
+    if [ "$execution_complete" -ne 1 ] && [ "$mutation_started" = yes ] \
+        && [ -n "$transaction_dir" ] && [ -f "$journal_file" ]; then
+        append_journal execution-interrupted >/dev/null 2>&1
+        write_execution interrupted "$last_phase" yes cleanup-and-restart-required >/dev/null 2>&1
+    fi
+    if [ -n "$mount_root" ]; then
+        case "$mount_root" in
+            "$(root_path "$RUN_REL")"/*) "$RM" -rf "$mount_root" >/dev/null 2>&1 ;;
+        esac
+    fi
+    exit "$status"
+}
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+[ "$#" -ge 1 ] || { usage >&2; exit "$EX_USAGE"; }
+case "$1" in
+    --capabilities)
+        [ "$#" -eq 1 ] || fail "$EX_USAGE" '--capabilities takes no arguments'
+        printf '%s\n' 'protocol=1' 'operations=preflight,execute,status,finalize' \
+            'authorization=installer-media-marker-plus-exact-confirmation' \
+            'layout=gpt-uefi-zfs' 'payload=northstar-rootfs-v1' \
+            'journal=phase-sequenced' 'failure=cleanup-and-restart-required'
+        execution_complete=1
+        exit 0 ;;
+    --preflight|--status|--finalize)
+        [ "$#" -eq 2 ] || fail "$EX_USAGE" "$1 requires TRANSACTION_ID" ;;
+    --execute)
+        [ "$#" -eq 4 ] && [ "$3" = --confirm-device ] \
+            || fail "$EX_USAGE" '--execute requires TRANSACTION_ID --confirm-device DEVICE' ;;
+    --help|-h) usage; execution_complete=1; exit 0 ;;
+    *) usage >&2; exit "$EX_USAGE" ;;
+esac
+
+mode=$1
+transaction_id=$2
+require_runtime "$mode"
+validate_transaction_id "$transaction_id"
+for tool in "$STAT" "$SHA256" "$INSTALL" "$CHOWN" "$CHMOD" "$CP" "$MV" "$RM"; do
+    [ -x "$tool" ] || fail "$EX_UNAVAILABLE" "required state tool is unavailable: $tool"
+done
+state_dir=$(root_path "$STATE_REL")
+active_file=$state_dir/active.conf
+require_directory "$state_dir" 'installer state root'
+require_directory "$state_dir/transactions" 'installer transaction collection'
+require_directory "$state_dir/archive" 'installer transaction archive'
+
+if [ "$mode" = --status ]; then
+    if [ -d "$state_dir/transactions/$transaction_id" ]; then
+        transaction_dir=$state_dir/transactions/$transaction_id
+        location=active
+    elif [ -d "$state_dir/archive/$transaction_id" ]; then
+        transaction_dir=$state_dir/archive/$transaction_id
+        location=archive
+    else
+        fail "$EX_DATAERR" 'installer transaction was not found'
+    fi
+    require_directory "$transaction_dir" 'installer transaction directory'
+    execution_file=$transaction_dir/execution.conf
+    load_execution
+    printf '%s\n' "INSTALLER_EXECUTION_STATUS=$exec_status" "TRANSACTION_ID=$transaction_id" \
+        "LAST_PHASE=$exec_phase" "MUTATION_STARTED=$exec_mutation" \
+        "RECOVERY_ACTION=$exec_recovery" "LOCATION=$location"
+    execution_complete=1
+    exit 0
+fi
+
+load_marker
+if [ "$mode" = --finalize ]; then
+    if [ -d "$state_dir/archive/$transaction_id" ]; then
+        transaction_dir=$state_dir/archive/$transaction_id
+        execution_file=$transaction_dir/execution.conf
+        load_execution
+        [ "$exec_status" = completed ] || fail "$EX_DATAERR" 'archived transaction is not completed'
+        journal_file=$transaction_dir/journal.log
+        require_file "$journal_file" 'transaction journal'
+        validate_completed_journal
+        printf '%s\n' 'INSTALLER_FINALIZE=ALREADY' "TRANSACTION_ID=$transaction_id" \
+            "ARCHIVE=$transaction_dir" 'DISK_MUTATION=none'
+        execution_complete=1
+        exit 0
+    fi
+    if [ -e "$state_dir/active.conf" ]; then
+        load_active
+        [ "$active_id" = "$transaction_id" ] \
+            || fail "$EX_NOPERM" 'a different installer transaction is active'
+    fi
+    load_transaction "$transaction_id"
+    [ "$marker_manifest" = "$txn_manifest_sha" ] \
+        || fail "$EX_NOPERM" 'installer-media marker is not bound to this source manifest'
+    load_execution
+    [ "$exec_status" = completed ] && [ "$exec_recovery" = finalize-required ] \
+        || fail "$EX_NOPERM" 'transaction is not awaiting final publication'
+    validate_completed_journal
+    archive_dir=$state_dir/archive/$transaction_id
+    [ ! -e "$archive_dir" ] || fail "$EX_NOPERM" 'transaction archive already exists'
+    "$RM" -f "$active_file"
+    "$MV" "$transaction_dir" "$archive_dir"
+    printf '%s\n' 'INSTALLER_FINALIZE=PASS' "TRANSACTION_ID=$transaction_id" \
+        "ARCHIVE=$archive_dir" 'DISK_MUTATION=none'
+    execution_complete=1
+    exit 0
+fi
+
+load_active
+[ "$active_id" = "$transaction_id" ] || fail "$EX_NOPERM" 'requested transaction is not the active transaction'
+load_transaction "$transaction_id"
+[ "$marker_manifest" = "$txn_manifest_sha" ] \
+    || fail "$EX_NOPERM" 'installer-media marker is not bound to this source manifest'
+
+for tool in "$SOURCE_VERIFY" "$GEOM" "$MOUNT" "$ZPOOL" "$SWAPINFO" "$TAR"; do
+    [ -x "$tool" ] || fail "$EX_UNAVAILABLE" "required preflight tool is unavailable: $tool"
+done
+[ ! -e "$execution_file" ] || fail "$EX_NOPERM" 'transaction execution has already started'
+validate_preexecution_journal
+require_readonly_source_mount
+verify_source
+revalidate_target
+preflight_payload
+
+if [ "$mode" = --preflight ]; then
+    printf '%s\n' 'INSTALLER_EXECUTION_PREFLIGHT=PASS' "TRANSACTION_ID=$transaction_id" \
+        "TARGET=$txn_target" 'SOURCE_VERIFICATION=PASS' 'DISK_MUTATION=none'
+    execution_complete=1
+    exit 0
+fi
+
+[ "$4" = "$txn_target" ] || fail "$EX_NOPERM" 'typed execution target does not match the staged whole disk'
+for tool in "$GPART" "$NEWFS_MSDOS" "$ZFS" "$MOUNT_MSDOSFS" "$UMOUNT"; do
+    [ -x "$tool" ] || fail "$EX_UNAVAILABLE" "required execution tool is unavailable: $tool"
+done
+run_root=$(root_path "$RUN_REL")
+if [ ! -e "$run_root" ]; then
+    "$INSTALL" -d -o root -g wheel -m 0700 "$run_root"
+fi
+require_directory "$run_root" 'installer execution runtime root'
+mount_root=$run_root/$transaction_id
+[ ! -e "$mount_root" ] || fail "$EX_NOPERM" 'transaction mount root already exists'
+"$INSTALL" -d -o root -g wheel -m 0700 "$mount_root"
+
+write_execution executing execution-authorized no cleanup-and-restart-required
+phase_done execution-authorized
+verify_source
+phase_done source-reverified
+revalidate_target
+phase_done target-revalidated-final
+preflight_payload
+phase_done payload-preflight-passed
+
+mutation_started=yes
+write_execution executing mutation-started yes cleanup-and-restart-required
+phase_done mutation-started
+if "$GPART" show "$txn_target" >/dev/null 2>&1; then
+    "$GPART" destroy -F "$txn_target"
+fi
+"$GPART" create -s gpt "$txn_target"
+"$GPART" add -a 1m -s 260m -t efi -l NSTAR_EFI "$txn_target"
+"$GPART" add -a 1m -t freebsd-zfs -l NSTAR_ZFS "$txn_target"
+phase_done partition-table-created
+
+"$NEWFS_MSDOS" -F 32 -c 1 -L NSTAR_EFI "/dev/${txn_target}p1" >/dev/null
+phase_done efi-formatted
+
+"$ZPOOL" create -f -o altroot="$mount_root" -o cachefile=none -o ashift=12 \
+    -O mountpoint=none -O compression=lz4 -O atime=off -O canmount=off \
+    "$txn_pool" "/dev/${txn_target}p2"
+pool_created=1
+phase_done zpool-created
+
+"$ZFS" create -o mountpoint=none "$txn_pool/ROOT"
+"$ZFS" create -o mountpoint=/ -o canmount=noauto "$txn_pool/ROOT/default"
+"$ZFS" mount "$txn_pool/ROOT/default"
+"$ZFS" create -o mountpoint=/home "$txn_pool/home"
+"$ZFS" create -o mountpoint=/tmp -o setuid=off "$txn_pool/tmp"
+"$ZPOOL" set bootfs="$txn_pool/ROOT/default" "$txn_pool"
+phase_done datasets-created
+
+"$TAR" -xpf "$payload" -C "$mount_root"
+phase_done payload-extracted
+
+runtime_manifest=$mount_root/var/db/northstar/runtime-manifest.conf
+[ -f "$runtime_manifest" ] && [ ! -L "$runtime_manifest" ] \
+    || fail "$EX_DATAERR" 'installed payload omits its runtime manifest'
+actual_runtime_manifest=$($SHA256 -q "$runtime_manifest" | tr '[:upper:]' '[:lower:]')
+[ "$actual_runtime_manifest" = "$txn_runtime_manifest_sha" ] \
+    || fail "$EX_DATAERR" 'installed runtime manifest digest does not match trusted media'
+for required_path in boot/loader.efi boot/loader.conf etc/fstab etc/rc.conf \
+    usr/local/bin/northstar-session usr/local/bin/northstar-shell \
+    usr/local/share/xsessions/northstar.desktop; do
+    [ -e "$mount_root/$required_path" ] && [ ! -L "$mount_root/$required_path" ] \
+        || fail "$EX_DATAERR" "installed payload omits required path: $required_path"
+done
+grep -Eq '^zfs_load="?YES"?$' "$mount_root/boot/loader.conf" \
+    || fail "$EX_DATAERR" 'installed payload does not enable ZFS in the loader'
+grep -Eq '^/dev/msdosfs/NSTAR_EFI[[:space:]]+/boot/efi[[:space:]]+msdosfs[[:space:]]' \
+    "$mount_root/etc/fstab" || fail "$EX_DATAERR" 'installed payload does not mount the labeled EFI system partition'
+grep -Eq '^zfs_enable="?YES"?$' "$mount_root/etc/rc.conf" \
+    || fail "$EX_DATAERR" 'installed payload does not enable ZFS services'
+[ -x "$mount_root/usr/local/bin/northstar-session" ] \
+    && [ -x "$mount_root/usr/local/bin/northstar-shell" ] \
+    || fail "$EX_DATAERR" 'installed Northstar session executables are not executable'
+phase_done payload-verified
+
+"$INSTALL" -d -o root -g wheel -m 0755 "$mount_root/boot/efi/EFI/BOOT" "$mount_root/boot/zfs"
+"$MOUNT_MSDOSFS" "/dev/${txn_target}p1" "$mount_root/boot/efi"
+efi_mounted=1
+"$INSTALL" -d -o root -g wheel -m 0755 "$mount_root/boot/efi/EFI/BOOT"
+"$CP" "$mount_root/boot/loader.efi" "$mount_root/boot/efi/EFI/BOOT/BOOTX64.EFI"
+"$ZPOOL" set cachefile="$mount_root/boot/zfs/zpool.cache" "$txn_pool"
+phase_done bootloader-installed
+
+"$UMOUNT" "$mount_root/boot/efi"
+efi_mounted=0
+"$ZPOOL" export "$txn_pool"
+pool_created=0
+phase_done installation-verified
+
+append_journal transaction-completed
+last_phase=transaction-completed
+write_execution completed transaction-completed yes finalize-required
+archive_dir=$state_dir/archive/$transaction_id
+[ ! -e "$archive_dir" ] || fail "$EX_NOPERM" 'transaction archive already exists'
+"$RM" -f "$active_file"
+"$MV" "$transaction_dir" "$archive_dir"
+transaction_dir=$archive_dir
+execution_file=$archive_dir/execution.conf
+execution_complete=1
+"$RM" -rf "$mount_root"
+mount_root=
+printf '%s\n' 'INSTALLER_EXECUTION=PASS' "TRANSACTION_ID=$transaction_id" \
+    "TARGET=$txn_target" "ARCHIVE=$archive_dir" 'INSTALLATION_STATUS=completed'

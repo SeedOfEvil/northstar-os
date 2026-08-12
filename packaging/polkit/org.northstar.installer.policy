@@ -16,4 +16,15 @@
     <annotate key="org.freedesktop.policykit.exec.path">/usr/local/libexec/northstar-installer-engine</annotate>
     <annotate key="org.freedesktop.policykit.exec.allow_gui">true</annotate>
   </action>
+  <action id="org.northstar.installer.execute">
+    <description>Execute a verified Northstar installation transaction</description>
+    <message>Administrator authentication is required to erase the confirmed disk and install Northstar</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/local/libexec/northstar-installer-executor</annotate>
+    <annotate key="org.freedesktop.policykit.exec.allow_gui">true</annotate>
+  </action>
 </policyconfig>

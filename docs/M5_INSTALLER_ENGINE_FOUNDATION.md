@@ -20,9 +20,11 @@ active targets are rejected. The protected path authenticates through the
 fixed PolicyKit executable and stages one root-owned transaction. Existing
 transaction state blocks replacement.
 
-The staged state says `execution=disabled`. There are no calls to `gpart`,
-`newfs`, `zpool create`, `dd`, extraction, or package installation in this
-slice.
+The original staged state said `execution=disabled`. PR83 changes that field to
+`execution=guarded-executor-only`; the engine itself still has no calls to
+`gpart`, `newfs`, `zpool create`, `dd`, extraction, or package installation.
+Execution is a separate PolicyKit boundary documented in
+[`M5_INSTALLER_EXECUTION_FOUNDATION.md`](M5_INSTALLER_EXECUTION_FOUNDATION.md).
 
 ## Routine validation
 
@@ -52,6 +54,10 @@ Follow-on evidence: trusted installer-source verification, root-owned progress
 journaling, and explicit interruption recovery are implemented in
 [`M5_INSTALLER_SOURCE_AND_JOURNAL.md`](M5_INSTALLER_SOURCE_AND_JOURNAL.md).
 
-Deferred evidence: final pre-mutation disk identity, destructive execution on
-a disposable target, GPT/UEFI/ZFS creation, destructive-phase recovery,
+Follow-on evidence: the fixed executor, final source/target/archive checks,
+ordered destructive phases, completion archive, and interrupted cleanup state
+are implemented in
+[`M5_INSTALLER_EXECUTION_FOUNDATION.md`](M5_INSTALLER_EXECUTION_FOUNDATION.md).
+
+Deferred evidence: actual execution on a disposable target, destructive retry,
 installed boot, and preservation of every non-target disk.

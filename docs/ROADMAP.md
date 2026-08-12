@@ -343,8 +343,13 @@ manifest and payload, rejects tampering before staging, and gives interrupted
 transactions explicit status, recovery, and archival abandonment without disk
 mutation, as documented in
 [`docs/M5_INSTALLER_SOURCE_AND_JOURNAL.md`](M5_INSTALLER_SOURCE_AND_JOURNAL.md).
-Privileged disk execution, installation
-safety/recovery, diagnostics, boot-environment management, and media outputs
+The guarded execution foundation now consumes only that protected state behind
+a separate PolicyKit action and installer-media marker, repeats every trust and
+device check, journals ordered GPT/EFI/ZFS/rootfs/bootloader phases, and marks
+post-mutation failures for cleanup and restart, as documented in
+[`docs/M5_INSTALLER_EXECUTION_FOUNDATION.md`](M5_INSTALLER_EXECUTION_FOUNDATION.md).
+Actual disposable-disk acceptance, retry UX, diagnostics, boot-environment
+management, and media outputs
 use routine DEV01, native FreeBSD, and file-backed validation on their focused
 PRs. Their image-level claims remain explicitly deferred to one integrated
 **M5 Installer Release Candidate** checkpoint. The policy and exceptional

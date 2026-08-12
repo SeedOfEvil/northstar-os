@@ -9,12 +9,13 @@ there is no partitioning, extraction, filesystem creation, or bootloader work.
 Production source media is mounted read-only by the future release environment
 at `/var/run/northstar-installer/source`. It contains exactly:
 
-- `source-manifest.conf`, a bounded nine-field manifest;
+- `source-manifest.conf`, a bounded schema-2 ten-field manifest;
 - `source-manifest.conf.sig`, its detached RSA/SHA-256 signature; and
 - one path-safe `.txz` payload named by the manifest.
 
-The manifest binds FreeBSD `15.1-RELEASE`, `amd64`, a project commit, payload
-name/size/SHA-256, and runtime-manifest SHA-256. The fixed verifier trusts only
+The manifest binds FreeBSD `15.1-RELEASE`, `amd64`, a project commit,
+`payload_kind=northstar-rootfs-v1`, payload name/size/SHA-256, and
+runtime-manifest SHA-256. The fixed verifier trusts only
 `/usr/local/share/northstar/installer/source-signing.pem`. The public key is
 provisioned by the protected release process; the private key never enters the
 repository, runtime image, installer media, or pull-request runner.
@@ -41,7 +42,9 @@ Successful staging creates:
 Files are root-owned mode 0600 and directories are mode 0700. The initial
 journal sequence records request validation, source verification, target
 revalidation, and transaction staging. The transaction explicitly records
-`execution=disabled` and `recovery=resume-or-abandon-required`.
+`execution=guarded-executor-only` and
+`recovery=resume-or-abandon-required`. Its guarded consumer is documented in
+[`M5_INSTALLER_EXECUTION_FOUNDATION.md`](M5_INSTALLER_EXECUTION_FOUNDATION.md).
 
 Authenticated `--status` reports idle, staged, interrupted, or legacy-blocked
 state. If publication was interrupted before `active.conf` became durable,
@@ -76,11 +79,14 @@ verification, tamper rejection, fixed production paths, source-before-target
 staging, root-owned journal state, interrupted-state detection, explicit
 recovery and archival abandonment, and static no-disk-mutation enforcement.
 
-Deferred evidence: protected public-key provisioning on release media,
-read-only media mounting, final pre-mutation source and target revalidation,
-GPT/UEFI/ZFS execution on a disposable destination, payload extraction,
-bootloader installation, interruption during destructive phases, installed
-boot, and preservation of every non-target disk.
+Follow-on evidence: final pre-mutation source/target/archive revalidation,
+ordered GPT/UEFI/ZFS/rootfs/bootloader commands, and destructive-phase cleanup
+state are implemented by the guarded executor contracts.
+
+Deferred evidence: protected public-key and marker provisioning on release
+media, read-only media mounting, actual GPT/UEFI/ZFS execution on a disposable
+destination, installed boot, destructive retry, and preservation of every
+non-target disk.
 
 The routine native evidence is recorded in
 [`validation/M5_INSTALLER_SOURCE_JOURNAL_2026-08-12.md`](validation/M5_INSTALLER_SOURCE_JOURNAL_2026-08-12.md).

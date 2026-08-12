@@ -65,7 +65,7 @@ case "$1" in
     --capabilities)
         [ "$#" -eq 1 ] || fail "$EX_USAGE" '--capabilities takes no arguments'
         printf '%s\n' 'protocol=1' 'signature=rsa-sha256-detached' \
-            'manifest=bounded-key-value' 'payload=sha256-and-size' \
+            'manifest=bounded-key-value-v2' 'payload=northstar-rootfs-v1' \
             'private_key=external' 'mutation=none'
         exit 0 ;;
     --verify) [ "$#" -eq 2 ] || fail "$EX_USAGE" '--verify requires a manifest digest' ;;
@@ -111,7 +111,7 @@ matches "$actual" '^[0-9a-f]{64}$' || fail "$EX_DATAERR" 'source manifest digest
     || fail "$EX_NOPERM" 'installer source signature verification failed'
 
 schema_version= product= freebsd_release= architecture= project_commit=
-payload_name= payload_size= payload_sha256= runtime_manifest_sha256=
+payload_kind= payload_name= payload_size= payload_sha256= runtime_manifest_sha256=
 seen='|'
 count=0
 while IFS='=' read -r key value || [ -n "${key:-}" ]; do
@@ -124,6 +124,7 @@ while IFS='=' read -r key value || [ -n "${key:-}" ]; do
         freebsd_release) freebsd_release=$value ;;
         architecture) architecture=$value ;;
         project_commit) project_commit=$value ;;
+        payload_kind) payload_kind=$value ;;
         payload_name) payload_name=$value ;;
         payload_size) payload_size=$value ;;
         payload_sha256) payload_sha256=$value ;;
@@ -133,12 +134,13 @@ while IFS='=' read -r key value || [ -n "${key:-}" ]; do
     count=$((count + 1))
 done < "$MANIFEST"
 
-[ "$count" -eq 9 ] || fail "$EX_DATAERR" 'source manifest has an unexpected field count'
-[ "$schema_version" = 1 ] || fail "$EX_DATAERR" 'unsupported source manifest schema'
+[ "$count" -eq 10 ] || fail "$EX_DATAERR" 'source manifest has an unexpected field count'
+[ "$schema_version" = 2 ] || fail "$EX_DATAERR" 'unsupported source manifest schema'
 [ "$product" = Northstar ] || fail "$EX_DATAERR" 'source manifest product is not Northstar'
 [ "$freebsd_release" = 15.1-RELEASE ] || fail "$EX_DATAERR" 'source manifest FreeBSD release is unsupported'
 [ "$architecture" = amd64 ] || fail "$EX_DATAERR" 'source manifest architecture is unsupported'
 matches "$project_commit" '^[0-9A-Fa-f]{40}$' || fail "$EX_DATAERR" 'source project commit is invalid'
+[ "$payload_kind" = northstar-rootfs-v1 ] || fail "$EX_DATAERR" 'installer payload kind is unsupported'
 matches "$payload_name" '^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$' || fail "$EX_DATAERR" 'payload name is unsafe'
 case "$payload_name" in *.txz) ;; *) fail "$EX_DATAERR" 'payload must be a txz archive' ;; esac
 matches "$payload_size" '^[0-9]{1,12}$' || fail "$EX_DATAERR" 'payload size is invalid'
@@ -161,6 +163,7 @@ matches "$actual_payload" '^[0-9a-f]{64}$' || fail "$EX_DATAERR" 'payload digest
     || fail "$EX_DATAERR" 'installer payload digest does not match its manifest'
 
 printf '%s\n' 'SOURCE_VERIFICATION=PASS' "MANIFEST_SHA256=$actual" \
-    "PAYLOAD_NAME=$payload_name" "PAYLOAD_SIZE=$payload_size" \
+    "PAYLOAD_KIND=$payload_kind" "PAYLOAD_NAME=$payload_name" "PAYLOAD_SIZE=$payload_size" \
     "PAYLOAD_SHA256=$actual_payload" "PROJECT_COMMIT=$(printf '%s' "$project_commit" | tr '[:upper:]' '[:lower:]')" \
+    "RUNTIME_MANIFEST_SHA256=$(printf '%s' "$runtime_manifest_sha256" | tr '[:upper:]' '[:lower:]')" \
     'SOURCE_MUTATION=none'

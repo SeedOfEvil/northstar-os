@@ -18,7 +18,7 @@ key at `/usr/local/share/northstar/installer/source-signing.pem`, and uses the
 base-system OpenSSL and SHA-256 tools. Environment path overrides are accepted
 only in explicit test mode.
 
-The source contains a bounded nine-field manifest, a detached RSA/SHA-256
+The source contains a bounded schema-2 ten-field manifest, a detached RSA/SHA-256
 signature, and one path-safe `.txz` payload. The verifier requires root-owned,
 non-group/world-writable source material; verifies the reviewed manifest
 digest, detached signature, payload size, and payload digest; and reports
@@ -26,7 +26,9 @@ bounded provenance. Signing private keys remain outside the repository,
 installer media, pull-request environment, and runtime image.
 
 The protected installer engine stages state only after source verification and
-a fresh target revalidation both pass. Each transaction receives a unique,
+a fresh target revalidation both pass. Schema 2 additionally binds the
+`northstar-rootfs-v1` payload kind and installed runtime-manifest digest. Each
+transaction receives a unique,
 bounded identifier and a mode-0600 request, transaction record, and sequenced
 journal below `/var/db/northstar/installer/transactions`. A mode-0600 active
 pointer identifies the only live transaction. Missing active state with one
@@ -46,8 +48,9 @@ a disk or extracts the payload.
   auditable after the active pointer is removed.
 - Release media cannot stage until the protected release process provisions
   the corresponding public key; no placeholder production key is shipped.
-- Destructive installation still requires a separately reviewed executor that
-  revalidates source and target immediately before its first mutation.
+- Destructive installation requires the separately reviewed executor in
+  [`ADR 0014`](0014-guarded-installer-execution.md), which revalidates source
+  and target immediately before its first mutation.
 
 ## Alternatives considered
 
