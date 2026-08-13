@@ -121,10 +121,13 @@ validate_request() {
         en_US.UTF-8|en_CA.UTF-8|en_GB.UTF-8|es_ES.UTF-8|fr_FR.UTF-8|de_DE.UTF-8) ;;
         *) fail "$EX_DATAERR" 'locale is not supported' ;;
     esac
-    case "$timezone" in
-        UTC|America/Denver|America/Los_Angeles|America/Chicago|America/New_York|America/Toronto|Europe/London|Europe/Paris|Europe/Berlin) ;;
-        *) fail "$EX_DATAERR" 'timezone is not supported' ;;
-    esac
+    [ "${#timezone}" -le 255 ] \
+        || fail "$EX_DATAERR" 'timezone identifier is too long'
+    matches "$timezone" '^[A-Za-z0-9][A-Za-z0-9._+-]*(/[A-Za-z0-9][A-Za-z0-9._+-]*)*$' \
+        || fail "$EX_DATAERR" 'timezone identifier is unsafe'
+    zone_source=$(root_path "usr/share/zoneinfo/$timezone")
+    [ -f "$zone_source" ] \
+        || fail "$EX_DATAERR" 'timezone is not present in the installed zoneinfo database'
     case "$keyboard" in us|uk|es|fr|de) ;; *) fail "$EX_DATAERR" 'keyboard layout is not supported' ;; esac
     [ "$admin_confirmation" = yes ] \
         || fail "$EX_DATAERR" 'administrator creation was not confirmed'
@@ -172,9 +175,6 @@ fi
 if "$PW_PATH" -R "$ROOT" usershow "$username" >/dev/null 2>&1; then
     fail "$EX_DATAERR" 'requested username already exists'
 fi
-zone_source=$(root_path "usr/share/zoneinfo/$timezone")
-[ -f "$zone_source" ] || fail "$EX_UNAVAILABLE" 'selected timezone data is unavailable'
-
 IFS= read -r password || fail "$EX_DATAERR" 'password was not supplied on standard input'
 [ "${#password}" -ge 8 ] && [ "${#password}" -le 128 ] \
     || fail "$EX_DATAERR" 'password must contain between 8 and 128 characters'

@@ -166,6 +166,13 @@ The final source correction removes those live-only repairs:
 - release builds compile Wayfire with the same system prefix while staging
   through `DESTDIR`, so compiled plugin paths match package paths.
 
+First-boot validation also exposed that the original timezone selector carried
+only nine mostly North American and European choices. It now enumerates the
+complete timezone inventory provided by Qt and the installed FreeBSD zoneinfo
+database, chooses the host timezone when available, and independently rejects
+traversal, malformed, missing, or non-zoneinfo selections at the privileged
+boundary.
+
 Promotion still requires one clean immutable rebuild and a focused repeat of
 install, first boot, administrator login, input, desktop launch, sudo, and
 shutdown without any shell-side hotfix or `/home/northstar` alias.

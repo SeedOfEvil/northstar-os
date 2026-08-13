@@ -44,6 +44,10 @@ void TestFirstBootController::rejectsUnsafeProfiles()
                                         QStringLiteral("correct-horse"), QStringLiteral("correct-horse"),
                                         QStringLiteral("../../etc"), QStringLiteral("../../zone"),
                                         QStringLiteral("custom;cmd")).isEmpty());
+    QVERIFY(!controller.validateProfile(QStringLiteral("Hector"), QStringLiteral("hector"),
+                                        QStringLiteral("correct-horse"), QStringLiteral("correct-horse"),
+                                        QStringLiteral("en_US.UTF-8"), QStringLiteral("Pacific/Not_A_Zone"),
+                                        QStringLiteral("us")).isEmpty());
 }
 
 void TestFirstBootController::exposesBoundedRegionalChoices()
@@ -51,9 +55,14 @@ void TestFirstBootController::exposesBoundedRegionalChoices()
     FirstBootController controller;
     QVERIFY(controller.locales().contains(QStringLiteral("en_US.UTF-8")));
     QVERIFY(controller.timezones().contains(QStringLiteral("America/Denver")));
+    QVERIFY(controller.timezones().contains(QStringLiteral("Europe/London")));
+    QVERIFY(controller.timezones().contains(QStringLiteral("Asia/Tokyo")));
+    QVERIFY(controller.timezones().contains(QStringLiteral("Pacific/Auckland")));
+    QVERIFY(controller.timezones().contains(controller.defaultTimezone()));
     QVERIFY(controller.keyboardLayouts().contains(QStringLiteral("us")));
     QVERIFY(controller.locales().size() <= 12);
-    QVERIFY(controller.timezones().size() <= 20);
+    QVERIFY(controller.timezones().size() > 100);
+    QVERIFY(controller.timezones().size() <= 1000);
     QVERIFY(controller.keyboardLayouts().size() <= 12);
 }
 

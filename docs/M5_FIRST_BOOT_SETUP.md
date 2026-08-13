@@ -11,7 +11,9 @@ not trigger a new QCOW2 cycle.
 2. SDDM automatically starts `northstar-first-boot.desktop` only for that
    pending installation.
 3. The branded wizard collects the first administrator, password, locale,
-   timezone, and keyboard layout.
+   timezone, and keyboard layout. Timezones come from Qt's view of the
+   installed FreeBSD timezone database rather than a North America-only list;
+   the current system timezone is selected by default when available.
 4. The GUI writes only bounded non-secret profile fields to a mode-0600
    temporary request. It writes the password once to the protected helper's
    standard input and then clears both password fields and its byte buffer.
@@ -20,6 +22,11 @@ not trigger a new QCOW2 cycle.
    configuration and password-authenticated sudo policy; applies regional
    settings; disables the temporary setup identity and autologin; and seals
    completion.
+
+The protected helper does not trust the GUI's timezone list. It independently
+rejects absolute paths, traversal, malformed identifiers, and identifiers that
+do not resolve to a regular entry beneath the installed
+`/usr/share/zoneinfo` database.
 6. After restart, SDDM presents the normal branded login for the new account.
 
 Development images assembled with `--development-autologin` intentionally

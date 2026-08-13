@@ -171,7 +171,12 @@ ApplicationWindow {
                         Label { color: lunar.foreground; text: "Language and locale" }
                         ComboBox { id: localeBox; Layout.fillWidth: true; model: firstBootController.locales }
                         Label { color: lunar.foreground; text: "Timezone" }
-                        ComboBox { id: timezoneBox; Layout.fillWidth: true; model: firstBootController.timezones; currentIndex: 1 }
+                        ComboBox {
+                            id: timezoneBox
+                            Layout.fillWidth: true
+                            model: firstBootController.timezones
+                            currentIndex: Math.max(0, model.indexOf(firstBootController.defaultTimezone))
+                        }
                         Label { color: lunar.foreground; text: "Keyboard layout" }
                         ComboBox { id: keyboardBox; Layout.fillWidth: true; model: firstBootController.keyboardLayouts }
                         Rectangle {

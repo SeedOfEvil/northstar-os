@@ -16,10 +16,12 @@ fi
 
 FAKE_ROOT=$TMP_DIR/root
 BIN=$TMP_DIR/bin
-mkdir -p "$FAKE_ROOT/usr/share/zoneinfo/America" "$FAKE_ROOT/etc" \
+mkdir -p "$FAKE_ROOT/usr/share/zoneinfo/America" \
+    "$FAKE_ROOT/usr/share/zoneinfo/Pacific" "$FAKE_ROOT/etc" \
     "$FAKE_ROOT/var/db" "$FAKE_ROOT/home" \
     "$FAKE_ROOT/usr/local/share/northstar/session" "$BIN"
 printf 'zone\n' > "$FAKE_ROOT/usr/share/zoneinfo/America/Denver"
+printf 'zone\n' > "$FAKE_ROOT/usr/share/zoneinfo/Pacific/Auckland"
 printf '[output:WL-1]\nmode = 1280x800\n' \
     > "$FAKE_ROOT/usr/local/share/northstar/session/wayfire-nested.ini"
 
@@ -118,6 +120,24 @@ if run_helper --validate "$TMP_DIR/bad-name.conf" >/dev/null 2>&1; then
     fail 'passwd-delimiter character in display name was accepted'
 fi
 
+cp "$REQUEST" "$TMP_DIR/world-timezone.conf"
+sed -i.bak 's|timezone=America/Denver|timezone=Pacific/Auckland|' "$TMP_DIR/world-timezone.conf"
+run_helper --validate "$TMP_DIR/world-timezone.conf" \
+    | grep -Fx 'FIRST_BOOT_REQUEST=VALID' >/dev/null \
+    || fail 'an installed worldwide timezone was rejected'
+
+cp "$REQUEST" "$TMP_DIR/bad-timezone.conf"
+sed -i.bak 's|timezone=America/Denver|timezone=../../etc/passwd|' "$TMP_DIR/bad-timezone.conf"
+if run_helper --validate "$TMP_DIR/bad-timezone.conf" >/dev/null 2>&1; then
+    fail 'unsafe timezone traversal was accepted'
+fi
+
+cp "$REQUEST" "$TMP_DIR/missing-timezone.conf"
+sed -i.bak 's|timezone=America/Denver|timezone=Pacific/Missing|' "$TMP_DIR/missing-timezone.conf"
+if run_helper --validate "$TMP_DIR/missing-timezone.conf" >/dev/null 2>&1; then
+    fail 'timezone absent from the installed database was accepted'
+fi
+
 cp "$REQUEST" "$TMP_DIR/retry.conf"
 sed -i.bak 's/username=hector/username=retryuser/' "$TMP_DIR/retry.conf"
 if printf '%s\n' 'retry-password' | NORTHSTAR_TEST_FAIL_SYSRC=1 \
@@ -128,6 +148,8 @@ grep -F 'userdel retryuser -r' "$TMP_DIR/events" >/dev/null \
     || fail 'failed provisioning did not remove its partially created account'
 [ ! -e "$FAKE_ROOT/var/db/northstar/first-boot.conf" ] \
     || fail 'failed provisioning published a completion marker'
+[ ! -e "$FAKE_ROOT/usr/local/etc/sudoers.d/northstar-first-administrator" ] \
+    || fail 'failed provisioning retained its administrator authorization'
 
 printf '%s\n' 'correct-horse-battery' | run_helper --apply "$REQUEST" > "$TMP_DIR/output"
 grep -Fx 'FIRST_BOOT_PROVISIONING=PASS' "$TMP_DIR/output" >/dev/null \
