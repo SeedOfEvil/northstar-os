@@ -36,6 +36,7 @@ for disk in $disks; do
         size=$(printf '%s\n' "$info" | awk '/# mediasize in bytes/ { print $1; exit }')
     fi
     case "$size" in *[!0-9]*|'') continue ;; esac
+    [ "$size" -gt 0 ] || continue
 
     description="FreeBSD disk $disk"
     discovered=$(printf '%s\n' "$geom_info" \

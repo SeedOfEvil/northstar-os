@@ -11,11 +11,12 @@ fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
 
 cat > "$BIN/sysctl" <<'EOF'
 #!/bin/sh
-printf '%s\n' 'da0 da1 da2'
+printf '%s\n' 'cd0 da0 da1 da2'
 EOF
 cat > "$BIN/diskinfo" <<'EOF'
 #!/bin/sh
 case "$2" in
+    /dev/cd0) size=0 ;;
     /dev/da0) size=34359738368 ;;
     /dev/da1) size=68719476736 ;;
     /dev/da2) size=8589934592 ;;
@@ -38,6 +39,7 @@ EOF
 cat > "$BIN/geom" <<'EOF'
 #!/bin/sh
 case "$3" in
+    cd0) size=0 ;;
     da0) size=34359738368 ;;
     da1) size=68719476736 ;;
     da2) size=8589934592 ;;
@@ -62,6 +64,9 @@ awk -F '\t' '$1 == "da1" && $5 == "no" && $6 == "yes" { found=1 } END { exit !fo
     || fail 'eligible unused disk was not exposed'
 awk -F '\t' '$1 == "da2" && $6 == "no" && $7 ~ /16 GiB/ { found=1 } END { exit !found }' "$TMP_DIR/output" \
     || fail 'undersized disk was not excluded'
+if awk -F '\t' '$1 == "cd0" { found=1 } END { exit !found }' "$TMP_DIR/output"; then
+    fail 'zero-capacity optical device was exposed as an installer disk'
+fi
 
 if grep -Eq '(^|[[:space:]])(gpart|newfs|dd)([[:space:]]|$)|zpool[[:space:]]+(create|destroy)' "$HELPER"; then
     fail 'read-only discovery helper contains a disk mutation command'
