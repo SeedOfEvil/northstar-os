@@ -744,6 +744,13 @@ if [ "$operation" = --preflight ]; then
     exit 0
 fi
 
+# Reserve standard output for the bounded completion protocol. FreeBSD tools
+# such as gpart print provider names during successful mutation; letting those
+# lines escape makes an otherwise successful installation look malformed to
+# the graphical controller. Command failures remain visible on stderr.
+exec 3>&1
+exec 1>/dev/null
+
 [ "$4" = "$txn_target" ] || fail "$EX_NOPERM" 'typed execution target does not match the staged whole disk'
 for tool in "$SYSCTL" "$GPART" "$NEWFS_MSDOS" "$ZFS" "$MOUNT_MSDOSFS" "$UMOUNT"; do
     [ -x "$tool" ] || fail "$EX_UNAVAILABLE" "required execution tool is unavailable: $tool"
@@ -850,4 +857,5 @@ execution_complete=1
 "$RM" -rf "$mount_root"
 mount_root=
 printf '%s\n' 'INSTALLER_EXECUTION=PASS' "TRANSACTION_ID=$transaction_id" \
-    "TARGET=$txn_target" "ARCHIVE=$archive_dir" 'INSTALLATION_STATUS=completed'
+    "TARGET=$txn_target" "ARCHIVE=$archive_dir" 'INSTALLATION_STATUS=completed' >&3
+exec 3>&-

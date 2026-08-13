@@ -62,6 +62,9 @@ if [ "$1" = show ]; then exit 1; fi
 flags=$(cat "$NORTHSTAR_TEST_GEOM_FLAGS")
 [ $((flags & 16)) -eq 16 ] || exit 77
 [ "${NORTHSTAR_TEST_GPART_FAIL:-0}" != 1 ] || exit 69
+# Real FreeBSD gpart prints created provider names on successful operations.
+# The executor must keep this command output out of its completion protocol.
+printf '%s\n' "${NORTHSTAR_TEST_TARGET:-md42}"
 exit 0
 EOF
 cat > "$BIN/sysctl" <<'EOF'
@@ -324,6 +327,11 @@ TRANSACTION_ID=nstar-install-0123456789abcdef-4201
 run_executor --execute "$TRANSACTION_ID" --confirm-device md42 > "$TMP_DIR/success.out"
 grep -Fx 'INSTALLER_EXECUTION=PASS' "$TMP_DIR/success.out" >/dev/null \
     || fail 'guarded execution did not complete'
+[ "$(wc -l < "$TMP_DIR/success.out" | tr -d ' ')" -eq 5 ] \
+    || fail 'completion protocol contains output from a mutation command'
+if grep -Ev '^[A-Z][A-Z0-9_]*=' "$TMP_DIR/success.out" >/dev/null; then
+    fail 'completion protocol contains a malformed record'
+fi
 [ "$(cat "$GEOM_FLAGS")" = 0 ] || fail 'successful execution did not restore GEOM write protection'
 grep -F 'sysctl kern.geom.debugflags=16' "$LOG" >/dev/null \
     || fail 'execution did not narrowly enable Rank-1 target replacement'
