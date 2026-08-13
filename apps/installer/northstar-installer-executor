@@ -113,8 +113,8 @@ require_file() {
         || fail "$EX_DATAERR" "$checked_label is missing or unsafe"
     if [ "$TEST_MODE" != 1 ]; then
         owner=$($STAT -f '%u' "$checked_file") || fail "$EX_DATAERR" "could not inspect $checked_label owner"
-        mode=$($STAT -f '%Lp' "$checked_file") || fail "$EX_DATAERR" "could not inspect $checked_label mode"
-        [ "$owner" = 0 ] && [ "$mode" = 600 ] \
+        checked_mode=$($STAT -f '%Lp' "$checked_file") || fail "$EX_DATAERR" "could not inspect $checked_label mode"
+        [ "$owner" = 0 ] && [ "$checked_mode" = 600 ] \
             || fail "$EX_NOPERM" "$checked_label must be root-owned mode 0600"
     fi
 }
@@ -126,8 +126,8 @@ require_directory() {
         || fail "$EX_DATAERR" "$checked_label is missing or unsafe"
     if [ "$TEST_MODE" != 1 ]; then
         owner=$($STAT -f '%u' "$checked_directory") || fail "$EX_DATAERR" "could not inspect $checked_label owner"
-        mode=$($STAT -f '%Lp' "$checked_directory") || fail "$EX_DATAERR" "could not inspect $checked_label mode"
-        [ "$owner" = 0 ] && [ "$mode" = 700 ] \
+        checked_mode=$($STAT -f '%Lp' "$checked_directory") || fail "$EX_DATAERR" "could not inspect $checked_label mode"
+        [ "$owner" = 0 ] && [ "$checked_mode" = 700 ] \
             || fail "$EX_NOPERM" "$checked_label must be root-owned mode 0700"
     fi
 }
@@ -142,9 +142,9 @@ load_marker() {
         || fail "$EX_NOPERM" 'installer-media execution marker is missing or unsafe'
     if [ "$TEST_MODE" != 1 ]; then
         owner=$($STAT -f '%u' "$MARKER") || fail "$EX_DATAERR" 'could not inspect execution-marker owner'
-        mode=$($STAT -f '%Lp' "$MARKER") || fail "$EX_DATAERR" 'could not inspect execution-marker mode'
+        marker_mode=$($STAT -f '%Lp' "$MARKER") || fail "$EX_DATAERR" 'could not inspect execution-marker mode'
         [ "$owner" = 0 ] || fail "$EX_NOPERM" 'execution marker must be owned by root'
-        case "$mode" in 400|600) ;; *) fail "$EX_NOPERM" 'execution marker must have mode 0400 or 0600' ;; esac
+        case "$marker_mode" in 400|600) ;; *) fail "$EX_NOPERM" 'execution marker must have mode 0400 or 0600' ;; esac
     fi
     marker_schema= marker_purpose= marker_boot= marker_allow= marker_scope= marker_manifest=
     marker_seen='|' marker_count=0
@@ -602,9 +602,9 @@ case "$1" in
     *) usage >&2; exit "$EX_USAGE" ;;
 esac
 
-mode=$1
+operation=$1
 transaction_id=$2
-require_runtime "$mode"
+require_runtime "$operation"
 validate_transaction_id "$transaction_id"
 for tool in "$STAT" "$SHA256" "$INSTALL" "$CHOWN" "$CHMOD" "$CP" "$MV" "$RM"; do
     [ -x "$tool" ] || fail "$EX_UNAVAILABLE" "required state tool is unavailable: $tool"
@@ -615,7 +615,7 @@ require_directory "$state_dir" 'installer state root'
 require_directory "$state_dir/transactions" 'installer transaction collection'
 require_directory "$state_dir/archive" 'installer transaction archive'
 
-if [ "$mode" = --status ]; then
+if [ "$operation" = --status ]; then
     if [ -d "$state_dir/transactions/$transaction_id" ]; then
         transaction_dir=$state_dir/transactions/$transaction_id
         location=active
@@ -635,7 +635,7 @@ if [ "$mode" = --status ]; then
     exit 0
 fi
 
-if [ "$mode" = --diagnostics ]; then
+if [ "$operation" = --diagnostics ]; then
     load_active
     [ "$active_id" = "$transaction_id" ] \
         || fail "$EX_NOPERM" 'diagnostics require the exact active transaction'
@@ -660,7 +660,7 @@ if [ "$mode" = --diagnostics ]; then
 fi
 
 load_marker
-if [ "$mode" = --prepare-retry ]; then
+if [ "$operation" = --prepare-retry ]; then
     load_active
     [ "$active_id" = "$transaction_id" ] \
         || fail "$EX_NOPERM" 'retry preparation requires the exact active transaction'
@@ -685,7 +685,7 @@ if [ "$mode" = --prepare-retry ]; then
         'NEXT_ACTION=stage-new-reviewed-transaction' 'DISK_MUTATION=none'
     exit 0
 fi
-if [ "$mode" = --finalize ]; then
+if [ "$operation" = --finalize ]; then
     if [ -d "$state_dir/archive/$transaction_id" ]; then
         transaction_dir=$state_dir/archive/$transaction_id
         execution_file=$transaction_dir/execution.conf
@@ -737,7 +737,7 @@ verify_source
 revalidate_target
 preflight_payload
 
-if [ "$mode" = --preflight ]; then
+if [ "$operation" = --preflight ]; then
     printf '%s\n' 'INSTALLER_EXECUTION_PREFLIGHT=PASS' "TRANSACTION_ID=$transaction_id" \
         "TARGET=$txn_target" 'SOURCE_VERIFICATION=PASS' 'DISK_MUTATION=none'
     execution_complete=1

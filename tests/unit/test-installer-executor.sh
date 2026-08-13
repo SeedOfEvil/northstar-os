@@ -14,6 +14,12 @@ mkdir -p "$BIN" "$SOURCE"
 : > "$LOG"
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
 
+grep -Fx 'operation=$1' "$EXECUTOR" >/dev/null \
+    || fail 'executor does not preserve the requested operation independently'
+if grep -Eq '^[[:space:]]*mode=\$1$' "$EXECUTOR"; then
+    fail 'executor operation can be overwritten by a production metadata check'
+fi
+
 cat > "$BIN/sha256" <<'EOF'
 #!/bin/sh
 [ "${1:-}" = -q ] && shift
