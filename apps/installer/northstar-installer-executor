@@ -807,13 +807,18 @@ phase_done datasets-created
 "$TAR" -xpf "$payload" -C "$mount_root"
 phase_done payload-extracted
 
+# Runtime-only filesystems are intentionally excluded from the immutable
+# rootfs archive. Recreate their mountpoints before the installed system is
+# validated and made bootable; FreeBSD cannot mount devfs when /dev is absent.
+"$INSTALL" -d -o root -g wheel -m 0755 "$mount_root/dev"
+
 runtime_manifest=$mount_root/var/db/northstar/runtime-manifest.conf
 [ -f "$runtime_manifest" ] && [ ! -L "$runtime_manifest" ] \
     || fail "$EX_DATAERR" 'installed payload omits its runtime manifest'
 actual_runtime_manifest=$($SHA256 -q "$runtime_manifest" | tr '[:upper:]' '[:lower:]')
 [ "$actual_runtime_manifest" = "$txn_runtime_manifest_sha" ] \
     || fail "$EX_DATAERR" 'installed runtime manifest digest does not match trusted media'
-for required_path in boot/loader.efi boot/loader.conf etc/fstab etc/rc.conf \
+for required_path in boot/loader.efi boot/loader.conf dev etc/fstab etc/rc.conf \
     usr/local/bin/northstar-session usr/local/bin/northstar-shell \
     usr/local/share/xsessions/northstar-image-proxmox.desktop; do
     [ -e "$mount_root/$required_path" ] && [ ! -L "$mount_root/$required_path" ] \

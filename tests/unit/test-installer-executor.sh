@@ -129,6 +129,7 @@ esac
 EOF
 cat > "$BIN/install" <<'EOF'
 #!/bin/sh
+printf 'install %s\n' "$*" >> "$NORTHSTAR_TEST_LOG"
 for argument in "$@"; do
     case "$argument" in /*) mkdir -p "$argument" ;; esac
 done
@@ -332,6 +333,8 @@ grep -Fx 'INSTALLER_EXECUTION=PASS' "$TMP_DIR/success.out" >/dev/null \
 if grep -Ev '^[A-Z][A-Z0-9_]*=' "$TMP_DIR/success.out" >/dev/null; then
     fail 'completion protocol contains a malformed record'
 fi
+grep -F "/var/run/northstar-installer/execution/$TRANSACTION_ID/dev" "$LOG" >/dev/null \
+    || fail 'installed root does not recreate the required devfs mountpoint'
 [ "$(cat "$GEOM_FLAGS")" = 0 ] || fail 'successful execution did not restore GEOM write protection'
 grep -F 'sysctl kern.geom.debugflags=16' "$LOG" >/dev/null \
     || fail 'execution did not narrowly enable Rank-1 target replacement'
