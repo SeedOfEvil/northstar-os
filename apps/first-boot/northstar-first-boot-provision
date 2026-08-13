@@ -26,6 +26,9 @@ MARKER_REL=var/db/northstar/first-boot.conf
 PENDING_REL=var/db/northstar/first-boot.pending
 AUTOLOGIN_REL=usr/local/etc/sddm.conf.d/30-northstar-first-boot-autologin.conf
 SETUP_USER=${NORTHSTAR_FIRST_BOOT_SETUP_USER:-northstar-setup}
+WAYFIRE_TEMPLATE_REL=usr/local/share/northstar/session/wayfire-nested.ini
+SUDOERS_DIR_REL=usr/local/etc/sudoers.d
+SUDOERS_REL=$SUDOERS_DIR_REL/northstar-first-administrator
 
 fail() {
     status=$1
@@ -181,12 +184,16 @@ matches "$password" '^[[:print:]]+$' \
 created=0
 setup_locked=0
 autologin_removed=0
+sudoers_created=0
 cleanup() {
     status=$?
     trap - EXIT HUP INT TERM
     password=
     if [ "$status" -ne 0 ] && [ "$created" -eq 1 ]; then
         "$PW_PATH" -R "$ROOT" userdel "$username" -r >/dev/null 2>&1 || true
+    fi
+    if [ "$status" -ne 0 ] && [ "$sudoers_created" -eq 1 ]; then
+        "$RM_PATH" -f "$(root_path "$SUDOERS_REL")" >/dev/null 2>&1 || true
     fi
     if [ "$status" -ne 0 ] && [ "$setup_locked" -eq 1 ]; then
         "$PW_PATH" -R "$ROOT" usermod "$SETUP_USER" -w none >/dev/null 2>&1 || true
@@ -213,11 +220,28 @@ created=1
 
 home=$(root_path "home/$username")
 $INSTALL_PATH -d -o "$username" -g "$username" -m 0700 "$home"
+$INSTALL_PATH -d -o "$username" -g "$username" -m 0700 "$home/.config"
 login_conf=$home/.login_conf
 umask 077
 printf 'me:\\\n\t:charset=UTF-8:\\\n\t:lang=%s:\n' "$locale" > "$login_conf"
 $CHOWN_PATH "$username:$username" "$login_conf"
 $CHMOD_PATH 0600 "$login_conf"
+
+wayfire_template=$(root_path "$WAYFIRE_TEMPLATE_REL")
+[ -f "$wayfire_template" ] && [ ! -L "$wayfire_template" ] \
+    || fail "$EX_UNAVAILABLE" 'Northstar session configuration is unavailable'
+$CP_PATH "$wayfire_template" "$home/.config/wayfire.ini"
+$CHOWN_PATH "$username:$username" "$home/.config/wayfire.ini"
+$CHMOD_PATH 0600 "$home/.config/wayfire.ini"
+
+sudoers_dir=$(root_path "$SUDOERS_DIR_REL")
+$INSTALL_PATH -d -o root -g wheel -m 0750 "$sudoers_dir"
+sudoers=$(root_path "$SUDOERS_REL")
+umask 077
+printf '%s ALL=(ALL:ALL) ALL\n' "$username" > "$sudoers"
+$CHOWN_PATH root:wheel "$sudoers"
+$CHMOD_PATH 0440 "$sudoers"
+sudoers_created=1
 
 $CP_PATH "$zone_source" "$(root_path etc/localtime)"
 printf '%s\n' "$timezone" > "$(root_path var/db/zoneinfo)"
@@ -251,6 +275,7 @@ $RM_PATH -f "$pending"
 created=0
 setup_locked=0
 autologin_removed=0
+sudoers_created=0
 trap - EXIT HUP INT TERM
 printf '%s\n' \
     'FIRST_BOOT_PROVISIONING=PASS' \

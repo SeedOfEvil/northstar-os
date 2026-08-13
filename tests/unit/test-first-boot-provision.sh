@@ -17,8 +17,11 @@ fi
 FAKE_ROOT=$TMP_DIR/root
 BIN=$TMP_DIR/bin
 mkdir -p "$FAKE_ROOT/usr/share/zoneinfo/America" "$FAKE_ROOT/etc" \
-    "$FAKE_ROOT/var/db" "$FAKE_ROOT/home" "$BIN"
+    "$FAKE_ROOT/var/db" "$FAKE_ROOT/home" \
+    "$FAKE_ROOT/usr/local/share/northstar/session" "$BIN"
 printf 'zone\n' > "$FAKE_ROOT/usr/share/zoneinfo/America/Denver"
+printf '[output:WL-1]\nmode = 1280x800\n' \
+    > "$FAKE_ROOT/usr/local/share/northstar/session/wayfire-nested.ini"
 
 cat > "$BIN/pw" <<'EOF'
 #!/bin/sh
@@ -58,6 +61,7 @@ exit 0
 EOF
 cat > "$BIN/chmod" <<'EOF'
 #!/bin/sh
+printf 'chmod:%s\n' "$*" >> "$NORTHSTAR_TEST_EVENTS"
 exec /bin/chmod "$@"
 EOF
 cat > "$BIN/cp" <<'EOF'
@@ -142,6 +146,15 @@ grep -F ':lang=en_US.UTF-8:' "$FAKE_ROOT/home/hector/.login_conf" >/dev/null \
     || fail 'user locale was not recorded'
 grep -Fx 'America/Denver' "$FAKE_ROOT/var/db/zoneinfo" >/dev/null \
     || fail 'timezone was not recorded'
+cmp "$FAKE_ROOT/usr/local/share/northstar/session/wayfire-nested.ini" \
+    "$FAKE_ROOT/home/hector/.config/wayfire.ini" >/dev/null \
+    || fail 'new administrator did not receive the Northstar Wayfire configuration'
+grep -Fx 'hector ALL=(ALL:ALL) ALL' \
+    "$FAKE_ROOT/usr/local/etc/sudoers.d/northstar-first-administrator" >/dev/null \
+    || fail 'new administrator did not receive persistent sudo authorization'
+grep -Fx "chmod:0440 $FAKE_ROOT/usr/local/etc/sudoers.d/northstar-first-administrator" \
+    "$TMP_DIR/events" >/dev/null \
+    || fail 'first-administrator sudoers policy was not set to mode 0440'
 
 if printf '%s\n' 'another-password' | run_helper --apply "$REQUEST" >/dev/null 2>&1; then
     fail 'one-time setup was allowed to run twice'

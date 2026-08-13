@@ -144,3 +144,28 @@ failed GPT replacement. All installer contracts and 29 of 29 CTests pass. The
 interrupted transaction remains on diagnostic media for the authenticated
 installer-side clean-retry flow because its target is intentionally active
 while the builder system is booted.
+
+## Installed-desktop diagnostic result - 2026-08-13
+
+The destructive diagnostic lane completed installation to the disposable
+50 GiB destination, entered the one-time setup session, created the selected
+administrator, returned to SDDM, and reached an interactive Northstar desktop.
+Keyboard and pointer input worked in the desktop. This proves the compositor
+and desktop stack are viable on the installed root; it does not promote r81,
+because several source/package integration defects were repaired during the
+diagnostic run.
+
+The final source correction removes those live-only repairs:
+
+- the compatibility compositor package and image launcher now use the
+  system-owned `/usr/local/libexec/northstar-wayfire-nested` prefix;
+- first-boot copies the package-owned Wayfire configuration into the new
+  administrator's home;
+- first-boot creates a root-owned mode-0440 sudoers drop-in for that exact
+  administrator and removes it if provisioning rolls back; and
+- release builds compile Wayfire with the same system prefix while staging
+  through `DESTDIR`, so compiled plugin paths match package paths.
+
+Promotion still requires one clean immutable rebuild and a focused repeat of
+install, first boot, administrator login, input, desktop launch, sudo, and
+shutdown without any shell-side hotfix or `/home/northstar` alias.

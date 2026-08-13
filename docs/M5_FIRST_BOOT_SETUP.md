@@ -16,8 +16,10 @@ not trigger a new QCOW2 cycle.
    temporary request. It writes the password once to the protected helper's
    standard input and then clears both password fields and its byte buffer.
 5. The helper revalidates caller, request, pending state, and every field;
-   creates one wheel administrator; applies regional settings; disables the
-   temporary setup identity and autologin; and seals completion.
+   creates one wheel administrator; installs that account's Northstar session
+   configuration and password-authenticated sudo policy; applies regional
+   settings; disables the temporary setup identity and autologin; and seals
+   completion.
 6. After restart, SDDM presents the normal branded login for the new account.
 
 Development images assembled with `--development-autologin` intentionally
@@ -47,7 +49,9 @@ Routine evidence: controller/unit tests, isolated helper mutation tests, QML
 surface and offscreen loading, image-assembler contracts, native FreeBSD build,
 and a non-mutating DEV01 visual check.
 
-Deferred evidence: production SDDM enters the setup identity exactly once; the
-first administrator can restart and sign in; the temporary identity and
+Deferred evidence: the immutable rebuilt production media repeats the accepted
+diagnostic flow: SDDM enters the setup identity exactly once; the first
+administrator can restart and sign in; its compatibility session and sudo
+authorization work without a developer-home alias; the temporary identity and
 autologin cannot return; wrong, interrupted, and repeated setup attempts are
 safe; regional settings persist in the integrated installed image.

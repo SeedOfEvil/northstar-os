@@ -49,6 +49,21 @@ installs the user-level `.xinitrc` and `wayfire.ini` needed by `startx`. Existin
 files are preserved; use `sh tools/install-nested-wayfire-session.sh --force`
 only when you have reviewed the backup behavior.
 
+Release packaging must compile the same reviewed source for the system-owned
+prefix instead of copying the developer build. Use an empty staging root:
+
+```sh
+WAYFIRE_PREFIX=/usr/local/libexec/northstar-wayfire-nested \
+WAYFIRE_DESTDIR=/path/to/new/staging-root \
+sh tools/build-nested-wayfire.sh
+```
+
+Pass the resulting
+`/path/to/new/staging-root/usr/local/libexec/northstar-wayfire-nested` tree to
+`image/scripts/package-nested-wayfire.sh`. This keeps compiled plugin paths and
+package paths identical and prevents release sessions from depending on a
+particular `/home` directory.
+
 After installing the Northstar binaries to `/usr/local`, the fallback login
 policy can be enabled with:
 

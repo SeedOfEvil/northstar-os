@@ -1,7 +1,8 @@
 #!/bin/sh
 
-# Build the supplemental Proxmox nested Wayfire lane. This is intentionally a
-# user-local build: it never replaces the FreeBSD package-managed Wayfire.
+# Build the supplemental Proxmox nested Wayfire lane. Developer builds remain
+# user-local by default; release packaging uses an explicit system prefix and
+# DESTDIR without replacing FreeBSD's package-managed Wayfire.
 
 set -eu
 
@@ -14,6 +15,7 @@ WAYFIRE_TAG=${WAYFIRE_TAG:-v0.10.1}
 WAYFIRE_SOURCE_DIR=${WAYFIRE_SOURCE_DIR:-$HOME/src/wayfire-nested-v0.10.1}
 WAYFIRE_BUILD_DIR=${WAYFIRE_BUILD_DIR:-$WAYFIRE_SOURCE_DIR/build}
 WAYFIRE_PREFIX=${WAYFIRE_PREFIX:-$HOME/.local/wayfire-nested}
+WAYFIRE_DESTDIR=${WAYFIRE_DESTDIR:-}
 
 usage() {
     cat <<'USAGE'
@@ -25,7 +27,8 @@ compatibility patch and installs it below ~/.local by default.
 Environment overrides:
   WAYFIRE_SOURCE_DIR  source checkout directory
   WAYFIRE_BUILD_DIR   Meson build directory
-  WAYFIRE_PREFIX       user-local install prefix
+  WAYFIRE_PREFIX       compiled install prefix
+  WAYFIRE_DESTDIR      optional package-staging root for Meson install
 USAGE
 }
 
@@ -93,7 +96,21 @@ else
 fi
 
 ninja -C "$WAYFIRE_BUILD_DIR"
-ninja -C "$WAYFIRE_BUILD_DIR" install
+if [ -n "$WAYFIRE_DESTDIR" ]; then
+    mkdir -p "$WAYFIRE_DESTDIR"
+    DESTDIR=$WAYFIRE_DESTDIR ninja -C "$WAYFIRE_BUILD_DIR" install
+    installed_binary=$WAYFIRE_DESTDIR${WAYFIRE_PREFIX%/}/bin/wayfire
+else
+    ninja -C "$WAYFIRE_BUILD_DIR" install
+    installed_binary=${WAYFIRE_PREFIX%/}/bin/wayfire
+fi
+[ -x "$installed_binary" ] || {
+    printf '%s\n' "ERROR: installed Wayfire binary is missing: $installed_binary" >&2
+    exit 1
+}
+installed_root=${installed_binary%/bin/wayfire}
+printf '%s\n' "${WAYFIRE_PREFIX%/}" > "$installed_root/.northstar-compiled-prefix"
+chmod 0444 "$installed_root/.northstar-compiled-prefix"
 
-printf '%s\n' "Built nested Wayfire: $WAYFIRE_PREFIX/bin/wayfire"
+printf '%s\n' "Built nested Wayfire: $installed_binary"
 printf '%s\n' 'Use it only with WLR_BACKENDS=x11 and WLR_RENDERER=pixman.'

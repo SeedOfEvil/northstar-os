@@ -44,7 +44,7 @@ chmod 0700 "$log_dir"
 printf 'display=%s xauthority=%s\n' "$DISPLAY" "$XAUTHORITY" > "$log_dir/image-session.log"
 chmod 0600 "$log_dir/image-session.log"
 
-export NORTHSTAR_WAYFIRE_BIN=/home/northstar/.local/wayfire-nested/bin/wayfire
+export NORTHSTAR_WAYFIRE_BIN=/usr/local/libexec/northstar-wayfire-nested/bin/wayfire
 export NORTHSTAR_SESSION_BIN=/usr/local/bin/northstar-session
 export NORTHSTAR_SESSION_SHELL=/usr/local/bin/northstar-shell
 
