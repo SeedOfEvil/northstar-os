@@ -108,3 +108,20 @@ patched hashes were independently reread from the exported media. This media
 is suitable only for the snapshotted Proxmox install test. It does not replace
 the immutable authoritative artifact, whose clean rebuild remains required
 after destructive installation acceptance.
+
+The first destructive diagnostic attempt then stopped during archive preflight
+because the authentic rootfs listing was larger than the executor's original
+4 MiB bound. The signed 982 MiB XZ payload produces a 7,990,918-byte listing
+with 136,658 entries and a maximum path length of 194 bytes. The transaction
+contained only the four staging journal events; no execution state,
+`mutation-started`, partitioning, or destination change was recorded.
+
+The corrected preflight permits at most 32 MiB of listing output, 500,000
+entries, and 1,024 bytes per path. A process file-size limit applies while the
+archive is listed, and absolute paths, parent traversal, empty entries, and all
+existing signed-source checks remain rejected. A generated 140,000-entry
+fixture reproduces a realistic listing above the former limit. All installer
+contracts and 29 of 29 CTests pass with the new bound. The exact staged
+transaction was archived through the protected engine as
+`transaction-abandoned` with `DISK_MUTATION=none`; the corrected executor was
+then installed and independently hash-verified on the diagnostic media.

@@ -72,10 +72,14 @@ cat > "$BIN/tar" <<'EOF'
 printf 'tar %s\n' "$*" >> "$NORTHSTAR_TEST_LOG"
 case "$1" in
   -tf)
-    printf '%s\n' boot/loader.efi boot/loader.conf etc/fstab etc/rc.conf \
-      var/db/northstar/runtime-manifest.conf \
-      usr/local/bin/northstar-session usr/local/bin/northstar-shell \
-      usr/local/share/xsessions/northstar.desktop ;;
+    if [ "${NORTHSTAR_TEST_LARGE_LIST:-0}" = 1 ]; then
+      awk 'BEGIN { for (i=0; i<140000; i++) printf "./usr/share/northstar/fixtures/entry-%06d-bounded-payload-record.txt\n", i }'
+    else
+      printf '%s\n' boot/loader.efi boot/loader.conf etc/fstab etc/rc.conf \
+        var/db/northstar/runtime-manifest.conf \
+        usr/local/bin/northstar-session usr/local/bin/northstar-shell \
+        usr/local/share/xsessions/northstar.desktop
+    fi ;;
   -xpf)
     shift 2
     [ "$1" = -C ] || exit 64
@@ -214,6 +218,7 @@ run_executor() {
       NORTHSTAR_TEST_RUNTIME_MANIFEST="$RUNTIME_MANIFEST" \
       NORTHSTAR_TEST_SOURCE_FAIL="${NORTHSTAR_TEST_SOURCE_FAIL:-0}" \
       NORTHSTAR_TEST_TARGET_DRIFT="${NORTHSTAR_TEST_TARGET_DRIFT:-0}" \
+      NORTHSTAR_TEST_LARGE_LIST="${NORTHSTAR_TEST_LARGE_LIST:-0}" \
       sh "$EXECUTOR" "$@"
 }
 
@@ -227,6 +232,9 @@ TRANSACTION_ID=nstar-install-0123456789abcdef-4201
 prepare_fixture "$FAKE_ROOT" "$TRANSACTION_ID"
 run_executor --preflight "$TRANSACTION_ID" | grep -Fx 'DISK_MUTATION=none' >/dev/null \
     || fail 'non-destructive executor preflight failed'
+NORTHSTAR_TEST_LARGE_LIST=1 run_executor --preflight "$TRANSACTION_ID" \
+    | grep -Fx 'DISK_MUTATION=none' >/dev/null \
+    || fail 'realistic bounded release payload listing was rejected'
 if grep -Eq '^(gpart|newfs_msdos|zpool (create|set|export)|zfs|mount_msdosfs|umount) ' "$LOG"; then
     fail 'executor preflight invoked a mutation tool'
 fi

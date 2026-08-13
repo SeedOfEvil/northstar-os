@@ -9,6 +9,10 @@ EX_USAGE=64
 EX_DATAERR=65
 EX_UNAVAILABLE=69
 EX_NOPERM=77
+MAXIMUM_LISTING_BYTES=33554432
+MAXIMUM_LISTING_BLOCKS=65536
+MAXIMUM_LISTING_ENTRIES=500000
+MAXIMUM_ENTRY_BYTES=1024
 
 TEST_MODE=${NORTHSTAR_INSTALLER_EXECUTOR_TEST_MODE:-0}
 ROOT=${NORTHSTAR_INSTALLER_EXECUTOR_ROOT:-/}
@@ -419,16 +423,24 @@ revalidate_target() {
 
 preflight_payload() {
     listing=$transaction_dir/payload-entries.list
-    "$TAR" -tf "$payload" > "$listing" || fail "$EX_DATAERR" 'installer payload could not be listed'
+    (ulimit -f "$MAXIMUM_LISTING_BLOCKS"; "$TAR" -tf "$payload") > "$listing" \
+        || fail "$EX_DATAERR" 'installer payload could not be listed within the safety limit'
     listing_size=$(wc -c < "$listing" | tr -d ' ')
-    [ "$listing_size" -gt 0 ] && [ "$listing_size" -le 4194304 ] \
+    [ "$listing_size" -gt 0 ] && [ "$listing_size" -le "$MAXIMUM_LISTING_BYTES" ] \
         || fail "$EX_DATAERR" 'installer payload listing is empty or oversized'
+    entry_count=0
     while IFS= read -r entry || [ -n "${entry:-}" ]; do
         [ -n "${entry:-}" ] || fail "$EX_DATAERR" 'installer payload contains a blank entry'
+        [ "${#entry}" -le "$MAXIMUM_ENTRY_BYTES" ] \
+            || fail "$EX_DATAERR" 'installer payload contains an oversized path'
+        entry_count=$((entry_count + 1))
+        [ "$entry_count" -le "$MAXIMUM_LISTING_ENTRIES" ] \
+            || fail "$EX_DATAERR" 'installer payload contains too many entries'
         case "$entry" in
             /*|../*|*/../*|*/..) fail "$EX_DATAERR" 'installer payload contains an unsafe path' ;;
         esac
     done < "$listing"
+    [ "$entry_count" -gt 0 ] || fail "$EX_DATAERR" 'installer payload listing is empty'
     $CHOWN root:wheel "$listing"
     $CHMOD 0600 "$listing"
 }
