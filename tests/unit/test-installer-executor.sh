@@ -52,7 +52,26 @@ EOF
 cat > "$BIN/gpart" <<'EOF'
 #!/bin/sh
 printf 'gpart %s\n' "$*" >> "$NORTHSTAR_TEST_LOG"
-[ "$1" != show ]
+if [ "$1" = show ]; then exit 1; fi
+flags=$(cat "$NORTHSTAR_TEST_GEOM_FLAGS")
+[ $((flags & 16)) -eq 16 ] || exit 77
+[ "${NORTHSTAR_TEST_GPART_FAIL:-0}" != 1 ] || exit 69
+exit 0
+EOF
+cat > "$BIN/sysctl" <<'EOF'
+#!/bin/sh
+if [ "$1" = -n ] && [ "$2" = kern.geom.debugflags ]; then
+  cat "$NORTHSTAR_TEST_GEOM_FLAGS"
+  exit 0
+fi
+case "$1" in
+  kern.geom.debugflags=*)
+    value=${1#*=}
+    printf '%s\n' "$value" > "$NORTHSTAR_TEST_GEOM_FLAGS"
+    printf 'sysctl %s\n' "$1" >> "$NORTHSTAR_TEST_LOG"
+    exit 0 ;;
+esac
+exit 64
 EOF
 cat > "$BIN/zpool" <<'EOF'
 #!/bin/sh
@@ -125,6 +144,8 @@ PAYLOAD_SHA=$("$BIN/sha256" -q "$SOURCE/northstar-rootfs.txz")
 RUNTIME_SHA=$("$BIN/sha256" -q "$RUNTIME_MANIFEST")
 MANIFEST_SHA=abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789
 DESCRIPTION_SHA=$(printf '%s' 'Northstar Disposable Disk' | "$BIN/sha256" -q)
+GEOM_FLAGS=$TMP_DIR/geom-debugflags
+printf '%s\n' 0 > "$GEOM_FLAGS"
 
 prepare_fixture() {
     fixture_root=$1
@@ -198,6 +219,7 @@ run_executor() {
       NORTHSTAR_INSTALLER_EXECUTOR_ZPOOL="$BIN/zpool" \
       NORTHSTAR_INSTALLER_EXECUTOR_ZFS="$BIN/zfs" \
       NORTHSTAR_INSTALLER_EXECUTOR_SWAPINFO="$BIN/swapinfo" \
+      NORTHSTAR_INSTALLER_EXECUTOR_SYSCTL="$BIN/sysctl" \
       NORTHSTAR_INSTALLER_EXECUTOR_GPART="$BIN/gpart" \
       NORTHSTAR_INSTALLER_EXECUTOR_NEWFS_MSDOS="$BIN/newfs_msdos" \
       NORTHSTAR_INSTALLER_EXECUTOR_MOUNT_MSDOSFS="$BIN/mount_msdosfs" \
@@ -212,6 +234,8 @@ run_executor() {
       NORTHSTAR_INSTALLER_EXECUTOR_RM="$BIN/rm" \
       NORTHSTAR_INSTALLER_EXECUTOR_INJECT_AFTER="${NORTHSTAR_TEST_INJECT_AFTER:-}" \
       NORTHSTAR_TEST_LOG="$LOG" \
+      NORTHSTAR_TEST_GEOM_FLAGS="$GEOM_FLAGS" \
+      NORTHSTAR_TEST_GPART_FAIL="${NORTHSTAR_TEST_GPART_FAIL:-0}" \
       NORTHSTAR_TEST_PAYLOAD_SIZE="$PAYLOAD_SIZE" \
       NORTHSTAR_TEST_PAYLOAD_SHA="$PAYLOAD_SHA" \
       NORTHSTAR_TEST_RUNTIME_SHA="$RUNTIME_SHA" \
@@ -227,7 +251,8 @@ mkdir -p "$FAKE_ROOT"
 run_executor --capabilities | grep -Fx 'authorization=installer-media-marker-plus-exact-confirmation' >/dev/null \
     || fail 'capabilities omit the installer-media and confirmation boundary'
 
-FAKE_ROOT=$TMP_DIR/success-root
+SUCCESS_ROOT=$TMP_DIR/success-root
+FAKE_ROOT=$SUCCESS_ROOT
 TRANSACTION_ID=nstar-install-0123456789abcdef-4201
 prepare_fixture "$FAKE_ROOT" "$TRANSACTION_ID"
 run_executor --preflight "$TRANSACTION_ID" | grep -Fx 'DISK_MUTATION=none' >/dev/null \
@@ -268,9 +293,36 @@ if grep -Eq '^(gpart|newfs_msdos|zpool (create|set|export)|zfs|mount_msdosfs|umo
     fail 'journal tampering invoked a mutation tool'
 fi
 
+: > "$LOG"
+FAKE_ROOT=$TMP_DIR/rank1-failure-root
+RANK1_FAILED_ID=nstar-install-aabbccddeeff0011-4203
+prepare_fixture "$FAKE_ROOT" "$RANK1_FAILED_ID"
+printf '%s\n' 0 > "$GEOM_FLAGS"
+if NORTHSTAR_TEST_GPART_FAIL=1 \
+    run_executor --execute "$RANK1_FAILED_ID" --confirm-device md42 >/dev/null 2>&1; then
+    fail 'injected GPT replacement failure unexpectedly succeeded'
+fi
+[ "$(cat "$GEOM_FLAGS")" = 0 ] \
+    || fail 'GPT replacement failure did not restore GEOM write protection'
+grep -F 'sysctl kern.geom.debugflags=16' "$LOG" >/dev/null \
+    || fail 'GPT replacement failure did not enter the bounded GEOM window'
+grep -F 'sysctl kern.geom.debugflags=0' "$LOG" >/dev/null \
+    || fail 'GPT replacement failure cleanup did not restore GEOM protection'
+grep -Fx 'last_phase=mutation-started' \
+    "$FAKE_ROOT/var/db/northstar/installer/transactions/$RANK1_FAILED_ID/execution.conf" >/dev/null \
+    || fail 'GPT replacement failure recorded an incorrect last phase'
+
+: > "$LOG"
+FAKE_ROOT=$SUCCESS_ROOT
+TRANSACTION_ID=nstar-install-0123456789abcdef-4201
 run_executor --execute "$TRANSACTION_ID" --confirm-device md42 > "$TMP_DIR/success.out"
 grep -Fx 'INSTALLER_EXECUTION=PASS' "$TMP_DIR/success.out" >/dev/null \
     || fail 'guarded execution did not complete'
+[ "$(cat "$GEOM_FLAGS")" = 0 ] || fail 'successful execution did not restore GEOM write protection'
+grep -F 'sysctl kern.geom.debugflags=16' "$LOG" >/dev/null \
+    || fail 'execution did not narrowly enable Rank-1 target replacement'
+grep -F 'sysctl kern.geom.debugflags=0' "$LOG" >/dev/null \
+    || fail 'execution did not restore the original GEOM write protection'
 ARCHIVE=$FAKE_ROOT/var/db/northstar/installer/archive/$TRANSACTION_ID
 [ -d "$ARCHIVE" ] || fail 'completed transaction was not archived'
 [ ! -e "$FAKE_ROOT/var/db/northstar/installer/active.conf" ] || fail 'completed transaction remained active'

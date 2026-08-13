@@ -125,3 +125,22 @@ contracts and 29 of 29 CTests pass with the new bound. The exact staged
 transaction was archived through the protected engine as
 `transaction-abandoned` with `DISK_MUTATION=none`; the corrected executor was
 then installed and independently hash-verified on the diagnostic media.
+
+The next attempt passed archive preflight and reached the first GPT operation,
+where FreeBSD returned `gpart: Device busy`. The builder subsequently booted
+unchanged: its original GPT and EFI/ZFS partitions remained intact and its
+pool was healthy. The protected journal stopped at `mutation-started`; there
+was no `partition-table-created` event. A disposable exported ZFS pool alone
+did not reproduce the condition. FreeBSD's installed `geom(4)` documentation
+identifies debug flag `0x10` as the bounded mechanism for replacing a Rank-1
+provider, which is otherwise protected even for root.
+
+The executor now records the existing `kern.geom.debugflags`, enables only bit
+`0x10` immediately around destruction and creation of the confirmed target's
+GPT, and restores the exact prior value before formatting begins. Every signal
+and failure cleanup path also restores it. Tests force fake `gpart` to fail
+unless the bit is active and prove restoration after both successful and
+failed GPT replacement. All installer contracts and 29 of 29 CTests pass. The
+interrupted transaction remains on diagnostic media for the authenticated
+installer-side clean-retry flow because its target is intentionally active
+while the builder system is booted.

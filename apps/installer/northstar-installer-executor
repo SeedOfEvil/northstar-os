@@ -24,6 +24,7 @@ MOUNT=${NORTHSTAR_INSTALLER_EXECUTOR_MOUNT:-/sbin/mount}
 ZPOOL=${NORTHSTAR_INSTALLER_EXECUTOR_ZPOOL:-/sbin/zpool}
 ZFS=${NORTHSTAR_INSTALLER_EXECUTOR_ZFS:-/sbin/zfs}
 SWAPINFO=${NORTHSTAR_INSTALLER_EXECUTOR_SWAPINFO:-/usr/sbin/swapinfo}
+SYSCTL=${NORTHSTAR_INSTALLER_EXECUTOR_SYSCTL:-/sbin/sysctl}
 GPART=${NORTHSTAR_INSTALLER_EXECUTOR_GPART:-/sbin/gpart}
 NEWFS_MSDOS=${NORTHSTAR_INSTALLER_EXECUTOR_NEWFS_MSDOS:-/sbin/newfs_msdos}
 MOUNT_MSDOSFS=${NORTHSTAR_INSTALLER_EXECUTOR_MOUNT_MSDOSFS:-/sbin/mount_msdosfs}
@@ -54,6 +55,7 @@ if [ "$TEST_MODE" != 1 ]; then
     ZPOOL=/sbin/zpool
     ZFS=/sbin/zfs
     SWAPINFO=/usr/sbin/swapinfo
+    SYSCTL=/sbin/sysctl
     GPART=/sbin/gpart
     NEWFS_MSDOS=/sbin/newfs_msdos
     MOUNT_MSDOSFS=/sbin/mount_msdosfs
@@ -517,6 +519,8 @@ phase_done() {
 
 efi_mounted=0
 pool_created=0
+geom_access_enabled=0
+geom_debugflags_original=
 mutation_started=no
 execution_complete=0
 execution_attempt=0
@@ -530,6 +534,10 @@ cleanup() {
     status=$?
     trap - EXIT HUP INT TERM
     set +e
+    if [ "$geom_access_enabled" -eq 1 ] && [ -n "$geom_debugflags_original" ]; then
+        "$SYSCTL" "kern.geom.debugflags=$geom_debugflags_original" >/dev/null 2>&1
+        geom_access_enabled=0
+    fi
     if [ "$efi_mounted" -eq 1 ] && [ -n "$mount_root" ]; then
         "$UMOUNT" "$mount_root/boot/efi" >/dev/null 2>&1
         efi_mounted=0
@@ -554,6 +562,26 @@ trap cleanup EXIT
 trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
+
+enable_rank1_writes() {
+    geom_debugflags_original=$($SYSCTL -n kern.geom.debugflags) \
+        || fail "$EX_UNAVAILABLE" 'could not inspect GEOM write protection'
+    matches "$geom_debugflags_original" '^[0-9]{1,10}$' \
+        || fail "$EX_DATAERR" 'GEOM write-protection state is invalid'
+    geom_debugflags_required=$((geom_debugflags_original | 16))
+    geom_access_enabled=1
+    "$SYSCTL" "kern.geom.debugflags=$geom_debugflags_required" >/dev/null \
+        || fail "$EX_UNAVAILABLE" 'could not enable bounded GEOM target replacement'
+    [ "$($SYSCTL -n kern.geom.debugflags)" = "$geom_debugflags_required" ] \
+        || fail "$EX_UNAVAILABLE" 'GEOM target replacement did not become available'
+}
+
+restore_rank1_writes() {
+    [ "$geom_access_enabled" -eq 1 ] || return 0
+    "$SYSCTL" "kern.geom.debugflags=$geom_debugflags_original" >/dev/null || return 1
+    [ "$($SYSCTL -n kern.geom.debugflags)" = "$geom_debugflags_original" ] || return 1
+    geom_access_enabled=0
+}
 
 [ "$#" -ge 1 ] || { usage >&2; exit "$EX_USAGE"; }
 case "$1" in
@@ -717,7 +745,7 @@ if [ "$mode" = --preflight ]; then
 fi
 
 [ "$4" = "$txn_target" ] || fail "$EX_NOPERM" 'typed execution target does not match the staged whole disk'
-for tool in "$GPART" "$NEWFS_MSDOS" "$ZFS" "$MOUNT_MSDOSFS" "$UMOUNT"; do
+for tool in "$SYSCTL" "$GPART" "$NEWFS_MSDOS" "$ZFS" "$MOUNT_MSDOSFS" "$UMOUNT"; do
     [ -x "$tool" ] || fail "$EX_UNAVAILABLE" "required execution tool is unavailable: $tool"
 done
 run_root=$(root_path "$RUN_REL")
@@ -742,12 +770,14 @@ phase_done payload-preflight-passed
 mutation_started=yes
 write_execution executing mutation-started yes cleanup-and-restart-required
 phase_done mutation-started
+enable_rank1_writes
 if "$GPART" show "$txn_target" >/dev/null 2>&1; then
     "$GPART" destroy -F "$txn_target"
 fi
 "$GPART" create -s gpt "$txn_target"
 "$GPART" add -a 1m -s 260m -t efi -l NSTAR_EFI "$txn_target"
 "$GPART" add -a 1m -t freebsd-zfs -l NSTAR_ZFS "$txn_target"
+restore_rank1_writes || fail "$EX_UNAVAILABLE" 'could not restore GEOM write protection'
 phase_done partition-table-created
 
 "$NEWFS_MSDOS" -F 32 -c 1 -L NSTAR_EFI "/dev/${txn_target}p1" >/dev/null
