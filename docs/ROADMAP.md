@@ -9,7 +9,7 @@ The project advances through user-visible milestones with explicit pass gates. A
 | M2 | Desktop session | Development session lane validated; production display-manager and service integration pending | Session, services, supervision, notifications, and lifecycle work coherently |
 | M3 | Core desktop | Core workflows, Lunar redesign, shared chrome, Dock v2, unified search, Quick Look, and capability-backed Quick Settings accepted | Filer, branded desktop surface, responsive dock, settings, search, overview, associations, and project apps form a usable desktop |
 | M4 | Packages, updates, rollback | Development update/rollback lane accepted; protected production infrastructure pending | Signed packages and ZFS boot-environment rollback work end to end |
-| M5 | Reproducible image and installer | First QCOW2 and image-local update/rollback accepted; installer release candidate pending | Pinned inputs produce a bootable UEFI root-on-ZFS image |
+| M5 | Reproducible image and installer | Authoritative r82 RC automated gates accepted; disposable Proxmox install acceptance pending | Pinned inputs produce a bootable UEFI root-on-ZFS image |
 | M6 | Alpha hardware release | Not started | The supported VM and narrow Intel/AMD hardware matrix meets the alpha definition |
 
 ## Current baseline and clear path forward
@@ -367,13 +367,14 @@ acceptance are documented in
 The integrated checkpoint is now driven by one ordered, provenance-emitting
 orchestrator and the disposable-builder/Proxmox checklist in
 [`docs/M5_INSTALLER_RELEASE_CANDIDATE.md`](M5_INSTALLER_RELEASE_CANDIDATE.md).
-PR87 has assembled the integrated QCOW2, signed source, and sparse raw
-installer media on the disposable builder. `qemu-img check` passed and the
-QCOW2 reached a ZFS multi-user login in snapshot-only UEFI QEMU; exact evidence
-is recorded in
-[`docs/validation/M5_INSTALLER_RC_ASSEMBLY_2026-08-12.md`](validation/M5_INSTALLER_RC_ASSEMBLY_2026-08-12.md).
-Raw-media transfer and manual Proxmox installation evidence remain in progress
-on the dedicated RC branch until every deferred M5 claim is resolved.
+PR87 has rebuilt the authoritative r82 integrated QCOW2, signed source, and
+sparse raw installer media from the corrected package, revision-82 signed
+repository, and 236-package runtime closure. Every recorded hash and size,
+`qemu-img check`, and the snapshot-only UEFI/ZFS multi-user boot smoke passed;
+exact evidence is recorded in
+[`docs/validation/M5_INSTALLER_RC_R82_2026-08-13.md`](validation/M5_INSTALLER_RC_R82_2026-08-13.md).
+Exact-media transfer and manual Proxmox installation evidence remain on the
+dedicated RC branch until every deferred M5 claim is resolved.
 Actual disposable-disk acceptance, recovery-point reboot proof, and media outputs
 use routine DEV01, native FreeBSD, and file-backed validation on their focused
 PRs. Their image-level claims remain explicitly deferred to one integrated

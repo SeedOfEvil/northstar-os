@@ -45,10 +45,11 @@ image/scripts/assemble-installer-rc.sh \
 ## Disposable builder
 
 The builder must be a fresh disposable FreeBSD 15.1 amd64 VM with at least
-four vCPUs, 8 GiB RAM, and 64 GiB free storage. Install build dependencies and
-`qemu-img`; if `qemu-tools` conflicts with `qemu-guest-agent`, remove the guest
-agent only on this disposable builder. Do not repurpose DEV01 as the privileged
-builder.
+four vCPUs, 8 GiB RAM, and 30 GiB free storage. Install `git`, `qemu-tools`,
+and `edk2-qemu-x64` from the `FreeBSD-ports` repository before RC preflight;
+the firmware package name does not include `x86_64`. If `qemu-tools` conflicts
+with `qemu-guest-agent`, remove the guest agent only on this disposable builder.
+Do not repurpose DEV01 as the privileged builder.
 
 Create these separate root-owned mode-`0600` markers. The media marker binds
 the exact RC commit; the image marker uses the established PR76 authorization
@@ -128,3 +129,7 @@ The acceptance sequence is:
 The PR remains open until the manual noVNC checks pass. Accepted RC artifacts
 are retained by commit and SHA-256; failed outputs are quarantined with their
 evidence and are never silently replaced.
+
+The authoritative r82 automated assembly and snapshot-only boot evidence is
+recorded in
+[`validation/M5_INSTALLER_RC_R82_2026-08-13.md`](validation/M5_INSTALLER_RC_R82_2026-08-13.md).

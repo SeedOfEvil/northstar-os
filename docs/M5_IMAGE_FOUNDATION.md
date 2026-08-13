@@ -46,7 +46,9 @@ requires serial evidence for UEFI boot, ZFS root mount, rc startup, and the
 multi-user login prompt. It deliberately does not claim graphical acceptance;
 the branded greeter and Northstar shell remain a focused Proxmox/noVNC gate.
 
-Run the boot smoke on a disposable FreeBSD builder with headless QEMU and EDK2:
+Run the boot smoke on a disposable FreeBSD builder with headless QEMU and EDK2.
+On FreeBSD 15.1, the required ports packages are `qemu-tools` and
+`edk2-qemu-x64` (the firmware package name does not include `x86_64`):
 
 ```sh
 image/scripts/boot-smoke-qcow2.sh \
