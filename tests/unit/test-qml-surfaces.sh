@@ -198,6 +198,8 @@ contains apps/first-boot/northstar-first-boot-session 'export QT_QPA_PLATFORM=xc
 contains apps/first-boot/northstar-first-boot-session 'exec "$WIZARD"'
 contains apps/first-boot/FirstBootWindow.qml 'height: Screen.height'
 contains apps/first-boot/FirstBootWindow.qml 'width: Screen.width'
+contains apps/first-boot/FirstBootWindow.qml 'Layout.maximumWidth: 280'
+contains apps/first-boot/FirstBootWindow.qml 'Component.onCompleted: primaryButton.forceActiveFocus()'
 contains apps/installer/InstallerWindow.qml 'Select a destination'
 contains apps/installer/InstallerWindow.qml 'height: Screen.height'
 contains apps/installer/InstallerWindow.qml 'width: Screen.width'

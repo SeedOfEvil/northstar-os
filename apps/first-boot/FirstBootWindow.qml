@@ -48,7 +48,9 @@ ApplicationWindow {
 
         ColumnLayout {
             Layout.fillHeight: true
-            Layout.preferredWidth: 300
+            Layout.maximumWidth: 280
+            Layout.minimumWidth: 280
+            Layout.preferredWidth: 280
             spacing: 14
 
             Image {
@@ -234,7 +236,10 @@ ApplicationWindow {
                     }
                     Item { Layout.fillWidth: true }
                     Button {
+                        id: primaryButton
+
                         enabled: !firstBootController.busy
+                        focus: true
                         text: root.pageIndex === 0 ? "Get Started" : root.pageIndex === 1 ? "Continue" : root.pageIndex === 2 ? "Create Account" : "Close"
                         onClicked: {
                             if (root.pageIndex === 0) {
@@ -261,4 +266,6 @@ ApplicationWindow {
             }
         }
     }
+
+    Component.onCompleted: primaryButton.forceActiveFocus()
 }
