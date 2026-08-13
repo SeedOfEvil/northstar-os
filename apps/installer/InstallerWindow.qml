@@ -32,6 +32,9 @@ ApplicationWindow {
 
         ColumnLayout {
             Layout.fillHeight: true
+            Layout.fillWidth: false
+            Layout.maximumWidth: 245
+            Layout.minimumWidth: 245
             Layout.preferredWidth: 245
             Image {
                 Layout.alignment: Qt.AlignHCenter
@@ -60,6 +63,7 @@ ApplicationWindow {
         NorthstarWindowFrame {
             Layout.fillHeight: true
             Layout.fillWidth: true
+            Layout.minimumWidth: 600
             darkMode: northstarDarkMode
 
             ColumnLayout {
