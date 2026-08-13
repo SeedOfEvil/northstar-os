@@ -71,6 +71,11 @@ grep -F 'runtime bundle omits production first-boot component' "$ASSEMBLER" >/de
     printf 'FAIL: production image does not require packaged first-boot components\n' >&2
     exit 1
 }
+grep -F 'xauth -f "$candidate" list "$DISPLAY"' \
+    "$ROOT/apps/first-boot/northstar-first-boot-session" >/dev/null || {
+    printf 'FAIL: first-boot session omits FreeBSD SDDM Xauthority recovery\n' >&2
+    exit 1
+}
 if grep -F 'zfs create -o mountpoint=/var "$POOL/var"' "$ASSEMBLER" >/dev/null; then
     printf 'FAIL: assembler places the package database outside boot environments\n' >&2
     exit 1
