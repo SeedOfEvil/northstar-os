@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Window
 import Northstar.Ui 1.0
 
 ApplicationWindow {
@@ -9,12 +10,14 @@ ApplicationWindow {
     LunarPalette { id: lunar; darkMode: northstarDarkMode }
 
     color: lunar.background
-    height: 720
+    height: Screen.height
     minimumHeight: 680
     minimumWidth: 1000
     title: "Install Northstar"
     visible: true
-    width: 1100
+    width: Screen.width
+    x: 0
+    y: 0
 
     Component.onCompleted: if (!installerSelfTest) installerController.refresh()
 

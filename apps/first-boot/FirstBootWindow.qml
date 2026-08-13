@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Window
 import Northstar.Ui 1.0
 
 ApplicationWindow {
@@ -12,12 +13,14 @@ ApplicationWindow {
     property string validationMessage: ""
 
     color: lunar.background
-    height: 720
+    height: Screen.height
     minimumHeight: 680
     minimumWidth: 920
     title: "Set up Northstar"
     visible: true
-    width: 1040
+    width: Screen.width
+    x: 0
+    y: 0
 
     Connections {
         target: firstBootController
