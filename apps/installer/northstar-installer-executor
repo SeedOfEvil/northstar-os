@@ -808,7 +808,7 @@ actual_runtime_manifest=$($SHA256 -q "$runtime_manifest" | tr '[:upper:]' '[:low
     || fail "$EX_DATAERR" 'installed runtime manifest digest does not match trusted media'
 for required_path in boot/loader.efi boot/loader.conf etc/fstab etc/rc.conf \
     usr/local/bin/northstar-session usr/local/bin/northstar-shell \
-    usr/local/share/xsessions/northstar.desktop; do
+    usr/local/share/xsessions/northstar-image-proxmox.desktop; do
     [ -e "$mount_root/$required_path" ] && [ ! -L "$mount_root/$required_path" ] \
         || fail "$EX_DATAERR" "installed payload omits required path: $required_path"
 done

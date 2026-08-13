@@ -103,7 +103,7 @@ case "$1" in
       printf '%s\n' boot/loader.efi boot/loader.conf etc/fstab etc/rc.conf \
         var/db/northstar/runtime-manifest.conf \
         usr/local/bin/northstar-session usr/local/bin/northstar-shell \
-        usr/local/share/xsessions/northstar.desktop
+        usr/local/share/xsessions/northstar-image-proxmox.desktop
     fi ;;
   -xpf)
     shift 2
@@ -120,7 +120,7 @@ case "$1" in
     printf '%s\n' '#!/bin/sh' 'exit 0' > "$destination/usr/local/bin/northstar-session"
     printf '%s\n' '#!/bin/sh' 'exit 0' > "$destination/usr/local/bin/northstar-shell"
     chmod +x "$destination/usr/local/bin/northstar-session" "$destination/usr/local/bin/northstar-shell"
-    printf '%s\n' desktop > "$destination/usr/local/share/xsessions/northstar.desktop" ;;
+    printf '%s\n' desktop > "$destination/usr/local/share/xsessions/northstar-image-proxmox.desktop" ;;
   *) exit 64 ;;
 esac
 EOF

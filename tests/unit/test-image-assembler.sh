@@ -4,6 +4,7 @@ set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)
 ASSEMBLER=$ROOT/image/scripts/assemble-qcow2-image.sh
+EXECUTOR=$ROOT/apps/installer/northstar-installer-executor
 TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/northstar-image-assembler.XXXXXX")
 trap 'rm -rf "$TMP_DIR"' EXIT HUP INT TERM
 mkdir -p "$TMP_DIR/project" "$TMP_DIR/resolved" "$TMP_DIR/artifacts" \
@@ -81,6 +82,10 @@ grep -F "'/var must belong to the root boot environment so package state rolls b
 }
 grep -F 'northstar-image-proxmox.desktop' "$ASSEMBLER" >/dev/null || {
     printf 'FAIL: image omits its explicit packaged-runtime session entry\n' >&2
+    exit 1
+}
+grep -F 'usr/local/share/xsessions/northstar-image-proxmox.desktop' "$EXECUTOR" >/dev/null || {
+    printf 'FAIL: installer does not validate the image-managed runtime session entry\n' >&2
     exit 1
 }
 grep -F 'image/session/northstar-image-session-x11' "$ASSEMBLER" >/dev/null || {
