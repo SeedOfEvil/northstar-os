@@ -67,6 +67,11 @@ grep -F 'status=pending' "$ASSEMBLER" >/dev/null || {
     printf 'FAIL: production image omits protected pending state\n' >&2
     exit 1
 }
+grep -F 'useradd northstar-setup -u 1001' "$ASSEMBLER" >/dev/null \
+    && grep -F 'home/northstar-setup' "$ROOT/apps/installer/northstar-installer-executor" >/dev/null || {
+    printf 'FAIL: production installer does not recreate the separate first-boot home\n' >&2
+    exit 1
+}
 grep -F 'runtime bundle omits production first-boot component' "$ASSEMBLER" >/dev/null || {
     printf 'FAIL: production image does not require packaged first-boot components\n' >&2
     exit 1

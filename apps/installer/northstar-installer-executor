@@ -811,6 +811,15 @@ phase_done payload-extracted
 # rootfs archive. Recreate their mountpoints before the installed system is
 # validated and made bootable; FreeBSD cannot mount devfs when /dev is absent.
 "$INSTALL" -d -o root -g wheel -m 0755 "$mount_root/dev"
+"$INSTALL" -d -o root -g wheel -m 0755 "$mount_root/home"
+"$INSTALL" -d -o root -g wheel -m 1777 "$mount_root/tmp"
+
+# The production payload contains the protected setup identity, but /home is
+# a separate empty dataset. Recreate only its fixed, validated home directory.
+grep -Eq '^northstar-setup:[^:]*:1001:1001:[^:]*:/home/northstar-setup:/bin/sh$' \
+    "$mount_root/etc/passwd" \
+    || fail "$EX_DATAERR" 'installed payload omits the fixed first-boot identity'
+"$INSTALL" -d -o 1001 -g 1001 -m 0755 "$mount_root/home/northstar-setup"
 
 runtime_manifest=$mount_root/var/db/northstar/runtime-manifest.conf
 [ -f "$runtime_manifest" ] && [ ! -L "$runtime_manifest" ] \
@@ -818,7 +827,7 @@ runtime_manifest=$mount_root/var/db/northstar/runtime-manifest.conf
 actual_runtime_manifest=$($SHA256 -q "$runtime_manifest" | tr '[:upper:]' '[:lower:]')
 [ "$actual_runtime_manifest" = "$txn_runtime_manifest_sha" ] \
     || fail "$EX_DATAERR" 'installed runtime manifest digest does not match trusted media'
-for required_path in boot/loader.efi boot/loader.conf dev etc/fstab etc/rc.conf \
+for required_path in boot/loader.efi boot/loader.conf dev etc/fstab etc/passwd etc/rc.conf \
     usr/local/bin/northstar-session usr/local/bin/northstar-shell \
     usr/local/share/xsessions/northstar-image-proxmox.desktop; do
     [ -e "$mount_root/$required_path" ] && [ ! -L "$mount_root/$required_path" ] \

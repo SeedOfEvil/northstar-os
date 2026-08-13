@@ -118,6 +118,7 @@ case "$1" in
     printf '%s\n' loader > "$destination/boot/loader.efi"
     printf '%s\n' 'zfs_load="YES"' > "$destination/boot/loader.conf"
     printf '%s\n' '/dev/msdosfs/NSTAR_EFI /boot/efi msdosfs rw,noatime 0 0' > "$destination/etc/fstab"
+    printf '%s\n' 'northstar-setup:*:1001:1001:Northstar Setup:/home/northstar-setup:/bin/sh' > "$destination/etc/passwd"
     printf '%s\n' 'zfs_enable="YES"' > "$destination/etc/rc.conf"
     cp "$NORTHSTAR_TEST_RUNTIME_MANIFEST" "$destination/var/db/northstar/runtime-manifest.conf"
     printf '%s\n' '#!/bin/sh' 'exit 0' > "$destination/usr/local/bin/northstar-session"
@@ -335,6 +336,11 @@ if grep -Ev '^[A-Z][A-Z0-9_]*=' "$TMP_DIR/success.out" >/dev/null; then
 fi
 grep -F "/var/run/northstar-installer/execution/$TRANSACTION_ID/dev" "$LOG" >/dev/null \
     || fail 'installed root does not recreate the required devfs mountpoint'
+grep -F -- "-m 1777" "$LOG" | grep -F "/tmp" >/dev/null \
+    || fail 'installed root does not restore sticky world-writable tmp permissions'
+grep -F -- "-o 1001 -g 1001 -m 0755" "$LOG" \
+    | grep -F "/home/northstar-setup" >/dev/null \
+    || fail 'installed root does not recreate the first-boot home directory'
 [ "$(cat "$GEOM_FLAGS")" = 0 ] || fail 'successful execution did not restore GEOM write protection'
 grep -F 'sysctl kern.geom.debugflags=16' "$LOG" >/dev/null \
     || fail 'execution did not narrowly enable Rank-1 target replacement'
