@@ -10,6 +10,7 @@ struct InstallerDisk
 {
     QString device;
     quint64 sizeBytes = 0;
+    quint32 sectorSize = 0;
     QString sizeText;
     QString description;
     QString transport;
@@ -27,6 +28,7 @@ public:
     enum Role {
         DeviceRole = Qt::UserRole + 1,
         SizeBytesRole,
+        SectorSizeRole,
         SizeTextRole,
         DescriptionRole,
         TransportRole,

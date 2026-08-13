@@ -45,7 +45,7 @@ case "$3" in
     da2) size=8589934592 ;;
     *) exit 1 ;;
 esac
-printf '  Mediasize: %s (fixture)\n  descr: Test disk %s\n' "$size" "$3"
+printf '  Mediasize: %s (fixture)\n  Sectorsize: 512\n  descr: Test disk %s\n' "$size" "$3"
 EOF
 chmod +x "$BIN"/*
 
@@ -57,12 +57,12 @@ env NORTHSTAR_INSTALLER_SYSCTL="$BIN/sysctl" \
     NORTHSTAR_INSTALLER_GEOM="$BIN/geom" \
     sh "$HELPER" > "$TMP_DIR/output"
 
-[ "$(head -n 1 "$TMP_DIR/output")" = protocol=1 ] || fail 'protocol header is missing'
-awk -F '\t' '$1 == "da0" && $5 == "yes" && $6 == "no" { found=1 } END { exit !found }' "$TMP_DIR/output" \
+[ "$(head -n 1 "$TMP_DIR/output")" = protocol=2 ] || fail 'protocol header is missing'
+awk -F '\t' '$1 == "da0" && $3 == "512" && $6 == "yes" && $7 == "no" { found=1 } END { exit !found }' "$TMP_DIR/output" \
     || fail 'running system disk was not excluded'
-awk -F '\t' '$1 == "da1" && $5 == "no" && $6 == "yes" { found=1 } END { exit !found }' "$TMP_DIR/output" \
+awk -F '\t' '$1 == "da1" && $6 == "no" && $7 == "yes" { found=1 } END { exit !found }' "$TMP_DIR/output" \
     || fail 'eligible unused disk was not exposed'
-awk -F '\t' '$1 == "da2" && $6 == "no" && $7 ~ /16 GiB/ { found=1 } END { exit !found }' "$TMP_DIR/output" \
+awk -F '\t' '$1 == "da2" && $7 == "no" && $8 ~ /16 GiB/ { found=1 } END { exit !found }' "$TMP_DIR/output" \
     || fail 'undersized disk was not excluded'
 if awk -F '\t' '$1 == "cd0" { found=1 } END { exit !found }' "$TMP_DIR/output"; then
     fail 'zero-capacity optical device was exposed as an installer disk'

@@ -55,7 +55,7 @@ ApplicationWindow {
                     required property int index
                     required property string modelData
                     Layout.fillWidth: true
-                    Rectangle { color: index <= (installerController.planReady ? 2 : installerController.selectedIndex >= 0 ? 1 : 0) ? lunar.accent : lunar.raised; height: 12; radius: 6; width: 12 }
+                    Rectangle { color: index <= (installerController.installationActive || installerController.installationComplete ? 3 : installerController.planReady ? 2 : installerController.selectedIndex >= 0 ? 1 : 0) ? lunar.accent : lunar.raised; height: 12; radius: 6; width: 12 }
                     Label { color: lunar.muted; text: modelData }
                 }
             }
@@ -79,12 +79,12 @@ ApplicationWindow {
                     ColumnLayout {
                         Layout.fillWidth: true
                         spacing: 2
-                        Label { color: lunar.foreground; font.bold: true; font.pixelSize: 27; text: root.recoveryOpen ? "Installation recovery" : installerController.planReady ? "Review installation plan" : "Select a destination" }
+                        Label { color: lunar.foreground; font.bold: true; font.pixelSize: 27; text: root.recoveryOpen ? "Installation recovery" : installerController.installationComplete ? "Installation complete" : installerController.installationActive ? "Installing Northstar" : installerController.installationState === "failed" ? "Installation needs attention" : installerController.planReady ? "Review installation plan" : "Select a destination" }
                         Label { color: lunar.muted; text: root.recoveryOpen ? installerRecoveryController.statusMessage : installerController.statusMessage; wrapMode: Text.WordWrap; Layout.fillWidth: true }
                     }
                     Button {
                         text: root.recoveryOpen ? "Destinations" : "Recovery"
-                        enabled: !installerController.busy && !installerRecoveryController.busy
+                        enabled: !installerController.busy && !installerRecoveryController.busy && !installerController.installationComplete
                         onClicked: {
                             if (root.recoveryOpen) {
                                 root.recoveryOpen = false
@@ -95,13 +95,13 @@ ApplicationWindow {
                             }
                         }
                     }
-                    Button { visible: !root.recoveryOpen; text: installerController.busy ? "Refreshing..." : "Refresh"; enabled: !installerController.busy && !installerController.planReady; onClicked: installerController.refresh() }
+                    Button { visible: !root.recoveryOpen && installerController.installationState === "idle"; text: installerController.busy ? "Refreshing..." : "Refresh"; enabled: !installerController.busy && !installerController.planReady; onClicked: installerController.refresh() }
                 }
 
                 StackLayout {
                     Layout.fillHeight: true
                     Layout.fillWidth: true
-                    currentIndex: root.recoveryOpen ? 2 : installerController.planReady ? 1 : 0
+                    currentIndex: root.recoveryOpen ? 3 : (installerController.installationActive || installerController.installationComplete || installerController.installationState === "failed") ? 2 : installerController.planReady ? 1 : 0
 
                     ColumnLayout {
                         spacing: 12
@@ -165,7 +165,56 @@ ApplicationWindow {
                             color: lunar.raised; border.color: lunar.accent; radius: 16
                             Label { anchors.fill: parent; anchors.margins: 24; color: lunar.foreground; font.pixelSize: 15; text: installerController.planSummary; wrapMode: Text.WordWrap }
                         }
-                        Label { Layout.fillWidth: true; color: lunar.warning; font.bold: true; text: "This review does not start installation. Execution remains gated by authenticated Northstar release media."; wrapMode: Text.WordWrap }
+                        Label { Layout.fillWidth: true; color: lunar.warning; font.bold: true; text: "Starting installation permanently erases /dev/" + installerController.selectedDevice + ". Signed media and the destination are independently revalidated before disk changes begin."; wrapMode: Text.WordWrap }
+                    }
+
+                    ColumnLayout {
+                        spacing: 16
+                        Rectangle {
+                            Layout.fillHeight: true
+                            Layout.fillWidth: true
+                            color: lunar.raised
+                            border.color: installerController.installationComplete ? lunar.success : installerController.installationState === "failed" ? lunar.warning : lunar.accent
+                            radius: 16
+                            ColumnLayout {
+                                anchors.centerIn: parent
+                                width: Math.min(parent.width - 64, 620)
+                                spacing: 18
+                                BusyIndicator { Layout.alignment: Qt.AlignHCenter; running: installerController.installationActive; visible: running }
+                                Label {
+                                    Layout.fillWidth: true
+                                    color: installerController.installationComplete ? lunar.success : installerController.installationState === "failed" ? lunar.warning : lunar.foreground
+                                    font.bold: true
+                                    font.pixelSize: 24
+                                    horizontalAlignment: Text.AlignHCenter
+                                    text: installerController.installationComplete ? "Northstar is ready" : installerController.installationState === "failed" ? "Installation stopped safely" : installerController.installationState === "staging" ? "Verifying release and destination" : "Writing Northstar to /dev/" + installerController.selectedDevice
+                                }
+                                Label {
+                                    Layout.fillWidth: true
+                                    color: lunar.muted
+                                    horizontalAlignment: Text.AlignHCenter
+                                    text: installerController.statusMessage
+                                    wrapMode: Text.WordWrap
+                                }
+                                Label {
+                                    Layout.fillWidth: true
+                                    visible: installerController.transactionId.length > 0
+                                    color: lunar.muted
+                                    font.pixelSize: 11
+                                    horizontalAlignment: Text.AlignHCenter
+                                    text: "Protected transaction: " + installerController.transactionId
+                                    elide: Text.ElideMiddle
+                                }
+                                Label {
+                                    Layout.fillWidth: true
+                                    visible: installerController.installationActive
+                                    color: lunar.warning
+                                    font.bold: true
+                                    horizontalAlignment: Text.AlignHCenter
+                                    text: "Keep both disks attached and do not power off."
+                                }
+                            }
+                        }
                     }
 
                     ColumnLayout {
@@ -282,9 +331,15 @@ ApplicationWindow {
 
                 RowLayout {
                     Layout.fillWidth: true
-                    Button { text: "Back"; visible: !root.recoveryOpen && installerController.planReady; onClicked: installerController.resetPlan() }
+                    Button { text: "Back"; visible: !root.recoveryOpen && installerController.planReady && !installerController.installationActive && !installerController.installationComplete; enabled: !installerController.busy; onClicked: installerController.resetPlan() }
                     Item { Layout.fillWidth: true }
-                    Button { visible: !root.recoveryOpen; text: installerController.planReady ? "Awaiting Release Media" : "Review Plan"; enabled: !installerController.planReady && installerController.confirmationReady; onClicked: installerController.preparePlan() }
+                    Button {
+                        visible: !root.recoveryOpen && !installerController.installationComplete && installerController.installationState !== "failed"
+                        text: installerController.installationActive ? "Installing..." : installerController.planReady ? "Install Northstar" : "Review Plan"
+                        enabled: !installerController.busy && (installerController.planReady || installerController.confirmationReady)
+                        onClicked: installerController.planReady ? installerController.beginInstallation() : installerController.preparePlan()
+                    }
+                    Button { visible: !root.recoveryOpen && installerController.installationState === "failed"; text: "Review Recovery"; onClicked: { root.recoveryOpen = true; installerRecoveryController.checkStatus() } }
                 }
             }
         }

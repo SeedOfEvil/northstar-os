@@ -73,3 +73,38 @@ and passes the destructive install/retry, first-administrator setup, branded
 greeter/desktop, input, first-party applications, signed update, rollback, and
 `/home` preservation checklist. The hot-patched diagnostic media is not an
 accepted release artifact.
+
+## Destructive-gate diagnostic follow-up
+
+The first Proxmox destination review exposed a fourth integration defect: the
+authenticated r81 media discovered the inactive 50 GiB target and prepared the
+correct whole-disk plan, but the graphical controller still ended at the
+earlier review-only boundary. The protected staging engine, PolicyKit actions,
+guarded executor, execution marker, and signed read-only source were packaged,
+but the GUI did not call them. No transaction was staged and no destination
+mutation occurred.
+
+The corrected controller now carries the discovered physical sector size into
+the reviewed request, hashes the fixed signed source manifest, creates a
+caller-owned mode-0600 request, and performs two bounded PolicyKit operations:
+protected staging followed by guarded execution. It accepts only exact
+transaction-bound reports and exposes explicit verifying, installing,
+completed, failed, and recovery states. Disk discovery protocol 2 rejects
+missing or unsupported sector sizes instead of assuming 512-byte media.
+
+Native diagnostic evidence on the FreeBSD builder:
+
+- complete project build: pass;
+- CTest: 29 of 29 passed;
+- installer controller stage-to-execute test: 5 of 5 passed;
+- disk discovery, QML, signed source, staging engine, executor, and recovery
+  shell contracts: pass; and
+- real disks mutated by automated tests: none.
+
+For the next interactive attempt, only the installer executable and discovery
+helper were installed onto the existing r81 `da1` diagnostic media. A
+root-owned marker explicitly labels it `diagnostic-installer-ui-hotfix`; the
+patched hashes were independently reread from the exported media. This media
+is suitable only for the snapshotted Proxmox install test. It does not replace
+the immutable authoritative artifact, whose clean rebuild remains required
+after destructive installation acceptance.
