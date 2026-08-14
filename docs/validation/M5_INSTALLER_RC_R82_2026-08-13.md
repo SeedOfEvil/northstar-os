@@ -80,11 +80,23 @@ smoke.
 - serial log SHA-256:
   `57c9e03e5da9a627e19d60dc364646aef28cd88a40840c08e467bbca42d5d271`.
 
-## Remaining promotion gate
+## Manual gate result: rejected
 
-Automated r82 assembly and boot acceptance pass. PR 87 remains draft until the
-exact raw installer is transferred with hash verification and completes the
-focused disposable Proxmox checklist: target selection, clean installation,
-first-administrator setup with worldwide timezone selection, administrator
-login and sudo, branded desktop/input/app/shutdown checks, media-privilege
-absence, signed update, boot-environment rollback, and `/home` preservation.
+The automated r82 assembly and snapshot-only boot checks passed, but the exact
+raw media failed the disposable Proxmox full-disk reinstall gate. The selected
+50 GiB destination was not mounted, active swap, or part of an imported pool;
+however, stale ZFS labels on its prior `freebsd-zfs` partition and whole-disk
+provider caused the first authorized `gpart destroy` to fail with
+`gpart: Device busy`.
+
+Single-user diagnostics proved the bounded remediation in order: temporarily
+enable rank-1 GEOM writes, clear labels only from the independently confirmed
+target partition and target disk, destroy the old GPT, create a fresh GPT, and
+restore `kern.geom.debugflags` to zero. PR 87 now performs that target-scoped
+cleanup before partition-table mutation and covers reinstalling over an
+existing ZFS disk in the native installer-executor regression.
+
+r82 is rejected and must not be promoted or retried as release media. Its
+evidence is retained rather than overwritten. Replacement media must use the
+corrected 0.2.3 package and signed repository revision 83, then repeat every
+automated and manual acceptance gate.

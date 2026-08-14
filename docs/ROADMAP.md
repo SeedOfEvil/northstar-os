@@ -9,7 +9,7 @@ The project advances through user-visible milestones with explicit pass gates. A
 | M2 | Desktop session | Development session lane validated; production display-manager and service integration pending | Session, services, supervision, notifications, and lifecycle work coherently |
 | M3 | Core desktop | Core workflows, Lunar redesign, shared chrome, Dock v2, unified search, Quick Look, and capability-backed Quick Settings accepted | Filer, branded desktop surface, responsive dock, settings, search, overview, associations, and project apps form a usable desktop |
 | M4 | Packages, updates, rollback | Development update/rollback lane accepted; protected production infrastructure pending | Signed packages and ZFS boot-environment rollback work end to end |
-| M5 | Reproducible image and installer | Authoritative r82 RC automated gates accepted; disposable Proxmox install acceptance pending | Pinned inputs produce a bootable UEFI root-on-ZFS image |
+| M5 | Reproducible image and installer | r82 rejected by full-disk reinstall gate; corrected r83 package and signed repository accepted, replacement media pending | Pinned inputs produce a bootable UEFI root-on-ZFS image |
 | M6 | Alpha hardware release | Not started | The supported VM and narrow Intel/AMD hardware matrix meets the alpha definition |
 
 ## Current baseline and clear path forward
@@ -367,14 +367,16 @@ acceptance are documented in
 The integrated checkpoint is now driven by one ordered, provenance-emitting
 orchestrator and the disposable-builder/Proxmox checklist in
 [`docs/M5_INSTALLER_RELEASE_CANDIDATE.md`](M5_INSTALLER_RELEASE_CANDIDATE.md).
-PR87 has rebuilt the authoritative r82 integrated QCOW2, signed source, and
-sparse raw installer media from the corrected package, revision-82 signed
-repository, and 236-package runtime closure. Every recorded hash and size,
-`qemu-img check`, and the snapshot-only UEFI/ZFS multi-user boot smoke passed;
-exact evidence is recorded in
+PR87's r82 integrated QCOW2, signed source, and sparse raw installer media
+passed its automated assembly and snapshot-only boot gates, but the disposable
+Proxmox reinstall gate correctly rejected it after stale ZFS labels on a
+previously used destination caused `gpart: Device busy`. The target-scoped
+label cleanup is now covered by the native installer-executor regression, and
+the corrected 0.2.3 package plus revision-83 signed repository have passed
+their independent gates. The failed r82 evidence remains recorded in
 [`docs/validation/M5_INSTALLER_RC_R82_2026-08-13.md`](validation/M5_INSTALLER_RC_R82_2026-08-13.md).
-Exact-media transfer and manual Proxmox installation evidence remain on the
-dedicated RC branch until every deferred M5 claim is resolved.
+Replacement-media assembly and manual Proxmox installation evidence remain on
+the dedicated RC branch until every deferred M5 claim is resolved.
 Actual disposable-disk acceptance, recovery-point reboot proof, and media outputs
 use routine DEV01, native FreeBSD, and file-backed validation on their focused
 PRs. Their image-level claims remain explicitly deferred to one integrated

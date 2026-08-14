@@ -130,6 +130,6 @@ The PR remains open until the manual noVNC checks pass. Accepted RC artifacts
 are retained by commit and SHA-256; failed outputs are quarantined with their
 evidence and are never silently replaced.
 
-The authoritative r82 automated assembly and snapshot-only boot evidence is
-recorded in
+The r82 automated assembly and snapshot-only boot evidence, followed by its
+rejection at the full-disk Proxmox reinstall gate, is recorded in
 [`validation/M5_INSTALLER_RC_R82_2026-08-13.md`](validation/M5_INSTALLER_RC_R82_2026-08-13.md).

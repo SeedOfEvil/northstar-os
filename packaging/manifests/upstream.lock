@@ -1,5 +1,5 @@
 # Accepted Northstar development-channel source lock.
-# Values match the PR 87 final package source for repository revision 82.
+# Values match the PR 87 corrected package source for repository revision 83.
 
 FREEBSD_RELEASE=15.1-RELEASE
 FREEBSD_ARCH=amd64
@@ -10,4 +10,4 @@ PORTS_COMMIT=4b25b85e24de5b0b987376e95fc49f30dd1d00aa
 QT_PACKAGE_VERSION=6.11.1
 WAYFIRE_PACKAGE_VERSION=0.10.1
 
-PROJECT_COMMIT=58f87d9a39a5d2c0ed34a310c7a073088b8453b9
+PROJECT_COMMIT=b728271af4112c8b484c7b414cb52b629651923f
