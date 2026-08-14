@@ -11,13 +11,22 @@ not trigger a new QCOW2 cycle.
 2. SDDM automatically starts `northstar-first-boot.desktop` only for that
    pending installation.
 3. The branded wizard collects the first administrator, password, locale,
-   timezone, and keyboard layout.
+   timezone, and keyboard layout. Timezones come from Qt's view of the
+   installed FreeBSD timezone database rather than a North America-only list;
+   the current system timezone is selected by default when available.
 4. The GUI writes only bounded non-secret profile fields to a mode-0600
    temporary request. It writes the password once to the protected helper's
    standard input and then clears both password fields and its byte buffer.
 5. The helper revalidates caller, request, pending state, and every field;
-   creates one wheel administrator; applies regional settings; disables the
-   temporary setup identity and autologin; and seals completion.
+   creates one wheel administrator; installs that account's Northstar session
+   configuration and password-authenticated sudo policy; applies regional
+   settings; disables the temporary setup identity and autologin; and seals
+   completion.
+
+The protected helper does not trust the GUI's timezone list. It independently
+rejects absolute paths, traversal, malformed identifiers, and identifiers that
+do not resolve to a regular entry beneath the installed
+`/usr/share/zoneinfo` database.
 6. After restart, SDDM presents the normal branded login for the new account.
 
 Development images assembled with `--development-autologin` intentionally
@@ -47,7 +56,9 @@ Routine evidence: controller/unit tests, isolated helper mutation tests, QML
 surface and offscreen loading, image-assembler contracts, native FreeBSD build,
 and a non-mutating DEV01 visual check.
 
-Deferred evidence: production SDDM enters the setup identity exactly once; the
-first administrator can restart and sign in; the temporary identity and
+Deferred evidence: the immutable rebuilt production media repeats the accepted
+diagnostic flow: SDDM enters the setup identity exactly once; the first
+administrator can restart and sign in; its compatibility session and sudo
+authorization work without a developer-home alias; the temporary identity and
 autologin cannot return; wrong, interrupted, and repeated setup attempts are
 safe; regional settings persist in the integrated installed image.

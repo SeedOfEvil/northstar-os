@@ -11,8 +11,8 @@ The QCOW2 lock records:
 - FreeBSD `15.1-RELEASE`, amd64, UEFI, and ZFS;
 - the official release `MANIFEST` digest plus `base.txz` and `kernel.txz`
   names, byte sizes, and SHA-256 digests;
-- the accepted Northstar `0.1.4` package SHA-256;
-- Northstar source commit and signed repository revision 78;
+- the accepted Northstar `0.2.0` release-candidate package SHA-256;
+- Northstar source commit and signed repository revision 80;
 - catalogue, publication metadata, and signing fingerprint digests; and
 - a fixed source-date epoch from the FreeBSD release build.
 
@@ -46,7 +46,9 @@ requires serial evidence for UEFI boot, ZFS root mount, rc startup, and the
 multi-user login prompt. It deliberately does not claim graphical acceptance;
 the branded greeter and Northstar shell remain a focused Proxmox/noVNC gate.
 
-Run the boot smoke on a disposable FreeBSD builder with headless QEMU and EDK2:
+Run the boot smoke on a disposable FreeBSD builder with headless QEMU and EDK2.
+On FreeBSD 15.1, the required ports packages are `qemu-tools` and
+`edk2-qemu-x64` (the firmware package name does not include `x86_64`):
 
 ```sh
 image/scripts/boot-smoke-qcow2.sh \
@@ -73,8 +75,10 @@ uses an image-owned launcher that validates SDDM's protected, per-user
 `/tmp/xauth_*` cookie before starting the nested compositor. This accommodates
 the FreeBSD SDDM lane where the helper creates the cookie but can leave the
 session without a usable `XAUTHORITY` path. The launcher also binds the accepted
-compatibility compositor in the image user's home and the package-managed
-supervisor and shell in `/usr/local/bin`. Keeping this entry separate avoids
+compatibility compositor from the system-owned
+`/usr/local/libexec/northstar-wayfire-nested` package path and the
+package-managed supervisor and shell in `/usr/local/bin`. No runtime component
+depends on a development username or a path beneath `/home`. Keeping this entry separate avoids
 changing package-owned files while making the image independent of older
 package wrappers that assumed a fully user-local installation.
 

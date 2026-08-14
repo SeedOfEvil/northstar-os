@@ -23,4 +23,44 @@ WIZARD=${NORTHSTAR_FIRST_BOOT_BIN:-/usr/local/libexec/northstar-first-boot}
     exit 69
 }
 
+[ -n "${DISPLAY:-}" ] || {
+    printf '%s\n' 'ERROR: first-boot session requires an SDDM X11 DISPLAY' >&2
+    exit 69
+}
+
+# FreeBSD SDDM can start an X11 user session without exporting a usable
+# XAUTHORITY path. Resolve only an owner-matched, mode-0600 cookie that proves
+# it authorizes this display, matching the normal Northstar image launcher.
+auth_works=0
+if [ -n "${XAUTHORITY:-}" ] && [ -f "$XAUTHORITY" ] && [ -r "$XAUTHORITY" ]; then
+    if xauth -f "$XAUTHORITY" list "$DISPLAY" 2>/dev/null | grep -q .; then
+        auth_works=1
+    fi
+fi
+if [ "$auth_works" -eq 0 ]; then
+    current_uid=$(id -u)
+    resolved_authority=
+    for candidate in /tmp/xauth_*; do
+        [ -f "$candidate" ] && [ ! -L "$candidate" ] && [ -r "$candidate" ] || continue
+        [ "$(stat -f '%u' "$candidate")" = "$current_uid" ] || continue
+        [ "$(stat -f '%Lp' "$candidate")" = 600 ] || continue
+        if xauth -f "$candidate" list "$DISPLAY" 2>/dev/null | grep -q .; then
+            [ -z "$resolved_authority" ] || {
+                printf '%s\n' 'ERROR: multiple usable SDDM Xauthority files were found' >&2
+                exit 69
+            }
+            resolved_authority=$candidate
+        fi
+    done
+    [ -n "$resolved_authority" ] || {
+        printf '%s\n' 'ERROR: no usable SDDM Xauthority file was found' >&2
+        exit 69
+    }
+    XAUTHORITY=$resolved_authority
+    export XAUTHORITY
+fi
+
+export QT_QPA_PLATFORM=xcb
+export XDG_SESSION_TYPE=x11
+
 exec "$WIZARD"

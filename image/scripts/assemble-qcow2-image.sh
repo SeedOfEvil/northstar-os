@@ -163,6 +163,24 @@ runtime_packages=$RUNTIME/packages
 expected_package_count=$(required_value "$runtime_conf" package_count)
 printf '%s\n' "$expected_package_count" | grep -Eq '^[0-9]+$' || die 'runtime package count is unsafe'
 
+primary_northstar_filename=$(required_value "$input_lock" NORTHSTAR_PACKAGE)
+primary_northstar_version=$(required_value "$resolved_conf" northstar_package_version)
+printf '%s\n' "$primary_northstar_filename" \
+    | grep -Eq '^northstar-[A-Za-z0-9+_.~,:-]+-amd64\.pkg$' \
+    || die 'locked Northstar package filename is unsafe'
+printf '%s\n' "$primary_northstar_version" \
+    | grep -Eq '^[A-Za-z0-9][A-Za-z0-9+_.~,:-]*$' \
+    || die 'locked Northstar package version is unsafe'
+primary_northstar_record_count=$(awk -F'|' -v filename="$primary_northstar_filename" \
+    '$1 == filename { count++ } END { print count + 0 }' "$artifact_records")
+[ "$primary_northstar_record_count" -eq 1 ] \
+    || die 'locked Northstar package must appear exactly once in artifact records'
+primary_northstar_digest=$(awk -F'|' -v filename="$primary_northstar_filename" \
+    '$1 == filename { print $2; exit }' "$artifact_records")
+primary_northstar_size=$(awk -F'|' -v filename="$primary_northstar_filename" \
+    '$1 == filename { print $3; exit }' "$artifact_records")
+primary_northstar_path=$ARTIFACTS/$primary_northstar_filename
+
 package_count=0
 northstar_found=0
 compat_found=0
@@ -213,6 +231,10 @@ case "$marker_mode" in 400|600) : ;; *) die 'disposable-builder marker mode must
 [ "$(required_value "$BUILDER_MARKER" ALLOW_DISK_IMAGE_ASSEMBLY)" = YES ] || die 'builder marker does not authorize image assembly'
 builder_id=$(required_value "$BUILDER_MARKER" BUILDER_ID)
 printf '%s\n' "$builder_id" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{2,63}$' || die 'builder ID is unsafe'
+[ "$(pkg query -F "$primary_northstar_path" '%n')" = northstar ] \
+    || die 'locked primary package is not Northstar'
+[ "$(pkg query -F "$primary_northstar_path" '%v')" = "$primary_northstar_version" ] \
+    || die 'locked primary Northstar package version differs from resolved inputs'
 
 output_parent=$(dirname "$OUTPUT")
 mkdir -p "$output_parent"
@@ -264,20 +286,30 @@ mount -t devfs devfs "$MOUNT_ROOT/dev"
 DEVFS_MOUNTED=1
 
 package_mount=$MOUNT_ROOT/.northstar-packages
+primary_package_dir=$MOUNT_ROOT/.northstar-primary
 package_index=$MOUNT_ROOT/.northstar-package-index
 package_bootstrap=$MOUNT_ROOT/tmp/northstar-pkg-static
-mkdir -p "$package_mount" "$package_index" "$MOUNT_ROOT/tmp/empty-repos"
+mkdir -p "$package_mount" "$primary_package_dir" "$package_index" \
+    "$MOUNT_ROOT/tmp/empty-repos"
 mount_nullfs -o ro "$runtime_packages" "$package_mount"
 PACKAGE_MOUNTED=1
+cp "$primary_northstar_path" "$primary_package_dir/$primary_northstar_filename"
 cp "$(command -v pkg-static)" "$package_bootstrap"
 chmod 0555 "$package_bootstrap"
 
 set --
 while IFS='|' read -r filename _digest _size name version _origin _extra; do
+    if [ "$name" = northstar ]; then
+        filename=$primary_northstar_filename
+        version=$primary_northstar_version
+        package_source=/.northstar-primary/$filename
+    else
+        package_source=/.northstar-packages/$filename
+    fi
     canonical_path=$package_index/$name-$version.pkg
     [ ! -e "$canonical_path" ] && [ ! -L "$canonical_path" ] \
         || die "duplicate canonical runtime package identity: $name-$version"
-    ln -s "/.northstar-packages/$filename" "$canonical_path"
+    ln -s "$package_source" "$canonical_path"
     set -- "$@" "/.northstar-package-index/$name-$version.pkg"
 done < "$runtime_records"
 install_attempt=1
@@ -300,14 +332,28 @@ installed_package_count=$(chroot "$MOUNT_ROOT" /tmp/northstar-pkg-static \
 [ "$installed_package_count" -eq "$package_count" ] \
     || die "installed runtime package count mismatch: expected=$package_count actual=$installed_package_count"
 while IFS='|' read -r _filename _digest _size name version _origin _extra; do
+    [ "$name" != northstar ] || continue
     chroot "$MOUNT_ROOT" /tmp/northstar-pkg-static info -e "$name-$version" >/dev/null \
         || die "runtime package was not installed exactly: $name-$version"
 done < "$runtime_records"
+chroot "$MOUNT_ROOT" /tmp/northstar-pkg-static \
+    info -e "northstar-$primary_northstar_version" >/dev/null \
+    || die 'locked primary Northstar package was not installed exactly'
+
+expected_executor=$STAGING/expected-northstar-installer-executor
+tar -xOf "$primary_northstar_path" \
+    /usr/local/libexec/northstar-installer-executor > "$expected_executor"
+[ -s "$expected_executor" ] || die 'locked Northstar package omits installer executor'
+installed_executor=$MOUNT_ROOT/usr/local/libexec/northstar-installer-executor
+[ -f "$installed_executor" ] && [ ! -L "$installed_executor" ] \
+    || die 'installed image omits the Northstar installer executor'
+[ "$(file_sha256 "$installed_executor")" = "$(file_sha256 "$expected_executor")" ] \
+    || die 'installed installer executor differs from the locked Northstar package'
 
 umount "$package_mount"
 PACKAGE_MOUNTED=0
-rm -rf "$package_mount" "$package_index" "$package_bootstrap" \
-    "$MOUNT_ROOT/tmp/empty-repos"
+rm -rf "$package_mount" "$primary_package_dir" "$package_index" \
+    "$package_bootstrap" "$MOUNT_ROOT/tmp/empty-repos" "$expected_executor"
 
 mkdir -p "$MOUNT_ROOT/var/db/northstar"
 if [ "$DEVELOPMENT_AUTOLOGIN" -eq 1 ]; then
@@ -403,7 +449,14 @@ printf '%s\n' \
     "development_autologin=$DEVELOPMENT_AUTOLOGIN" \
     "development_passwordless_local_account=$DEVELOPMENT_AUTOLOGIN" \
     > "$MOUNT_ROOT/var/db/northstar/image-build.conf"
-runtime_records_sha256=$(file_sha256 "$runtime_records")
+effective_runtime_records=$STAGING/runtime-package-records
+awk -F'|' -v OFS='|' -v filename="$primary_northstar_filename" \
+    -v digest="$primary_northstar_digest" -v size="$primary_northstar_size" \
+    -v version="$primary_northstar_version" '
+    $4 == "northstar" { print filename, digest, size, "northstar", version, $6; next }
+    { print }
+    ' "$runtime_records" > "$effective_runtime_records"
+runtime_records_sha256=$(file_sha256 "$effective_runtime_records")
 printf '%s\n' \
     'schema_version=1' \
     'product=Northstar' \
@@ -461,7 +514,6 @@ printf '%s\n' \
     "development_autologin=$DEVELOPMENT_AUTOLOGIN" \
     > "$STAGING/image-provenance.conf"
 cp "$resolved_conf" "$STAGING/resolved-image-inputs.conf"
-cp "$runtime_records" "$STAGING/runtime-package-records"
 rm -rf "$MOUNT_ROOT" "$STAGING/empty-repos" "$raw"
 chmod 0444 "$qcow2" "$STAGING/image-provenance.conf" \
     "$installer_payload" "$STAGING/runtime-manifest.conf" \

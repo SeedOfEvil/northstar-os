@@ -6,6 +6,7 @@
 #include <QRegularExpression>
 #include <QStandardPaths>
 #include <QTemporaryFile>
+#include <QTimeZone>
 
 namespace {
 
@@ -18,17 +19,30 @@ const QStringList SupportedLocales{
     QStringLiteral("de_DE.UTF-8"),
 };
 
-const QStringList SupportedTimezones{
-    QStringLiteral("UTC"),
-    QStringLiteral("America/Denver"),
-    QStringLiteral("America/Los_Angeles"),
-    QStringLiteral("America/Chicago"),
-    QStringLiteral("America/New_York"),
-    QStringLiteral("America/Toronto"),
-    QStringLiteral("Europe/London"),
-    QStringLiteral("Europe/Paris"),
-    QStringLiteral("Europe/Berlin"),
-};
+const QRegularExpression TimezonePattern(
+    QStringLiteral("^[A-Za-z0-9][A-Za-z0-9._+-]*(/[A-Za-z0-9][A-Za-z0-9._+-]*)*$"));
+
+const QStringList &supportedTimezones()
+{
+    static const QStringList zones = [] {
+        QStringList values;
+        const QList<QByteArray> available = QTimeZone::availableTimeZoneIds();
+        values.reserve(available.size() + 1);
+        for (const QByteArray &identifier : available) {
+            const QString value = QString::fromUtf8(identifier);
+            if (value.size() <= 255 && TimezonePattern.match(value).hasMatch()) {
+                values.append(value);
+            }
+        }
+        if (!values.contains(QStringLiteral("UTC"))) {
+            values.append(QStringLiteral("UTC"));
+        }
+        values.removeDuplicates();
+        values.sort(Qt::CaseSensitive);
+        return values;
+    }();
+    return zones;
+}
 
 const QStringList SupportedKeyboards{
     QStringLiteral("us"),
@@ -95,7 +109,12 @@ FirstBootController::FirstBootController(QObject *parent)
 bool FirstBootController::busy() const { return m_busy; }
 QString FirstBootController::statusMessage() const { return m_statusMessage; }
 QStringList FirstBootController::locales() const { return SupportedLocales; }
-QStringList FirstBootController::timezones() const { return SupportedTimezones; }
+QStringList FirstBootController::timezones() const { return supportedTimezones(); }
+QString FirstBootController::defaultTimezone() const
+{
+    const QString systemZone = QString::fromUtf8(QTimeZone::systemTimeZoneId());
+    return supportedTimezones().contains(systemZone) ? systemZone : QStringLiteral("UTC");
+}
 QStringList FirstBootController::keyboardLayouts() const { return SupportedKeyboards; }
 
 QString FirstBootController::validateProfile(const QString &displayName,
@@ -124,7 +143,7 @@ QString FirstBootController::validateProfile(const QString &displayName,
     if (!SupportedLocales.contains(locale)) {
         return QStringLiteral("Choose a supported locale.");
     }
-    if (!SupportedTimezones.contains(timezone)) {
+    if (!supportedTimezones().contains(timezone)) {
         return QStringLiteral("Choose a supported timezone.");
     }
     if (!SupportedKeyboards.contains(keyboardLayout)) {

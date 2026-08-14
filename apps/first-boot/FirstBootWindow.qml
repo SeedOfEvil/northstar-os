@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Window
 import Northstar.Ui 1.0
 
 ApplicationWindow {
@@ -12,12 +13,14 @@ ApplicationWindow {
     property string validationMessage: ""
 
     color: lunar.background
-    height: 720
+    height: Screen.height
     minimumHeight: 680
     minimumWidth: 920
     title: "Set up Northstar"
     visible: true
-    width: 1040
+    width: Screen.width
+    x: 0
+    y: 0
 
     Connections {
         target: firstBootController
@@ -45,7 +48,9 @@ ApplicationWindow {
 
         ColumnLayout {
             Layout.fillHeight: true
-            Layout.preferredWidth: 300
+            Layout.maximumWidth: 280
+            Layout.minimumWidth: 280
+            Layout.preferredWidth: 280
             spacing: 14
 
             Image {
@@ -166,7 +171,12 @@ ApplicationWindow {
                         Label { color: lunar.foreground; text: "Language and locale" }
                         ComboBox { id: localeBox; Layout.fillWidth: true; model: firstBootController.locales }
                         Label { color: lunar.foreground; text: "Timezone" }
-                        ComboBox { id: timezoneBox; Layout.fillWidth: true; model: firstBootController.timezones; currentIndex: 1 }
+                        ComboBox {
+                            id: timezoneBox
+                            Layout.fillWidth: true
+                            model: firstBootController.timezones
+                            currentIndex: Math.max(0, model.indexOf(firstBootController.defaultTimezone))
+                        }
                         Label { color: lunar.foreground; text: "Keyboard layout" }
                         ComboBox { id: keyboardBox; Layout.fillWidth: true; model: firstBootController.keyboardLayouts }
                         Rectangle {
@@ -231,7 +241,10 @@ ApplicationWindow {
                     }
                     Item { Layout.fillWidth: true }
                     Button {
+                        id: primaryButton
+
                         enabled: !firstBootController.busy
+                        focus: true
                         text: root.pageIndex === 0 ? "Get Started" : root.pageIndex === 1 ? "Continue" : root.pageIndex === 2 ? "Create Account" : "Close"
                         onClicked: {
                             if (root.pageIndex === 0) {
@@ -258,4 +271,6 @@ ApplicationWindow {
             }
         }
     }
+
+    Component.onCompleted: primaryButton.forceActiveFocus()
 }

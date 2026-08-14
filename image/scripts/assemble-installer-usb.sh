@@ -237,7 +237,10 @@ truncate -s "+${SOURCE_SIZE_GB}G" "$raw"
 MD_DEVICE=$(mdconfig -a -t vnode -f "$raw")
 printf '%s\n' "$MD_DEVICE" | grep -Eq '^md[0-9]+$' || die 'mdconfig returned an unsafe device identity'
 gpart recover "$MD_DEVICE" >/dev/null
-SOURCE_PROVIDER=$(gpart add -a 1m -t freebsd-ufs -l NSTAR_SOURCE "$MD_DEVICE")
+source_provider_output=$(gpart add -a 1m -t freebsd-ufs -l NSTAR_SOURCE "$MD_DEVICE")
+SOURCE_PROVIDER=$(printf '%s\n' "$source_provider_output" | awk 'NR == 1 { print $1 }')
+printf '%s\n' "$SOURCE_PROVIDER" | grep -Eq '^md[0-9]+p[0-9]+$' \
+    || die 'gpart returned an unsafe source-partition provider'
 [ "$SOURCE_PROVIDER" = "${MD_DEVICE}p3" ] || die 'accepted image did not produce the expected isolated source partition'
 gpart show "$MD_DEVICE" > "$STAGING/partition-layout.txt"
 newfs -U -L NSTAR_SOURCE "/dev/$SOURCE_PROVIDER" >/dev/null
@@ -255,6 +258,15 @@ for required_path in usr/local/libexec/northstar-installer usr/local/libexec/nor
     usr/local/libexec/northstar-installer-engine usr/local/libexec/northstar-installer-executor; do
     [ -x "$MOUNT_ROOT/$required_path" ] || die "source image omits installer component: $required_path"
 done
+fstab=$MOUNT_ROOT/etc/fstab
+[ -f "$fstab" ] && [ ! -L "$fstab" ] || die 'source image omits a regular fstab'
+efi_mounts=$(awk '$2 == "/boot/efi" { count++ } END { print count + 0 }' "$fstab")
+[ "$efi_mounts" -eq 1 ] || die 'source image must contain exactly one inherited EFI mount'
+awk '$2 != "/boot/efi"' "$fstab" > "$fstab.installer-media"
+chown root:wheel "$fstab.installer-media"; chmod 0644 "$fstab.installer-media"
+mv "$fstab.installer-media" "$fstab"
+awk '$2 == "/boot/efi" { found=1 } END { exit found ? 0 : 1 }' "$fstab" >/dev/null 2>&1 \
+    && die 'installer media must disable inherited EFI automount'
 mkdir -p "$MOUNT_ROOT/usr/local/share/northstar/installer" "$MOUNT_ROOT/var/run/northstar-installer/source" \
     "$MOUNT_ROOT/etc/northstar" "$MOUNT_ROOT/usr/local/share/xsessions" \
     "$MOUNT_ROOT/usr/local/etc/sddm.conf.d" "$MOUNT_ROOT/usr/local/etc/polkit-1/rules.d"

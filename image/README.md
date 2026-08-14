@@ -63,3 +63,8 @@ The raw USB assembler never accepts a destination device. It creates a new
 file only; writing that artifact to removable hardware remains an explicit
 operator action outside the builder. See
 [`docs/M5_INSTALLER_MEDIA.md`](../docs/M5_INSTALLER_MEDIA.md).
+
+The milestone-only `assemble-installer-rc.sh` composes the production QCOW2,
+signed source, and raw-media stages and emits one top-level provenance record.
+Its disposable-builder and Proxmox acceptance workflow is documented in
+[`docs/M5_INSTALLER_RELEASE_CANDIDATE.md`](../docs/M5_INSTALLER_RELEASE_CANDIDATE.md).

@@ -15,6 +15,7 @@ class FirstBootController final : public QObject
     Q_PROPERTY(QString statusMessage READ statusMessage NOTIFY stateChanged)
     Q_PROPERTY(QStringList locales READ locales CONSTANT)
     Q_PROPERTY(QStringList timezones READ timezones CONSTANT)
+    Q_PROPERTY(QString defaultTimezone READ defaultTimezone CONSTANT)
     Q_PROPERTY(QStringList keyboardLayouts READ keyboardLayouts CONSTANT)
 
 public:
@@ -24,6 +25,7 @@ public:
     QString statusMessage() const;
     QStringList locales() const;
     QStringList timezones() const;
+    QString defaultTimezone() const;
     QStringList keyboardLayouts() const;
 
     Q_INVOKABLE QString validateProfile(const QString &displayName,

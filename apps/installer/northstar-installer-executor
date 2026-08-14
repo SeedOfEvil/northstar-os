@@ -9,6 +9,10 @@ EX_USAGE=64
 EX_DATAERR=65
 EX_UNAVAILABLE=69
 EX_NOPERM=77
+MAXIMUM_LISTING_BYTES=33554432
+MAXIMUM_LISTING_BLOCKS=65536
+MAXIMUM_LISTING_ENTRIES=500000
+MAXIMUM_ENTRY_BYTES=1024
 
 TEST_MODE=${NORTHSTAR_INSTALLER_EXECUTOR_TEST_MODE:-0}
 ROOT=${NORTHSTAR_INSTALLER_EXECUTOR_ROOT:-/}
@@ -19,7 +23,9 @@ GEOM=${NORTHSTAR_INSTALLER_EXECUTOR_GEOM:-/sbin/geom}
 MOUNT=${NORTHSTAR_INSTALLER_EXECUTOR_MOUNT:-/sbin/mount}
 ZPOOL=${NORTHSTAR_INSTALLER_EXECUTOR_ZPOOL:-/sbin/zpool}
 ZFS=${NORTHSTAR_INSTALLER_EXECUTOR_ZFS:-/sbin/zfs}
+ZDB=${NORTHSTAR_INSTALLER_EXECUTOR_ZDB:-/usr/sbin/zdb}
 SWAPINFO=${NORTHSTAR_INSTALLER_EXECUTOR_SWAPINFO:-/usr/sbin/swapinfo}
+SYSCTL=${NORTHSTAR_INSTALLER_EXECUTOR_SYSCTL:-/sbin/sysctl}
 GPART=${NORTHSTAR_INSTALLER_EXECUTOR_GPART:-/sbin/gpart}
 NEWFS_MSDOS=${NORTHSTAR_INSTALLER_EXECUTOR_NEWFS_MSDOS:-/sbin/newfs_msdos}
 MOUNT_MSDOSFS=${NORTHSTAR_INSTALLER_EXECUTOR_MOUNT_MSDOSFS:-/sbin/mount_msdosfs}
@@ -49,7 +55,9 @@ if [ "$TEST_MODE" != 1 ]; then
     MOUNT=/sbin/mount
     ZPOOL=/sbin/zpool
     ZFS=/sbin/zfs
+    ZDB=/usr/sbin/zdb
     SWAPINFO=/usr/sbin/swapinfo
+    SYSCTL=/sbin/sysctl
     GPART=/sbin/gpart
     NEWFS_MSDOS=/sbin/newfs_msdos
     MOUNT_MSDOSFS=/sbin/mount_msdosfs
@@ -107,8 +115,8 @@ require_file() {
         || fail "$EX_DATAERR" "$checked_label is missing or unsafe"
     if [ "$TEST_MODE" != 1 ]; then
         owner=$($STAT -f '%u' "$checked_file") || fail "$EX_DATAERR" "could not inspect $checked_label owner"
-        mode=$($STAT -f '%Lp' "$checked_file") || fail "$EX_DATAERR" "could not inspect $checked_label mode"
-        [ "$owner" = 0 ] && [ "$mode" = 600 ] \
+        checked_mode=$($STAT -f '%Lp' "$checked_file") || fail "$EX_DATAERR" "could not inspect $checked_label mode"
+        [ "$owner" = 0 ] && [ "$checked_mode" = 600 ] \
             || fail "$EX_NOPERM" "$checked_label must be root-owned mode 0600"
     fi
 }
@@ -120,8 +128,8 @@ require_directory() {
         || fail "$EX_DATAERR" "$checked_label is missing or unsafe"
     if [ "$TEST_MODE" != 1 ]; then
         owner=$($STAT -f '%u' "$checked_directory") || fail "$EX_DATAERR" "could not inspect $checked_label owner"
-        mode=$($STAT -f '%Lp' "$checked_directory") || fail "$EX_DATAERR" "could not inspect $checked_label mode"
-        [ "$owner" = 0 ] && [ "$mode" = 700 ] \
+        checked_mode=$($STAT -f '%Lp' "$checked_directory") || fail "$EX_DATAERR" "could not inspect $checked_label mode"
+        [ "$owner" = 0 ] && [ "$checked_mode" = 700 ] \
             || fail "$EX_NOPERM" "$checked_label must be root-owned mode 0700"
     fi
 }
@@ -136,9 +144,9 @@ load_marker() {
         || fail "$EX_NOPERM" 'installer-media execution marker is missing or unsafe'
     if [ "$TEST_MODE" != 1 ]; then
         owner=$($STAT -f '%u' "$MARKER") || fail "$EX_DATAERR" 'could not inspect execution-marker owner'
-        mode=$($STAT -f '%Lp' "$MARKER") || fail "$EX_DATAERR" 'could not inspect execution-marker mode'
+        marker_mode=$($STAT -f '%Lp' "$MARKER") || fail "$EX_DATAERR" 'could not inspect execution-marker mode'
         [ "$owner" = 0 ] || fail "$EX_NOPERM" 'execution marker must be owned by root'
-        case "$mode" in 400|600) ;; *) fail "$EX_NOPERM" 'execution marker must have mode 0400 or 0600' ;; esac
+        case "$marker_mode" in 400|600) ;; *) fail "$EX_NOPERM" 'execution marker must have mode 0400 or 0600' ;; esac
     fi
     marker_schema= marker_purpose= marker_boot= marker_allow= marker_scope= marker_manifest=
     marker_seen='|' marker_count=0
@@ -395,7 +403,14 @@ target_usage() {
     usage="$usage
 $($ZPOOL status -P 2>/dev/null || true)
 $($SWAPINFO -k 2>/dev/null || true)"
-    printf '%s\n' "$usage"
+    label_status=$($GEOM label status 2>/dev/null || true)
+    alias_components=$(printf '%s\n' "$usage" \
+        | awk '{ for (i = 1; i <= NF; i++) if ($i ~ /^\/dev\//) print substr($i, 6) }' \
+        | while IFS= read -r provider; do
+            printf '%s\n' "$label_status" \
+                | awk -v provider="$provider" '$1 == provider { print $3 }'
+          done)
+    printf '%s\n%s\n' "$usage" "$alias_components"
 }
 
 revalidate_target() {
@@ -419,16 +434,24 @@ revalidate_target() {
 
 preflight_payload() {
     listing=$transaction_dir/payload-entries.list
-    "$TAR" -tf "$payload" > "$listing" || fail "$EX_DATAERR" 'installer payload could not be listed'
+    (ulimit -f "$MAXIMUM_LISTING_BLOCKS"; "$TAR" -tf "$payload") > "$listing" \
+        || fail "$EX_DATAERR" 'installer payload could not be listed within the safety limit'
     listing_size=$(wc -c < "$listing" | tr -d ' ')
-    [ "$listing_size" -gt 0 ] && [ "$listing_size" -le 4194304 ] \
+    [ "$listing_size" -gt 0 ] && [ "$listing_size" -le "$MAXIMUM_LISTING_BYTES" ] \
         || fail "$EX_DATAERR" 'installer payload listing is empty or oversized'
+    entry_count=0
     while IFS= read -r entry || [ -n "${entry:-}" ]; do
         [ -n "${entry:-}" ] || fail "$EX_DATAERR" 'installer payload contains a blank entry'
+        [ "${#entry}" -le "$MAXIMUM_ENTRY_BYTES" ] \
+            || fail "$EX_DATAERR" 'installer payload contains an oversized path'
+        entry_count=$((entry_count + 1))
+        [ "$entry_count" -le "$MAXIMUM_LISTING_ENTRIES" ] \
+            || fail "$EX_DATAERR" 'installer payload contains too many entries'
         case "$entry" in
             /*|../*|*/../*|*/..) fail "$EX_DATAERR" 'installer payload contains an unsafe path' ;;
         esac
     done < "$listing"
+    [ "$entry_count" -gt 0 ] || fail "$EX_DATAERR" 'installer payload listing is empty'
     $CHOWN root:wheel "$listing"
     $CHMOD 0600 "$listing"
 }
@@ -505,6 +528,8 @@ phase_done() {
 
 efi_mounted=0
 pool_created=0
+geom_access_enabled=0
+geom_debugflags_original=
 mutation_started=no
 execution_complete=0
 execution_attempt=0
@@ -518,6 +543,10 @@ cleanup() {
     status=$?
     trap - EXIT HUP INT TERM
     set +e
+    if [ "$geom_access_enabled" -eq 1 ] && [ -n "$geom_debugflags_original" ]; then
+        "$SYSCTL" "kern.geom.debugflags=$geom_debugflags_original" >/dev/null 2>&1
+        geom_access_enabled=0
+    fi
     if [ "$efi_mounted" -eq 1 ] && [ -n "$mount_root" ]; then
         "$UMOUNT" "$mount_root/boot/efi" >/dev/null 2>&1
         efi_mounted=0
@@ -543,6 +572,54 @@ trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
+enable_rank1_writes() {
+    geom_debugflags_original=$($SYSCTL -n kern.geom.debugflags) \
+        || fail "$EX_UNAVAILABLE" 'could not inspect GEOM write protection'
+    matches "$geom_debugflags_original" '^[0-9]{1,10}$' \
+        || fail "$EX_DATAERR" 'GEOM write-protection state is invalid'
+    geom_debugflags_required=$((geom_debugflags_original | 16))
+    geom_access_enabled=1
+    "$SYSCTL" "kern.geom.debugflags=$geom_debugflags_required" >/dev/null \
+        || fail "$EX_UNAVAILABLE" 'could not enable bounded GEOM target replacement'
+    [ "$($SYSCTL -n kern.geom.debugflags)" = "$geom_debugflags_required" ] \
+        || fail "$EX_UNAVAILABLE" 'GEOM target replacement did not become available'
+}
+
+restore_rank1_writes() {
+    [ "$geom_access_enabled" -eq 1 ] || return 0
+    "$SYSCTL" "kern.geom.debugflags=$geom_debugflags_original" >/dev/null || return 1
+    [ "$($SYSCTL -n kern.geom.debugflags)" = "$geom_debugflags_original" ] || return 1
+    geom_access_enabled=0
+}
+
+clear_confirmed_target_zfs_labels() {
+    # Whole-disk installation is explicitly destructive, but label clearing
+    # remains bounded to the independently revalidated target. Existing ZFS
+    # labels can keep GEOM providers open even after Rank-1 replacement is
+    # enabled, causing gpart to reject an otherwise authorized reinstall.
+    partition_table=$($GPART show "$txn_target" 2>/dev/null || true)
+    printf '%s\n' "$partition_table" \
+        | while read -r partition_start partition_size partition_index partition_type partition_rest; do
+            [ "$partition_type" = freebsd-zfs ] || continue
+            case "$partition_index" in
+                ''|*[!0-9]*) continue ;;
+            esac
+            provider=/dev/${txn_target}p${partition_index}
+            if "$ZDB" -l "$provider" >/dev/null 2>&1; then
+                "$ZPOOL" labelclear -f "$provider" >/dev/null 2>&1 || exit 1
+                ! "$ZDB" -l "$provider" >/dev/null 2>&1 || exit 1
+            fi
+        done \
+        || fail "$EX_UNAVAILABLE" 'could not clear an existing target ZFS partition label'
+    provider=/dev/$txn_target
+    if "$ZDB" -l "$provider" >/dev/null 2>&1; then
+        "$ZPOOL" labelclear -f "$provider" >/dev/null 2>&1 \
+            || fail "$EX_UNAVAILABLE" 'could not clear an existing target whole-disk ZFS label'
+        ! "$ZDB" -l "$provider" >/dev/null 2>&1 \
+            || fail "$EX_UNAVAILABLE" 'target whole-disk ZFS label remains after clearing'
+    fi
+}
+
 [ "$#" -ge 1 ] || { usage >&2; exit "$EX_USAGE"; }
 case "$1" in
     --capabilities)
@@ -562,9 +639,9 @@ case "$1" in
     *) usage >&2; exit "$EX_USAGE" ;;
 esac
 
-mode=$1
+operation=$1
 transaction_id=$2
-require_runtime "$mode"
+require_runtime "$operation"
 validate_transaction_id "$transaction_id"
 for tool in "$STAT" "$SHA256" "$INSTALL" "$CHOWN" "$CHMOD" "$CP" "$MV" "$RM"; do
     [ -x "$tool" ] || fail "$EX_UNAVAILABLE" "required state tool is unavailable: $tool"
@@ -575,7 +652,7 @@ require_directory "$state_dir" 'installer state root'
 require_directory "$state_dir/transactions" 'installer transaction collection'
 require_directory "$state_dir/archive" 'installer transaction archive'
 
-if [ "$mode" = --status ]; then
+if [ "$operation" = --status ]; then
     if [ -d "$state_dir/transactions/$transaction_id" ]; then
         transaction_dir=$state_dir/transactions/$transaction_id
         location=active
@@ -595,7 +672,7 @@ if [ "$mode" = --status ]; then
     exit 0
 fi
 
-if [ "$mode" = --diagnostics ]; then
+if [ "$operation" = --diagnostics ]; then
     load_active
     [ "$active_id" = "$transaction_id" ] \
         || fail "$EX_NOPERM" 'diagnostics require the exact active transaction'
@@ -620,7 +697,7 @@ if [ "$mode" = --diagnostics ]; then
 fi
 
 load_marker
-if [ "$mode" = --prepare-retry ]; then
+if [ "$operation" = --prepare-retry ]; then
     load_active
     [ "$active_id" = "$transaction_id" ] \
         || fail "$EX_NOPERM" 'retry preparation requires the exact active transaction'
@@ -645,7 +722,7 @@ if [ "$mode" = --prepare-retry ]; then
         'NEXT_ACTION=stage-new-reviewed-transaction' 'DISK_MUTATION=none'
     exit 0
 fi
-if [ "$mode" = --finalize ]; then
+if [ "$operation" = --finalize ]; then
     if [ -d "$state_dir/archive/$transaction_id" ]; then
         transaction_dir=$state_dir/archive/$transaction_id
         execution_file=$transaction_dir/execution.conf
@@ -697,15 +774,22 @@ verify_source
 revalidate_target
 preflight_payload
 
-if [ "$mode" = --preflight ]; then
+if [ "$operation" = --preflight ]; then
     printf '%s\n' 'INSTALLER_EXECUTION_PREFLIGHT=PASS' "TRANSACTION_ID=$transaction_id" \
         "TARGET=$txn_target" 'SOURCE_VERIFICATION=PASS' 'DISK_MUTATION=none'
     execution_complete=1
     exit 0
 fi
 
+# Reserve standard output for the bounded completion protocol. FreeBSD tools
+# such as gpart print provider names during successful mutation; letting those
+# lines escape makes an otherwise successful installation look malformed to
+# the graphical controller. Command failures remain visible on stderr.
+exec 3>&1
+exec 1>/dev/null
+
 [ "$4" = "$txn_target" ] || fail "$EX_NOPERM" 'typed execution target does not match the staged whole disk'
-for tool in "$GPART" "$NEWFS_MSDOS" "$ZFS" "$MOUNT_MSDOSFS" "$UMOUNT"; do
+for tool in "$SYSCTL" "$GPART" "$NEWFS_MSDOS" "$ZFS" "$ZDB" "$MOUNT_MSDOSFS" "$UMOUNT"; do
     [ -x "$tool" ] || fail "$EX_UNAVAILABLE" "required execution tool is unavailable: $tool"
 done
 run_root=$(root_path "$RUN_REL")
@@ -730,12 +814,15 @@ phase_done payload-preflight-passed
 mutation_started=yes
 write_execution executing mutation-started yes cleanup-and-restart-required
 phase_done mutation-started
+enable_rank1_writes
+clear_confirmed_target_zfs_labels
 if "$GPART" show "$txn_target" >/dev/null 2>&1; then
     "$GPART" destroy -F "$txn_target"
 fi
 "$GPART" create -s gpt "$txn_target"
 "$GPART" add -a 1m -s 260m -t efi -l NSTAR_EFI "$txn_target"
 "$GPART" add -a 1m -t freebsd-zfs -l NSTAR_ZFS "$txn_target"
+restore_rank1_writes || fail "$EX_UNAVAILABLE" 'could not restore GEOM write protection'
 phase_done partition-table-created
 
 "$NEWFS_MSDOS" -F 32 -c 1 -L NSTAR_EFI "/dev/${txn_target}p1" >/dev/null
@@ -758,15 +845,29 @@ phase_done datasets-created
 "$TAR" -xpf "$payload" -C "$mount_root"
 phase_done payload-extracted
 
+# Runtime-only filesystems are intentionally excluded from the immutable
+# rootfs archive. Recreate their mountpoints before the installed system is
+# validated and made bootable; FreeBSD cannot mount devfs when /dev is absent.
+"$INSTALL" -d -o root -g wheel -m 0755 "$mount_root/dev"
+"$INSTALL" -d -o root -g wheel -m 0755 "$mount_root/home"
+"$INSTALL" -d -o root -g wheel -m 1777 "$mount_root/tmp"
+
+# The production payload contains the protected setup identity, but /home is
+# a separate empty dataset. Recreate only its fixed, validated home directory.
+grep -Eq '^northstar-setup:[^:]*:1001:1001:[^:]*:/home/northstar-setup:/bin/sh$' \
+    "$mount_root/etc/passwd" \
+    || fail "$EX_DATAERR" 'installed payload omits the fixed first-boot identity'
+"$INSTALL" -d -o 1001 -g 1001 -m 0755 "$mount_root/home/northstar-setup"
+
 runtime_manifest=$mount_root/var/db/northstar/runtime-manifest.conf
 [ -f "$runtime_manifest" ] && [ ! -L "$runtime_manifest" ] \
     || fail "$EX_DATAERR" 'installed payload omits its runtime manifest'
 actual_runtime_manifest=$($SHA256 -q "$runtime_manifest" | tr '[:upper:]' '[:lower:]')
 [ "$actual_runtime_manifest" = "$txn_runtime_manifest_sha" ] \
     || fail "$EX_DATAERR" 'installed runtime manifest digest does not match trusted media'
-for required_path in boot/loader.efi boot/loader.conf etc/fstab etc/rc.conf \
+for required_path in boot/loader.efi boot/loader.conf dev etc/fstab etc/passwd etc/rc.conf \
     usr/local/bin/northstar-session usr/local/bin/northstar-shell \
-    usr/local/share/xsessions/northstar.desktop; do
+    usr/local/share/xsessions/northstar-image-proxmox.desktop; do
     [ -e "$mount_root/$required_path" ] && [ ! -L "$mount_root/$required_path" ] \
         || fail "$EX_DATAERR" "installed payload omits required path: $required_path"
 done
@@ -808,4 +909,5 @@ execution_complete=1
 "$RM" -rf "$mount_root"
 mount_root=
 printf '%s\n' 'INSTALLER_EXECUTION=PASS' "TRANSACTION_ID=$transaction_id" \
-    "TARGET=$txn_target" "ARCHIVE=$archive_dir" 'INSTALLATION_STATUS=completed'
+    "TARGET=$txn_target" "ARCHIVE=$archive_dir" 'INSTALLATION_STATUS=completed' >&3
+exec 3>&-

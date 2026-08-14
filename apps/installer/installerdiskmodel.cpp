@@ -18,6 +18,7 @@ QVariant InstallerDiskModel::data(const QModelIndex &index, int role) const
     switch (role) {
     case DeviceRole: return disk->device;
     case SizeBytesRole: return QVariant::fromValue(disk->sizeBytes);
+    case SectorSizeRole: return QVariant::fromValue(disk->sectorSize);
     case SizeTextRole: return disk->sizeText;
     case DescriptionRole: return disk->description;
     case TransportRole: return disk->transport;
@@ -30,7 +31,8 @@ QVariant InstallerDiskModel::data(const QModelIndex &index, int role) const
 
 QHash<int, QByteArray> InstallerDiskModel::roleNames() const
 {
-    return {{DeviceRole, "device"}, {SizeBytesRole, "sizeBytes"}, {SizeTextRole, "sizeText"},
+    return {{DeviceRole, "device"}, {SizeBytesRole, "sizeBytes"},
+            {SectorSizeRole, "sectorSize"}, {SizeTextRole, "sizeText"},
             {DescriptionRole, "description"}, {TransportRole, "transport"},
             {SystemDiskRole, "systemDisk"}, {EligibleRole, "eligible"}, {ReasonRole, "reason"}};
 }

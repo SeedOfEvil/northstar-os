@@ -26,6 +26,9 @@ MARKER_REL=var/db/northstar/first-boot.conf
 PENDING_REL=var/db/northstar/first-boot.pending
 AUTOLOGIN_REL=usr/local/etc/sddm.conf.d/30-northstar-first-boot-autologin.conf
 SETUP_USER=${NORTHSTAR_FIRST_BOOT_SETUP_USER:-northstar-setup}
+WAYFIRE_TEMPLATE_REL=usr/local/share/northstar/session/wayfire-nested.ini
+SUDOERS_DIR_REL=usr/local/etc/sudoers.d
+SUDOERS_REL=$SUDOERS_DIR_REL/northstar-first-administrator
 
 fail() {
     status=$1
@@ -118,10 +121,13 @@ validate_request() {
         en_US.UTF-8|en_CA.UTF-8|en_GB.UTF-8|es_ES.UTF-8|fr_FR.UTF-8|de_DE.UTF-8) ;;
         *) fail "$EX_DATAERR" 'locale is not supported' ;;
     esac
-    case "$timezone" in
-        UTC|America/Denver|America/Los_Angeles|America/Chicago|America/New_York|America/Toronto|Europe/London|Europe/Paris|Europe/Berlin) ;;
-        *) fail "$EX_DATAERR" 'timezone is not supported' ;;
-    esac
+    [ "${#timezone}" -le 255 ] \
+        || fail "$EX_DATAERR" 'timezone identifier is too long'
+    matches "$timezone" '^[A-Za-z0-9][A-Za-z0-9._+-]*(/[A-Za-z0-9][A-Za-z0-9._+-]*)*$' \
+        || fail "$EX_DATAERR" 'timezone identifier is unsafe'
+    zone_source=$(root_path "usr/share/zoneinfo/$timezone")
+    [ -f "$zone_source" ] \
+        || fail "$EX_DATAERR" 'timezone is not present in the installed zoneinfo database'
     case "$keyboard" in us|uk|es|fr|de) ;; *) fail "$EX_DATAERR" 'keyboard layout is not supported' ;; esac
     [ "$admin_confirmation" = yes ] \
         || fail "$EX_DATAERR" 'administrator creation was not confirmed'
@@ -169,9 +175,6 @@ fi
 if "$PW_PATH" -R "$ROOT" usershow "$username" >/dev/null 2>&1; then
     fail "$EX_DATAERR" 'requested username already exists'
 fi
-zone_source=$(root_path "usr/share/zoneinfo/$timezone")
-[ -f "$zone_source" ] || fail "$EX_UNAVAILABLE" 'selected timezone data is unavailable'
-
 IFS= read -r password || fail "$EX_DATAERR" 'password was not supplied on standard input'
 [ "${#password}" -ge 8 ] && [ "${#password}" -le 128 ] \
     || fail "$EX_DATAERR" 'password must contain between 8 and 128 characters'
@@ -181,12 +184,16 @@ matches "$password" '^[[:print:]]+$' \
 created=0
 setup_locked=0
 autologin_removed=0
+sudoers_created=0
 cleanup() {
     status=$?
     trap - EXIT HUP INT TERM
     password=
     if [ "$status" -ne 0 ] && [ "$created" -eq 1 ]; then
         "$PW_PATH" -R "$ROOT" userdel "$username" -r >/dev/null 2>&1 || true
+    fi
+    if [ "$status" -ne 0 ] && [ "$sudoers_created" -eq 1 ]; then
+        "$RM_PATH" -f "$(root_path "$SUDOERS_REL")" >/dev/null 2>&1 || true
     fi
     if [ "$status" -ne 0 ] && [ "$setup_locked" -eq 1 ]; then
         "$PW_PATH" -R "$ROOT" usermod "$SETUP_USER" -w none >/dev/null 2>&1 || true
@@ -213,11 +220,28 @@ created=1
 
 home=$(root_path "home/$username")
 $INSTALL_PATH -d -o "$username" -g "$username" -m 0700 "$home"
+$INSTALL_PATH -d -o "$username" -g "$username" -m 0700 "$home/.config"
 login_conf=$home/.login_conf
 umask 077
 printf 'me:\\\n\t:charset=UTF-8:\\\n\t:lang=%s:\n' "$locale" > "$login_conf"
 $CHOWN_PATH "$username:$username" "$login_conf"
 $CHMOD_PATH 0600 "$login_conf"
+
+wayfire_template=$(root_path "$WAYFIRE_TEMPLATE_REL")
+[ -f "$wayfire_template" ] && [ ! -L "$wayfire_template" ] \
+    || fail "$EX_UNAVAILABLE" 'Northstar session configuration is unavailable'
+$CP_PATH "$wayfire_template" "$home/.config/wayfire.ini"
+$CHOWN_PATH "$username:$username" "$home/.config/wayfire.ini"
+$CHMOD_PATH 0600 "$home/.config/wayfire.ini"
+
+sudoers_dir=$(root_path "$SUDOERS_DIR_REL")
+$INSTALL_PATH -d -o root -g wheel -m 0750 "$sudoers_dir"
+sudoers=$(root_path "$SUDOERS_REL")
+umask 077
+printf '%s ALL=(ALL:ALL) ALL\n' "$username" > "$sudoers"
+$CHOWN_PATH root:wheel "$sudoers"
+$CHMOD_PATH 0440 "$sudoers"
+sudoers_created=1
 
 $CP_PATH "$zone_source" "$(root_path etc/localtime)"
 printf '%s\n' "$timezone" > "$(root_path var/db/zoneinfo)"
@@ -251,6 +275,7 @@ $RM_PATH -f "$pending"
 created=0
 setup_locked=0
 autologin_removed=0
+sudoers_created=0
 trap - EXIT HUP INT TERM
 printf '%s\n' \
     'FIRST_BOOT_PROVISIONING=PASS' \

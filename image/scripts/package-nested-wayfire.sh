@@ -42,6 +42,12 @@ for command_name in awk basename cp dirname find grep mkdir mktemp mv pkg readli
 done
 [ -d "$SOURCE" ] && [ ! -L "$SOURCE" ] || die 'source must be a real directory'
 [ -x "$SOURCE/bin/wayfire" ] || die 'source does not contain an executable Wayfire binary'
+[ -f "$SOURCE/.northstar-compiled-prefix" ] && [ ! -L "$SOURCE/.northstar-compiled-prefix" ] \
+    || die 'source omits its compiled-prefix record'
+[ "$(sed -n '1p' "$SOURCE/.northstar-compiled-prefix")" = /usr/local/libexec/northstar-wayfire-nested ] \
+    || die 'source was not compiled for the system-owned compatibility prefix'
+[ "$(awk 'END { print NR + 0 }' "$SOURCE/.northstar-compiled-prefix")" -eq 1 ] \
+    || die 'compiled-prefix record is malformed'
 [ -n "$OUTPUT" ] && [ ! -e "$OUTPUT" ] && [ ! -L "$OUTPUT" ] || die 'output must not exist'
 printf '%s\n' "$SOURCE_REVISION" | grep -Eq '^[0-9a-f]{7,40}$' \
     || die 'source revision must be a lowercase Git revision'
@@ -55,7 +61,7 @@ mkdir -p "$output_parent"
 output_parent=$(CDPATH= cd -- "$output_parent" && pwd)
 OUTPUT=$output_parent/$(basename "$OUTPUT")
 STAGING=$(mktemp -d "$output_parent/.northstar-wayfire-package.XXXXXX")
-target=$STAGING/root/home/northstar/.local/wayfire-nested
+target=$STAGING/root/usr/local/libexec/northstar-wayfire-nested
 mkdir -p "$(dirname "$target")" "$STAGING/output" "$STAGING/metadata"
 cp -Rp "$SOURCE" "$target"
 
@@ -80,7 +86,7 @@ comment: "Northstar patched nested Wayfire runtime"
 desc: "Reviewed Wayfire compatibility runtime for Northstar's Proxmox scfb lane."
 maintainer: "northstar@localhost.invalid"
 www: "https://github.com/SeedOfEvil/northstar-os"
-prefix: "/home/northstar/.local/wayfire-nested"
+prefix: "/usr/local/libexec/northstar-wayfire-nested"
 arch: "freebsd:15:x86:64"
 licenselogic: "single"
 licenses: ["MIT"]

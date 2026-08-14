@@ -21,9 +21,13 @@ The request contains only a protocol version, account name, display name,
 locale, timezone, keyboard layout, and explicit administrator confirmation.
 The password is delivered once over the helper's standard input and cleared by
 the GUI after the process starts. The helper creates one wheel administrator,
-applies only allowlisted regional values, locks the temporary setup identity,
-removes its SDDM autologin drop-in, writes a root-owned completion marker, and
-removes the pending marker. A completed installation rejects every later run.
+copies the package-owned compatibility-session configuration into that fresh
+home, and creates one root-owned mode-0440 sudoers drop-in naming only that
+administrator. It then applies only allowlisted regional values, locks the
+temporary setup identity, removes its SDDM autologin drop-in, writes a
+root-owned completion marker, and removes the pending marker. A completed
+installation rejects every later run. Any pre-completion failure removes both
+the partial account and its sudoers policy.
 
 Development-autologin images retain their existing explicit development user
 and do not enter the production setup session.
@@ -38,7 +42,8 @@ and do not enter the production setup session.
   database; integrated boot behavior remains deferred to the M5 Installer
   Release Candidate image checkpoint.
 - An interrupted provisioning attempt removes a newly created account before
-  completion and leaves setup pending for a safe retry.
+  completion, removes its authorization policy, and leaves setup pending for a
+  safe retry.
 
 ## Alternatives considered
 

@@ -4,6 +4,7 @@ set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)
 ASSEMBLER=$ROOT/image/scripts/assemble-qcow2-image.sh
+EXECUTOR=$ROOT/apps/installer/northstar-installer-executor
 TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/northstar-image-assembler.XXXXXX")
 trap 'rm -rf "$TMP_DIR"' EXIT HUP INT TERM
 mkdir -p "$TMP_DIR/project" "$TMP_DIR/resolved" "$TMP_DIR/artifacts" \
@@ -30,6 +31,22 @@ grep -F '"/.northstar-package-index/$name-$version.pkg"' "$ASSEMBLER" >/dev/null
 }
 grep -F 'offline package bootstrap did not converge after three passes' "$ASSEMBLER" >/dev/null || {
     printf 'FAIL: assembler omits bounded offline package convergence\n' >&2
+    exit 1
+}
+grep -F 'package_source=/.northstar-primary/$filename' "$ASSEMBLER" >/dev/null || {
+    printf 'FAIL: assembler does not replace a stale runtime Northstar package with the locked primary artifact\n' >&2
+    exit 1
+}
+grep -F 'locked primary Northstar package was not installed exactly' "$ASSEMBLER" >/dev/null || {
+    printf 'FAIL: assembler does not verify the exact installed Northstar version\n' >&2
+    exit 1
+}
+grep -F "pkg query -F \"\$primary_northstar_path\" '%v'" "$ASSEMBLER" >/dev/null || {
+    printf 'FAIL: assembler does not verify primary package metadata before mutation\n' >&2
+    exit 1
+}
+grep -F 'installed installer executor differs from the locked Northstar package' "$ASSEMBLER" >/dev/null || {
+    printf 'FAIL: assembler does not verify the installed executor payload\n' >&2
     exit 1
 }
 grep -F 'pw -R "$MOUNT_ROOT" usermod northstar -w none' "$ASSEMBLER" >/dev/null || {
@@ -66,8 +83,18 @@ grep -F 'status=pending' "$ASSEMBLER" >/dev/null || {
     printf 'FAIL: production image omits protected pending state\n' >&2
     exit 1
 }
+grep -F 'useradd northstar-setup -u 1001' "$ASSEMBLER" >/dev/null \
+    && grep -F 'home/northstar-setup' "$ROOT/apps/installer/northstar-installer-executor" >/dev/null || {
+    printf 'FAIL: production installer does not recreate the separate first-boot home\n' >&2
+    exit 1
+}
 grep -F 'runtime bundle omits production first-boot component' "$ASSEMBLER" >/dev/null || {
     printf 'FAIL: production image does not require packaged first-boot components\n' >&2
+    exit 1
+}
+grep -F 'xauth -f "$candidate" list "$DISPLAY"' \
+    "$ROOT/apps/first-boot/northstar-first-boot-session" >/dev/null || {
+    printf 'FAIL: first-boot session omits FreeBSD SDDM Xauthority recovery\n' >&2
     exit 1
 }
 if grep -F 'zfs create -o mountpoint=/var "$POOL/var"' "$ASSEMBLER" >/dev/null; then
@@ -81,6 +108,10 @@ grep -F "'/var must belong to the root boot environment so package state rolls b
 }
 grep -F 'northstar-image-proxmox.desktop' "$ASSEMBLER" >/dev/null || {
     printf 'FAIL: image omits its explicit packaged-runtime session entry\n' >&2
+    exit 1
+}
+grep -F 'usr/local/share/xsessions/northstar-image-proxmox.desktop' "$EXECUTOR" >/dev/null || {
+    printf 'FAIL: installer does not validate the image-managed runtime session entry\n' >&2
     exit 1
 }
 grep -F 'image/session/northstar-image-session-x11' "$ASSEMBLER" >/dev/null || {
@@ -114,7 +145,7 @@ digest() {
 }
 size() { wc -c < "$1" | tr -d ' '; }
 
-printf 'lock fixture\n' > "$TMP_DIR/resolved/input.lock"
+printf 'NORTHSTAR_PACKAGE=northstar-0.1.4-amd64.pkg\n' > "$TMP_DIR/resolved/input.lock"
 for name in base.txz kernel.txz northstar-0.1.4-amd64.pkg; do
     printf 'artifact %s\n' "$name" > "$TMP_DIR/artifacts/$name"
     printf '%s|%s|%s\n' "$name" "$(digest "$TMP_DIR/artifacts/$name")" \
@@ -125,14 +156,14 @@ tr -d '\r' < "$TMP_DIR/resolved/artifact-records" \
 mv "$TMP_DIR/resolved/artifact-records.normalized" \
     "$TMP_DIR/resolved/artifact-records"
 
-printf 'northstar package\n' > "$TMP_DIR/runtime/packages/northstar-0.1.4-amd64.pkg"
+printf 'stale northstar package\n' > "$TMP_DIR/runtime/packages/northstar-0.1.3-amd64.pkg"
 printf 'compat package\n' > "$TMP_DIR/runtime/packages/northstar-wayfire-nested-0.10.1.746bc7e.pkg"
 {
     printf '%s|%s|%s|%s|%s|%s\n' \
-        northstar-0.1.4-amd64.pkg \
-        "$(digest "$TMP_DIR/runtime/packages/northstar-0.1.4-amd64.pkg")" \
-        "$(size "$TMP_DIR/runtime/packages/northstar-0.1.4-amd64.pkg")" \
-        northstar 0.1.4 x11/northstar
+        northstar-0.1.3-amd64.pkg \
+        "$(digest "$TMP_DIR/runtime/packages/northstar-0.1.3-amd64.pkg")" \
+        "$(size "$TMP_DIR/runtime/packages/northstar-0.1.3-amd64.pkg")" \
+        northstar 0.1.3 x11/northstar
     printf '%s|%s|%s|%s|%s|%s\n' \
         northstar-wayfire-nested-0.10.1.746bc7e.pkg \
         "$(digest "$TMP_DIR/runtime/packages/northstar-wayfire-nested-0.10.1.746bc7e.pkg")" \
@@ -149,6 +180,7 @@ input_lock_sha256=$(digest "$TMP_DIR/resolved/input.lock")
 artifact_records_sha256=$(digest "$TMP_DIR/resolved/artifact-records")
 freebsd_release=15.1-RELEASE
 freebsd_arch=amd64
+northstar_package_version=0.1.4
 EOF
 cat > "$TMP_DIR/runtime/runtime-bundle.conf" <<EOF
 schema_version=1
@@ -163,7 +195,7 @@ EOF
     --runtime-bundle "$TMP_DIR/runtime" --output "$TMP_DIR/output" \
     --project-root "$TMP_DIR/project" --project-commit "$PROJECT_COMMIT" >/dev/null
 
-printf 'tampered\n' >> "$TMP_DIR/runtime/packages/northstar-0.1.4-amd64.pkg"
+printf 'tampered\n' >> "$TMP_DIR/runtime/packages/northstar-0.1.3-amd64.pkg"
 if "$ASSEMBLER" --preflight \
     --resolved-inputs "$TMP_DIR/resolved" --artifacts "$TMP_DIR/artifacts" \
     --runtime-bundle "$TMP_DIR/runtime" --output "$TMP_DIR/tampered" \
