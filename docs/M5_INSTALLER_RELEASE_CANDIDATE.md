@@ -108,6 +108,18 @@ gate on the disposable builder:
 sudo make installer-zfs-reset-smoke
 ```
 
+For an authoritative builder preflight, do not run fake-tool executor tests
+directly from the root orchestration shell. Keep their test-mode boundary
+unprivileged and run only the real disposable GEOM/ZFS probe as root:
+
+```sh
+sudo make installer-builder-preflight TEST_USER=<unprivileged-builder-user>
+```
+
+The target rejects a missing or root test account, root-test-owned files that
+are writable by another account, and any non-FreeBSD host. The executor's
+production rule forbidding root test mode remains unchanged.
+
 This test creates and removes only its own 2 GiB file-backed `md` device. It
 must prove partition ZFS-label clearing and GPT replacement with the actual
 FreeBSD `zpool`, GEOM, and `gpart` tools. A mocked executor test is not a
