@@ -367,17 +367,18 @@ acceptance are documented in
 The integrated checkpoint is now driven by one ordered, provenance-emitting
 orchestrator and the disposable-builder/Proxmox checklist in
 [`docs/M5_INSTALLER_RELEASE_CANDIDATE.md`](M5_INSTALLER_RELEASE_CANDIDATE.md).
-PR87's r82 integrated QCOW2, signed source, and sparse raw installer media
-passed its automated assembly and snapshot-only boot gates, but the disposable
-Proxmox reinstall gate correctly rejected it after stale ZFS labels on a
-previously used destination caused `gpart: Device busy`. The target-scoped
-label cleanup is now covered by the native installer-executor regression, and
-the corrected 0.2.3 package plus revision-83 signed repository have passed
-their independent gates. Corrected r83 media has also passed assembly,
-structure, immutable-export, and snapshot-only UEFI/ZFS boot gates. The failed
-r82 evidence remains recorded in
+PR87's r82 and r83 integrated media passed automated assembly and
+snapshot-only boot gates but were rejected by the disposable Proxmox reinstall
+gate with `gpart: Device busy`. R83 verified package `0.2.3` without installing
+it: the reused runtime closure silently supplied stale Northstar `0.2.2`.
+The assembler now replaces that runtime copy with the locked primary package,
+verifies its exact installed version and installer-executor digest, records the
+effective package set, and requires a real FreeBSD file-backed ZFS/GPT reset
+smoke before milestone assembly. Package `0.2.4` and signed repository revision
+84 have passed native, Release, signature, tamper-rejection, and private-key
+containment gates. The failed r82 evidence remains recorded in
 [`docs/validation/M5_INSTALLER_RC_R82_2026-08-13.md`](validation/M5_INSTALLER_RC_R82_2026-08-13.md).
-The accepted r83 evidence is recorded in
+The rejected r83 evidence and root cause are recorded in
 [`docs/validation/M5_INSTALLER_RC_R83_2026-08-14.md`](validation/M5_INSTALLER_RC_R83_2026-08-14.md).
 Manual Proxmox installation evidence remains on the dedicated RC branch until
 every deferred M5 claim is resolved.
