@@ -1,9 +1,8 @@
-# M5 corrected installer RC r83 - 2026-08-14
+# M5 rejected installer RC r83 - 2026-08-14
 
-Draft PR 87 produced corrected installer release candidate r83 after r82 was
-rejected by the disposable full-disk reinstall gate. The correction clears
-stale ZFS labels only from an independently revalidated and explicitly
-confirmed destination before the first partition-table mutation.
+Draft PR 87 produced release candidate r83 after r82 was rejected by the
+disposable full-disk reinstall gate. R83 is also rejected: the Proxmox install
+again stopped at the first partition-table mutation with `gpart: Device busy`.
 
 ## Immutable inputs
 
@@ -65,7 +64,7 @@ reached ZFS multi-user boot without mutating the source image.
 - serial log SHA-256:
   `1a92e7670603b3ebafad541f28a41124ba54d11d044d5e5565e4944ddd6a8065`.
 
-## Accepted local archive and remaining gate
+## Quarantined local archive and rejection
 
 The immutable public export was copied to
 `.artifacts/accepted/m5-installer-rc/r83`. All 14 files named by its inventory
@@ -77,8 +76,39 @@ were independently rehashed on Windows.
   `60ca62d35b75634c0235d3a7edd455f292d401872c6fe74011439abc6961482c`;
 - local inventory verification: 14 of 14 files passed.
 
-Automated r83 acceptance passes. PR 87 remains draft until this exact raw
-installer completes the disposable Proxmox reinstall, first-administrator,
-desktop/input, privilege-removal, update, rollback, and `/home` preservation
-checklist. In particular, it must successfully replace a previously used ZFS
-destination without requiring a manual label cleanup.
+Automated assembly and boot smoke passed, but full-disk acceptance failed.
+This directory is therefore retained only as immutable rejected evidence and
+must not be described or promoted as an accepted installer.
+
+## Root cause
+
+The reused 236-package runtime bundle contained `northstar-0.2.2`, while the
+resolved primary artifact and signed repository pinned `northstar-0.2.3`.
+The QCOW2 assembler verified the primary package but never installed it; it
+installed the stale runtime-bundle package instead. Consequently, r83's rootfs
+did not receive the executor correction from `0.2.3` even though provenance
+claimed that package as a verified primary input.
+
+The diagnosis was reproduced directly from immutable records:
+
+- `runtime-package-records` names `northstar-0.2.2-amd64.pkg`;
+- the resolved lock names `northstar-0.2.3-amd64.pkg`; and
+- the assembler's only `pkg add` input was built from the runtime records.
+
+A separate root-only FreeBSD diagnostic created a new 2 GiB file-backed `md`
+disk, built and exported a real ZFS pool on its partition, enabled bounded
+GEOM Rank-1 writes, cleared the partition label, destroyed the GPT, and created
+a replacement GPT. That test passed, confirming that the reset algorithm works
+on real FreeBSD storage and isolating the failure to assembled artifact content.
+The resulting committed gate, `make installer-zfs-reset-smoke`, subsequently
+passed on the builder with:
+
+```text
+PASS: real FreeBSD ZFS target reset and GPT replacement succeeded on md0
+```
+
+The replacement assembler contract must install the locked primary Northstar
+package in place of any runtime-bundle copy, verify its exact installed version,
+and compare the installed executor digest with the executor in that package.
+No replacement RC may be assembled until the real `md` ZFS-reset smoke also
+passes as a committed project gate.

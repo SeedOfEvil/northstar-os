@@ -492,4 +492,6 @@ env NORTHSTAR_INSTALLER_ENGINE_TEST_MODE=1 \
 if grep -Eq 'mdconfig|qemu-img|/dev/(ada|da|nda|vtbd)[0-9]+' "$EXECUTOR"; then
     fail 'executor contains a host-disk allocator or hard-coded physical target'
 fi
+grep -F 'could not clear an existing target ZFS partition label' "$EXECUTOR" >/dev/null \
+    || fail 'executor still hides a failed partition ZFS label clear'
 printf '%s\n' 'PASS: guarded installer execution enforces revalidation, ordered recovery diagnostics, and clean retry preparation'

@@ -2,7 +2,7 @@ SHELL := /bin/sh
 
 .DEFAULT_GOAL := help
 
-.PHONY: help check-host bootstrap configure build test welcome-app-test first-boot-provision-test installer-disk-test installer-source-test installer-engine-test installer-executor-test installer-recovery-test boot-environment-recovery-test installer-media-test installer-rc-test qml-surface-test image-input-test runtime-bundle-test nested-wayfire-package-test image-assembler-test image-boot-smoke-test image-update-rollback-gate-test capture-runtime-bundle prepare-image-inputs validation-deployment-audit update-helper-test update-broker-smoke transactional-update-smoke run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package pkg-repository-smoke signed-development-repository-smoke vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
+.PHONY: help check-host bootstrap configure build test welcome-app-test first-boot-provision-test installer-disk-test installer-source-test installer-engine-test installer-executor-test installer-recovery-test installer-zfs-reset-smoke boot-environment-recovery-test installer-media-test installer-rc-test qml-surface-test image-input-test runtime-bundle-test nested-wayfire-package-test image-assembler-test image-boot-smoke-test image-update-rollback-gate-test capture-runtime-bundle prepare-image-inputs validation-deployment-audit update-helper-test update-broker-smoke transactional-update-smoke run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package pkg-repository-smoke signed-development-repository-smoke vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
 
 MANIFEST ?= packaging/manifests/bootstrap-packages.txt
 NORTHSTAR_USER ?=
@@ -40,6 +40,7 @@ help:
 	@printf '%s\n' '  make installer-source-test  Test signed installer-source verification'
 	@printf '%s\n' '  make installer-engine-test  Test protected preflight and recoverable journal staging'
 	@printf '%s\n' '  make installer-executor-test  Test guarded execution, diagnostics, and clean retry preparation'
+	@printf '%s\n' '  make installer-zfs-reset-smoke  Prove ZFS label clearing and GPT replacement on a disposable md disk (root)'
 	@printf '%s\n' '  make installer-recovery-test  Test the fixed non-mutating recovery PolicyKit boundary'
 	@printf '%s\n' '  make boot-environment-recovery-test  Test bounded boot-environment inventory and activation'
 	@printf '%s\n' '  make installer-media-test  Test signed rootfs source and disk-device-free raw USB assembly'
@@ -133,6 +134,9 @@ installer-engine-test:
 
 installer-executor-test:
 	@sh tests/unit/test-installer-executor.sh
+
+installer-zfs-reset-smoke:
+	@sh tests/vm/installer-zfs-reset-smoke.sh
 
 installer-recovery-test:
 	@sh tests/unit/test-installer-recovery.sh

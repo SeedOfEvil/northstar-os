@@ -101,6 +101,25 @@ northstar-m5-installer-rc/
 Run `qemu-img check` and the snapshot-only boot smoke against the QCOW2 before
 transferring any artifact. Verify every SHA-256 again after transfer.
 
+Before starting a milestone RC assembly, run the real FreeBSD storage reset
+gate on the disposable builder:
+
+```sh
+sudo make installer-zfs-reset-smoke
+```
+
+This test creates and removes only its own 2 GiB file-backed `md` device. It
+must prove partition ZFS-label clearing and GPT replacement with the actual
+FreeBSD `zpool`, GEOM, and `gpart` tools. A mocked executor test is not a
+substitute for this gate.
+
+The QCOW2 assembler treats the resolved primary Northstar package as
+authoritative. A Northstar package captured in an older runtime closure is
+dependency evidence only and must be replaced during assembly. Assembly must
+fail unless the exact locked version is installed and the installed installer
+executor digest matches that package. Image provenance records the effective
+package set after this replacement, not the stale input closure.
+
 ## Disposable Proxmox acceptance
 
 Import the raw installer image as the boot disk of a new UEFI/q35 VM with
@@ -133,6 +152,6 @@ evidence and are never silently replaced.
 The r82 automated assembly and snapshot-only boot evidence, followed by its
 rejection at the full-disk Proxmox reinstall gate, is recorded in
 [`validation/M5_INSTALLER_RC_R82_2026-08-13.md`](validation/M5_INSTALLER_RC_R82_2026-08-13.md).
-The corrected r83 package, signed repository, assembly, public-export, and
-snapshot-only boot evidence is recorded in
+The rejected r83 package, signed repository, assembly, public-export,
+snapshot-only boot evidence, and stale-runtime root cause are recorded in
 [`validation/M5_INSTALLER_RC_R83_2026-08-14.md`](validation/M5_INSTALLER_RC_R83_2026-08-14.md).

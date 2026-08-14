@@ -33,6 +33,22 @@ grep -F 'offline package bootstrap did not converge after three passes' "$ASSEMB
     printf 'FAIL: assembler omits bounded offline package convergence\n' >&2
     exit 1
 }
+grep -F 'package_source=/.northstar-primary/$filename' "$ASSEMBLER" >/dev/null || {
+    printf 'FAIL: assembler does not replace a stale runtime Northstar package with the locked primary artifact\n' >&2
+    exit 1
+}
+grep -F 'locked primary Northstar package was not installed exactly' "$ASSEMBLER" >/dev/null || {
+    printf 'FAIL: assembler does not verify the exact installed Northstar version\n' >&2
+    exit 1
+}
+grep -F "pkg query -F \"\$primary_northstar_path\" '%v'" "$ASSEMBLER" >/dev/null || {
+    printf 'FAIL: assembler does not verify primary package metadata before mutation\n' >&2
+    exit 1
+}
+grep -F 'installed installer executor differs from the locked Northstar package' "$ASSEMBLER" >/dev/null || {
+    printf 'FAIL: assembler does not verify the installed executor payload\n' >&2
+    exit 1
+}
 grep -F 'pw -R "$MOUNT_ROOT" usermod northstar -w none' "$ASSEMBLER" >/dev/null || {
     printf 'FAIL: development autologin does not unlock its local image account\n' >&2
     exit 1
@@ -129,7 +145,7 @@ digest() {
 }
 size() { wc -c < "$1" | tr -d ' '; }
 
-printf 'lock fixture\n' > "$TMP_DIR/resolved/input.lock"
+printf 'NORTHSTAR_PACKAGE=northstar-0.1.4-amd64.pkg\n' > "$TMP_DIR/resolved/input.lock"
 for name in base.txz kernel.txz northstar-0.1.4-amd64.pkg; do
     printf 'artifact %s\n' "$name" > "$TMP_DIR/artifacts/$name"
     printf '%s|%s|%s\n' "$name" "$(digest "$TMP_DIR/artifacts/$name")" \
@@ -140,14 +156,14 @@ tr -d '\r' < "$TMP_DIR/resolved/artifact-records" \
 mv "$TMP_DIR/resolved/artifact-records.normalized" \
     "$TMP_DIR/resolved/artifact-records"
 
-printf 'northstar package\n' > "$TMP_DIR/runtime/packages/northstar-0.1.4-amd64.pkg"
+printf 'stale northstar package\n' > "$TMP_DIR/runtime/packages/northstar-0.1.3-amd64.pkg"
 printf 'compat package\n' > "$TMP_DIR/runtime/packages/northstar-wayfire-nested-0.10.1.746bc7e.pkg"
 {
     printf '%s|%s|%s|%s|%s|%s\n' \
-        northstar-0.1.4-amd64.pkg \
-        "$(digest "$TMP_DIR/runtime/packages/northstar-0.1.4-amd64.pkg")" \
-        "$(size "$TMP_DIR/runtime/packages/northstar-0.1.4-amd64.pkg")" \
-        northstar 0.1.4 x11/northstar
+        northstar-0.1.3-amd64.pkg \
+        "$(digest "$TMP_DIR/runtime/packages/northstar-0.1.3-amd64.pkg")" \
+        "$(size "$TMP_DIR/runtime/packages/northstar-0.1.3-amd64.pkg")" \
+        northstar 0.1.3 x11/northstar
     printf '%s|%s|%s|%s|%s|%s\n' \
         northstar-wayfire-nested-0.10.1.746bc7e.pkg \
         "$(digest "$TMP_DIR/runtime/packages/northstar-wayfire-nested-0.10.1.746bc7e.pkg")" \
@@ -164,6 +180,7 @@ input_lock_sha256=$(digest "$TMP_DIR/resolved/input.lock")
 artifact_records_sha256=$(digest "$TMP_DIR/resolved/artifact-records")
 freebsd_release=15.1-RELEASE
 freebsd_arch=amd64
+northstar_package_version=0.1.4
 EOF
 cat > "$TMP_DIR/runtime/runtime-bundle.conf" <<EOF
 schema_version=1
@@ -178,7 +195,7 @@ EOF
     --runtime-bundle "$TMP_DIR/runtime" --output "$TMP_DIR/output" \
     --project-root "$TMP_DIR/project" --project-commit "$PROJECT_COMMIT" >/dev/null
 
-printf 'tampered\n' >> "$TMP_DIR/runtime/packages/northstar-0.1.4-amd64.pkg"
+printf 'tampered\n' >> "$TMP_DIR/runtime/packages/northstar-0.1.3-amd64.pkg"
 if "$ASSEMBLER" --preflight \
     --resolved-inputs "$TMP_DIR/resolved" --artifacts "$TMP_DIR/artifacts" \
     --runtime-bundle "$TMP_DIR/runtime" --output "$TMP_DIR/tampered" \

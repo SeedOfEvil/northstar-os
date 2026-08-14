@@ -596,8 +596,9 @@ clear_confirmed_target_zfs_labels() {
                 ''|*[!0-9]*) continue ;;
             esac
             "$ZPOOL" labelclear -f "/dev/${txn_target}p${partition_index}" \
-                >/dev/null 2>&1 || true
-        done
+                >/dev/null 2>&1 || exit 1
+        done \
+        || fail "$EX_UNAVAILABLE" 'could not clear an existing target ZFS partition label'
     "$ZPOOL" labelclear -f "/dev/$txn_target" >/dev/null 2>&1 || true
 }
 
