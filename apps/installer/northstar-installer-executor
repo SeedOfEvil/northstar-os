@@ -583,6 +583,24 @@ restore_rank1_writes() {
     geom_access_enabled=0
 }
 
+clear_confirmed_target_zfs_labels() {
+    # Whole-disk installation is explicitly destructive, but label clearing
+    # remains bounded to the independently revalidated target. Existing ZFS
+    # labels can keep GEOM providers open even after Rank-1 replacement is
+    # enabled, causing gpart to reject an otherwise authorized reinstall.
+    partition_table=$($GPART show "$txn_target" 2>/dev/null || true)
+    printf '%s\n' "$partition_table" \
+        | while read -r partition_start partition_size partition_index partition_type partition_rest; do
+            [ "$partition_type" = freebsd-zfs ] || continue
+            case "$partition_index" in
+                ''|*[!0-9]*) continue ;;
+            esac
+            "$ZPOOL" labelclear -f "/dev/${txn_target}p${partition_index}" \
+                >/dev/null 2>&1 || true
+        done
+    "$ZPOOL" labelclear -f "/dev/$txn_target" >/dev/null 2>&1 || true
+}
+
 [ "$#" -ge 1 ] || { usage >&2; exit "$EX_USAGE"; }
 case "$1" in
     --capabilities)
@@ -778,6 +796,7 @@ mutation_started=yes
 write_execution executing mutation-started yes cleanup-and-restart-required
 phase_done mutation-started
 enable_rank1_writes
+clear_confirmed_target_zfs_labels
 if "$GPART" show "$txn_target" >/dev/null 2>&1; then
     "$GPART" destroy -F "$txn_target"
 fi

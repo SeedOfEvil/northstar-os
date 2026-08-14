@@ -58,9 +58,22 @@ EOF
 cat > "$BIN/gpart" <<'EOF'
 #!/bin/sh
 printf 'gpart %s\n' "$*" >> "$NORTHSTAR_TEST_LOG"
-if [ "$1" = show ]; then exit 1; fi
+if [ "$1" = show ]; then
+  if [ "${NORTHSTAR_TEST_EXISTING_ZFS:-0}" = 1 ]; then
+    printf '%s\n' \
+      '=>       40  134217648  md42  GPT  (64G)' \
+      '         40     532480      1  efi  (260M)' \
+      '     534528  133683152      2  freebsd-zfs  (64G)'
+    exit 0
+  fi
+  exit 1
+fi
 flags=$(cat "$NORTHSTAR_TEST_GEOM_FLAGS")
 [ $((flags & 16)) -eq 16 ] || exit 77
+[ "${NORTHSTAR_TEST_EXISTING_ZFS:-0}" != 1 ] || [ "$1" != destroy ] || {
+  grep -Fx 'zpool labelclear -f /dev/md42p2' "$NORTHSTAR_TEST_LOG" >/dev/null \
+    && grep -Fx 'zpool labelclear -f /dev/md42' "$NORTHSTAR_TEST_LOG" >/dev/null
+}
 [ "${NORTHSTAR_TEST_GPART_FAIL:-0}" != 1 ] || exit 69
 # Real FreeBSD gpart prints created provider names on successful operations.
 # The executor must keep this command output out of its completion protocol.
@@ -247,6 +260,7 @@ run_executor() {
       NORTHSTAR_TEST_LOG="$LOG" \
       NORTHSTAR_TEST_GEOM_FLAGS="$GEOM_FLAGS" \
       NORTHSTAR_TEST_GPART_FAIL="${NORTHSTAR_TEST_GPART_FAIL:-0}" \
+      NORTHSTAR_TEST_EXISTING_ZFS="${NORTHSTAR_TEST_EXISTING_ZFS:-0}" \
       NORTHSTAR_TEST_PAYLOAD_SIZE="$PAYLOAD_SIZE" \
       NORTHSTAR_TEST_PAYLOAD_SHA="$PAYLOAD_SHA" \
       NORTHSTAR_TEST_RUNTIME_SHA="$RUNTIME_SHA" \
@@ -322,6 +336,31 @@ grep -F 'sysctl kern.geom.debugflags=0' "$LOG" >/dev/null \
 grep -Fx 'last_phase=mutation-started' \
     "$FAKE_ROOT/var/db/northstar/installer/transactions/$RANK1_FAILED_ID/execution.conf" >/dev/null \
     || fail 'GPT replacement failure recorded an incorrect last phase'
+
+: > "$LOG"
+FAKE_ROOT=$TMP_DIR/existing-zfs-root
+EXISTING_ZFS_ID=nstar-install-1122334455667788-4204
+prepare_fixture "$FAKE_ROOT" "$EXISTING_ZFS_ID"
+printf '%s\n' 0 > "$GEOM_FLAGS"
+NORTHSTAR_TEST_EXISTING_ZFS=1 \
+    run_executor --execute "$EXISTING_ZFS_ID" --confirm-device md42 \
+    > "$TMP_DIR/existing-zfs.out"
+grep -Fx 'INSTALLER_EXECUTION=PASS' "$TMP_DIR/existing-zfs.out" >/dev/null \
+    || fail 'whole-disk reinstall over existing ZFS did not complete'
+grep -Fx 'zpool labelclear -f /dev/md42p2' "$LOG" >/dev/null \
+    || fail 'existing partition-level ZFS label was not cleared'
+grep -Fx 'zpool labelclear -f /dev/md42' "$LOG" >/dev/null \
+    || fail 'existing whole-disk ZFS label was not cleared'
+line_partition_label=$(grep -n '^zpool labelclear -f /dev/md42p2$' "$LOG" | cut -d: -f1)
+line_disk_label=$(grep -n '^zpool labelclear -f /dev/md42$' "$LOG" | cut -d: -f1)
+line_destroy=$(grep -n '^gpart destroy -F md42$' "$LOG" | cut -d: -f1)
+line_create=$(grep -n '^gpart create -s gpt md42$' "$LOG" | cut -d: -f1)
+[ "$line_partition_label" -lt "$line_destroy" ] \
+    && [ "$line_disk_label" -lt "$line_destroy" ] \
+    && [ "$line_destroy" -lt "$line_create" ] \
+    || fail 'existing ZFS labels were not cleared before GPT replacement'
+[ "$(cat "$GEOM_FLAGS")" = 0 ] \
+    || fail 'existing-ZFS reinstall did not restore GEOM write protection'
 
 : > "$LOG"
 FAKE_ROOT=$SUCCESS_ROOT
