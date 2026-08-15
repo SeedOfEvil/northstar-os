@@ -11,8 +11,17 @@ BIN=$TMP_DIR/bin
 STATE_DIR=$TMP_DIR/home/.northstar-image-validation
 MODEL=$TMP_DIR/model
 mkdir -p "$BIN" "$MODEL"
-printf '0.1.4\n' > "$MODEL/installed-version"
-printf '0.1.5\n' > "$MODEL/repository-version"
+BASELINE_VERSION=0.2.5
+CANDIDATE_VERSION=0.2.6
+IMAGE_COMMIT=d561e06519cd78aef9e2918fadd22fc3fe0ee4d1
+CANDIDATE_SOURCE=1111111111111111111111111111111111111111
+REPOSITORY_REVISION=86
+CATALOGUE_SHA256=2222222222222222222222222222222222222222222222222222222222222222
+SIGNATURE_FINGERPRINT=3333333333333333333333333333333333333333333333333333333333333333
+IMAGE_MARKER=$TMP_DIR/image-build.conf
+printf 'schema_version=1\nproject_commit=%s\n' "$IMAGE_COMMIT" > "$IMAGE_MARKER"
+printf '%s\n' "$BASELINE_VERSION" > "$MODEL/installed-version"
+printf '%s\n' "$CANDIDATE_VERSION" > "$MODEL/repository-version"
 printf 'northstar-baseline\n' > "$MODEL/active-be"
 printf 'northstar-baseline|NR\n' > "$MODEL/be-list"
 
@@ -73,12 +82,16 @@ case "$1" in
     if [ "${NORTHSTAR_UPDATE_PKG:-}" != "" ] && echo "$NORTHSTAR_UPDATE_PKG" | grep -F 'pkg-failure-wrapper' >/dev/null; then
         printf 'northstar-failed|NR\n%s|R\n' "$rollback" > "$NORTHSTAR_TEST_MODEL/be-list"
         printf '%s\n' northstar-failed > "$NORTHSTAR_TEST_MODEL/active-be"
-        printf 'protocol=1\nstatus=rollback-scheduled\nboot_environment=%s\n' "$rollback" > "$STATE"
+        printf 'protocol=1\nstatus=rollback-scheduled\nboot_environment=%s\nrepository_revision=%s\nsource_revision=%s\ncatalogue_sha256=%s\nsignature_fingerprint=%s\n' \
+            "$rollback" "$NORTHSTAR_TEST_REPOSITORY_REVISION" "$NORTHSTAR_TEST_CANDIDATE_SOURCE" \
+            "$NORTHSTAR_TEST_CATALOGUE_SHA256" "$NORTHSTAR_TEST_SIGNATURE_FINGERPRINT" > "$STATE"
         exit 70
     fi
-    printf '0.1.5\n' > "$NORTHSTAR_TEST_MODEL/installed-version"
+    printf '%s\n' "$NORTHSTAR_TEST_CANDIDATE_VERSION" > "$NORTHSTAR_TEST_MODEL/installed-version"
     printf 'northstar-baseline|N\n%s|R\n' "$rollback" > "$NORTHSTAR_TEST_MODEL/be-list"
-    printf 'protocol=1\nstatus=updated\nboot_environment=%s\n' "$rollback" > "$STATE"
+    printf 'protocol=1\nstatus=updated\nboot_environment=%s\nrepository_revision=%s\nsource_revision=%s\ncatalogue_sha256=%s\nsignature_fingerprint=%s\n' \
+        "$rollback" "$NORTHSTAR_TEST_REPOSITORY_REVISION" "$NORTHSTAR_TEST_CANDIDATE_SOURCE" \
+        "$NORTHSTAR_TEST_CATALOGUE_SHA256" "$NORTHSTAR_TEST_SIGNATURE_FINGERPRINT" > "$STATE"
     ;;
 --rollback)
     ;;
@@ -91,11 +104,17 @@ chmod +x "$BIN/pkg" "$BIN/bectl" "$BIN/transaction"
 run_gate() {
     NORTHSTAR_IMAGE_VALIDATION_TEST_MODE=1 \
     NORTHSTAR_IMAGE_VALIDATION_STATE_DIR="$STATE_DIR" \
+    NORTHSTAR_IMAGE_MARKER="$IMAGE_MARKER" \
     NORTHSTAR_IMAGE_UPDATE_TRANSACTION="$BIN/transaction" \
     NORTHSTAR_IMAGE_PKG="$BIN/pkg" \
     NORTHSTAR_IMAGE_BECTL="$BIN/bectl" \
     NORTHSTAR_UPDATE_STATE_DIR="$TMP_DIR/update-state" \
     NORTHSTAR_TEST_MODEL="$MODEL" \
+    NORTHSTAR_TEST_REPOSITORY_REVISION="$REPOSITORY_REVISION" \
+    NORTHSTAR_TEST_CANDIDATE_SOURCE="$CANDIDATE_SOURCE" \
+    NORTHSTAR_TEST_CATALOGUE_SHA256="$CATALOGUE_SHA256" \
+    NORTHSTAR_TEST_SIGNATURE_FINGERPRINT="$SIGNATURE_FINGERPRINT" \
+    NORTHSTAR_TEST_CANDIDATE_VERSION="$CANDIDATE_VERSION" \
         sh "$GATE" "$@"
 }
 
@@ -104,19 +123,25 @@ if NORTHSTAR_IMAGE_VALIDATION_TEST_MODE=0 \
     NORTHSTAR_IMAGE_VALIDATION_STATE_DIR="$UNSAFE_STATE" \
     NORTHSTAR_IMAGE_UPDATE_TRANSACTION="$BIN/transaction" \
     NORTHSTAR_IMAGE_PKG="$BIN/pkg" NORTHSTAR_IMAGE_BECTL="$BIN/bectl" \
-        sh "$GATE" --prepare --baseline-version 0.1.4 --candidate-version 0.1.5 >/dev/null 2>&1; then
+        sh "$GATE" --prepare --baseline-version "$BASELINE_VERSION" --candidate-version "$CANDIDATE_VERSION" \
+            --image-commit "$IMAGE_COMMIT" --repository-revision "$REPOSITORY_REVISION" \
+            --candidate-source "$CANDIDATE_SOURCE" --catalogue-sha256 "$CATALOGUE_SHA256" \
+            --signature-fingerprint "$SIGNATURE_FINGERPRINT" >/dev/null 2>&1; then
     printf 'FAIL: production gate accepted a non-FreeBSD host\n' >&2
     exit 1
 fi
 
-run_gate --prepare --baseline-version 0.1.4 --candidate-version 0.1.5 >/dev/null
+run_gate --prepare --baseline-version "$BASELINE_VERSION" --candidate-version "$CANDIDATE_VERSION" \
+    --image-commit "$IMAGE_COMMIT" --repository-revision "$REPOSITORY_REVISION" \
+    --candidate-source "$CANDIDATE_SOURCE" --catalogue-sha256 "$CATALOGUE_SHA256" \
+    --signature-fingerprint "$SIGNATURE_FINGERPRINT" >/dev/null
 SENTINEL_SHA=$(sha256sum "$STATE_DIR/home-sentinel.txt" | awk '{ print $1 }')
 run_gate --inject-failure >/dev/null
 
 # Simulate reboot into the rollback environment after the injected failure.
 printf 'northstar-before-update\n' > "$MODEL/active-be"
 printf 'northstar-failed|R\nnorthstar-before-update|N\n' > "$MODEL/be-list"
-printf '0.1.4\n' > "$MODEL/installed-version"
+printf '%s\n' "$BASELINE_VERSION" > "$MODEL/installed-version"
 run_gate --verify-failure-recovery >/dev/null
 run_gate --normalize-after-failure >/dev/null
 
@@ -126,7 +151,7 @@ run_gate --schedule-rollback >/dev/null
 # Simulate reboot into the explicit rollback environment.
 printf 'northstar-before-update\n' > "$MODEL/active-be"
 printf 'northstar-baseline|R\nnorthstar-before-update|N\n' > "$MODEL/be-list"
-printf '0.1.4\n' > "$MODEL/installed-version"
+printf '%s\n' "$BASELINE_VERSION" > "$MODEL/installed-version"
 run_gate --verify-rollback >/dev/null
 
 grep -Fx 'stage=passed' "$STATE_DIR/state.conf" >/dev/null || {

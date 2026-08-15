@@ -73,8 +73,11 @@ changes still require `git diff --check` and link/heading inspection.
 For image and installer work, this routine PR step means DEV01, native
 FreeBSD, and non-destructive file-backed/model validation. It does not mean
 building, transferring, importing, or reprovisioning a QCOW2. Record the named
-future checkpoint and the exact deferred image behaviors in the PR. The next
-checkpoint is **M5 Installer Release Candidate**.
+future checkpoint and the exact deferred image behaviors in the PR. The
+accepted M5 Installer Release Candidate and its installed-image update/rollback
+evidence are recorded under `docs/validation/`. The next image checkpoint is
+the **M6 Alpha Hardware Release**; routine PRs continue using the development
+lane unless the milestone policy requires earlier image evidence.
 
 ## Consolidated sprint acceptance checklist
 
@@ -263,7 +266,7 @@ state, validation result, and any gate that remains open.
 | M5 image inputs | Exact FreeBSD release-set names/sizes/hashes, accepted Northstar package/repository provenance, explicit project commit, immutable resolved-input output, and rejection of unresolved or tampered inputs without root or disk mutation |
 | M5 QCOW2 boot smoke | `qemu-img check`, UEFI firmware, virtio disk, snapshot-only source protection, ZFS root-mount evidence, Northstar host identity, bounded multi-user login detection, serial-log digest, and no host port forwarding; graphical login remains a separate Proxmox/noVNC gate |
 | M5 QCOW2 Proxmox acceptance | The exact checksummed QCOW2 reaches the branded desktop at 1280x800; compositor and shell remain supervised; keyboard, pointer, clicking, ordinary text entry, terminal and Files launch, and clean shutdown work through noVNC |
-| M5 installed-image update/rollback | On a disposable VM imported from the accepted QCOW2: signed N-1 to N package update, actual ZFS boot-environment creation and activation, injected package-failure recovery after reboot, explicit rollback after reboot, unchanged `/home` sentinel, and retained command/package/repository evidence; never run the destructive gate on the persistent development VM |
+| M5 installed-image update/rollback | On the protected accepted r85 installation: non-mutating candidate staging; schema-2 state bound to the exact image commit, repository revision, candidate source, catalogue digest, and signing fingerprint; signed N-1 to N package update; actual ZFS boot-environment creation and activation; injected package-failure recovery after reboot; explicit rollback after reboot; unchanged `/home` sentinel; and retained command/package/repository evidence; never run the destructive gate on the persistent development VM |
 | M5 first-boot setup | Branded bounded wizard; complete installed FreeBSD timezone inventory with safe system default; dedicated non-wheel setup identity; root-owned pending/completion states; fixed active-console PolicyKit action; caller/request/field revalidation including independent zoneinfo containment and existence; password only over stdin and cleared after delivery; exactly one first administrator with package-owned session configuration and a mode-0440 account-specific sudo policy; setup identity, autologin, and one-time session entry sealed on success; exactly one image-managed Proxmox fallback remains and resolves packaged runtime paths; retry removes both partial account and authorization; integrated SDDM/login evidence repeated on the immutable M5 Installer Release Candidate |
 | M5 installer target selection | Read-only unprivileged FreeBSD discovery; bounded versioned records; active mounted/ZFS/swap disks and undersized targets visibly ineligible; malformed or contradictory records rejected; exact device-name and permanent-erasure acknowledgement required; review plan only; no storage mutation until an independent privileged revalidation slice |
 | M5 installer engine preflight | Fixed PolicyKit executable; caller-owned mode-0600 bounded request; whole-disk GEOM identity independently revalidated; changed, partition, undersized, mounted, ZFS, and swap targets rejected; one root-owned mode-0600 transaction staged without overwrite; execution restricted to the separate guarded executor and no disk mutation commands present in the engine |
