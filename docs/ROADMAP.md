@@ -8,8 +8,8 @@ The project advances through user-visible milestones with explicit pass gates. A
 | M1 | Shell seed | Single-display product slice validated; multi-display acceptance pending | Top bar and dock render correctly on every connected display |
 | M2 | Desktop session | Development session lane validated; production display-manager and service integration pending | Session, services, supervision, notifications, and lifecycle work coherently |
 | M3 | Core desktop | Core workflows, Lunar redesign, shared chrome, Dock v2, unified search, Quick Look, and capability-backed Quick Settings accepted | Filer, branded desktop surface, responsive dock, settings, search, overview, associations, and project apps form a usable desktop |
-| M4 | Packages, updates, rollback | Development update/rollback lane accepted; protected production infrastructure pending | Signed packages and ZFS boot-environment rollback work end to end |
-| M5 | Reproducible image and installer | r85 passed assembly, UEFI smoke, full-disk installation, First Boot, and graphical login; installed-image update/rollback confirmation pending | Pinned inputs produce a bootable UEFI root-on-ZFS image |
+| M4 | Packages, updates, rollback | Signed package and transactional foundations accepted; installed-image execution accepted through M5 | Signed packages and ZFS boot-environment rollback work end to end |
+| M5 | Reproducible image and installer | Accepted: r85 passed assembly, UEFI smoke, full-disk installation, First Boot, graphical login, signed update, failure recovery, explicit rollback, and `/home` preservation | Pinned inputs produce a bootable UEFI root-on-ZFS image |
 | M6 | Alpha hardware release | Not started | The supported VM and narrow Intel/AMD hardware matrix meets the alpha definition |
 
 ## Current baseline and clear path forward
@@ -400,13 +400,15 @@ The rejected r83 evidence and root cause are recorded in
 [`docs/validation/M5_INSTALLER_RC_R83_2026-08-14.md`](validation/M5_INSTALLER_RC_R83_2026-08-14.md).
 The rejected r84 evidence and root causes are recorded in
 [`docs/validation/M5_INSTALLER_RC_R84_2026-08-14.md`](validation/M5_INSTALLER_RC_R84_2026-08-14.md).
-The remaining M5 closure item is the installed-image update, injected-failure
-recovery, explicit rollback, and `/home` preservation confirmation on the r85
-installation.
-PR89 performs that confirmation directly on the protected VM 104 r85
+PR89 completed the final M5 closure item directly on the protected VM 104 r85
 installation with candidate package `0.2.6` and signed repository revision 86.
-It binds schema-2 evidence to the accepted image and candidate identities and
-does not trigger another installer-media rebuild.
+Non-mutating staging, an injected package failure and reboot recovery, the real
+signed `0.2.5` to `0.2.6` update, explicit rollback and reboot, and an unchanged
+`/home` sentinel all passed. Schema-2 evidence is bound to the accepted image,
+candidate source, catalogue, and signing identities. Exact evidence is in
+[`docs/validation/M5_INSTALLED_UPDATE_ROLLBACK_R85_2026-08-15.md`](validation/M5_INSTALLED_UPDATE_ROLLBACK_R85_2026-08-15.md).
+No installer-media rebuild was used for this gate. M5 is accepted; subsequent
+release work advances to the declared M6 VM and Intel/AMD hardware matrix.
 Actual disposable-disk acceptance, recovery-point reboot proof, and media outputs
 use routine DEV01, native FreeBSD, and file-backed validation on their focused
 PRs. Their image-level claims remain explicitly deferred to one integrated

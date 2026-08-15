@@ -2,8 +2,8 @@
 
 ## Status
 
-In progress on PR89. This is the final M5 closure gate and does not rebuild the
-accepted installer media.
+Accepted on PR89. This final M5 closure gate used the installed r85 system
+directly and did not rebuild the accepted installer media.
 
 ## Accepted baseline
 
@@ -57,4 +57,26 @@ accepted installer media.
 
 ## Result
 
-Pending VM execution. M5 remains open until every required item above passes.
+Passed on protected Proxmox VM 104 with snapshot
+`pr89-r85-pre-update` retained during execution:
+
+1. Non-mutating staging exposed the exact signed Northstar `0.2.6` candidate
+   and printed `MUTATION=none`.
+2. Preparation identified baseline boot environment `default` and installed
+   package `0.2.5`.
+3. The injected package failure activated
+   `northstar-before-development-r86-448b297a44d8`; reboot recovery verified
+   `0.2.5` and the preserved home sentinel, then normalized the active boot
+   environment back to `default`.
+4. The authentic repository upgraded Northstar from `0.2.5` to `0.2.6`; the
+   transaction reported `UPDATED=yes`, `ROLLBACK_AVAILABLE=yes`, and the gate
+   reported `UPDATE_VERIFIED=yes`.
+5. Explicit rollback activated the recorded pre-update environment. After
+   reboot the gate reported `IMAGE_UPDATE_ROLLBACK_GATE=PASS`, baseline
+   `0.2.5`, candidate `0.2.6`, and `HOME_PRESERVED=yes`.
+6. Terminal schema-2 state is `stage=passed`. The independently rehashed home
+   sentinel remained
+   `040c4eb605fc349aab1c3eb8b4932a7c84639c81aeddb7a6c9d6965806d49fa2`.
+
+M5 update, failure recovery, explicit rollback, and home-preservation evidence
+is complete.

@@ -37,7 +37,7 @@ fresh disposable Proxmox import. It validates the integrated result rather
 than one small implementation detail. The operator performs the manual noVNC
 gate only after artifact integrity, boot smoke, and automated image checks pass.
 
-The next named checkpoint is **M5 Installer Release Candidate**. It batches:
+The accepted **M5 Installer Release Candidate** batched and passed:
 
 - production first-boot and first-administrator setup;
 - installer UI, target-disk selection, installation, and destructive-action
@@ -48,16 +48,19 @@ The next named checkpoint is **M5 Installer Release Candidate**. It batches:
 - branded boot, installed login, desktop, applications, update, rollback, and
   clean shutdown.
 
-The following full checkpoints are **M6 Alpha RC** and **M6 Alpha release**.
-They add the declared VM and Intel/AMD hardware matrix, native graphics,
-networking, audio, recovery, diagnostics, and application coverage.
+Its installation, First Boot, graphical login, signed update, injected-failure
+recovery, explicit rollback, and `/home` preservation evidence is retained
+under `docs/validation/`. The next full checkpoints are **M6 Alpha RC** and
+**M6 Alpha release**. They add the declared VM and Intel/AMD hardware matrix,
+native graphics, networking, audio, recovery, diagnostics, and application
+coverage.
 
 ## Deferring image acceptance on intermediate PRs
 
 An intermediate PR that contributes to a future image checkpoint must state:
 
 ```text
-Image checkpoint: M5 Installer Release Candidate
+Image checkpoint: M6 Alpha RC
 Image status: DEFERRED
 Routine evidence: <exact tests and DEV01 observations>
 Deferred evidence: <boot/install/first-boot behavior to verify in the RC>

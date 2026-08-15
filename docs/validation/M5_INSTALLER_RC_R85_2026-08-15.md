@@ -7,8 +7,11 @@ authoritative build, snapshot-only UEFI boot smoke, destructive disposable-disk
 installation, independent destination boot, First Boot provisioning, and
 graphical desktop login gates. It supersedes rejected revisions r82-r84.
 
-The installed-image update, injected-failure recovery, explicit rollback, and
-`/home` preservation confirmation remains the final M5 closure item.
+PR89 subsequently passed installed-image signed update, injected-failure
+recovery, explicit rollback, and `/home` preservation on this accepted r85
+installation. That final evidence is recorded in
+[`M5_INSTALLED_UPDATE_ROLLBACK_R85_2026-08-15.md`](M5_INSTALLED_UPDATE_ROLLBACK_R85_2026-08-15.md),
+closing M5.
 
 ## Immutable source and repository
 

@@ -73,8 +73,11 @@ changes still require `git diff --check` and link/heading inspection.
 For image and installer work, this routine PR step means DEV01, native
 FreeBSD, and non-destructive file-backed/model validation. It does not mean
 building, transferring, importing, or reprovisioning a QCOW2. Record the named
-future checkpoint and the exact deferred image behaviors in the PR. The next
-checkpoint is **M5 Installer Release Candidate**.
+future checkpoint and the exact deferred image behaviors in the PR. The
+accepted M5 Installer Release Candidate and its installed-image update/rollback
+evidence are recorded under `docs/validation/`. The next image checkpoint is
+the **M6 Alpha Hardware Release**; routine PRs continue using the development
+lane unless the milestone policy requires earlier image evidence.
 
 ## Consolidated sprint acceptance checklist
 
