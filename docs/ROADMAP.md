@@ -403,6 +403,10 @@ The rejected r84 evidence and root causes are recorded in
 The remaining M5 closure item is the installed-image update, injected-failure
 recovery, explicit rollback, and `/home` preservation confirmation on the r85
 installation.
+PR89 performs that confirmation directly on the protected VM 104 r85
+installation with candidate package `0.2.6` and signed repository revision 86.
+It binds schema-2 evidence to the accepted image and candidate identities and
+does not trigger another installer-media rebuild.
 Actual disposable-disk acceptance, recovery-point reboot proof, and media outputs
 use routine DEV01, native FreeBSD, and file-backed validation on their focused
 PRs. Their image-level claims remain explicitly deferred to one integrated

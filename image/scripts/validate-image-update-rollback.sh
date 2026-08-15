@@ -22,6 +22,17 @@ STATE=$STATE_DIR/state.conf
 SENTINEL=$STATE_DIR/home-sentinel.txt
 FAILURE_PKG=$STATE_DIR/pkg-failure-wrapper
 
+BASELINE_VERSION=
+CANDIDATE_VERSION=
+IMAGE_COMMIT=
+REPOSITORY_REVISION=
+CANDIDATE_SOURCE_REVISION=
+CATALOGUE_SHA256=
+SIGNATURE_FINGERPRINT=
+BASELINE_BE=
+ROLLBACK_BE=
+SENTINEL_SHA256=
+
 fail() {
     status=$1
     shift
@@ -32,7 +43,10 @@ fail() {
 usage() {
     cat <<'EOF'
 Usage:
-  validate-image-update-rollback.sh --prepare --baseline-version V --candidate-version V
+  validate-image-update-rollback.sh --prepare \
+    --baseline-version V --candidate-version V --image-commit COMMIT \
+    --repository-revision N --candidate-source COMMIT \
+    --catalogue-sha256 SHA256 --signature-fingerprint SHA256
   validate-image-update-rollback.sh --inject-failure
   validate-image-update-rollback.sh --verify-failure-recovery
   validate-image-update-rollback.sh --normalize-after-failure
@@ -91,24 +105,51 @@ state_value() {
 
 write_state() {
     stage=$1
-    baseline=$2
-    candidate=$3
-    baseline_be=$4
-    rollback_be=$5
-    sentinel_sha=$6
     mkdir -p "$STATE_DIR"
     tmp=$STATE.tmp.$$
     {
-        printf 'schema_version=1\n'
+        printf 'schema_version=2\n'
         printf 'stage=%s\n' "$stage"
-        printf 'baseline_version=%s\n' "$baseline"
-        printf 'candidate_version=%s\n' "$candidate"
-        printf 'baseline_boot_environment=%s\n' "$baseline_be"
-        printf 'rollback_boot_environment=%s\n' "$rollback_be"
-        printf 'sentinel_sha256=%s\n' "$sentinel_sha"
+        printf 'baseline_version=%s\n' "$BASELINE_VERSION"
+        printf 'candidate_version=%s\n' "$CANDIDATE_VERSION"
+        printf 'image_commit=%s\n' "$IMAGE_COMMIT"
+        printf 'repository_revision=%s\n' "$REPOSITORY_REVISION"
+        printf 'candidate_source_revision=%s\n' "$CANDIDATE_SOURCE_REVISION"
+        printf 'catalogue_sha256=%s\n' "$CATALOGUE_SHA256"
+        printf 'signature_fingerprint=%s\n' "$SIGNATURE_FINGERPRINT"
+        printf 'baseline_boot_environment=%s\n' "$BASELINE_BE"
+        printf 'rollback_boot_environment=%s\n' "$ROLLBACK_BE"
+        printf 'sentinel_sha256=%s\n' "$SENTINEL_SHA256"
     } > "$tmp"
     chmod 0600 "$tmp"
     mv "$tmp" "$STATE"
+}
+
+load_state() {
+    [ "$(state_value schema_version)" = 2 ] || fail "$EX_DATAERR" 'validation state schema is unsupported'
+    BASELINE_VERSION=$(state_value baseline_version)
+    CANDIDATE_VERSION=$(state_value candidate_version)
+    IMAGE_COMMIT=$(state_value image_commit)
+    REPOSITORY_REVISION=$(state_value repository_revision)
+    CANDIDATE_SOURCE_REVISION=$(state_value candidate_source_revision)
+    CATALOGUE_SHA256=$(state_value catalogue_sha256)
+    SIGNATURE_FINGERPRINT=$(state_value signature_fingerprint)
+    BASELINE_BE=$(state_value baseline_boot_environment)
+    ROLLBACK_BE=$(state_value rollback_boot_environment)
+    SENTINEL_SHA256=$(state_value sentinel_sha256)
+}
+
+matches() {
+    printf '%s\n' "$1" | grep -Eq "$2"
+}
+
+marker_value() {
+    key=$1
+    [ -f "$IMAGE_MARKER" ] && [ ! -L "$IMAGE_MARKER" ] || fail "$EX_NOPERM" 'installed Northstar image marker is missing'
+    value=$(awk -F= -v key="$key" '$1 == key { if (found++) exit 2; print substr($0, length(key) + 2) }' "$IMAGE_MARKER") \
+        || fail "$EX_DATAERR" "image marker repeats $key"
+    [ -n "$value" ] || fail "$EX_DATAERR" "image marker omits $key"
+    printf '%s\n' "$value"
 }
 
 digest() {
@@ -128,43 +169,76 @@ installed_version() {
 }
 
 verify_sentinel() {
-    expected=$(state_value sentinel_sha256)
-    [ -f "$SENTINEL" ] && [ "$(digest "$SENTINEL")" = "$expected" ] ||
+    [ -f "$SENTINEL" ] && [ "$(digest "$SENTINEL")" = "$SENTINEL_SHA256" ] ||
         fail "$EX_DATAERR" 'home sentinel was not preserved'
 }
 
-read_transaction_be() {
+transaction_value() {
+    key=$1
     transaction_state=${NORTHSTAR_UPDATE_STATE_DIR:-/var/db/northstar}/update-state.conf
     [ -f "$transaction_state" ] || fail "$EX_DATAERR" 'transaction state was not created'
-    value=$(awk -F= '$1 == "boot_environment" { print $2 }' "$transaction_state")
-    [ -n "$value" ] || fail "$EX_DATAERR" 'transaction state omits its boot environment'
+    value=$(awk -F= -v key="$key" '$1 == key { if (found++) exit 2; print substr($0, length(key) + 2) }' "$transaction_state") \
+        || fail "$EX_DATAERR" "transaction state repeats $key"
+    [ -n "$value" ] || fail "$EX_DATAERR" "transaction state omits $key"
     printf '%s\n' "$value"
+}
+
+verify_transaction_binding() {
+    [ "$(transaction_value repository_revision)" = "$REPOSITORY_REVISION" ] || fail "$EX_DATAERR" 'transaction repository revision changed'
+    [ "$(transaction_value source_revision)" = "$CANDIDATE_SOURCE_REVISION" ] || fail "$EX_DATAERR" 'transaction source revision changed'
+    [ "$(transaction_value catalogue_sha256)" = "$CATALOGUE_SHA256" ] || fail "$EX_DATAERR" 'transaction catalogue digest changed'
+    [ "$(transaction_value signature_fingerprint)" = "$SIGNATURE_FINGERPRINT" ] || fail "$EX_DATAERR" 'transaction signature fingerprint changed'
+}
+
+read_transaction_be() {
+    verify_transaction_binding
+    transaction_value boot_environment
 }
 
 prepare() {
     baseline=$1
     candidate=$2
+    image_commit=$3
+    repository_revision=$4
+    candidate_source=$5
+    catalogue_sha256=$6
+    signature_fingerprint=$7
     [ ! -e "$STATE_DIR" ] || fail "$EX_DATAERR" "validation state already exists: $STATE_DIR"
+    matches "$baseline" '^[A-Za-z0-9][A-Za-z0-9_.+~,:-]{0,63}$' || fail "$EX_DATAERR" 'baseline version is unsafe'
+    matches "$candidate" '^[A-Za-z0-9][A-Za-z0-9_.+~,:-]{0,63}$' || fail "$EX_DATAERR" 'candidate version is unsafe'
+    matches "$image_commit" '^[0-9A-Fa-f]{40,64}$' || fail "$EX_DATAERR" 'image commit is not resolved'
+    case "$repository_revision" in ''|*[!0-9]*) fail "$EX_DATAERR" 'repository revision is not numeric' ;; esac
+    [ "${#repository_revision}" -le 9 ] || fail "$EX_DATAERR" 'repository revision is too long'
+    matches "$candidate_source" '^[0-9A-Fa-f]{40,64}$' || fail "$EX_DATAERR" 'candidate source revision is not resolved'
+    matches "$catalogue_sha256" '^[0-9A-Fa-f]{64}$' || fail "$EX_DATAERR" 'catalogue digest is not SHA-256'
+    matches "$signature_fingerprint" '^[0-9A-Fa-f]{64}$' || fail "$EX_DATAERR" 'signature fingerprint is not SHA-256'
+    [ "$(marker_value project_commit)" = "$image_commit" ] || fail "$EX_DATAERR" 'installed image commit does not match the accepted baseline'
     [ "$(installed_version)" = "$baseline" ] || fail "$EX_DATAERR" "installed $PACKAGE is not baseline $baseline"
     available=$("$PKG" rquery -r "$REPOSITORY" -e "%n == $PACKAGE" '%v' 2>/dev/null || true)
     [ "$available" = "$candidate" ] || fail "$EX_DATAERR" "repository candidate is not $candidate"
     baseline_be=$(active_be) || fail "$EX_DATAERR" 'could not identify exactly one active boot environment'
+    BASELINE_VERSION=$baseline
+    CANDIDATE_VERSION=$candidate
+    IMAGE_COMMIT=$image_commit
+    REPOSITORY_REVISION=$repository_revision
+    CANDIDATE_SOURCE_REVISION=$candidate_source
+    CATALOGUE_SHA256=$(printf '%s' "$catalogue_sha256" | tr '[:upper:]' '[:lower:]')
+    SIGNATURE_FINGERPRINT=$(printf '%s' "$signature_fingerprint" | tr '[:upper:]' '[:lower:]')
+    BASELINE_BE=$baseline_be
+    ROLLBACK_BE=none
     mkdir -p "$STATE_DIR"
     chmod 0700 "$STATE_DIR"
     printf 'Northstar image update rollback sentinel\n' > "$SENTINEL"
     chmod 0600 "$SENTINEL"
-    sentinel_sha=$(digest "$SENTINEL")
-    write_state prepared "$baseline" "$candidate" "$baseline_be" none "$sentinel_sha"
+    SENTINEL_SHA256=$(digest "$SENTINEL")
+    write_state prepared
     printf 'PREPARED=yes\nBASELINE=%s\nCANDIDATE=%s\nBOOT_ENVIRONMENT=%s\n' \
         "$baseline" "$candidate" "$baseline_be"
 }
 
 inject_failure() {
     [ "$(state_value stage)" = prepared ] || fail "$EX_DATAERR" 'failure injection requires prepared state'
-    baseline=$(state_value baseline_version)
-    candidate=$(state_value candidate_version)
-    baseline_be=$(state_value baseline_boot_environment)
-    sentinel_sha=$(state_value sentinel_sha256)
+    load_state
     cat > "$FAILURE_PKG" <<EOF
 #!/bin/sh
 case "\${1-}" in
@@ -176,79 +250,61 @@ EOF
     if NORTHSTAR_UPDATE_PKG="$FAILURE_PKG" "$TRANSACTION" --apply-update --confirm; then
         fail "$EX_DATAERR" 'injected package failure unexpectedly succeeded'
     fi
-    rollback_be=$(read_transaction_be)
-    write_state failure-rollback-scheduled "$baseline" "$candidate" "$baseline_be" "$rollback_be" "$sentinel_sha"
-    printf 'FAILURE_ROLLBACK_SCHEDULED=%s\nREBOOT_REQUIRED=yes\n' "$rollback_be"
+    ROLLBACK_BE=$(read_transaction_be)
+    write_state failure-rollback-scheduled
+    printf 'FAILURE_ROLLBACK_SCHEDULED=%s\nREBOOT_REQUIRED=yes\n' "$ROLLBACK_BE"
 }
 
 verify_failure_recovery() {
     [ "$(state_value stage)" = failure-rollback-scheduled ] || fail "$EX_DATAERR" 'failure recovery is not scheduled'
-    baseline=$(state_value baseline_version)
-    candidate=$(state_value candidate_version)
-    baseline_be=$(state_value baseline_boot_environment)
-    rollback_be=$(state_value rollback_boot_environment)
-    sentinel_sha=$(state_value sentinel_sha256)
-    [ "$(active_be)" = "$rollback_be" ] || fail "$EX_DATAERR" 'failure rollback boot environment is not active'
-    [ "$(installed_version)" = "$baseline" ] || fail "$EX_DATAERR" 'baseline package version was not recovered'
+    load_state
+    [ "$(active_be)" = "$ROLLBACK_BE" ] || fail "$EX_DATAERR" 'failure rollback boot environment is not active'
+    [ "$(installed_version)" = "$BASELINE_VERSION" ] || fail "$EX_DATAERR" 'baseline package version was not recovered'
     verify_sentinel
-    write_state failure-recovered "$baseline" "$candidate" "$baseline_be" "$rollback_be" "$sentinel_sha"
+    write_state failure-recovered
     printf 'FAILURE_RECOVERY_VERIFIED=yes\n'
 }
 
 normalize_after_failure() {
     [ "$(state_value stage)" = failure-recovered ] || fail "$EX_DATAERR" 'normalization requires verified failure recovery'
-    baseline=$(state_value baseline_version)
-    candidate=$(state_value candidate_version)
-    baseline_be=$(state_value baseline_boot_environment)
-    rollback_be=$(state_value rollback_boot_environment)
-    sentinel_sha=$(state_value sentinel_sha256)
-    [ "$(active_be)" = "$rollback_be" ] || fail "$EX_DATAERR" 'refusing to normalize a non-active rollback environment'
-    [ "$baseline_be" != "$rollback_be" ] || fail "$EX_DATAERR" 'boot-environment names unexpectedly match'
-    "$BECTL" destroy -F "$baseline_be"
-    "$BECTL" rename "$rollback_be" "$baseline_be"
-    [ "$(active_be)" = "$baseline_be" ] || fail "$EX_DATAERR" 'boot-environment normalization failed'
-    write_state normalized "$baseline" "$candidate" "$baseline_be" none "$sentinel_sha"
-    printf 'NORMALIZED=yes\nBOOT_ENVIRONMENT=%s\n' "$baseline_be"
+    load_state
+    [ "$(active_be)" = "$ROLLBACK_BE" ] || fail "$EX_DATAERR" 'refusing to normalize a non-active rollback environment'
+    [ "$BASELINE_BE" != "$ROLLBACK_BE" ] || fail "$EX_DATAERR" 'boot-environment names unexpectedly match'
+    "$BECTL" destroy -F "$BASELINE_BE"
+    "$BECTL" rename "$ROLLBACK_BE" "$BASELINE_BE"
+    [ "$(active_be)" = "$BASELINE_BE" ] || fail "$EX_DATAERR" 'boot-environment normalization failed'
+    ROLLBACK_BE=none
+    write_state normalized
+    printf 'NORMALIZED=yes\nBOOT_ENVIRONMENT=%s\n' "$BASELINE_BE"
 }
 
 apply_update() {
     [ "$(state_value stage)" = normalized ] || fail "$EX_DATAERR" 'successful update requires normalized state'
-    baseline=$(state_value baseline_version)
-    candidate=$(state_value candidate_version)
-    baseline_be=$(state_value baseline_boot_environment)
-    sentinel_sha=$(state_value sentinel_sha256)
+    load_state
     "$TRANSACTION" --apply-update --confirm
-    [ "$(installed_version)" = "$candidate" ] || fail "$EX_DATAERR" 'candidate package version was not installed'
-    rollback_be=$(read_transaction_be)
+    [ "$(installed_version)" = "$CANDIDATE_VERSION" ] || fail "$EX_DATAERR" 'candidate package version was not installed'
+    ROLLBACK_BE=$(read_transaction_be)
     verify_sentinel
-    write_state updated "$baseline" "$candidate" "$baseline_be" "$rollback_be" "$sentinel_sha"
-    printf 'UPDATE_VERIFIED=yes\nROLLBACK_BOOT_ENVIRONMENT=%s\n' "$rollback_be"
+    write_state updated
+    printf 'UPDATE_VERIFIED=yes\nROLLBACK_BOOT_ENVIRONMENT=%s\n' "$ROLLBACK_BE"
 }
 
 schedule_rollback() {
     [ "$(state_value stage)" = updated ] || fail "$EX_DATAERR" 'explicit rollback requires a verified update'
-    baseline=$(state_value baseline_version)
-    candidate=$(state_value candidate_version)
-    baseline_be=$(state_value baseline_boot_environment)
-    rollback_be=$(state_value rollback_boot_environment)
-    sentinel_sha=$(state_value sentinel_sha256)
+    load_state
     "$TRANSACTION" --rollback --confirm
-    write_state explicit-rollback-scheduled "$baseline" "$candidate" "$baseline_be" "$rollback_be" "$sentinel_sha"
-    printf 'EXPLICIT_ROLLBACK_SCHEDULED=%s\nREBOOT_REQUIRED=yes\n' "$rollback_be"
+    write_state explicit-rollback-scheduled
+    printf 'EXPLICIT_ROLLBACK_SCHEDULED=%s\nREBOOT_REQUIRED=yes\n' "$ROLLBACK_BE"
 }
 
 verify_rollback() {
     [ "$(state_value stage)" = explicit-rollback-scheduled ] || fail "$EX_DATAERR" 'explicit rollback is not scheduled'
-    baseline=$(state_value baseline_version)
-    candidate=$(state_value candidate_version)
-    baseline_be=$(state_value baseline_boot_environment)
-    rollback_be=$(state_value rollback_boot_environment)
-    sentinel_sha=$(state_value sentinel_sha256)
-    [ "$(active_be)" = "$rollback_be" ] || fail "$EX_DATAERR" 'explicit rollback boot environment is not active'
-    [ "$(installed_version)" = "$baseline" ] || fail "$EX_DATAERR" 'explicit rollback did not restore the baseline package'
+    load_state
+    [ "$(active_be)" = "$ROLLBACK_BE" ] || fail "$EX_DATAERR" 'explicit rollback boot environment is not active'
+    [ "$(installed_version)" = "$BASELINE_VERSION" ] || fail "$EX_DATAERR" 'explicit rollback did not restore the baseline package'
     verify_sentinel
-    write_state passed "$baseline" "$candidate" "$baseline_be" "$rollback_be" "$sentinel_sha"
-    printf 'IMAGE_UPDATE_ROLLBACK_GATE=PASS\nBASELINE=%s\nCANDIDATE=%s\nHOME_PRESERVED=yes\n' "$baseline" "$candidate"
+    write_state passed
+    printf 'IMAGE_UPDATE_ROLLBACK_GATE=PASS\nBASELINE=%s\nCANDIDATE=%s\nHOME_PRESERVED=yes\n' "$BASELINE_VERSION" "$CANDIDATE_VERSION"
 }
 
 case "${1-}" in
@@ -262,8 +318,13 @@ require_production_boundary
 require_tools
 case "${1-}" in
 --prepare)
-    [ "$#" -eq 5 ] && [ "$2" = --baseline-version ] && [ "$4" = --candidate-version ] || fail "$EX_USAGE" 'invalid --prepare arguments'
-    prepare "$3" "$5"
+    [ "$#" -eq 15 ] \
+        && [ "$2" = --baseline-version ] && [ "$4" = --candidate-version ] \
+        && [ "$6" = --image-commit ] && [ "$8" = --repository-revision ] \
+        && [ "$10" = --candidate-source ] && [ "$12" = --catalogue-sha256 ] \
+        && [ "$14" = --signature-fingerprint ] \
+        || fail "$EX_USAGE" 'invalid --prepare arguments'
+    prepare "$3" "$5" "$7" "$9" "$11" "$13" "$15"
     ;;
 --inject-failure)
     [ "$#" -eq 1 ] || fail "$EX_USAGE" 'unexpected arguments'

@@ -84,6 +84,9 @@ inside the project, requires both disposable-builder boundaries, and exposes
 no host-disk destination.
 PR77 adds `unit/test-image-update-rollback-gate.sh` and the installed-image
 `image/scripts/validate-image-update-rollback.sh` acceptance driver. The unit
+gate now binds the accepted image and signed candidate identities in schema-2
+state. PR89 adds `unit/test-installed-image-update-staging.sh` for the
+non-mutating repository and trust-staging boundary before VM execution. The
 test simulates both reboot boundaries. Production use is root-only, requires
 the installed-image marker and a separate `/home` dataset, and must run only on
 a disposable VM restored from the accepted QCOW2. It proves injected package
