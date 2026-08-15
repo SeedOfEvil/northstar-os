@@ -2,7 +2,7 @@ SHELL := /bin/sh
 
 .DEFAULT_GOAL := help
 
-.PHONY: help check-host bootstrap configure build test welcome-app-test first-boot-provision-test installer-disk-test installer-source-test installer-engine-test installer-executor-test installer-recovery-test boot-environment-recovery-test installer-media-test qml-surface-test image-input-test runtime-bundle-test nested-wayfire-package-test image-assembler-test image-boot-smoke-test image-update-rollback-gate-test capture-runtime-bundle prepare-image-inputs validation-deployment-audit update-helper-test update-broker-smoke transactional-update-smoke run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package pkg-repository-smoke signed-development-repository-smoke vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
+.PHONY: help check-host bootstrap configure build test welcome-app-test first-boot-provision-test installer-disk-test installer-source-test installer-engine-test installer-executor-test installer-recovery-test installer-zfs-reset-smoke installer-virtio-retry-smoke installer-builder-preflight boot-environment-recovery-test installer-media-test installer-rc-test qml-surface-test image-input-test runtime-bundle-test nested-wayfire-package-test image-assembler-test image-boot-smoke-test image-update-rollback-gate-test capture-runtime-bundle prepare-image-inputs validation-deployment-audit update-helper-test update-broker-smoke transactional-update-smoke run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package pkg-repository-smoke signed-development-repository-smoke vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
 
 MANIFEST ?= packaging/manifests/bootstrap-packages.txt
 NORTHSTAR_USER ?=
@@ -21,7 +21,7 @@ IMAGE_INPUT_OUTPUT ?= .artifacts/m5-resolved-inputs
 IMAGE_RUNTIME_ROOTS ?= image/manifests/northstar-runtime-roots.txt
 IMAGE_RUNTIME_OUTPUT ?= .artifacts/m5-runtime-bundle
 IMAGE_PACKAGE_CACHE ?= .artifacts/m5-package-cache
-NORTHSTAR_IMAGE_PACKAGE ?= .artifacts/m5-inputs/northstar-0.1.4-amd64.pkg
+NORTHSTAR_IMAGE_PACKAGE ?= .artifacts/m5-inputs/northstar-0.2.0-amd64.pkg
 NORTHSTAR_COMPAT_PACKAGE ?= .artifacts/m5-compat-package/northstar-wayfire-nested-0.10.1.746bc7e.pkg
 IMAGE_SOURCE_DATE_EPOCH ?= $(shell sed -n 's/^SOURCE_DATE_EPOCH=//p' "$(IMAGE_LOCK)")
 PROJECT_COMMIT ?= $(shell git rev-parse HEAD 2>/dev/null)
@@ -40,9 +40,13 @@ help:
 	@printf '%s\n' '  make installer-source-test  Test signed installer-source verification'
 	@printf '%s\n' '  make installer-engine-test  Test protected preflight and recoverable journal staging'
 	@printf '%s\n' '  make installer-executor-test  Test guarded execution, diagnostics, and clean retry preparation'
+	@printf '%s\n' '  make installer-zfs-reset-smoke  Prove ZFS label clearing and GPT replacement on a disposable md disk (root)'
+	@printf '%s\n' '  make installer-virtio-retry-smoke DEVICE=<daN> EXPECTED_BYTES=<bytes>  Reproduce alias-mounted interruption and clean retry on a disposable VirtIO disk (root)'
+	@printf '%s\n' '  make installer-builder-preflight TEST_USER=<user>  Split unprivileged contracts from the root ZFS builder smoke'
 	@printf '%s\n' '  make installer-recovery-test  Test the fixed non-mutating recovery PolicyKit boundary'
 	@printf '%s\n' '  make boot-environment-recovery-test  Test bounded boot-environment inventory and activation'
 	@printf '%s\n' '  make installer-media-test  Test signed rootfs source and disk-device-free raw USB assembly'
+	@printf '%s\n' '  make installer-rc-test  Test integrated QCOW2, signed-source, and raw-media orchestration'
 	@printf '%s\n' '  make qml-surface-test  Check product-critical QML surface wiring'
 	@printf '%s\n' '  make image-input-test  Test pinned M5 image-input preparation'
 	@printf '%s\n' '  make runtime-bundle-test  Test exact offline runtime capture'
@@ -97,6 +101,7 @@ test:
 	@$(MAKE) installer-recovery-test
 	@$(MAKE) boot-environment-recovery-test
 	@$(MAKE) installer-media-test
+	@$(MAKE) installer-rc-test
 	@$(MAKE) qml-surface-test
 	@sh tests/unit/test-nested-wayfire-session.sh
 	@sh tests/unit/test-console-autostart.sh
@@ -132,6 +137,25 @@ installer-engine-test:
 installer-executor-test:
 	@sh tests/unit/test-installer-executor.sh
 
+installer-zfs-reset-smoke:
+	@sh tests/vm/installer-zfs-reset-smoke.sh
+
+installer-virtio-retry-smoke:
+	@if [ -z "$(DEVICE)" ] || [ -z "$(EXPECTED_BYTES)" ]; then \
+		printf '%s\n' 'ERROR: pass DEVICE=<daN> EXPECTED_BYTES=<exact-size>' >&2; \
+		exit 2; \
+	fi
+	@sh tests/vm/installer-virtio-retry-smoke.sh \
+		--device "$(DEVICE)" --expected-bytes "$(EXPECTED_BYTES)" \
+		--confirm-device "$(DEVICE)"
+
+installer-builder-preflight:
+	@if [ -z "$(TEST_USER)" ]; then \
+		printf '%s\n' 'ERROR: pass TEST_USER=<unprivileged-builder-user>' >&2; \
+		exit 2; \
+	fi
+	@sh tests/vm/installer-builder-preflight.sh --test-user "$(TEST_USER)"
+
 installer-recovery-test:
 	@sh tests/unit/test-installer-recovery.sh
 
@@ -140,6 +164,9 @@ boot-environment-recovery-test:
 
 installer-media-test:
 	@sh tests/unit/test-installer-media.sh
+
+installer-rc-test:
+	@sh tests/unit/test-installer-rc.sh
 
 qml-surface-test:
 	@sh tests/unit/test-qml-surfaces.sh

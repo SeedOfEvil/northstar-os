@@ -77,6 +77,11 @@ internal key, mismatched manifest, unknown provenance, development-autologin
 image, and altered QCOW2. Media assembly preflight is output-free and
 disk-device-free. Production raw assembly and boot/install behavior remain
 deferred to the M5 Installer Release Candidate.
+`unit/test-installer-rc.sh` proves the milestone orchestrator calls QCOW2,
+signed-source, and raw-media stages in that exact order, emits a commit-bound
+top-level provenance record, creates no preflight output, rejects a private key
+inside the project, requires both disposable-builder boundaries, and exposes
+no host-disk destination.
 PR77 adds `unit/test-image-update-rollback-gate.sh` and the installed-image
 `image/scripts/validate-image-update-rollback.sh` acceptance driver. The unit
 test simulates both reboot boundaries. Production use is root-only, requires

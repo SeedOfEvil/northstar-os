@@ -9,7 +9,7 @@ The project advances through user-visible milestones with explicit pass gates. A
 | M2 | Desktop session | Development session lane validated; production display-manager and service integration pending | Session, services, supervision, notifications, and lifecycle work coherently |
 | M3 | Core desktop | Core workflows, Lunar redesign, shared chrome, Dock v2, unified search, Quick Look, and capability-backed Quick Settings accepted | Filer, branded desktop surface, responsive dock, settings, search, overview, associations, and project apps form a usable desktop |
 | M4 | Packages, updates, rollback | Development update/rollback lane accepted; protected production infrastructure pending | Signed packages and ZFS boot-environment rollback work end to end |
-| M5 | Reproducible image and installer | First QCOW2 and image-local update/rollback accepted; installer release candidate pending | Pinned inputs produce a bootable UEFI root-on-ZFS image |
+| M5 | Reproducible image and installer | r85 passed assembly, UEFI smoke, full-disk installation, First Boot, and graphical login; installed-image update/rollback confirmation pending | Pinned inputs produce a bootable UEFI root-on-ZFS image |
 | M6 | Alpha hardware release | Not started | The supported VM and narrow Intel/AMD hardware matrix meets the alpha definition |
 
 ## Current baseline and clear path forward
@@ -364,6 +364,45 @@ file with a labeled read-only source partition and non-inheritable live-media
 session. The assembler accepts no host disk. Its routine boundary and deferred
 acceptance are documented in
 [`docs/M5_INSTALLER_MEDIA.md`](M5_INSTALLER_MEDIA.md).
+The integrated checkpoint is now driven by one ordered, provenance-emitting
+orchestrator and the disposable-builder/Proxmox checklist in
+[`docs/M5_INSTALLER_RELEASE_CANDIDATE.md`](M5_INSTALLER_RELEASE_CANDIDATE.md).
+PR87's r82, r83, and r84 integrated media passed automated assembly and
+snapshot-only boot gates but were rejected by the disposable Proxmox install
+gate. R83 verified package `0.2.3` without installing it: the reused runtime
+closure silently supplied stale Northstar `0.2.2`. R84 installed package
+`0.2.4`, but inherited `/boot/efi` automount state resolved the duplicate
+`NSTAR_EFI` label to the destination and caused `gpart: Device busy`; its retry
+then rejected the ZFS label that the interrupted attempt had already cleared.
+The assembler now replaces that runtime copy with the locked primary package,
+verifies its exact installed version and installer-executor digest, records the
+effective package set, removes inherited EFI automount state from installer
+media, resolves active GEOM aliases during target checks, treats absent ZFS
+labels as a valid clean-retry state, and requires both file-backed and real
+VirtIO ZFS/GPT retry regressions before milestone assembly. Package `0.2.4` and
+signed repository revision 84 remain rejected as an installable RC. PR88 now
+pins package `0.2.5` and signed repository revision 85 after authentic-client,
+tamper-rejection, private-key-exclusion, package-identity, and exact packaged
+executor checks passed. Revision 85 completed authoritative assembly,
+snapshot-only UEFI boot smoke, full-disk installation onto a 50 GiB VirtIO
+target, independent destination boot, first-administrator provisioning,
+branded greeter, and graphical desktop login on disposable Proxmox VM 104.
+The accepted login used the image-managed fallback entry; the generic
+development entry exposed alongside it still pointed at a user-local Wayfire
+path. The release-image contract now removes that duplicate entry, resolves
+the packaged Wayfire runtime defensively, and removes the sealed one-time
+First Boot entry after provisioning. Exact r85 evidence is recorded in
+[`docs/validation/M5_INSTALLER_RC_R85_2026-08-15.md`](validation/M5_INSTALLER_RC_R85_2026-08-15.md).
+The failed
+r82 evidence remains recorded in
+[`docs/validation/M5_INSTALLER_RC_R82_2026-08-13.md`](validation/M5_INSTALLER_RC_R82_2026-08-13.md).
+The rejected r83 evidence and root cause are recorded in
+[`docs/validation/M5_INSTALLER_RC_R83_2026-08-14.md`](validation/M5_INSTALLER_RC_R83_2026-08-14.md).
+The rejected r84 evidence and root causes are recorded in
+[`docs/validation/M5_INSTALLER_RC_R84_2026-08-14.md`](validation/M5_INSTALLER_RC_R84_2026-08-14.md).
+The remaining M5 closure item is the installed-image update, injected-failure
+recovery, explicit rollback, and `/home` preservation confirmation on the r85
+installation.
 Actual disposable-disk acceptance, recovery-point reboot proof, and media outputs
 use routine DEV01, native FreeBSD, and file-backed validation on their focused
 PRs. Their image-level claims remain explicitly deferred to one integrated

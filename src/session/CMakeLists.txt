@@ -34,6 +34,11 @@ install(FILES
 )
 
 install(FILES
+    ${PROJECT_SOURCE_DIR}/config/wayfire-nested.ini
+    DESTINATION share/northstar/session
+)
+
+install(FILES
     ${PROJECT_SOURCE_DIR}/assets/icons/northstar-icons.png
     ${PROJECT_SOURCE_DIR}/assets/icons/generated/northstar-welcome.png
     ${PROJECT_SOURCE_DIR}/assets/icons/generated/northstar-software.png

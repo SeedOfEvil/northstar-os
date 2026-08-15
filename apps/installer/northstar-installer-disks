@@ -24,7 +24,21 @@ $($ZPOOL status -P 2>/dev/null || true)"; fi
 if [ -x "$SWAPINFO" ]; then usage="$usage
 $($SWAPINFO -k 2>/dev/null || true)"; fi
 
-printf '%s\n' 'protocol=1'
+# Mounts, pools, and swap can name a provider through GEOM aliases such as
+# /dev/msdosfs/NSTAR_EFI or /dev/gpt/NSTAR_ZFS. Resolve only aliases that
+# actually occur in the active-usage report; appending every known label would
+# incorrectly reject idle destination disks.
+label_status=$($GEOM label status 2>/dev/null || true)
+alias_components=$(printf '%s\n' "$usage" \
+    | awk '{ for (i = 1; i <= NF; i++) if ($i ~ /^\/dev\//) print substr($i, 6) }' \
+    | while IFS= read -r provider; do
+        printf '%s\n' "$label_status" \
+            | awk -v provider="$provider" '$1 == provider { print $3 }'
+      done)
+usage="$usage
+$alias_components"
+
+printf '%s\n' 'protocol=2'
 for disk in $disks; do
     case "$disk" in
         *[!A-Za-z0-9._-]*|'') continue ;;
@@ -36,6 +50,9 @@ for disk in $disks; do
         size=$(printf '%s\n' "$info" | awk '/# mediasize in bytes/ { print $1; exit }')
     fi
     case "$size" in *[!0-9]*|'') continue ;; esac
+    [ "$size" -gt 0 ] || continue
+    sector_size=$(printf '%s\n' "$geom_info" | awk -F: '/^[[:space:]]*Sectorsize:/ { gsub(/[[:space:]]/, "", $2); print $2; exit }')
+    case "$sector_size" in 512|4096) ;; *) continue ;; esac
 
     description="FreeBSD disk $disk"
     discovered=$(printf '%s\n' "$geom_info" \
@@ -54,6 +71,6 @@ for disk in $disks; do
         eligible=no
         reason='Smaller than the 16 GiB Northstar minimum'
     fi
-    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
-        "$disk" "$size" "$description" unknown "$system" "$eligible" "$reason"
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+        "$disk" "$size" "$sector_size" "$description" unknown "$system" "$eligible" "$reason"
 done

@@ -139,8 +139,11 @@ fi
 
 contains image/scripts/assemble-installer-usb.sh 'Production accepts no disk device'
 contains image/scripts/assemble-installer-usb.sh 'installer USB assembly must run as root on a disposable builder'
-contains image/scripts/assemble-installer-usb.sh 'SOURCE_PROVIDER=$(gpart add -a 1m -t freebsd-ufs -l NSTAR_SOURCE "$MD_DEVICE")'
+contains image/scripts/assemble-installer-usb.sh 'source_provider_output=$(gpart add -a 1m -t freebsd-ufs -l NSTAR_SOURCE "$MD_DEVICE")'
+contains image/scripts/assemble-installer-usb.sh 'SOURCE_PROVIDER=$(printf '\''%s\n'\'' "$source_provider_output" | awk '\''NR == 1 { print $1 }'\'')'
+contains image/scripts/assemble-installer-usb.sh "printf '%s\\n' \"\$SOURCE_PROVIDER\" | grep -Eq '^md[0-9]+p[0-9]+\$'"
 contains image/scripts/assemble-installer-usb.sh '/dev/ufs/NSTAR_SOURCE /var/run/northstar-installer/source ufs ro,noatime 0 0'
+contains image/scripts/assemble-installer-usb.sh 'installer media must disable inherited EFI automount'
 contains image/scripts/assemble-installer-usb.sh 'source QCOW2 changed during media assembly'
 contains image/scripts/assemble-installer-usb.sh 'host_disk_write=unsupported'
 contains image/scripts/assemble-installer-usb.sh 'subject.user == "northstar-installer"'

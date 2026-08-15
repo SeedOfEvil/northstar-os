@@ -14,6 +14,8 @@ trap 'rm -rf "$TMP_DIR"' EXIT HUP INT TERM
 mkdir -p "$TMP_DIR/source/bin" "$TMP_DIR/source/lib/wayfire"
 printf '#!/bin/sh\nprintf "fixture wayfire\\n"\n' > "$TMP_DIR/source/bin/wayfire"
 printf 'plugin fixture\n' > "$TMP_DIR/source/lib/wayfire/libfixture.so"
+printf '%s\n' '/usr/local/libexec/northstar-wayfire-nested' \
+    > "$TMP_DIR/source/.northstar-compiled-prefix"
 chmod +x "$TMP_DIR/source/bin/wayfire"
 
 "$PACKAGER" --source "$TMP_DIR/source" --output "$TMP_DIR/output" \
@@ -23,6 +25,13 @@ chmod +x "$TMP_DIR/source/bin/wayfire"
 
 package_path=$(find "$TMP_DIR/output" -type f -name '*.pkg' -print)
 [ "$(pkg query -F "$package_path" '%n')" = northstar-wayfire-nested ]
+pkg query -F "$package_path" '%Fp' \
+    | grep -Fx '/usr/local/libexec/northstar-wayfire-nested/bin/wayfire' >/dev/null \
+    || { printf 'FAIL: compatibility compositor is not system-owned\n' >&2; exit 1; }
+if pkg query -F "$package_path" '%Fp' | grep -q '^/home/'; then
+    printf 'FAIL: compatibility package contains a user-home path\n' >&2
+    exit 1
+fi
 grep -F 'source_revision=746bc7e' "$TMP_DIR/output/compat-package.conf" >/dev/null
 grep -F 'runtime_tree_sha256=' "$TMP_DIR/output/compat-package.conf" >/dev/null
 
