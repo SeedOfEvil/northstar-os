@@ -321,10 +321,10 @@ case "${1-}" in
     [ "$#" -eq 15 ] \
         && [ "$2" = --baseline-version ] && [ "$4" = --candidate-version ] \
         && [ "$6" = --image-commit ] && [ "$8" = --repository-revision ] \
-        && [ "$10" = --candidate-source ] && [ "$12" = --catalogue-sha256 ] \
-        && [ "$14" = --signature-fingerprint ] \
+        && [ "${10}" = --candidate-source ] && [ "${12}" = --catalogue-sha256 ] \
+        && [ "${14}" = --signature-fingerprint ] \
         || fail "$EX_USAGE" 'invalid --prepare arguments'
-    prepare "$3" "$5" "$7" "$9" "$11" "$13" "$15"
+    prepare "$3" "$5" "$7" "$9" "${11}" "${13}" "${15}"
     ;;
 --inject-failure)
     [ "$#" -eq 1 ] || fail "$EX_USAGE" 'unexpected arguments'
