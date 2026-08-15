@@ -22,8 +22,20 @@ accepted installer media.
 
 - Candidate package version: `0.2.6`
 - Signed repository revision: `86`
-- Candidate source revision, package digest, catalogue digest, metadata digest,
-  and signing fingerprint are recorded after immutable publication.
+- Candidate source revision:
+  `448b297a44d809142db80f5e18d9e9ed3910cfe2`
+- Candidate package SHA-256:
+  `1ffc9a370fbc5d471a78e8d5991813c05b7b7e39af9d130dbea6bfb0f215c258`
+- Catalogue SHA-256:
+  `b9560540ecea01fd342e734d5422a962ec51ab1cd094f629b4e8315a8073b423`
+- Publication metadata SHA-256:
+  `685d8b84f4d9e77dc79d80d8b04308bb018c92b08429a066b32d5ae1e17860c8`
+- Signing fingerprint:
+  `2edc7ddb14ea4daf91266d836758956dc9c1164ecdb924b42968aeeca7ed28dc`
+- The isolated FreeBSD package client accepted the authentic r86 catalogue,
+  exposed Northstar `0.2.6`, and rejected a modified signed catalogue.
+- VM staging bundle SHA-256:
+  `cf6756ebea0f08fd5639b916d4796b463970614c442c149f44d4e0db8ebef995`
 - `tools/stage-installed-image-update-candidate.sh` stages trust and repository
   inputs without invoking `pkg upgrade` or `bectl`.
 - `image/scripts/validate-image-update-rollback.sh` records schema-2 state bound
