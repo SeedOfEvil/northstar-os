@@ -110,6 +110,10 @@ grep -F 'northstar-image-proxmox.desktop' "$ASSEMBLER" >/dev/null || {
     printf 'FAIL: image omits its explicit packaged-runtime session entry\n' >&2
     exit 1
 }
+grep -F 'rm -f "$MOUNT_ROOT/usr/local/share/xsessions/northstar-proxmox.desktop"' "$ASSEMBLER" >/dev/null || {
+    printf 'FAIL: production image retains the ambiguous development fallback session\n' >&2
+    exit 1
+}
 grep -F 'usr/local/share/xsessions/northstar-image-proxmox.desktop' "$EXECUTOR" >/dev/null || {
     printf 'FAIL: installer does not validate the image-managed runtime session entry\n' >&2
     exit 1
@@ -129,6 +133,11 @@ grep -F 'NORTHSTAR_SESSION_BIN=/usr/local/bin/northstar-session' "$IMAGE_SESSION
 }
 grep -F 'NORTHSTAR_SESSION_SHELL=/usr/local/bin/northstar-shell' "$IMAGE_SESSION" >/dev/null || {
     printf 'FAIL: image session does not bind the packaged shell path\n' >&2
+    exit 1
+}
+grep -F 'usr/local/libexec/northstar-wayfire-nested/bin/wayfire' \
+    "$ROOT/src/session/northstar-session-x11" >/dev/null || {
+    printf 'FAIL: generic fallback cannot resolve the packaged image Wayfire runtime\n' >&2
     exit 1
 }
 grep -F 'xauth -f "$candidate" list "$DISPLAY"' "$IMAGE_SESSION" >/dev/null || {

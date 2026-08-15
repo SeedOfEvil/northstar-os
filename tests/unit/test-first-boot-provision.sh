@@ -20,6 +20,9 @@ mkdir -p "$FAKE_ROOT/usr/share/zoneinfo/America" \
     "$FAKE_ROOT/usr/share/zoneinfo/Pacific" "$FAKE_ROOT/etc" \
     "$FAKE_ROOT/var/db" "$FAKE_ROOT/home" \
     "$FAKE_ROOT/usr/local/share/northstar/session" "$BIN"
+mkdir -p "$FAKE_ROOT/usr/local/share/xsessions"
+printf '%s\n' '[Desktop Entry]' \
+    > "$FAKE_ROOT/usr/local/share/xsessions/northstar-first-boot.desktop"
 printf 'zone\n' > "$FAKE_ROOT/usr/share/zoneinfo/America/Denver"
 printf 'zone\n' > "$FAKE_ROOT/usr/share/zoneinfo/Pacific/Auckland"
 printf '[output:WL-1]\nmode = 1280x800\n' \
@@ -177,6 +180,8 @@ grep -Fx 'hector ALL=(ALL:ALL) ALL' \
 grep -Fx "chmod:0440 $FAKE_ROOT/usr/local/etc/sudoers.d/northstar-first-administrator" \
     "$TMP_DIR/events" >/dev/null \
     || fail 'first-administrator sudoers policy was not set to mode 0440'
+[ ! -e "$FAKE_ROOT/usr/local/share/xsessions/northstar-first-boot.desktop" ] \
+    || fail 'successful provisioning retained the one-time SDDM session entry'
 
 if printf '%s\n' 'another-password' | run_helper --apply "$REQUEST" >/dev/null 2>&1; then
     fail 'one-time setup was allowed to run twice'

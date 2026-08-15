@@ -399,6 +399,11 @@ cp "$PROJECT_ROOT/config/sddm/northstar-proxmox.conf" \
     "$MOUNT_ROOT/usr/local/etc/sddm.conf.d/20-northstar-proxmox.conf"
 mkdir -p "$MOUNT_ROOT/usr/local/share/xsessions"
 mkdir -p "$MOUNT_ROOT/usr/local/libexec"
+# The package's generic fallback entry supports source-level development where
+# Wayfire normally lives below ~/.local. Production images expose only the
+# image-managed entry with explicit packaged runtime paths, preventing SDDM
+# from offering two nearly identical sessions with different launch contracts.
+rm -f "$MOUNT_ROOT/usr/local/share/xsessions/northstar-proxmox.desktop"
 cp "$PROJECT_ROOT/image/session/northstar-image-session-x11" \
     "$MOUNT_ROOT/usr/local/libexec/northstar-image-session-x11"
 chmod 0555 "$MOUNT_ROOT/usr/local/libexec/northstar-image-session-x11"

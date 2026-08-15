@@ -27,10 +27,17 @@ export WLR_BACKENDS=x11
 export WLR_RENDERER=pixman
 export WLR_RENDERER_FORCE_SOFTWARE=1
 
-wayfire_bin=${NORTHSTAR_WAYFIRE_BIN:-$HOME/.local/wayfire-nested/bin/wayfire}
+wayfire_bin=${NORTHSTAR_WAYFIRE_BIN:-}
 session_bin=${NORTHSTAR_SESSION_BIN:-$HOME/.local/bin/northstar-session}
 shell_bin=${NORTHSTAR_SESSION_SHELL:-$HOME/.local/bin/northstar-shell}
 
+if [ -z "$wayfire_bin" ]; then
+    if [ -x /usr/local/libexec/northstar-wayfire-nested/bin/wayfire ]; then
+        wayfire_bin=/usr/local/libexec/northstar-wayfire-nested/bin/wayfire
+    else
+        wayfire_bin=$HOME/.local/wayfire-nested/bin/wayfire
+    fi
+fi
 if [ ! -x "$session_bin" ] && [ -x /usr/local/bin/northstar-session ]; then
     session_bin=/usr/local/bin/northstar-session
 fi

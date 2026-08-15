@@ -186,10 +186,21 @@ snapshot-only boot evidence, and stale-runtime root cause are recorded in
 The rejected r84 installation, its duplicate-EFI-label and non-idempotent retry
 root causes, and the real VirtIO regression evidence are recorded in
 [`validation/M5_INSTALLER_RC_R84_2026-08-14.md`](validation/M5_INSTALLER_RC_R84_2026-08-14.md).
-PR88's revision-85 package and signed repository are the sole active candidate.
+PR88's revision-85 package and signed repository are the accepted installable
+candidate.
 The package is Northstar `0.2.5` from source revision
 `7b176962b5635b576f145bfb2d40791a5ae6e156`; authentic repository access,
 altered-catalogue rejection, private-key exclusion, and exact packaged
 installer-executor matching passed before the immutable image lock was updated.
-Revision 85 is not accepted until authoritative assembly, snapshot-only UEFI
-boot smoke, and the complete disposable Proxmox installation checklist pass.
+Revision 85 passed authoritative assembly, snapshot-only UEFI boot smoke,
+full-disk installation, independent target boot, First Boot provisioning, and
+graphical login. Its exact evidence is recorded in
+[`validation/M5_INSTALLER_RC_R85_2026-08-15.md`](validation/M5_INSTALLER_RC_R85_2026-08-15.md).
+
+Production images expose exactly one Proxmox X11 fallback. The source-level
+development descriptor is removed during image assembly, the retained entry
+launches the image-owned authorization wrapper with packaged runtime paths,
+and successful provisioning removes the sealed one-time First Boot entry.
+The generic launcher also prefers the system-owned Wayfire compatibility
+runtime when installed, preserving a safe fallback if an older descriptor is
+encountered.

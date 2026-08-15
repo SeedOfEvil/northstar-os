@@ -9,7 +9,7 @@ The project advances through user-visible milestones with explicit pass gates. A
 | M2 | Desktop session | Development session lane validated; production display-manager and service integration pending | Session, services, supervision, notifications, and lifecycle work coherently |
 | M3 | Core desktop | Core workflows, Lunar redesign, shared chrome, Dock v2, unified search, Quick Look, and capability-backed Quick Settings accepted | Filer, branded desktop surface, responsive dock, settings, search, overview, associations, and project apps form a usable desktop |
 | M4 | Packages, updates, rollback | Development update/rollback lane accepted; protected production infrastructure pending | Signed packages and ZFS boot-environment rollback work end to end |
-| M5 | Reproducible image and installer | r82-r84 rejected; corrected r85 package and signed repository verified, authoritative assembly pending | Pinned inputs produce a bootable UEFI root-on-ZFS image |
+| M5 | Reproducible image and installer | r85 passed assembly, UEFI smoke, full-disk installation, First Boot, and graphical login; installed-image update/rollback confirmation pending | Pinned inputs produce a bootable UEFI root-on-ZFS image |
 | M6 | Alpha hardware release | Not started | The supported VM and narrow Intel/AMD hardware matrix meets the alpha definition |
 
 ## Current baseline and clear path forward
@@ -383,16 +383,26 @@ VirtIO ZFS/GPT retry regressions before milestone assembly. Package `0.2.4` and
 signed repository revision 84 remain rejected as an installable RC. PR88 now
 pins package `0.2.5` and signed repository revision 85 after authentic-client,
 tamper-rejection, private-key-exclusion, package-identity, and exact packaged
-executor checks passed. Revision 85 remains a candidate until its authoritative
-assembly, boot smoke, and disposable Proxmox installation all pass. The failed
+executor checks passed. Revision 85 completed authoritative assembly,
+snapshot-only UEFI boot smoke, full-disk installation onto a 50 GiB VirtIO
+target, independent destination boot, first-administrator provisioning,
+branded greeter, and graphical desktop login on disposable Proxmox VM 104.
+The accepted login used the image-managed fallback entry; the generic
+development entry exposed alongside it still pointed at a user-local Wayfire
+path. The release-image contract now removes that duplicate entry, resolves
+the packaged Wayfire runtime defensively, and removes the sealed one-time
+First Boot entry after provisioning. Exact r85 evidence is recorded in
+[`docs/validation/M5_INSTALLER_RC_R85_2026-08-15.md`](validation/M5_INSTALLER_RC_R85_2026-08-15.md).
+The failed
 r82 evidence remains recorded in
 [`docs/validation/M5_INSTALLER_RC_R82_2026-08-13.md`](validation/M5_INSTALLER_RC_R82_2026-08-13.md).
 The rejected r83 evidence and root cause are recorded in
 [`docs/validation/M5_INSTALLER_RC_R83_2026-08-14.md`](validation/M5_INSTALLER_RC_R83_2026-08-14.md).
 The rejected r84 evidence and root causes are recorded in
 [`docs/validation/M5_INSTALLER_RC_R84_2026-08-14.md`](validation/M5_INSTALLER_RC_R84_2026-08-14.md).
-Manual Proxmox installation evidence remains on the dedicated RC branch until
-every deferred M5 claim is resolved.
+The remaining M5 closure item is the installed-image update, injected-failure
+recovery, explicit rollback, and `/home` preservation confirmation on the r85
+installation.
 Actual disposable-disk acceptance, recovery-point reboot proof, and media outputs
 use routine DEV01, native FreeBSD, and file-backed validation on their focused
 PRs. Their image-level claims remain explicitly deferred to one integrated
