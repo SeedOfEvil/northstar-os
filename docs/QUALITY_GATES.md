@@ -277,6 +277,7 @@ state, validation result, and any gate that remains open.
 | M5 installer media | Production QCOW2 emits its matching runtime-bound rootfs payload before live-media state; external private key and detached RSA/SHA-256 source signature; exact image/source/runtime/commit provenance binding; read-only labeled source partition; inherited installed-system EFI automount removed before live-media boot; dedicated passwordless local-active media identity limited to fixed PolicyKit actions and absent from installed targets; installed payload excludes media privilege; raw assembler accepts no host disk and requires a marked disposable FreeBSD builder; boot/install evidence deferred to the M5 Installer Release Candidate |
 | M5 Installer RC orchestration | One clean exact checkout and immutable input set; ordered QCOW2, signed-source, and raw-media stages; distinct protected builder markers; external root-owned signing key; top-level commit/digest/size provenance; no host-disk destination; failed staging removed or quarantined; manual installation evidence required before promotion |
 | M6 alpha | VM plus declared Intel/AMD hardware matrix, graphics/login, applications, diagnostics, crash recovery, update, rollback, and clean shutdown |
+| M6 readiness inventory | Schema-1 privacy-bounded capability record; exact FreeBSD 15.1 amd64 UEFI/ZFS base; virtual, Intel DRM, AMD DRM, unsupported DRM, and incomplete lanes classified deterministically; VM output remains supplemental; no identifiers or raw hardware listings |
 
 Hold a change when it depends on an unpinned dependency, requires broad root access, changes the FreeBSD base without a compelling reason, couples the shell to undocumented Wayfire internals, adds Apple-owned assets, or breaks the clean-build/clean-install lane.
 
@@ -291,6 +292,12 @@ Hold a change when it depends on an unpinned dependency, requires broad root acc
 | M4 update | Signed repository, N-1 to N upgrade, pre-upgrade `bectl` environment, rollback, home-data preservation |
 | M5 image | Clean builder, pinned inputs, checksums, UEFI GPT/root-on-ZFS install, first boot, update/rollback |
 | M6 alpha | Supported VM and physical hardware matrix, diagnostics, crash recovery, shutdown, application coverage |
+
+The readiness inventory is a pre-gate, not release acceptance. A `ready`
+physical record allows a machine to enter focused matrix validation; it does
+not prove graphical login, compositor stability, applications, suspend/resume,
+update/rollback, or shutdown. A `supplemental` VM record can support routine
+development evidence but cannot satisfy either physical graphics lane.
 
 ## Reproducibility gate
 

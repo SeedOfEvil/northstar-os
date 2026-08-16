@@ -11,6 +11,13 @@ PR 2 adds `unit/test-m0-scripts.sh` for deterministic command stubs and `vm/m0-s
 
 Tests must state the required FreeBSD release, packages, privileges, and cleanup behavior.
 
+`unit/test-alpha-readiness.sh` uses deterministic fixtures to classify the
+supplemental VM, ready Intel, ready-capability AMD, unsupported DRM, wrong-base,
+and incomplete lanes. It also checks the strict `--require-ready` result,
+mode-0600 output, and the bounded privacy contract. Native DEV01 collection is
+read-only and records current VM capabilities without turning scfb/pixman into
+DRM/KMS evidence.
+
 ## Image-test cadence
 
 Image-related source changes do not trigger a complete QCOW2 rebuild and

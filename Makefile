@@ -2,12 +2,13 @@ SHELL := /bin/sh
 
 .DEFAULT_GOAL := help
 
-.PHONY: help check-host bootstrap configure build test welcome-app-test first-boot-provision-test installer-disk-test installer-source-test installer-engine-test installer-executor-test installer-recovery-test installer-zfs-reset-smoke installer-virtio-retry-smoke installer-builder-preflight boot-environment-recovery-test installer-media-test installer-rc-test qml-surface-test image-input-test runtime-bundle-test nested-wayfire-package-test image-assembler-test image-boot-smoke-test image-update-rollback-gate-test installed-image-update-staging-test capture-runtime-bundle prepare-image-inputs validation-deployment-audit update-helper-test update-broker-smoke transactional-update-smoke run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package pkg-repository-smoke signed-development-repository-smoke vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
+.PHONY: help check-host bootstrap configure build test alpha-readiness alpha-readiness-test welcome-app-test first-boot-provision-test installer-disk-test installer-source-test installer-engine-test installer-executor-test installer-recovery-test installer-zfs-reset-smoke installer-virtio-retry-smoke installer-builder-preflight boot-environment-recovery-test installer-media-test installer-rc-test qml-surface-test image-input-test runtime-bundle-test nested-wayfire-package-test image-assembler-test image-boot-smoke-test image-update-rollback-gate-test installed-image-update-staging-test capture-runtime-bundle prepare-image-inputs validation-deployment-audit update-helper-test update-broker-smoke transactional-update-smoke run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package pkg-repository-smoke signed-development-repository-smoke vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
 
 MANIFEST ?= packaging/manifests/bootstrap-packages.txt
 NORTHSTAR_USER ?=
 NORTHSTAR_WAYFIRE_BIN ?=
 OUTPUT ?= /tmp/northstar-diagnostics
+ALPHA_OUTPUT ?= /tmp/northstar-alpha-readiness.conf
 BUILD_DIR ?= build
 CMAKE_BUILD_TYPE ?= Debug
 NORTHSTAR_PREFIX ?= $(HOME)/.local
@@ -34,6 +35,8 @@ help:
 	@printf '%s\n' '  make configure    Configure the CMake build'
 	@printf '%s\n' '  make build        Build project components'
 	@printf '%s\n' '  make test         Run unit and integration tests'
+	@printf '%s\n' '  make alpha-readiness  Collect the bounded M6 capability record'
+	@printf '%s\n' '  make alpha-readiness-test  Test M6 readiness classification contracts'
 	@printf '%s\n' '  make welcome-app-test  Test the bundled Northstar Welcome launcher'
 	@printf '%s\n' '  make first-boot-provision-test  Test one-time account provisioning and secret handling'
 	@printf '%s\n' '  make installer-disk-test  Test read-only installer target discovery'
@@ -93,6 +96,7 @@ bootstrap:
 
 test:
 	@sh tests/unit/test-m0-scripts.sh
+	@$(MAKE) alpha-readiness-test
 	@$(MAKE) welcome-app-test
 	@$(MAKE) first-boot-provision-test
 	@$(MAKE) installer-disk-test
@@ -123,6 +127,12 @@ test:
 
 welcome-app-test:
 	@sh tests/unit/test-welcome-app.sh
+
+alpha-readiness-test:
+	@sh tests/unit/test-alpha-readiness.sh
+
+alpha-readiness:
+	@sh tools/collect-alpha-readiness.sh --output "$(ALPHA_OUTPUT)"
 
 first-boot-provision-test:
 	@sh tests/unit/test-first-boot-provision.sh
