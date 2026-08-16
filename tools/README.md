@@ -20,7 +20,16 @@ Use the repository Make targets for the stable interface:
 make check-host
 make bootstrap NORTHSTAR_USER=<development-user>
 make diagnostics OUTPUT=/tmp/northstar-m0-diagnostics
+make alpha-readiness ALPHA_OUTPUT=/tmp/northstar-alpha-readiness.conf
 ```
+
+`collect-alpha-readiness.sh` adds the M6 schema-1 hardware/session inventory.
+It reports normalized capability classes and counts without serials, MAC
+addresses, raw PCI data, command lines, environment values, or user paths.
+Ordinary collection succeeds for `ready`, `supplemental`, and `blocked`
+systems; pass `--require-ready` only when gating a physical Intel/AMD candidate.
+The standard diagnostics bundle includes the same record as
+`alpha-readiness.conf`.
 
 On FreeBSD, `make package` creates Northstar's native package with CPack.
 `tools/publish-development-repository.sh` atomically publishes immutable

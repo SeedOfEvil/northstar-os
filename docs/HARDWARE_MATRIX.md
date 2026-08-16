@@ -33,3 +33,30 @@ The initial development plan uses:
 ## Matrix entry requirements
 
 Each physical entry must record the exact FreeBSD release, kernel, CPU, GPU, firmware mode, display connector, storage, network adapter, driver/module, compositor result, suspend/resume result, and known limitations. Unsupported NVIDIA Wayland behavior must not be hidden by a generic "Linux desktop" claim.
+
+## Alpha-readiness inventory
+
+Run the bounded, read-only inventory before opening or updating a matrix entry:
+
+```sh
+make alpha-readiness ALPHA_OUTPUT=/tmp/northstar-alpha-readiness.conf
+```
+
+The schema-1 record contains only normalized capability classes and counts. It
+does not include MAC addresses, serial numbers, raw PCI listings, command
+lines, environment values, interface names, or user paths.
+
+- `alpha_status=ready` is limited to a FreeBSD 15.1 amd64 UEFI/ZFS physical
+  system with direct card and render nodes, an identified Intel or AMD DRM
+  driver, wired networking, audio, and input.
+- `alpha_status=supplemental` records a valid virtual base lane without
+  claiming direct DRM/KMS. It may support development and noVNC testing, but
+  cannot close the Intel or AMD matrix gate.
+- `alpha_status=blocked` lists the missing or unsupported capability classes.
+- `matrix_claim` is `intel`, `amd`, `vm`, or `none`; a report is only an
+  inventory input. A physical claim still requires the interactive evidence
+  listed above.
+
+Use `sh tools/collect-alpha-readiness.sh --require-ready` only on a candidate
+physical alpha machine. That option exits unsuccessfully for supplemental and
+blocked systems.

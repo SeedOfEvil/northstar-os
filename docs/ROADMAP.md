@@ -10,7 +10,7 @@ The project advances through user-visible milestones with explicit pass gates. A
 | M3 | Core desktop | Core workflows, Lunar redesign, shared chrome, Dock v2, unified search, Quick Look, and capability-backed Quick Settings accepted | Filer, branded desktop surface, responsive dock, settings, search, overview, associations, and project apps form a usable desktop |
 | M4 | Packages, updates, rollback | Signed package and transactional foundations accepted; installed-image execution accepted through M5 | Signed packages and ZFS boot-environment rollback work end to end |
 | M5 | Reproducible image and installer | Accepted: r85 passed assembly, UEFI smoke, full-disk installation, First Boot, graphical login, signed update, failure recovery, explicit rollback, and `/home` preservation | Pinned inputs produce a bootable UEFI root-on-ZFS image |
-| M6 | Alpha hardware release | Not started | The supported VM and narrow Intel/AMD hardware matrix meets the alpha definition |
+| M6 | Alpha hardware release | Readiness inventory in progress; physical Intel/AMD evidence pending | The supported VM and narrow Intel/AMD hardware matrix meets the alpha definition |
 
 ## Current baseline and clear path forward
 
@@ -423,6 +423,14 @@ Pass only when clean builders produce recorded inputs and checksums, QEMU/Proxmo
 Support x86-64 UEFI systems with SATA, NVMe, and virtio disks; QEMU/Proxmox; one tested Intel graphics lane; one tested AMD graphics lane; wired networking; and specifically tested Intel Wi-Fi adapters. NVIDIA is unsupported or experimental, and ARM64/Apple hardware is out of scope.
 
 Alpha requires install, boot, login, Qt/Xwayland/browser applications, file management, settings, update, rollback, diagnostics, shell crash recovery, and clean shutdown.
+
+PR90 begins M6 with a privacy-bounded alpha-readiness probe and deterministic
+classification tests. The probe distinguishes `ready`, `supplemental`, and
+`blocked` systems and emits an explicit VM/Intel/AMD/none matrix claim. It does
+not convert the scfb/pixman VM into direct DRM/KMS evidence and does not replace
+interactive physical-hardware acceptance. The next M6 slices select and record
+the Intel and AMD machines, execute the application/session matrix, and close
+only the capabilities supported by current evidence.
 
 ## Historical first eight implementation pull requests
 

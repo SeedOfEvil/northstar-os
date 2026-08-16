@@ -7,6 +7,7 @@ set -eu
 
 PROG=${0##*/}
 OUTPUT=${TMPDIR:-/tmp}/northstar-diagnostics-$(date -u '+%Y%m%dT%H%M%SZ')
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 
 usage() {
     cat <<USAGE
@@ -144,6 +145,7 @@ write_host
 write_packages
 write_services
 write_session
+sh "$SCRIPT_DIR/collect-alpha-readiness.sh" --output "$OUTPUT/alpha-readiness.conf" >/dev/null
 
-chmod 0600 "$OUTPUT/host.txt" "$OUTPUT/packages.txt" "$OUTPUT/services.txt" "$OUTPUT/session.txt"
+chmod 0600 "$OUTPUT/host.txt" "$OUTPUT/packages.txt" "$OUTPUT/services.txt" "$OUTPUT/session.txt" "$OUTPUT/alpha-readiness.conf"
 printf 'Diagnostics written to %s\n' "$OUTPUT"
