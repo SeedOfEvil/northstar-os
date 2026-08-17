@@ -22,7 +22,10 @@ configuration, or unredacted command lines.
 ## Automated record
 
 - Readiness record digest:
+- Platform record digest:
 - Matrix record digest:
+- Bundle summary digest:
+- Bundle verification result:
 - Expected lane:
 - Hardware claim:
 - Preflight result:
