@@ -79,3 +79,17 @@ observations pass.
 The machine-readable record intentionally omits exact model identifiers and
 free-form notes. Record those reviewed details separately with
 [`validation/M6_HARDWARE_ENTRY_TEMPLATE.md`](validation/M6_HARDWARE_ENTRY_TEMPLATE.md).
+
+Before a physical matrix pass, collect and complete the shared platform
+evidence:
+
+```sh
+make platform-evidence \
+  PLATFORM_TEMPLATE=/tmp/northstar-platform-observations.conf \
+  PLATFORM_OUTPUT=/tmp/northstar-platform-evidence.conf
+```
+
+After the six networking, audio, input, and suspend/resume observations are
+complete, validate the record with `PLATFORM_REQUIRE_PASS=1` and pass it to the
+matrix runner through `PLATFORM_EVIDENCE`. VM evidence remains supplemental.
+See [`M6_PLATFORM_CAPABILITY_EVIDENCE.md`](M6_PLATFORM_CAPABILITY_EVIDENCE.md).

@@ -12,6 +12,7 @@ OUTPUT=${TMPDIR:-/tmp}/northstar-alpha-matrix.conf
 LANE=
 OBSERVATIONS=
 TEMPLATE=
+PLATFORM_EVIDENCE=
 REQUIRE_PASS=0
 TEST_MODE=${NORTHSTAR_MATRIX_TEST_MODE:-0}
 
@@ -23,6 +24,9 @@ Options:
   --output FILE          Write the bounded matrix record to FILE.
   --observations FILE    Validate fixed manual observations from FILE.
   --write-template FILE  Write a mode-0600 observation template.
+  --platform-evidence FILE
+                         Require validated PR92 platform evidence for a
+                         physical Intel or AMD pass.
   --require-pass         Exit unsuccessfully unless a physical lane passes.
 
 The runner performs read-only preflight. It never launches applications,
@@ -38,6 +42,7 @@ while [ "$#" -gt 0 ]; do
         --output) [ "$#" -ge 2 ] || fail '--output requires a value'; OUTPUT=$2; shift 2 ;;
         --observations) [ "$#" -ge 2 ] || fail '--observations requires a value'; OBSERVATIONS=$2; shift 2 ;;
         --write-template) [ "$#" -ge 2 ] || fail '--write-template requires a value'; TEMPLATE=$2; shift 2 ;;
+        --platform-evidence) [ "$#" -ge 2 ] || fail '--platform-evidence requires a value'; PLATFORM_EVIDENCE=$2; shift 2 ;;
         --require-pass) REQUIRE_PASS=1; shift ;;
         --help|-h) usage; exit 0 ;;
         *) fail "unknown option: $1" ;;
@@ -102,6 +107,45 @@ case "$LANE:$hardware_status:$hardware_claim" in
     amd:ready:amd) ;;
     *) add_blocker lane_mismatch ;;
 esac
+
+platform_evidence=absent
+platform_status=unavailable
+platform_class=unknown
+if [ -n "$PLATFORM_EVIDENCE" ]; then
+    [ -f "$PLATFORM_EVIDENCE" ] || fail 'platform evidence file is unavailable'
+    [ ! -L "$PLATFORM_EVIDENCE" ] || fail 'platform evidence file must not be a symbolic link'
+    [ "$(field schema_version "$PLATFORM_EVIDENCE")" = 1 ] || fail 'platform evidence schema must be exactly 1'
+    platform_class=$(field platform_class "$PLATFORM_EVIDENCE")
+    platform_status=$(field platform_status "$PLATFORM_EVIDENCE")
+    capability_status=$(field capability_status "$PLATFORM_EVIDENCE")
+    platform_observations=$(field observations "$PLATFORM_EVIDENCE")
+    platform_required_fields='schema_version captured_at_utc platform_class wired_device_count wired_active_count wifi_device_count wifi_active_count default_route dns_configured audio_device_count mixer_available mixer_readable input_device_count keyboard_available pointer_available acpi_available suspend_command_available capability_status capability_blockers observations manual_pass_count manual_fail_count manual_pending_count manual_deferred_count platform_status'
+    for platform_field in $platform_required_fields; do
+        [ -n "$(field "$platform_field" "$PLATFORM_EVIDENCE")" ] || fail "platform evidence field is missing or duplicated: $platform_field"
+    done
+    case "$platform_class" in physical|virtual-machine) ;; *) fail 'platform evidence class is invalid' ;; esac
+    case "$platform_status" in inventory-only|supplemental|blocked|pending|partial|fail|pass) ;; *) fail 'platform evidence status is invalid' ;; esac
+    case "$capability_status" in ready|supplemental|blocked) ;; *) fail 'platform capability status is invalid' ;; esac
+    case "$platform_observations" in absent|validated) ;; *) fail 'platform observation state is invalid' ;; esac
+    platform_lines=$(awk 'NF { count++ } END { print count + 0 }' "$PLATFORM_EVIDENCE")
+    [ "$platform_lines" -eq 25 ] || fail 'platform evidence contains unknown or missing records'
+    if [ "$platform_status" = pass ]; then
+        [ "$platform_class" = physical ] || fail 'passing platform evidence is not physical'
+        [ "$capability_status" = ready ] || fail 'passing platform evidence lacks ready capabilities'
+        [ "$platform_observations" = validated ] || fail 'passing platform evidence lacks observations'
+        [ "$(field manual_pass_count "$PLATFORM_EVIDENCE")" = 6 ] || fail 'passing platform evidence lacks six passes'
+        [ "$(field manual_fail_count "$PLATFORM_EVIDENCE")" = 0 ] || fail 'passing platform evidence contains failures'
+        [ "$(field manual_pending_count "$PLATFORM_EVIDENCE")" = 0 ] || fail 'passing platform evidence contains pending observations'
+        [ "$(field manual_deferred_count "$PLATFORM_EVIDENCE")" = 0 ] || fail 'passing platform evidence contains deferred observations'
+    fi
+    platform_evidence=validated
+fi
+
+if [ "$LANE" != vm ]; then
+    if [ "$platform_evidence" != validated ] || [ "$platform_class" != physical ] || [ "$platform_status" != pass ]; then
+        add_blocker platform_evidence
+    fi
+fi
 
 available_executable() {
     name=$1
@@ -230,6 +274,8 @@ umask 077
     printf 'display_manager_available=%s\n' "$display_manager_available"
     printf 'wayland_session=%s\n' "$wayland_session"
     printf 'x11_session=%s\n' "$x11_session"
+    printf 'platform_evidence=%s\n' "$platform_evidence"
+    printf 'platform_status=%s\n' "$platform_status"
     printf 'preflight_status=%s\n' "$preflight_status"
     printf 'preflight_blockers=%s\n' "$preflight_blockers"
     printf 'observations=%s\n' "$observations_state"

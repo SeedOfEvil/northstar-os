@@ -279,6 +279,7 @@ state, validation result, and any gate that remains open.
 | M6 alpha | VM plus declared Intel/AMD hardware matrix, graphics/login, applications, diagnostics, crash recovery, update, rollback, and clean shutdown |
 | M6 readiness inventory | Schema-1 privacy-bounded capability record; exact FreeBSD 15.1 amd64 UEFI/ZFS base; virtual, Intel DRM, AMD DRM, unsupported DRM, and incomplete lanes classified deterministically; VM output remains supplemental; no identifiers or raw hardware listings |
 | M6 matrix runner | Exact expected lane; readiness claim match; installed shell/session/desktop-entry/browser/terminal/diagnostics/display-manager preflight; strict 14-field operator observations; no unknown or duplicate records; physical pass rejects fail/pending/deferred states; VM can never become a physical pass; mode-0600 privacy-bounded output; no lifecycle or package mutation authority |
+| M6 platform evidence | Passive normalized network/audio/input/ACPI inventory; no traffic, playback, input injection, suspend, or mutation; strict six-field operator record; VM always supplemental; physical pass requires complete capabilities and observations; matrix physical pass requires the validated platform record; mode-0600 privacy-bounded output |
 
 Hold a change when it depends on an unpinned dependency, requires broad root access, changes the FreeBSD base without a compelling reason, couples the shell to undocumented Wayfire internals, adds Apple-owned assets, or breaks the clean-build/clean-install lane.
 
