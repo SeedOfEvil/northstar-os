@@ -40,6 +40,13 @@ run_matrix() {
     NORTHSTAR_ALPHA_TEST_WIRED=1 \
     NORTHSTAR_ALPHA_TEST_AUDIO=1 \
     NORTHSTAR_ALPHA_TEST_INPUT=2 \
+    NORTHSTAR_MATRIX_TEST_SHELL=${TEST_SHELL:-yes} \
+    NORTHSTAR_MATRIX_TEST_SESSION=${TEST_SESSION:-yes} \
+    NORTHSTAR_MATRIX_TEST_DESKTOP_ENTRY=${TEST_DESKTOP_ENTRY:-yes} \
+    NORTHSTAR_MATRIX_TEST_FIREFOX=${TEST_FIREFOX:-yes} \
+    NORTHSTAR_MATRIX_TEST_TERMINAL=${TEST_TERMINAL:-yes} \
+    NORTHSTAR_MATRIX_TEST_DIAGNOSTICS=${TEST_DIAGNOSTICS:-yes} \
+    NORTHSTAR_MATRIX_TEST_DISPLAY_MANAGER=${TEST_DISPLAY_MANAGER:-yes} \
         sh "$ROOT/tools/run-alpha-matrix.sh" --output "$OUTPUT" "$@"
 }
 
@@ -85,7 +92,7 @@ contains 'matrix_status=partial' "$OUTPUT"
 
 write_observations
 if TEST_PLATFORM=physical TEST_DRM_CARDS=1 TEST_DRM_RENDER=1 TEST_DRM_DRIVER=intel \
-    NORTHSTAR_MATRIX_TEST_SHELL=no run_matrix --lane intel --observations "$OBSERVATIONS" --require-pass; then
+    TEST_SHELL=no run_matrix --lane intel --observations "$OBSERVATIONS" --require-pass; then
     fail 'missing application preflight satisfied --require-pass'
 fi
 contains 'preflight_blockers=shell' "$OUTPUT"
