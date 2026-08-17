@@ -51,6 +51,13 @@ The standard diagnostics bundle includes the passive record as
 `platform-evidence.conf`; operator observations are never collected
 implicitly.
 
+`build-alpha-evidence-bundle.sh` atomically joins readiness, platform, and
+matrix evidence into one five-file directory with a schema-1 summary and
+SHA-256 manifest. It verifies digests and cross-record lane/status agreement
+without mutation. VM bundles remain supplemental; `--require-pass` succeeds
+only for a complete physical Intel or AMD bundle. See
+`docs/M6_PHYSICAL_HARDWARE_OPERATOR_RUNBOOK.md` for the operator sequence.
+
 On FreeBSD, `make package` creates Northstar's native package with CPack.
 `tools/publish-development-repository.sh` atomically publishes immutable
 package inputs through external catalogue and manifest signers. Its resolved

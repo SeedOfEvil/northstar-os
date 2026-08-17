@@ -73,5 +73,5 @@ DEV01 proves the collector and integration contract on native FreeBSD, but it
 does not close physical networking, audio, input, or suspend/resume acceptance.
 Its active wired route, DNS, and input capabilities are useful supplemental
 evidence. The missing audio device and unreadable mixer are expected for the
-current Proxmox virtual hardware. PR93 and PR94 must use complete physical
+current Proxmox virtual hardware. PR94 and PR95 must use complete physical
 platform records before Intel or AMD matrix admission can pass.

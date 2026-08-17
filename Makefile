@@ -2,7 +2,7 @@ SHELL := /bin/sh
 
 .DEFAULT_GOAL := help
 
-.PHONY: help check-host bootstrap configure build test alpha-readiness alpha-readiness-test alpha-matrix alpha-matrix-test platform-evidence platform-evidence-test welcome-app-test first-boot-provision-test installer-disk-test installer-source-test installer-engine-test installer-executor-test installer-recovery-test installer-zfs-reset-smoke installer-virtio-retry-smoke installer-builder-preflight boot-environment-recovery-test installer-media-test installer-rc-test qml-surface-test image-input-test runtime-bundle-test nested-wayfire-package-test image-assembler-test image-boot-smoke-test image-update-rollback-gate-test installed-image-update-staging-test capture-runtime-bundle prepare-image-inputs validation-deployment-audit update-helper-test update-broker-smoke transactional-update-smoke run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package pkg-repository-smoke signed-development-repository-smoke vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
+.PHONY: help check-host bootstrap configure build test alpha-readiness alpha-readiness-test alpha-matrix alpha-matrix-test platform-evidence platform-evidence-test alpha-evidence-bundle alpha-evidence-bundle-test alpha-evidence-verify welcome-app-test first-boot-provision-test installer-disk-test installer-source-test installer-engine-test installer-executor-test installer-recovery-test installer-zfs-reset-smoke installer-virtio-retry-smoke installer-builder-preflight boot-environment-recovery-test installer-media-test installer-rc-test qml-surface-test image-input-test runtime-bundle-test nested-wayfire-package-test image-assembler-test image-boot-smoke-test image-update-rollback-gate-test installed-image-update-staging-test capture-runtime-bundle prepare-image-inputs validation-deployment-audit update-helper-test update-broker-smoke transactional-update-smoke run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package pkg-repository-smoke signed-development-repository-smoke vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
 
 MANIFEST ?= packaging/manifests/bootstrap-packages.txt
 NORTHSTAR_USER ?=
@@ -19,6 +19,12 @@ PLATFORM_OBSERVATIONS ?=
 PLATFORM_TEMPLATE ?=
 PLATFORM_REQUIRE_PASS ?= 0
 PLATFORM_EVIDENCE ?=
+BUNDLE_LANE ?= vm
+BUNDLE_OUTPUT ?= /tmp/northstar-alpha-evidence
+BUNDLE_MATRIX_OBSERVATIONS ?=
+BUNDLE_PLATFORM_OBSERVATIONS ?=
+BUNDLE_REQUIRE_PASS ?= 0
+BUNDLE_VERIFY ?=
 BUILD_DIR ?= build
 CMAKE_BUILD_TYPE ?= Debug
 NORTHSTAR_PREFIX ?= $(HOME)/.local
@@ -51,6 +57,9 @@ help:
 	@printf '%s\n' '  make alpha-matrix-test  Test M6 lane and observation contracts'
 	@printf '%s\n' '  make platform-evidence  Collect bounded M6 network/audio/input/power evidence'
 	@printf '%s\n' '  make platform-evidence-test  Test M6 platform evidence contracts'
+	@printf '%s\n' '  make alpha-evidence-bundle  Build one atomic M6 evidence bundle'
+	@printf '%s\n' '  make alpha-evidence-bundle-test  Test M6 bundle integrity and pass contracts'
+	@printf '%s\n' '  make alpha-evidence-verify BUNDLE_VERIFY=<dir>  Verify a bundle without mutation'
 	@printf '%s\n' '  make welcome-app-test  Test the bundled Northstar Welcome launcher'
 	@printf '%s\n' '  make first-boot-provision-test  Test one-time account provisioning and secret handling'
 	@printf '%s\n' '  make installer-disk-test  Test read-only installer target discovery'
@@ -113,6 +122,7 @@ test:
 	@$(MAKE) alpha-readiness-test
 	@$(MAKE) alpha-matrix-test
 	@$(MAKE) platform-evidence-test
+	@$(MAKE) alpha-evidence-bundle-test
 	@$(MAKE) welcome-app-test
 	@$(MAKE) first-boot-provision-test
 	@$(MAKE) installer-disk-test
@@ -170,6 +180,22 @@ platform-evidence:
 	if [ -n "$(PLATFORM_TEMPLATE)" ]; then set -- "$$@" --write-template "$(PLATFORM_TEMPLATE)"; fi; \
 	if [ "$(PLATFORM_REQUIRE_PASS)" = 1 ]; then set -- "$$@" --require-pass; fi; \
 	sh tools/collect-platform-evidence.sh "$$@"
+
+alpha-evidence-bundle-test:
+	@sh tests/unit/test-alpha-evidence-bundle.sh
+
+alpha-evidence-bundle:
+	@set -- --lane "$(BUNDLE_LANE)" --output "$(BUNDLE_OUTPUT)"; \
+	if [ -n "$(BUNDLE_MATRIX_OBSERVATIONS)" ]; then set -- "$$@" --matrix-observations "$(BUNDLE_MATRIX_OBSERVATIONS)"; fi; \
+	if [ -n "$(BUNDLE_PLATFORM_OBSERVATIONS)" ]; then set -- "$$@" --platform-observations "$(BUNDLE_PLATFORM_OBSERVATIONS)"; fi; \
+	if [ "$(BUNDLE_REQUIRE_PASS)" = 1 ]; then set -- "$$@" --require-pass; fi; \
+	sh tools/build-alpha-evidence-bundle.sh "$$@"
+
+alpha-evidence-verify:
+	@if [ -z "$(BUNDLE_VERIFY)" ]; then printf '%s\n' 'ERROR: pass BUNDLE_VERIFY=<directory>' >&2; exit 2; fi
+	@set -- --verify "$(BUNDLE_VERIFY)"; \
+	if [ "$(BUNDLE_REQUIRE_PASS)" = 1 ]; then set -- "$$@" --require-pass; fi; \
+	sh tools/build-alpha-evidence-bundle.sh "$$@"
 
 first-boot-provision-test:
 	@sh tests/unit/test-first-boot-provision.sh

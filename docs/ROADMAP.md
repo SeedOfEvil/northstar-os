@@ -437,8 +437,11 @@ proves that DEV01 can produce only supplemental evidence, then leaves the Intel
 lane pending until a physical or passed-through Intel DRM machine completes
 the exact same record. PR92 adds the passive, privacy-bounded networking,
 audio, input, and suspend/resume evidence shared by both physical lanes and
-makes that record mandatory for a physical matrix pass. PR93 and PR94 then
-reuse both runners for Intel and AMD admission before the final Alpha RC sweep.
+makes that record mandatory for a physical matrix pass. Because no physical
+candidate is currently attached, PR93 adds the atomic cross-record evidence
+bundle and physical operator runbook without claiming admission. PR94 and PR95
+then reuse the bundle for Intel and AMD admission before the final Alpha RC
+sweep.
 
 ## Historical first eight implementation pull requests
 
