@@ -60,3 +60,22 @@ lines, environment values, interface names, or user paths.
 Use `sh tools/collect-alpha-readiness.sh --require-ready` only on a candidate
 physical alpha machine. That option exits unsuccessfully for supplemental and
 blocked systems.
+
+After inventory, use the matrix runner to create the fixed observation
+template and preflight record:
+
+```sh
+make alpha-matrix MATRIX_LANE=intel \
+  MATRIX_TEMPLATE=/tmp/northstar-intel-observations.conf \
+  MATRIX_OUTPUT=/tmp/northstar-intel-matrix.conf
+```
+
+Complete each observation as `pass`, `fail`, `pending`, or `deferred`, then run
+again with `MATRIX_OBSERVATIONS`. `MATRIX_REQUIRE_PASS=1` is valid only when a
+physical Intel or AMD lane has no failed, pending, or deferred observation.
+The VM lane always remains `supplemental`, even when all of its applicable
+observations pass.
+
+The machine-readable record intentionally omits exact model identifiers and
+free-form notes. Record those reviewed details separately with
+[`validation/M6_HARDWARE_ENTRY_TEMPLATE.md`](validation/M6_HARDWARE_ENTRY_TEMPLATE.md).

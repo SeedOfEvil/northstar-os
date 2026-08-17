@@ -18,6 +18,11 @@ mode-0600 output, and the bounded privacy contract. Native DEV01 collection is
 read-only and records current VM capabilities without turning scfb/pixman into
 DRM/KMS evidence.
 
+`unit/test-alpha-matrix.sh` proves that the read-only matrix runner keeps VM
+evidence supplemental, accepts a complete matching Intel lane, rejects a
+failed observation, rejects AMD hardware presented as Intel, rejects unknown
+observation records, and writes private records at mode 0600.
+
 ## Image-test cadence
 
 Image-related source changes do not trigger a complete QCOW2 rebuild and

@@ -278,6 +278,7 @@ state, validation result, and any gate that remains open.
 | M5 Installer RC orchestration | One clean exact checkout and immutable input set; ordered QCOW2, signed-source, and raw-media stages; distinct protected builder markers; external root-owned signing key; top-level commit/digest/size provenance; no host-disk destination; failed staging removed or quarantined; manual installation evidence required before promotion |
 | M6 alpha | VM plus declared Intel/AMD hardware matrix, graphics/login, applications, diagnostics, crash recovery, update, rollback, and clean shutdown |
 | M6 readiness inventory | Schema-1 privacy-bounded capability record; exact FreeBSD 15.1 amd64 UEFI/ZFS base; virtual, Intel DRM, AMD DRM, unsupported DRM, and incomplete lanes classified deterministically; VM output remains supplemental; no identifiers or raw hardware listings |
+| M6 matrix runner | Exact expected lane; readiness claim match; installed shell/session/desktop-entry/browser/terminal/diagnostics/display-manager preflight; strict 14-field operator observations; no unknown or duplicate records; physical pass rejects fail/pending/deferred states; VM can never become a physical pass; mode-0600 privacy-bounded output; no lifecycle or package mutation authority |
 
 Hold a change when it depends on an unpinned dependency, requires broad root access, changes the FreeBSD base without a compelling reason, couples the shell to undocumented Wayfire internals, adds Apple-owned assets, or breaks the clean-build/clean-install lane.
 

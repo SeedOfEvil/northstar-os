@@ -44,3 +44,9 @@ scfb/pixman and exposes no guest DRM render device. M6 still requires selection
 and interactive validation of one physical Intel DRM machine and one physical
 AMD DRM machine, followed by the complete application, recovery, update,
 rollback, and shutdown matrix.
+
+PR91 adds the next boundary: `tools/run-alpha-matrix.sh` combines this automatic
+inventory with a strict fixed-field operator observation record. The runner is
+read-only and does not launch applications, inject crashes, mutate packages,
+reboot, or shut down a system. See
+[`M6_HARDWARE_MATRIX_RUNNER.md`](M6_HARDWARE_MATRIX_RUNNER.md).

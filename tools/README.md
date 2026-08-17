@@ -21,6 +21,7 @@ make check-host
 make bootstrap NORTHSTAR_USER=<development-user>
 make diagnostics OUTPUT=/tmp/northstar-m0-diagnostics
 make alpha-readiness ALPHA_OUTPUT=/tmp/northstar-alpha-readiness.conf
+make alpha-matrix MATRIX_LANE=vm MATRIX_OUTPUT=/tmp/northstar-alpha-matrix.conf
 ```
 
 `collect-alpha-readiness.sh` adds the M6 schema-1 hardware/session inventory.
@@ -30,6 +31,12 @@ Ordinary collection succeeds for `ready`, `supplemental`, and `blocked`
 systems; pass `--require-ready` only when gating a physical Intel/AMD candidate.
 The standard diagnostics bundle includes the same record as
 `alpha-readiness.conf`.
+
+`run-alpha-matrix.sh` joins readiness with fixed operator observations without
+performing the observed actions. Use `MATRIX_TEMPLATE` to create the mode-0600
+template, fill only `pass`, `fail`, `pending`, or `deferred`, and pass it back
+through `MATRIX_OBSERVATIONS`. Unknown, missing, or duplicate fields are
+rejected. `MATRIX_REQUIRE_PASS=1` is reserved for a complete physical lane.
 
 On FreeBSD, `make package` creates Northstar's native package with CPack.
 `tools/publish-development-repository.sh` atomically publishes immutable

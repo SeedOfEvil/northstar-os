@@ -2,13 +2,18 @@ SHELL := /bin/sh
 
 .DEFAULT_GOAL := help
 
-.PHONY: help check-host bootstrap configure build test alpha-readiness alpha-readiness-test welcome-app-test first-boot-provision-test installer-disk-test installer-source-test installer-engine-test installer-executor-test installer-recovery-test installer-zfs-reset-smoke installer-virtio-retry-smoke installer-builder-preflight boot-environment-recovery-test installer-media-test installer-rc-test qml-surface-test image-input-test runtime-bundle-test nested-wayfire-package-test image-assembler-test image-boot-smoke-test image-update-rollback-gate-test installed-image-update-staging-test capture-runtime-bundle prepare-image-inputs validation-deployment-audit update-helper-test update-broker-smoke transactional-update-smoke run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package pkg-repository-smoke signed-development-repository-smoke vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
+.PHONY: help check-host bootstrap configure build test alpha-readiness alpha-readiness-test alpha-matrix alpha-matrix-test welcome-app-test first-boot-provision-test installer-disk-test installer-source-test installer-engine-test installer-executor-test installer-recovery-test installer-zfs-reset-smoke installer-virtio-retry-smoke installer-builder-preflight boot-environment-recovery-test installer-media-test installer-rc-test qml-surface-test image-input-test runtime-bundle-test nested-wayfire-package-test image-assembler-test image-boot-smoke-test image-update-rollback-gate-test installed-image-update-staging-test capture-runtime-bundle prepare-image-inputs validation-deployment-audit update-helper-test update-broker-smoke transactional-update-smoke run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package pkg-repository-smoke signed-development-repository-smoke vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
 
 MANIFEST ?= packaging/manifests/bootstrap-packages.txt
 NORTHSTAR_USER ?=
 NORTHSTAR_WAYFIRE_BIN ?=
 OUTPUT ?= /tmp/northstar-diagnostics
 ALPHA_OUTPUT ?= /tmp/northstar-alpha-readiness.conf
+MATRIX_LANE ?= vm
+MATRIX_OUTPUT ?= /tmp/northstar-alpha-matrix.conf
+MATRIX_OBSERVATIONS ?=
+MATRIX_TEMPLATE ?=
+MATRIX_REQUIRE_PASS ?= 0
 BUILD_DIR ?= build
 CMAKE_BUILD_TYPE ?= Debug
 NORTHSTAR_PREFIX ?= $(HOME)/.local
@@ -37,6 +42,8 @@ help:
 	@printf '%s\n' '  make test         Run unit and integration tests'
 	@printf '%s\n' '  make alpha-readiness  Collect the bounded M6 capability record'
 	@printf '%s\n' '  make alpha-readiness-test  Test M6 readiness classification contracts'
+	@printf '%s\n' '  make alpha-matrix  Prepare or evaluate one bounded M6 lane record'
+	@printf '%s\n' '  make alpha-matrix-test  Test M6 lane and observation contracts'
 	@printf '%s\n' '  make welcome-app-test  Test the bundled Northstar Welcome launcher'
 	@printf '%s\n' '  make first-boot-provision-test  Test one-time account provisioning and secret handling'
 	@printf '%s\n' '  make installer-disk-test  Test read-only installer target discovery'
@@ -97,6 +104,7 @@ bootstrap:
 test:
 	@sh tests/unit/test-m0-scripts.sh
 	@$(MAKE) alpha-readiness-test
+	@$(MAKE) alpha-matrix-test
 	@$(MAKE) welcome-app-test
 	@$(MAKE) first-boot-provision-test
 	@$(MAKE) installer-disk-test
@@ -133,6 +141,16 @@ alpha-readiness-test:
 
 alpha-readiness:
 	@sh tools/collect-alpha-readiness.sh --output "$(ALPHA_OUTPUT)"
+
+alpha-matrix-test:
+	@sh tests/unit/test-alpha-matrix.sh
+
+alpha-matrix:
+	@set -- --lane "$(MATRIX_LANE)" --output "$(MATRIX_OUTPUT)"; \
+	if [ -n "$(MATRIX_OBSERVATIONS)" ]; then set -- "$$@" --observations "$(MATRIX_OBSERVATIONS)"; fi; \
+	if [ -n "$(MATRIX_TEMPLATE)" ]; then set -- "$$@" --write-template "$(MATRIX_TEMPLATE)"; fi; \
+	if [ "$(MATRIX_REQUIRE_PASS)" = 1 ]; then set -- "$$@" --require-pass; fi; \
+	sh tools/run-alpha-matrix.sh "$$@"
 
 first-boot-provision-test:
 	@sh tests/unit/test-first-boot-provision.sh

@@ -10,7 +10,7 @@ The project advances through user-visible milestones with explicit pass gates. A
 | M3 | Core desktop | Core workflows, Lunar redesign, shared chrome, Dock v2, unified search, Quick Look, and capability-backed Quick Settings accepted | Filer, branded desktop surface, responsive dock, settings, search, overview, associations, and project apps form a usable desktop |
 | M4 | Packages, updates, rollback | Signed package and transactional foundations accepted; installed-image execution accepted through M5 | Signed packages and ZFS boot-environment rollback work end to end |
 | M5 | Reproducible image and installer | Accepted: r85 passed assembly, UEFI smoke, full-disk installation, First Boot, graphical login, signed update, failure recovery, explicit rollback, and `/home` preservation | Pinned inputs produce a bootable UEFI root-on-ZFS image |
-| M6 | Alpha hardware release | Readiness inventory in progress; physical Intel/AMD evidence pending | The supported VM and narrow Intel/AMD hardware matrix meets the alpha definition |
+| M6 | Alpha hardware release | Readiness inventory accepted; repeatable matrix runner in progress; physical Intel/AMD evidence pending | The supported VM and narrow Intel/AMD hardware matrix meets the alpha definition |
 
 ## Current baseline and clear path forward
 
@@ -431,6 +431,12 @@ not convert the scfb/pixman VM into direct DRM/KMS evidence and does not replace
 interactive physical-hardware acceptance. The next M6 slices select and record
 the Intel and AMD machines, execute the application/session matrix, and close
 only the capabilities supported by current evidence.
+
+PR91 adds the reusable matrix runner and fixed observation schema. It first
+proves that DEV01 can produce only supplemental evidence, then leaves the Intel
+lane pending until a physical or passed-through Intel DRM machine completes
+the exact same record. PR92 reuses the runner for AMD; later M6 slices close
+network/audio/input/suspend coverage and the final Alpha RC sweep.
 
 ## Historical first eight implementation pull requests
 
