@@ -146,6 +146,7 @@ write_packages
 write_services
 write_session
 sh "$SCRIPT_DIR/collect-alpha-readiness.sh" --output "$OUTPUT/alpha-readiness.conf" >/dev/null
+sh "$SCRIPT_DIR/collect-platform-evidence.sh" --output "$OUTPUT/platform-evidence.conf" >/dev/null
 
-chmod 0600 "$OUTPUT/host.txt" "$OUTPUT/packages.txt" "$OUTPUT/services.txt" "$OUTPUT/session.txt" "$OUTPUT/alpha-readiness.conf"
+chmod 0600 "$OUTPUT/host.txt" "$OUTPUT/packages.txt" "$OUTPUT/services.txt" "$OUTPUT/session.txt" "$OUTPUT/alpha-readiness.conf" "$OUTPUT/platform-evidence.conf"
 printf 'Diagnostics written to %s\n' "$OUTPUT"

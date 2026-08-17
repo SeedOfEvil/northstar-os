@@ -22,6 +22,7 @@ make bootstrap NORTHSTAR_USER=<development-user>
 make diagnostics OUTPUT=/tmp/northstar-m0-diagnostics
 make alpha-readiness ALPHA_OUTPUT=/tmp/northstar-alpha-readiness.conf
 make alpha-matrix MATRIX_LANE=vm MATRIX_OUTPUT=/tmp/northstar-alpha-matrix.conf
+make platform-evidence PLATFORM_OUTPUT=/tmp/northstar-platform-evidence.conf
 ```
 
 `collect-alpha-readiness.sh` adds the M6 schema-1 hardware/session inventory.
@@ -37,6 +38,18 @@ performing the observed actions. Use `MATRIX_TEMPLATE` to create the mode-0600
 template, fill only `pass`, `fail`, `pending`, or `deferred`, and pass it back
 through `MATRIX_OBSERVATIONS`. Unknown, missing, or duplicate fields are
 rejected. `MATRIX_REQUIRE_PASS=1` is reserved for a complete physical lane.
+Physical passes also require the schema-1 record from
+`collect-platform-evidence.sh` through `PLATFORM_EVIDENCE`.
+
+`collect-platform-evidence.sh` passively inventories normalized networking,
+audio, input, ACPI, and suspend-command capabilities. It never sends traffic,
+plays audio, changes volume, injects input, or suspends the host. Its fixed
+six-field operator template records the visible connectivity, playback,
+volume, keyboard, pointer, and suspend/resume results. VM records remain
+supplemental and cannot satisfy `PLATFORM_REQUIRE_PASS=1`.
+The standard diagnostics bundle includes the passive record as
+`platform-evidence.conf`; operator observations are never collected
+implicitly.
 
 On FreeBSD, `make package` creates Northstar's native package with CPack.
 `tools/publish-development-repository.sh` atomically publishes immutable

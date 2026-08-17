@@ -355,18 +355,22 @@ WAYLAND_DISPLAY=wayland-secret DISPLAY=:secret DBUS_SESSION_BUS_ADDRESS=secret-t
 NORTHSTAR_ALPHA_TEST_MODE=1 NORTHSTAR_ALPHA_TEST_RELEASE=15.1-RELEASE NORTHSTAR_ALPHA_TEST_ARCH=amd64
 NORTHSTAR_ALPHA_TEST_BOOT=UEFI NORTHSTAR_ALPHA_TEST_ROOTFS=zfs NORTHSTAR_ALPHA_TEST_PLATFORM=virtual-machine
 NORTHSTAR_ALPHA_TEST_WIRED=1 NORTHSTAR_ALPHA_TEST_AUDIO=1 NORTHSTAR_ALPHA_TEST_INPUT=1
+NORTHSTAR_PLATFORM_TEST_MODE=1 NORTHSTAR_PLATFORM_TEST_CLASS=virtual-machine
 export WAYLAND_DISPLAY DISPLAY DBUS_SESSION_BUS_ADDRESS XDG_RUNTIME_DIR QT_QPA_PLATFORM
 export NORTHSTAR_ALPHA_TEST_MODE NORTHSTAR_ALPHA_TEST_RELEASE NORTHSTAR_ALPHA_TEST_ARCH
 export NORTHSTAR_ALPHA_TEST_BOOT NORTHSTAR_ALPHA_TEST_ROOTFS NORTHSTAR_ALPHA_TEST_PLATFORM
 export NORTHSTAR_ALPHA_TEST_WIRED NORTHSTAR_ALPHA_TEST_AUDIO NORTHSTAR_ALPHA_TEST_INPUT
+export NORTHSTAR_PLATFORM_TEST_MODE NORTHSTAR_PLATFORM_TEST_CLASS
 run_expect 0 sh "$ROOT/tools/collect-diagnostics.sh" --output "$diagnostics"
-for diagnostic_file in host.txt packages.txt services.txt session.txt alpha-readiness.conf; do
+for diagnostic_file in host.txt packages.txt services.txt session.txt alpha-readiness.conf platform-evidence.conf; do
     [ -f "$diagnostics/$diagnostic_file" ] || fail "diagnostics file is missing: $diagnostic_file"
 done
 assert_not_contains 'secret-token' "$diagnostics/session.txt"
 assert_not_contains '/secret/runtime' "$diagnostics/session.txt"
 assert_contains 'alpha_status=supplemental' "$diagnostics/alpha-readiness.conf"
 assert_not_contains 'secret-token' "$diagnostics/alpha-readiness.conf"
+assert_contains 'capability_status=supplemental' "$diagnostics/platform-evidence.conf"
+assert_not_contains 'secret-token' "$diagnostics/platform-evidence.conf"
 pass 'diagnostics writes the expected files without sensitive values'
 
 printf 'All M0 script tests passed.\n'
