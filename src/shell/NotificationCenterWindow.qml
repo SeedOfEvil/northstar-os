@@ -164,7 +164,10 @@ Window {
                     delegate: Rectangle {
                         required property var modelData
 
-                        color: notificationMouse.containsMouse ? lunar.raisedHover : notifications.surfaceRaised
+                        // Either hover keeps the row highlighted, so moving
+                        // onto the age label does not blink the highlight off.
+                        color: notificationMouse.containsMouse || entryAgeMouse.containsMouse
+                            ? lunar.raisedHover : notifications.surfaceRaised
                         height: 82
                         radius: lunar.radiusMedium
                         width: notificationList.width - 8
@@ -209,6 +212,11 @@ Window {
 
                         Text {
                             id: entryAge
+                            // The row-wide mouse area below is declared later
+                            // and would otherwise stack on top of this label,
+                            // so the hover that reveals the exact time would
+                            // never reach it.
+                            z: 1
                             anchors.right: dismissButton.left
                             anchors.rightMargin: 8
                             anchors.bottom: parent.bottom
@@ -227,6 +235,8 @@ Window {
                             ToolTip.visible: entryAgeMouse.containsMouse
                                              && modelData.timestamp.length > 0
 
+                            // No buttons accepted, so a click still falls
+                            // through to the row and marks the entry read.
                             MouseArea {
                                 id: entryAgeMouse
                                 anchors.fill: parent
