@@ -113,9 +113,12 @@ the shortcut change, which touches only `FileBrowserWindow.qml`.
 
 An initial hypothesis, that closing the overlay leaves the application with no
 active window and so kills key delivery for every `Qt.ApplicationShortcut`, was
-**disproven**: the user reports the other shell shortcuts continue to work
-after the overlay is closed. The cause is therefore specific to `Ctrl+K` or to
-reshowing the overlay window, not to global key delivery.
+recorded here as disproven, because the other shell shortcuts appeared to keep
+working. **That conclusion was wrong.** `wayfire.ini` contains exactly one
+compositor-level binding, and that is the shortcut which kept working; every
+Qt-registered shortcut dies at the same moment. The original hypothesis was
+correct and is confirmed in
+[`M7_SHELL_SHORTCUT_FOCUS_2026-08-18.md`](M7_SHELL_SHORTCUT_FOCUS_2026-08-18.md).
 
 `closeSearch()` calls `hide()` and re-activates nothing, and both the overlay
 and the shell panel are `Qt.Tool` windows, so remapping a hidden `Qt.Tool`

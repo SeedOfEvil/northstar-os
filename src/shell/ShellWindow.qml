@@ -58,6 +58,25 @@ Window {
         }
     }
 
+    // The desktop background and dock are keyboard-inert and the panel is
+    // KeyboardInteractivityOnDemand, so the panel is the only shell surface that
+    // can hold keyboard focus. A transient surface such as unified search is a
+    // normal toplevel: when it closes, the compositor has nothing to hand focus
+    // back to, and every Qt.ApplicationShortcut stops receiving keys until the
+    // user clicks the panel. Ask for focus back explicitly instead.
+    function restoreShellFocus() {
+        if (displayIndex !== 0) {
+            return
+        }
+        // requestActivate() alone is ignored for an on-demand layer surface,
+        // so the panel asks the compositor for focus through layer-shell.
+        if (typeof northstarShellFocus !== "undefined" && northstarShellFocus) {
+            northstarShellFocus.restore()
+            return
+        }
+        root.requestActivate()
+    }
+
     function closeTransientSurfaces() {
         if (searchOverlay.visible) {
             searchOverlay.closeSearch()
@@ -440,6 +459,7 @@ Window {
 
     SystemMenu {
         id: systemMenu
+        onVisibleChanged: if (!visible) root.restoreShellFocus()
         launcherController: launcher
         powerController: northstarPowerController
         overviewWindow: applicationOverview
@@ -484,6 +504,7 @@ Window {
 
     SearchOverlay {
         id: searchOverlay
+        onVisibleChanged: if (!visible) root.restoreShellFocus()
         controller: northstarSearchController
         state: shellState
         targetScreen: targetScreen
@@ -492,6 +513,7 @@ Window {
 
     ApplicationOverview {
         id: applicationOverview
+        onVisibleChanged: if (!visible) root.restoreShellFocus()
         applicationLauncher: launcher
         pinnedApplications: northstarPinnedApplicationModel
         state: shellState
@@ -505,6 +527,7 @@ Window {
 
     QuickSettings {
         id: quickSettingsWindow
+        onVisibleChanged: if (!visible) root.restoreShellFocus()
         controller: northstarQuickSettingsController
         state: shellState
         settingsWindow: settingsWindow
@@ -514,6 +537,7 @@ Window {
 
     NotificationCenterWindow {
         id: notificationCenterWindow
+        onVisibleChanged: if (!visible) root.restoreShellFocus()
         center: northstarNotificationCenter
         state: shellState
         targetScreen: targetScreen
@@ -522,6 +546,7 @@ Window {
 
     SoftwareCenterWindow {
         id: softwareCenterWindow
+        onVisibleChanged: if (!visible) root.restoreShellFocus()
         packageCatalog: northstarPackageCatalog
         applicationLauncher: launcher
         packageTrust: northstarPackageTrustController
@@ -534,6 +559,7 @@ Window {
 
     FileBrowserWindow {
         id: fileBrowserWindow
+        onVisibleChanged: if (!visible) root.restoreShellFocus()
         fileBrowserController: northstarFileBrowserController
         applicationLauncher: launcher
         volumeController: northstarVolumeController
@@ -545,6 +571,7 @@ Window {
 
     QuickLookWindow {
         id: quickLookWindow
+        onVisibleChanged: if (!visible) root.restoreShellFocus()
         previewController: northstarPreviewController
         state: shellState
         targetScreen: targetScreen
@@ -553,6 +580,7 @@ Window {
 
     SettingsWindow {
         id: settingsWindow
+        onVisibleChanged: if (!visible) root.restoreShellFocus()
         state: shellState
         desktopLayoutController: northstarDesktopLayoutController
         launcherController: launcher

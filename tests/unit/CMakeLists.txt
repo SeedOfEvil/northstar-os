@@ -255,6 +255,11 @@ target_link_libraries(test-texteditorcontroller
 )
 
 add_test(NAME northstar-texteditorcontroller COMMAND test-texteditorcontroller)
+add_test(NAME northstar-shell-qml COMMAND northstar-shell --qml-self-test)
+set_tests_properties(northstar-shell-qml PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+)
+
 add_test(NAME northstar-text-editor-qml COMMAND northstar-text-editor --qml-self-test)
 set_tests_properties(northstar-text-editor-qml PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
@@ -326,6 +331,7 @@ set_tests_properties(
     northstar-text-editor-qml
     northstar-settingscatalog
     northstar-desktopsettings
+    northstar-shell-qml
     northstar-desktoplayoutcontroller
     PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )

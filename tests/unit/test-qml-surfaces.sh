@@ -57,6 +57,19 @@ contains src/shell/DesktopBackground.qml "northstarLogoSource"
 contains src/shell/DesktopBackground.qml 'GradientStop { position: 1.0; color: lunar.desktopBottom }'
 contains src/shell/layershellsurface.cpp 'surface->setExclusiveZone(-1)'
 contains src/shell/DockWindow.qml "northstarWindowController.applicationGroups"
+
+# The panel is the only shell surface that can hold keyboard focus, so every
+# transient surface must hand focus back when it closes. Without this the
+# application ends up with no focused window and Ctrl+K stops reopening search.
+contains src/shell/ShellWindow.qml 'function restoreShellFocus()'
+contains src/shell/ShellWindow.qml 'onVisibleChanged: if (!visible) root.restoreShellFocus()'
+contains src/shell/layershellsurface.cpp 'KeyboardInteractivityOnDemand'
+contains src/shell/layershellsurface.cpp 'KeyboardInteractivityExclusive'
+contains src/shell/layershellsurface.cpp 'restoreKeyboardFocus'
+contains src/shell/ShellWindow.qml 'northstarShellFocus.restore()'
+contains src/shell/main.cpp 'shellFocus.setPanelWindow(window)'
+contains src/shell/main.cpp 'runShellSelfTest'
+contains src/shell/main.cpp '--qml-self-test'
 contains src/shell/DockWindow.qml "pinnedApplicationModel.movePinned"
 contains src/shell/DockWindow.qml '"Unpin from Dock"'
 contains src/shell/DockWindow.qml 'dockAppMenu.y = -dockAppMenu.implicitHeight'
