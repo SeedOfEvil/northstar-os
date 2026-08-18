@@ -128,39 +128,39 @@ ApplicationWindow {
     // --- Keyboard ----------------------------------------------------------
 
     Shortcut {
-        sequence: StandardKey.New
+        sequences: [StandardKey.New]
         onActivated: editor.documentController.newDocument()
     }
     Shortcut {
-        sequence: StandardKey.Open
+        sequences: [StandardKey.Open]
         onActivated: editor.openOpenDialog()
     }
     Shortcut {
-        sequence: StandardKey.Save
+        sequences: [StandardKey.Save]
         onActivated: editor.saveDocument()
     }
     Shortcut {
-        sequence: StandardKey.SaveAs
+        sequences: [StandardKey.SaveAs]
         onActivated: editor.openSaveAsDialog()
     }
     Shortcut {
-        sequence: StandardKey.Close
+        sequences: [StandardKey.Close]
         onActivated: editor.requestCloseTab(editor.documentController.activeIndex)
     }
     Shortcut {
-        sequence: StandardKey.Find
+        sequences: [StandardKey.Find]
         onActivated: editor.toggleFind(false)
     }
     Shortcut {
-        sequence: StandardKey.Replace
+        sequences: [StandardKey.Replace]
         onActivated: editor.toggleFind(true)
     }
     Shortcut {
-        sequence: StandardKey.FindNext
+        sequences: [StandardKey.FindNext]
         onActivated: editor.documentController.findNext()
     }
     Shortcut {
-        sequence: StandardKey.FindPrevious
+        sequences: [StandardKey.FindPrevious]
         onActivated: editor.documentController.findPrevious()
     }
     Shortcut {
