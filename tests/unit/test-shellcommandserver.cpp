@@ -180,8 +180,7 @@ void ShellCommandServerTest::ignoresATruncatedRequest()
     QCOMPARE(socket.bytesAvailable(), qint64(0));
 
     // Completing the line delivers it exactly once.
-    socket.write(QByteArray("rch
-"));
+    socket.write(QByteArray("rch\n"));
     socket.flush();
     QVERIFY(pumpUntil([&socket]() { return socket.bytesAvailable() > 0; }));
     QCOMPARE(QString::fromUtf8(socket.readAll()).trimmed(), QStringLiteral("ok"));
