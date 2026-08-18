@@ -220,6 +220,18 @@ release_lock() {
 compositor_path=$(resolve_command "$COMPOSITOR")
 shell_path=$(resolve_command "$SHELL_COMMAND")
 
+# The compositor resolves the commands in its global key bindings by name, and
+# a display manager does not put a user-local prefix on PATH. Publish the
+# directory the shell was installed into so those bindings can find their
+# helpers. The supervisor is the right place for this because it always runs
+# from the project's own installation, whichever entry point started it.
+shell_bin_dir=$(dirname -- "$shell_path")
+case ":${PATH:-}:" in
+    *":$shell_bin_dir:"*) ;;
+    *) PATH="$shell_bin_dir${PATH:+:$PATH}" ;;
+esac
+export PATH
+
 stop_children() {
     if [ -n "$SHELL_PID" ]; then
         if kill -0 "$SHELL_PID" 2>/dev/null; then

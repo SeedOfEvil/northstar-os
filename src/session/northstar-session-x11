@@ -52,4 +52,14 @@ done
 export NORTHSTAR_SESSION_COMPOSITOR="$wayfire_bin"
 export NORTHSTAR_SESSION_SHELL="$shell_bin"
 
+# The compositor launches Northstar helpers by name for its global key
+# bindings, so the directory the session was installed into has to be on PATH.
+# The display manager does not add a user-local prefix by itself.
+session_bin_dir=$(dirname -- "$session_bin")
+case ":${PATH:-}:" in
+    *":$session_bin_dir:"*) ;;
+    *) PATH="$session_bin_dir${PATH:+:$PATH}" ;;
+esac
+export PATH
+
 exec "$session_bin"
