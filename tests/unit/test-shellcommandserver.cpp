@@ -1,11 +1,15 @@
 #include "shellcommandserver.h"
 
+#include <QCoreApplication>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFile>
 #include <QLocalSocket>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QtTest/QtTest>
+
+#include <functional>
 
 class ShellCommandServerTest final : public QObject
 {
@@ -48,11 +52,31 @@ QString ShellCommandServerTest::socketPath() const
     return m_directory->filePath(QStringLiteral("shell.sock"));
 }
 
+// The server and the client share this thread, so the client's blocking
+// waitFor* calls never let the server accept the connection. Pump the event
+// loop instead.
+namespace {
+
+bool pumpUntil(const std::function<bool()> &done, int timeoutMs = 3000)
+{
+    QElapsedTimer timer;
+    timer.start();
+    while (!done() && timer.elapsed() < timeoutMs) {
+        QCoreApplication::processEvents(QEventLoop::AllEvents, 20);
+    }
+    return done();
+}
+
+} // namespace
+
 QString ShellCommandServerTest::sendRequest(const QByteArray &request, bool *connected)
 {
     QLocalSocket socket;
     socket.connectToServer(socketPath());
-    const bool established = socket.waitForConnected(2000);
+
+    const bool established = pumpUntil([&socket]() {
+        return socket.state() == QLocalSocket::ConnectedState;
+    }, 2000);
     if (connected != nullptr) {
         *connected = established;
     }
@@ -61,8 +85,9 @@ QString ShellCommandServerTest::sendRequest(const QByteArray &request, bool *con
     }
 
     socket.write(request);
-    socket.waitForBytesWritten(2000);
-    if (!socket.waitForReadyRead(2000)) {
+    socket.flush();
+
+    if (!pumpUntil([&socket]() { return socket.bytesAvailable() > 0; })) {
         return {};
     }
     return QString::fromUtf8(socket.readAll()).trimmed();
@@ -95,18 +120,17 @@ void ShellCommandServerTest::deliversASupportedCommand()
     QSignalSpy commands(&server, &ShellCommandServer::commandReceived);
 
     QCOMPARE(sendRequest(QByteArray("toggle-search\n")), QStringLiteral("ok"));
-    QVERIFY(commands.wait(2000) || commands.count() > 0);
     QCOMPARE(commands.count(), 1);
     QCOMPARE(commands.first().at(0).toString(), QStringLiteral("toggle-search"));
 
     // A second connection is served just as well as the first, which is the
     // whole point: the shortcut must keep working indefinitely.
     QCOMPARE(sendRequest(QByteArray("open-search\n")), QStringLiteral("ok"));
-    QTRY_COMPARE(commands.count(), 2);
+    QCOMPARE(commands.count(), 2);
     QCOMPARE(commands.last().at(0).toString(), QStringLiteral("open-search"));
 
     QCOMPARE(sendRequest(QByteArray("  toggle-search  \n")), QStringLiteral("ok"));
-    QTRY_COMPARE(commands.count(), 3);
+    QCOMPARE(commands.count(), 3);
 }
 
 void ShellCommandServerTest::refusesAnUnknownCommand()
@@ -148,18 +172,20 @@ void ShellCommandServerTest::ignoresATruncatedRequest()
     // A client that never sends a newline must not trigger anything.
     QLocalSocket socket;
     socket.connectToServer(socketPath());
-    QVERIFY(socket.waitForConnected(2000));
+    QVERIFY(pumpUntil([&socket]() { return socket.state() == QLocalSocket::ConnectedState; }, 2000));
     socket.write(QByteArray("toggle-sea"));
-    socket.waitForBytesWritten(2000);
-    QVERIFY(!socket.waitForReadyRead(300));
+    socket.flush();
+    pumpUntil([]() { return false; }, 300);
     QCOMPARE(commands.count(), 0);
+    QCOMPARE(socket.bytesAvailable(), qint64(0));
 
     // Completing the line delivers it exactly once.
-    socket.write(QByteArray("rch\n"));
-    socket.waitForBytesWritten(2000);
-    QVERIFY(socket.waitForReadyRead(2000));
+    socket.write(QByteArray("rch
+"));
+    socket.flush();
+    QVERIFY(pumpUntil([&socket]() { return socket.bytesAvailable() > 0; }));
     QCOMPARE(QString::fromUtf8(socket.readAll()).trimmed(), QStringLiteral("ok"));
-    QTRY_COMPARE(commands.count(), 1);
+    QCOMPARE(commands.count(), 1);
 }
 
 void ShellCommandServerTest::reclaimsAStaleSocket()
