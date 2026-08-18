@@ -129,5 +129,17 @@ and are not graphics-path evidence.
 DEV01 was left at the SDDM greeter, so the next login starts the newly
 installed binaries. Log in with **Northstar (Proxmox X11 fallback)**.
 
-_Pending. This section is completed only after the user runs the focused
-1280×800 noVNC checklist and reports the result._
+The user completed the focused 1280×800 noVNC checklist and reported the
+slice working. The accepted surface covers independent document tabs with a
+visible unsaved marker, New/Open/Save/Save As, the persistent user-private
+Open Recent history, the in-application open browser, wraparound Find/Replace
+with case sensitivity, per-document Save/Discard/Cancel protection on both tab
+close and window close, the externally-removed and externally-changed
+recoveries, explicit refusals for documents that cannot be edited as UTF-8
+text, shared Lunar chrome in both themes, and unclipped controls in the
+1280×800 VM lane.
+
+This acceptance closes the Text Editor v2 daily-driver slice. It does not
+change the separate M6 physical Intel/AMD DRM, multi-display, or native
+compositor gates, and it does not resolve the stale deployment-manifest
+process debt recorded above.
