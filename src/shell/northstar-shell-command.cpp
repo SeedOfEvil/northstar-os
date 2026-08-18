@@ -36,8 +36,7 @@ int main(int argc, char *argv[])
     const QString socketPath = ShellCommandServer::resolveSocketPath();
     if (socketPath.isEmpty()) {
         error << QStringLiteral("More than one Northstar shell socket is present in %1; "
-                                "set WAYLAND_DISPLAY to choose one.
-")
+                                "set WAYLAND_DISPLAY to choose one.\n")
                      .arg(ShellCommandServer::runtimeDirectory());
         return 1;
     }
