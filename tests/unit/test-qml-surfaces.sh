@@ -76,6 +76,10 @@ contains src/shell/main.cpp 'shellCommandServer.start()'
 contains src/shell/shellcommandserver.cpp 'QLocalServer::UserAccessOption'
 contains config/wayfire-nested.ini 'binding_search = <ctrl> KEY_K'
 contains config/wayfire-nested.ini 'command_search = northstar-shell-command toggle-search'
+# The compositor resolves the binding's command by name, so the session must
+# put the installed prefix on PATH or the global shortcut silently does nothing.
+contains src/session/northstar-session-x11 'session_bin_dir=$(dirname -- "$session_bin")'
+contains src/session/northstar-session-x11 'export PATH'
 contains src/shell/DockWindow.qml "pinnedApplicationModel.movePinned"
 contains src/shell/DockWindow.qml '"Unpin from Dock"'
 contains src/shell/DockWindow.qml 'dockAppMenu.y = -dockAppMenu.implicitHeight'
