@@ -6,7 +6,7 @@
     <key>DisplayName</key>
     <string>Northstar Text Editor</string>
     <key>Version</key>
-    <string>0.1.0</string>
+    <string>0.2.0</string>
     <key>Executable</key>
     <string>northstar-text-editor</string>
     <key>Icon</key>
@@ -19,10 +19,19 @@
     </array>
     <key>DocumentExtensions</key>
     <array>
+        <string>cfg</string>
         <string>conf</string>
+        <string>csv</string>
+        <string>ini</string>
+        <string>json</string>
         <string>log</string>
         <string>md</string>
+        <string>sh</string>
+        <string>toml</string>
         <string>txt</string>
+        <string>xml</string>
+        <string>yaml</string>
+        <string>yml</string>
     </array>
     <key>Provenance</key>
     <dict>

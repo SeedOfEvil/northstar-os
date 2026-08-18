@@ -1,4 +1,5 @@
 add_library(northstar-text-editor-core STATIC
+    recentfilesstore.cpp
     texteditorcontroller.cpp
 )
 
