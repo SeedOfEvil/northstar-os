@@ -887,6 +887,10 @@ void FileBrowserController::cancelConflict()
 
 void FileBrowserController::clearClipboard()
 {
+    if (m_transferActive) {
+        setErrorMessage(QStringLiteral("Wait for the current transfer to finish."));
+        return;
+    }
     if (m_clipboardPath.isEmpty() && m_clipboardOperation.isEmpty()) {
         return;
     }

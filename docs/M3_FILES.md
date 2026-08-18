@@ -70,6 +70,19 @@ the window a more familiar Finder-style hierarchy:
 - sidebar destinations resolve through the controller's home-boundary check,
   so visual navigation cannot bypass the existing symlink and mounted-volume
   restrictions.
+- tabs retain independent Home, Trash, and mounted-volume locations during the
+  Files session, with new/close actions and Ctrl+T/Ctrl+W shortcuts;
+- an editable location field supports Ctrl+L and resolves `~` paths without
+  widening the existing Home and explicitly browsed mounted-volume boundary;
+- Copy, Cut, Paste, and Undo are available from the toolbar and standard
+  keyboard shortcuts; transfers run away from the UI thread and report active
+  and completed state;
+- name conflicts require an explicit **Keep Both** decision and never silently
+  overwrite an existing entry;
+- copied items can be undone through the recoverable Trash path, while moved
+  items are returned to their original Home location when it remains safe;
+- mounted volumes can supply a copied file or folder, but Cut and every direct
+  mounted-volume mutation remain disabled.
 
 This is a visual and navigation layer over the v2 controller, not a claim of
 system-wide Finder compatibility. Trash remains the recoverable FreeDesktop
@@ -111,6 +124,16 @@ application list without changing the saved default until the user selects an
 application. Use the sort selector to switch between Name, Type, Size, and
 Modified, reverse the order, and verify that folders remain ahead of files in
 both directions.
+
+Open at least three tabs and leave them at Home, a nested Home folder, and
+Trash; switch repeatedly and confirm each location is restored. Use Ctrl+L to
+enter `~/Documents`, then repeat with an explicitly listed mounted volume.
+Copy a folder into Home and keep interacting with the window while it runs;
+verify the status changes from active to complete. Create a same-name conflict
+and confirm nothing is overwritten before selecting **Keep Both**. Undo one
+copy and verify it appears in Trash; undo one move and verify it returns to its
+original Home location. Copy an item from a mounted volume into Home, then
+confirm Cut and direct mounted-volume mutations remain unavailable.
 
 For the desktop surface, create or copy a file and folder below `~/Desktop`,
 return to the desktop, and confirm that both appear in the left icon column.

@@ -196,12 +196,19 @@ Window {
         if (!title) {
             title = home ? "Home" : "Volume"
         }
+        let label = title
+        if (!home && files.activeTabIndex >= 0 && files.activeTabIndex < files.tabs.length) {
+            const activeTab = files.tabs[files.activeTabIndex]
+            if (activeTab.kind === "mounted" && activeTab.root === root && activeTab.label) {
+                label = activeTab.label
+            }
+        }
         return {
             title: title,
             kind: home ? "home" : "mounted",
             path: path,
             root: root,
-            label: title
+            label: label
         }
     }
 
