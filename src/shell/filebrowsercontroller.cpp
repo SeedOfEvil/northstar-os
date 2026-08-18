@@ -3,12 +3,14 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QFutureWatcher>
 #include <QDesktopServices>
 #include <QDateTime>
 #include <QDirIterator>
 #include <QSaveFile>
 #include <QStandardPaths>
 #include <QStorageInfo>
+#include <QtConcurrentRun>
 
 #include <algorithm>
 
@@ -27,6 +29,45 @@ bool isLaunchableDesktopEntry(const QFileInfo &info)
 {
     const QString suffix = info.suffix().toLower();
     return suffix == QStringLiteral("desktop") || suffix == QStringLiteral("app");
+}
+
+bool removeEntryRecursively(const QString &path)
+{
+    const QFileInfo info(path);
+    if (!info.exists() && !info.isSymLink()) {
+        return true;
+    }
+    if (info.isDir() && !info.isSymLink()) {
+        return QDir(path).removeRecursively();
+    }
+    return QFile::remove(path);
+}
+
+bool copyEntryRecursively(const QString &sourcePath, const QString &destinationPath)
+{
+    const QFileInfo sourceInfo(sourcePath);
+    if (!sourceInfo.exists() || sourceInfo.isSymLink()) {
+        return false;
+    }
+    if (!sourceInfo.isDir()) {
+        return QFile::copy(sourcePath, destinationPath);
+    }
+
+    if (!QDir().mkpath(destinationPath)) {
+        return false;
+    }
+    const QFileInfoList children = QDir(sourcePath).entryInfoList(
+        QDir::AllEntries | QDir::Hidden | QDir::NoDotAndDotDot,
+        QDir::DirsFirst | QDir::Name);
+    for (const QFileInfo &child : children) {
+        if (child.isSymLink()
+            || !copyEntryRecursively(child.absoluteFilePath(),
+                                     QDir(destinationPath).filePath(child.fileName()))) {
+            removeEntryRecursively(destinationPath);
+            return false;
+        }
+    }
+    return true;
 }
 
 } // namespace
@@ -156,6 +197,63 @@ QVariantList FileBrowserController::desktopEntries() const
     return m_desktopEntries;
 }
 
+QString FileBrowserController::clipboardOperation() const
+{
+    return m_clipboardOperation;
+}
+
+QString FileBrowserController::clipboardName() const
+{
+    return QFileInfo(m_clipboardPath).fileName();
+}
+
+bool FileBrowserController::canPaste() const
+{
+    return !m_showingTrash && homeLocation() && !m_clipboardPath.isEmpty()
+        && QFileInfo::exists(m_clipboardPath) && !m_transferActive;
+}
+
+bool FileBrowserController::conflictPending() const
+{
+    return !m_conflictDestination.isEmpty();
+}
+
+QString FileBrowserController::conflictName() const
+{
+    return QFileInfo(m_conflictDestination).fileName();
+}
+
+QString FileBrowserController::transferStatus() const
+{
+    return m_transferStatus;
+}
+
+int FileBrowserController::transferProgress() const
+{
+    return m_transferProgress;
+}
+
+bool FileBrowserController::transferActive() const
+{
+    return m_transferActive;
+}
+
+bool FileBrowserController::canUndo() const
+{
+    return !m_undoOperation.isEmpty();
+}
+
+QString FileBrowserController::undoLabel() const
+{
+    if (m_undoOperation == QStringLiteral("copy")) {
+        return QStringLiteral("Undo copy");
+    }
+    if (m_undoOperation == QStringLiteral("cut")) {
+        return QStringLiteral("Undo move");
+    }
+    return {};
+}
+
 bool FileBrowserController::navigateTo(const QString &path)
 {
     const bool wasShowingTrash = m_showingTrash;
@@ -186,6 +284,7 @@ bool FileBrowserController::navigateTo(const QString &path)
     }
     setErrorMessage({});
     refresh();
+    emit clipboardChanged();
     return true;
 }
 
@@ -222,6 +321,7 @@ bool FileBrowserController::openLocation(const QString &path, const QString &lab
     emit locationChanged();
     setErrorMessage({});
     refresh();
+    emit clipboardChanged();
     return true;
 }
 
@@ -270,6 +370,7 @@ bool FileBrowserController::goHome()
     }
     setErrorMessage({});
     refresh();
+    emit clipboardChanged();
     return true;
 }
 
@@ -288,6 +389,7 @@ bool FileBrowserController::showTrash()
     }
     setErrorMessage({});
     refresh();
+    emit clipboardChanged();
     return true;
 }
 
@@ -640,6 +742,211 @@ bool FileBrowserController::emptyTrash()
     if (m_showingTrash) {
         refresh();
     }
+    return true;
+}
+
+bool FileBrowserController::copyEntry(const QString &path)
+{
+    if (m_showingTrash) {
+        setErrorMessage(QStringLiteral("Restore an item before copying it."));
+        return false;
+    }
+    const QString resolvedPath = resolvePath(path);
+    const QFileInfo sourceInfo(resolvedPath);
+    if (resolvedPath.isEmpty() || !isAllowedClipboardSource(resolvedPath)
+        || !sourceInfo.exists() || sourceInfo.isSymLink()) {
+        setErrorMessage(QStringLiteral("That item cannot be copied safely."));
+        return false;
+    }
+
+    m_clipboardPath = resolvedPath;
+    m_clipboardOperation = QStringLiteral("copy");
+    clearConflict();
+    setTransferStatus(QStringLiteral("Ready to copy %1.").arg(sourceInfo.fileName()), 0);
+    setErrorMessage({});
+    emit clipboardChanged();
+    return true;
+}
+
+bool FileBrowserController::cutEntry(const QString &path)
+{
+    if (m_showingTrash || !homeLocation()) {
+        setErrorMessage(QStringLiteral("Only items in Home can be moved."));
+        return false;
+    }
+    const QString resolvedPath = resolvePath(path);
+    const QFileInfo sourceInfo(resolvedPath);
+    if (resolvedPath.isEmpty() || !isWithinRoot(resolvedPath) || resolvedPath == m_rootPath
+        || !sourceInfo.exists() || sourceInfo.isSymLink()) {
+        setErrorMessage(QStringLiteral("That item cannot be moved safely."));
+        return false;
+    }
+
+    m_clipboardPath = resolvedPath;
+    m_clipboardOperation = QStringLiteral("cut");
+    clearConflict();
+    setTransferStatus(QStringLiteral("Ready to move %1.").arg(sourceInfo.fileName()), 0);
+    setErrorMessage({});
+    emit clipboardChanged();
+    return true;
+}
+
+bool FileBrowserController::pasteClipboard()
+{
+    return pasteClipboard(QStringLiteral("ask"));
+}
+
+bool FileBrowserController::pasteClipboard(const QString &conflictResolution)
+{
+    if (m_transferActive) {
+        setErrorMessage(QStringLiteral("Wait for the current transfer to finish."));
+        return false;
+    }
+    if (!canPaste()) {
+        setErrorMessage(QStringLiteral("Choose an item and a writable Home folder before pasting."));
+        return false;
+    }
+
+    const QFileInfo sourceInfo(m_clipboardPath);
+    QString destinationPath = normalizedPath(QDir(m_currentPath).filePath(sourceInfo.fileName()));
+    if (!isWithinRoot(destinationPath) || destinationPath == m_clipboardPath
+        || pathMatchesRoot(destinationPath, m_clipboardPath)) {
+        setErrorMessage(QStringLiteral("That item cannot be pasted into itself."));
+        return false;
+    }
+
+    const QString resolution = conflictResolution.trimmed().toLower();
+    if (QFileInfo::exists(destinationPath)) {
+        if (resolution == QStringLiteral("ask")) {
+            m_conflictDestination = destinationPath;
+            emit conflictChanged();
+            setErrorMessage(QStringLiteral("An item named %1 already exists.").arg(sourceInfo.fileName()));
+            return false;
+        }
+        if (resolution != QStringLiteral("keepboth")) {
+            setErrorMessage(QStringLiteral("Choose Keep Both or cancel the transfer."));
+            return false;
+        }
+        destinationPath = keepBothPath(destinationPath);
+        if (destinationPath.isEmpty()) {
+            setErrorMessage(QStringLiteral("Unable to choose a safe copy name."));
+            return false;
+        }
+    }
+
+    clearConflict();
+    clearUndo();
+    setTransferStatus(QStringLiteral("Transferring %1...").arg(sourceInfo.fileName()), 10);
+    m_transferActive = true;
+    emit transferChanged();
+    emit clipboardChanged();
+    const bool moving = m_clipboardOperation == QStringLiteral("cut");
+    const QString sourcePath = m_clipboardPath;
+    auto *watcher = new QFutureWatcher<bool>(this);
+    connect(watcher, &QFutureWatcher<bool>::finished, this,
+            [this, watcher, moving, sourcePath, destinationPath]() {
+        const bool succeeded = watcher->result();
+        watcher->deleteLater();
+        m_transferActive = false;
+        if (!succeeded) {
+            setTransferStatus(QStringLiteral("Transfer failed."), 0);
+            setErrorMessage(QStringLiteral("Unable to transfer that item."));
+            emit clipboardChanged();
+            return;
+        }
+
+        m_undoSource = sourcePath;
+        m_undoDestination = destinationPath;
+        m_undoOperation = moving ? QStringLiteral("cut") : QStringLiteral("copy");
+        emit undoChanged();
+        if (moving) {
+            m_clipboardPath.clear();
+            m_clipboardOperation.clear();
+        }
+        setTransferStatus(QStringLiteral("%1 completed: %2")
+                              .arg(moving ? QStringLiteral("Move") : QStringLiteral("Copy"),
+                                   QFileInfo(destinationPath).fileName()),
+                          100);
+        setErrorMessage({});
+        emit clipboardChanged();
+        refresh();
+    });
+    watcher->setFuture(QtConcurrent::run([moving, sourcePath, destinationPath]() {
+        return moving
+            ? QFile::rename(sourcePath, destinationPath)
+            : copyEntryRecursively(sourcePath, destinationPath);
+    }));
+    return true;
+}
+
+void FileBrowserController::cancelConflict()
+{
+    clearConflict();
+    setErrorMessage({});
+}
+
+void FileBrowserController::clearClipboard()
+{
+    if (m_transferActive) {
+        setErrorMessage(QStringLiteral("Wait for the current transfer to finish."));
+        return;
+    }
+    if (m_clipboardPath.isEmpty() && m_clipboardOperation.isEmpty()) {
+        return;
+    }
+    m_clipboardPath.clear();
+    m_clipboardOperation.clear();
+    clearConflict();
+    setTransferStatus({}, 0);
+    emit clipboardChanged();
+}
+
+bool FileBrowserController::undoLastTransfer()
+{
+    if (m_transferActive) {
+        setErrorMessage(QStringLiteral("Wait for the current transfer to finish."));
+        return false;
+    }
+    if (!canUndo()) {
+        setErrorMessage(QStringLiteral("There is no recent file transfer to undo."));
+        return false;
+    }
+
+    const QString operation = m_undoOperation;
+    bool succeeded = false;
+    if (operation == QStringLiteral("copy")) {
+        const QFileInfo copiedInfo(m_undoDestination);
+        if (isWithinRoot(m_undoDestination) && copiedInfo.exists() && ensureTrashDirectories()) {
+            const QString trashName = uniqueTrashName(copiedInfo.fileName());
+            const QString trashPath = QDir(trashFilesPath()).filePath(trashName);
+            const QString infoPath = QDir(trashInfoPath()).filePath(
+                trashName + QStringLiteral(".trashinfo"));
+            succeeded = !trashName.isEmpty()
+                && QFile::rename(m_undoDestination, trashPath)
+                && writeTrashInfo(infoPath, m_undoDestination);
+            if (!succeeded && QFileInfo::exists(trashPath) && !QFileInfo::exists(m_undoDestination)) {
+                QFile::rename(trashPath, m_undoDestination);
+            }
+        }
+    } else if (operation == QStringLiteral("cut")) {
+        succeeded = isWithinRoot(m_undoSource) && isWithinRoot(m_undoDestination)
+            && !QFileInfo::exists(m_undoSource) && QFileInfo::exists(m_undoDestination)
+            && QDir().mkpath(QFileInfo(m_undoSource).absolutePath())
+            && QFile::rename(m_undoDestination, m_undoSource);
+    }
+
+    if (!succeeded) {
+        setErrorMessage(QStringLiteral("The recent transfer changed and cannot be undone safely."));
+        return false;
+    }
+
+    setTransferStatus(operation == QStringLiteral("copy")
+                          ? QStringLiteral("Copy undone; the created item is in Trash.")
+                          : QStringLiteral("Move undone."),
+                      100);
+    clearUndo();
+    setErrorMessage({});
+    refresh();
     return true;
 }
 
@@ -1090,6 +1397,72 @@ bool FileBrowserController::writeTrashInfo(const QString &infoPath, const QStrin
         return false;
     }
     return infoFile.commit();
+}
+
+bool FileBrowserController::isAllowedClipboardSource(const QString &path) const
+{
+    if (isWithinRoot(path)) {
+        return true;
+    }
+    for (const QString &root : m_mountedLocationRoots) {
+        if (pathMatchesRoot(normalizedPath(path), canonicalOrNormalizedPath(root))) {
+            return true;
+        }
+    }
+    return false;
+}
+
+QString FileBrowserController::keepBothPath(const QString &destinationPath) const
+{
+    const QFileInfo destinationInfo(destinationPath);
+    const QString directoryPath = destinationInfo.absolutePath();
+    const bool directory = destinationInfo.isDir();
+    const QString suffix = directory || destinationInfo.suffix().isEmpty()
+        ? QString() : QStringLiteral(".") + destinationInfo.suffix();
+    const QString baseName = suffix.isEmpty()
+        ? destinationInfo.fileName() : destinationInfo.completeBaseName();
+    for (int copyNumber = 1; copyNumber <= 999; ++copyNumber) {
+        const QString copyLabel = copyNumber == 1
+            ? QStringLiteral(" copy")
+            : QStringLiteral(" copy %1").arg(copyNumber);
+        const QString candidate = normalizedPath(
+            QDir(directoryPath).filePath(baseName + copyLabel + suffix));
+        if (isWithinRoot(candidate) && !QFileInfo::exists(candidate)) {
+            return candidate;
+        }
+    }
+    return {};
+}
+
+void FileBrowserController::clearConflict()
+{
+    if (m_conflictDestination.isEmpty()) {
+        return;
+    }
+    m_conflictDestination.clear();
+    emit conflictChanged();
+}
+
+void FileBrowserController::clearUndo()
+{
+    if (m_undoOperation.isEmpty() && m_undoSource.isEmpty() && m_undoDestination.isEmpty()) {
+        return;
+    }
+    m_undoSource.clear();
+    m_undoDestination.clear();
+    m_undoOperation.clear();
+    emit undoChanged();
+}
+
+void FileBrowserController::setTransferStatus(const QString &status, int progress)
+{
+    const int boundedProgress = std::clamp(progress, 0, 100);
+    if (m_transferStatus == status && m_transferProgress == boundedProgress) {
+        return;
+    }
+    m_transferStatus = status;
+    m_transferProgress = boundedProgress;
+    emit transferChanged();
 }
 
 void FileBrowserController::setErrorMessage(const QString &message)

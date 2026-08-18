@@ -11,6 +11,7 @@ The project advances through user-visible milestones with explicit pass gates. A
 | M4 | Packages, updates, rollback | Signed package and transactional foundations accepted; installed-image execution accepted through M5 | Signed packages and ZFS boot-environment rollback work end to end |
 | M5 | Reproducible image and installer | Accepted: r85 passed assembly, UEFI smoke, full-disk installation, First Boot, graphical login, signed update, failure recovery, explicit rollback, and `/home` preservation | Pinned inputs produce a bootable UEFI root-on-ZFS image |
 | M6 | Alpha hardware release | Readiness inventory accepted; repeatable matrix runner in progress; physical Intel/AMD evidence pending | The supported VM and narrow Intel/AMD hardware matrix meets the alpha definition |
+| M7 | Daily-driver desktop | In progress; Files v3 accepted, Text Editor v2 next | First-party applications provide dependable, coherent everyday workflows while physical graphics evidence remains deferred |
 
 ## Current baseline and clear path forward
 
@@ -50,6 +51,12 @@ Proxmox basic-VGA/scfb path does not provide a guest DRM render device, so
 direct DRM/KMS, multi-display, and native display-manager claims remain open
 until the appropriate hardware or graphics path is available. This keeps the
 product work moving while preserving honest release gates.
+
+Hardware-independent work now continues in parallel as M7. The ordered daily-
+driver slices are: Files v3 tabs and safe transfers (PR #94), Text Editor v2,
+Settings v2, then persistent notifications. These slices use the existing
+NSTAR-DEV01 noVNC lane and do not trigger a full image rebuild; installer-image
+cycles remain reserved for named release-candidate milestones.
 
 Since the earlier baseline, the sprint integration head has promoted PRs #56
 through #59: the shared Software Center application catalog, read-only update
@@ -423,6 +430,21 @@ Pass only when clean builders produce recorded inputs and checksums, QEMU/Proxmo
 Support x86-64 UEFI systems with SATA, NVMe, and virtio disks; QEMU/Proxmox; one tested Intel graphics lane; one tested AMD graphics lane; wired networking; and specifically tested Intel Wi-Fi adapters. NVIDIA is unsupported or experimental, and ARM64/Apple hardware is out of scope.
 
 Alpha requires install, boot, login, Qt/Xwayland/browser applications, file management, settings, update, rollback, diagnostics, shell crash recovery, and clean shutdown.
+
+## M7: Daily-driver desktop
+
+M7 advances first-party application usability without weakening the open M6
+physical-hardware gates. Files v3 is accepted through PR #94 and adds in-window
+tabs, editable home/mounted-volume navigation, asynchronous copy and move operations, explicit conflict
+handling, bounded progress feedback, and one-step recoverable undo. Mounted
+volumes remain read-only sources: copying into Home is allowed, while cutting
+or mutating mounted content is rejected.
+
+The next M7 slices are Text Editor v2 (documents, recent files, find/replace,
+and save-state clarity), Settings v2 (search and consolidated real controls),
+and persistent notifications. Each remains a separate branch and squash-
+merged PR after immutable FreeBSD automation and focused 1280x800 noVNC
+acceptance.
 
 PR90 begins M6 with a privacy-bounded alpha-readiness probe and deterministic
 classification tests. The probe distinguishes `ready`, `supplemental`, and

@@ -28,6 +28,16 @@ class FileBrowserController final : public QObject
     Q_PROPERTY(QString sortMode READ sortMode NOTIFY sortChanged)
     Q_PROPERTY(bool sortAscending READ sortAscending NOTIFY sortChanged)
     Q_PROPERTY(QVariantList desktopEntries READ desktopEntries NOTIFY desktopEntriesChanged)
+    Q_PROPERTY(QString clipboardOperation READ clipboardOperation NOTIFY clipboardChanged)
+    Q_PROPERTY(QString clipboardName READ clipboardName NOTIFY clipboardChanged)
+    Q_PROPERTY(bool canPaste READ canPaste NOTIFY clipboardChanged)
+    Q_PROPERTY(bool conflictPending READ conflictPending NOTIFY conflictChanged)
+    Q_PROPERTY(QString conflictName READ conflictName NOTIFY conflictChanged)
+    Q_PROPERTY(QString transferStatus READ transferStatus NOTIFY transferChanged)
+    Q_PROPERTY(int transferProgress READ transferProgress NOTIFY transferChanged)
+    Q_PROPERTY(bool transferActive READ transferActive NOTIFY transferChanged)
+    Q_PROPERTY(bool canUndo READ canUndo NOTIFY undoChanged)
+    Q_PROPERTY(QString undoLabel READ undoLabel NOTIFY undoChanged)
 
 public:
     using OpenFunction = std::function<bool(const QUrl &url)>;
@@ -52,6 +62,16 @@ public:
     QString sortMode() const;
     bool sortAscending() const;
     QVariantList desktopEntries() const;
+    QString clipboardOperation() const;
+    QString clipboardName() const;
+    bool canPaste() const;
+    bool conflictPending() const;
+    QString conflictName() const;
+    QString transferStatus() const;
+    int transferProgress() const;
+    bool transferActive() const;
+    bool canUndo() const;
+    QString undoLabel() const;
 
     Q_INVOKABLE bool navigateTo(const QString &path);
     Q_INVOKABLE bool openLocation(const QString &path, const QString &label = {});
@@ -66,6 +86,13 @@ public:
     Q_INVOKABLE bool moveToTrash(const QString &path);
     Q_INVOKABLE bool restoreEntry(const QString &path);
     Q_INVOKABLE bool emptyTrash();
+    Q_INVOKABLE bool copyEntry(const QString &path);
+    Q_INVOKABLE bool cutEntry(const QString &path);
+    Q_INVOKABLE bool pasteClipboard();
+    Q_INVOKABLE bool pasteClipboard(const QString &conflictResolution);
+    Q_INVOKABLE void cancelConflict();
+    Q_INVOKABLE void clearClipboard();
+    Q_INVOKABLE bool undoLastTransfer();
     Q_INVOKABLE void refresh();
     Q_INVOKABLE void setSortMode(const QString &mode);
     Q_INVOKABLE void toggleSortOrder();
@@ -81,6 +108,10 @@ signals:
     void errorMessageChanged();
     void sortChanged();
     void desktopEntriesChanged();
+    void clipboardChanged();
+    void conflictChanged();
+    void transferChanged();
+    void undoChanged();
 
 private:
     static QString normalizedPath(const QString &path);
@@ -98,6 +129,11 @@ private:
     bool ensureTrashDirectories() const;
     bool readTrashOriginalPath(const QString &trashPath, QString *originalPath) const;
     bool writeTrashInfo(const QString &infoPath, const QString &originalPath) const;
+    bool isAllowedClipboardSource(const QString &path) const;
+    QString keepBothPath(const QString &destinationPath) const;
+    void clearConflict();
+    void clearUndo();
+    void setTransferStatus(const QString &status, int progress);
     void clearSearchQuery();
     void refreshSearchResults();
     void sortEntries(QVariantList *entries) const;
@@ -117,6 +153,15 @@ private:
     QString m_sortMode = QStringLiteral("name");
     bool m_sortAscending = true;
     bool m_showingTrash = false;
+    QString m_clipboardPath;
+    QString m_clipboardOperation;
+    QString m_conflictDestination;
+    QString m_transferStatus;
+    QString m_undoSource;
+    QString m_undoDestination;
+    QString m_undoOperation;
+    int m_transferProgress = 0;
+    bool m_transferActive = false;
     QFileSystemWatcher *m_desktopWatcher = nullptr;
     QTimer *m_desktopRefreshTimer = nullptr;
 };

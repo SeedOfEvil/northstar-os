@@ -43,6 +43,9 @@ Window {
     property int sidebarWidth: 194
     property int sidebarRefreshToken: 0
     property int selectedIndex: -1
+    property var tabs: []
+    property int activeTabIndex: -1
+    property bool switchingTabs: false
     property var selectedEntry: files.fileBrowserController
         && files.selectedIndex >= 0
         && files.selectedIndex < files.fileBrowserController.entries.length
@@ -78,6 +81,22 @@ Window {
         function onEntriesChanged() {
             files.sidebarRefreshToken++
         }
+
+        function onCurrentPathChanged() {
+            files.syncActiveTab()
+            files.syncLocationField()
+        }
+
+        function onLocationChanged() {
+            files.syncActiveTab()
+            files.syncLocationField()
+        }
+
+        function onConflictChanged() {
+            if (files.fileBrowserController.conflictPending) {
+                pasteConflictDialog.open()
+            }
+        }
     }
 
     Timer {
@@ -90,6 +109,52 @@ Window {
                     && searchField.text !== files.fileBrowserController.searchQuery) {
                 files.fileBrowserController.setSearchQuery(searchField.text)
             }
+        }
+    }
+
+    Shortcut {
+        sequence: StandardKey.Copy
+        enabled: files.visible && files.hasSelection && !files.showingTrash
+        onActivated: files.fileBrowserController.copyEntry(files.selectedPath)
+    }
+
+    Shortcut {
+        sequence: StandardKey.Cut
+        enabled: files.visible && files.hasSelection && !files.showingTrash
+            && files.fileBrowserController && files.fileBrowserController.homeLocation
+        onActivated: files.fileBrowserController.cutEntry(files.selectedPath)
+    }
+
+    Shortcut {
+        sequence: StandardKey.Paste
+        enabled: files.visible && files.fileBrowserController && files.fileBrowserController.canPaste
+        onActivated: files.fileBrowserController.pasteClipboard()
+    }
+
+    Shortcut {
+        sequence: StandardKey.Undo
+        enabled: files.visible && files.fileBrowserController && files.fileBrowserController.canUndo
+        onActivated: files.fileBrowserController.undoLastTransfer()
+    }
+
+    Shortcut {
+        sequence: "Ctrl+T"
+        enabled: files.visible
+        onActivated: files.newTab()
+    }
+
+    Shortcut {
+        sequence: "Ctrl+W"
+        enabled: files.visible && files.activeTabIndex >= 0
+        onActivated: files.closeTab(files.activeTabIndex)
+    }
+
+    Shortcut {
+        sequence: "Ctrl+L"
+        enabled: files.visible && !files.showingTrash
+        onActivated: {
+            locationField.forceActiveFocus()
+            locationField.selectAll()
         }
     }
 
@@ -111,7 +176,136 @@ Window {
         files.fileBrowserController.setSearchQuery("")
         searchField.text = ""
         files.fileBrowserController.refresh()
+        files.ensureInitialTab()
+        files.syncLocationField()
         files.presentWindow()
+    }
+
+    function currentLocationSnapshot() {
+        if (!files.fileBrowserController) {
+            return { title: "Home", kind: "home", path: "", root: "", label: "Home" }
+        }
+        if (files.fileBrowserController.showingTrash) {
+            return { title: "Trash", kind: "trash", path: "", root: "", label: "Trash" }
+        }
+        const path = files.fileBrowserController.currentPath
+        const root = files.fileBrowserController.locationRoot
+        const home = files.fileBrowserController.homeLocation
+        let title = home && path === files.fileBrowserController.homePath
+            ? "Home" : String(path).split("/").filter(function(part) { return part.length > 0 }).pop()
+        if (!title) {
+            title = home ? "Home" : "Volume"
+        }
+        let label = title
+        if (!home && files.activeTabIndex >= 0 && files.activeTabIndex < files.tabs.length) {
+            const activeTab = files.tabs[files.activeTabIndex]
+            if (activeTab.kind === "mounted" && activeTab.root === root && activeTab.label) {
+                label = activeTab.label
+            }
+        }
+        return {
+            title: title,
+            kind: home ? "home" : "mounted",
+            path: path,
+            root: root,
+            label: label
+        }
+    }
+
+    function ensureInitialTab() {
+        if (files.tabs.length > 0) {
+            return
+        }
+        files.tabs = [files.currentLocationSnapshot()]
+        files.activeTabIndex = 0
+    }
+
+    function syncActiveTab() {
+        if (files.switchingTabs || !files.fileBrowserController) {
+            return
+        }
+        files.ensureInitialTab()
+        if (files.activeTabIndex < 0 || files.activeTabIndex >= files.tabs.length) {
+            return
+        }
+        const nextTabs = files.tabs.slice(0)
+        nextTabs[files.activeTabIndex] = files.currentLocationSnapshot()
+        files.tabs = nextTabs
+    }
+
+    function newTab() {
+        files.ensureInitialTab()
+        const nextTabs = files.tabs.slice(0)
+        nextTabs.push(files.currentLocationSnapshot())
+        files.tabs = nextTabs
+        files.activeTabIndex = nextTabs.length - 1
+        files.activateTab(files.activeTabIndex)
+    }
+
+    function closeTab(index) {
+        if (index < 0 || index >= files.tabs.length) {
+            return
+        }
+        if (files.tabs.length === 1) {
+            files.hide()
+            return
+        }
+        const nextTabs = files.tabs.slice(0)
+        nextTabs.splice(index, 1)
+        files.tabs = nextTabs
+        files.activeTabIndex = Math.min(index, nextTabs.length - 1)
+        files.activateTab(files.activeTabIndex)
+    }
+
+    function activateTab(index) {
+        if (!files.fileBrowserController || index < 0 || index >= files.tabs.length) {
+            return
+        }
+        files.activeTabIndex = index
+        const tab = files.tabs[index]
+        files.switchingTabs = true
+        let opened = false
+        if (tab.kind === "trash") {
+            opened = files.fileBrowserController.showTrash()
+        } else if (tab.kind === "mounted") {
+            opened = files.fileBrowserController.openLocation(tab.root, tab.label)
+            if (opened && tab.path && tab.path !== tab.root) {
+                opened = files.fileBrowserController.navigateTo(tab.path)
+            }
+        } else {
+            opened = files.fileBrowserController.goHome()
+            if (opened && tab.path && tab.path !== files.fileBrowserController.homePath) {
+                opened = files.fileBrowserController.navigateTo(tab.path)
+            }
+        }
+        files.switchingTabs = false
+        if (opened) {
+            files.clearSelection()
+            files.syncActiveTab()
+            files.syncLocationField()
+        }
+    }
+
+    function syncLocationField() {
+        if (files.fileBrowserController && !locationField.activeFocus) {
+            locationField.text = files.fileBrowserController.displayPath
+        }
+    }
+
+    function navigateFromLocationField() {
+        if (!files.fileBrowserController || files.showingTrash) {
+            return
+        }
+        let requestedPath = String(locationField.text || "").trim()
+        if (requestedPath === "~") {
+            requestedPath = files.fileBrowserController.homePath
+        } else if (requestedPath.indexOf("~/") === 0) {
+            requestedPath = files.fileBrowserController.homePath + requestedPath.substring(1)
+        }
+        if (files.fileBrowserController.navigateTo(requestedPath)) {
+            files.clearSelection()
+        }
+        files.syncLocationField()
     }
 
     function presentWindow() {
@@ -848,6 +1042,117 @@ Window {
             }
 
             Rectangle {
+                id: tabBar
+                color: lunar.field
+                border.color: lunar.borderSoft
+                border.width: 1
+                height: 42
+                radius: lunar.radiusMedium
+                width: parent.width
+
+                Row {
+                    anchors.fill: parent
+                    anchors.leftMargin: 8
+                    anchors.rightMargin: 8
+                    spacing: 6
+
+                    ListView {
+                        id: tabList
+                        anchors.verticalCenter: parent.verticalCenter
+                        clip: true
+                        height: 34
+                        orientation: ListView.Horizontal
+                        spacing: 6
+                        width: parent.width - newTabButton.width - parent.spacing
+                        model: files.tabs
+
+                        delegate: Rectangle {
+                            required property var modelData
+                            required property int index
+
+                            color: index === files.activeTabIndex
+                                ? files.surfaceAccent
+                                : tabMouse.containsMouse ? files.surfaceRaised : files.surfaceBackground
+                            height: 34
+                            radius: 7
+                            width: Math.min(190, Math.max(112, tabTitle.implicitWidth + 52))
+
+                            Text {
+                                id: tabTitle
+                                anchors.left: parent.left
+                                anchors.leftMargin: 12
+                                anchors.right: closeTabButton.left
+                                anchors.rightMargin: 6
+                                anchors.verticalCenter: parent.verticalCenter
+                                color: files.surfaceForeground
+                                elide: Text.ElideRight
+                                font.pixelSize: 11
+                                text: modelData.title || "Files"
+                            }
+
+                            MouseArea {
+                                id: tabMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                onClicked: files.activateTab(index)
+                            }
+
+                            Rectangle {
+                                id: closeTabButton
+                                anchors.right: parent.right
+                                anchors.rightMargin: 5
+                                anchors.verticalCenter: parent.verticalCenter
+                                color: closeTabMouse.containsMouse ? lunar.danger : "transparent"
+                                height: 22
+                                radius: 11
+                                width: 22
+
+                                Text {
+                                    anchors.centerIn: parent
+                                    color: files.surfaceForeground
+                                    font.pixelSize: 12
+                                    text: "×"
+                                }
+
+                                MouseArea {
+                                    id: closeTabMouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    onClicked: function(mouse) {
+                                        mouse.accepted = true
+                                        files.closeTab(index)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        id: newTabButton
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: newTabMouse.containsMouse ? files.surfaceAccent : files.surfaceRaised
+                        height: 32
+                        radius: 7
+                        width: 38
+
+                        Text {
+                            anchors.centerIn: parent
+                            color: files.surfaceForeground
+                            font.pixelSize: 18
+                            text: "+"
+                        }
+
+                        MouseArea {
+                            id: newTabMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            onClicked: files.newTab()
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
                 id: locationsSurface
                 color: lunar.field
                 border.color: lunar.borderSoft
@@ -1181,13 +1486,29 @@ Window {
                     }
                 }
 
-                Text {
+                TextField {
+                    id: locationField
                     anchors.verticalCenter: parent.verticalCenter
+                    background: Rectangle {
+                        color: files.surfaceBackground
+                        border.color: locationField.activeFocus ? files.surfaceAccent : files.surfaceMuted
+                        border.width: 1
+                        radius: 6
+                    }
                     color: files.surfaceMuted
-                    elide: Text.ElideMiddle
+                    enabled: !!files.fileBrowserController && !files.showingTrash
                     font.pixelSize: 13
                     text: files.fileBrowserController ? files.fileBrowserController.displayPath : "~"
+                    placeholderText: "Enter a location"
+                    selectByMouse: true
                     width: Math.max(80, parent.width - 462)
+
+                    onAccepted: files.navigateFromLocationField()
+                    onActiveFocusChanged: {
+                        if (!activeFocus) {
+                            files.syncLocationField()
+                        }
+                    }
                 }
             }
 
@@ -1261,6 +1582,61 @@ Window {
                         : files.fileBrowserController && files.fileBrowserController.readOnlyLocation
                             ? "Home-only search"
                             : "Home search"
+                }
+            }
+
+            Row {
+                id: transferRow
+                spacing: 8
+                width: parent.width
+
+                Button {
+                    text: "Copy"
+                    enabled: files.hasSelection && !files.showingTrash
+                    onClicked: files.fileBrowserController.copyEntry(files.selectedPath)
+                }
+
+                Button {
+                    text: "Cut"
+                    enabled: files.hasSelection && !files.showingTrash
+                        && files.fileBrowserController && files.fileBrowserController.homeLocation
+                    onClicked: files.fileBrowserController.cutEntry(files.selectedPath)
+                }
+
+                Button {
+                    text: files.fileBrowserController && files.fileBrowserController.clipboardName
+                        ? "Paste " + files.fileBrowserController.clipboardName : "Paste"
+                    enabled: files.fileBrowserController && files.fileBrowserController.canPaste
+                    onClicked: files.fileBrowserController.pasteClipboard()
+                }
+
+                Button {
+                    text: files.fileBrowserController && files.fileBrowserController.undoLabel
+                        ? files.fileBrowserController.undoLabel : "Undo"
+                    enabled: files.fileBrowserController && files.fileBrowserController.canUndo
+                    onClicked: files.fileBrowserController.undoLastTransfer()
+                }
+
+                ProgressBar {
+                    anchors.verticalCenter: parent.verticalCenter
+                    from: 0
+                    indeterminate: files.fileBrowserController
+                        ? files.fileBrowserController.transferActive : false
+                    to: 100
+                    value: files.fileBrowserController ? files.fileBrowserController.transferProgress : 0
+                    visible: indeterminate || value > 0
+                    width: visible ? 100 : 0
+                }
+
+                Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: files.surfaceMuted
+                    elide: Text.ElideRight
+                    font.pixelSize: 11
+                    text: files.fileBrowserController && files.fileBrowserController.transferStatus
+                        ? files.fileBrowserController.transferStatus
+                        : "Copy or move one selected item"
+                    width: Math.max(80, parent.width - 390)
                 }
             }
 
@@ -1510,8 +1886,9 @@ Window {
                 color: files.surfaceBackground
                 border.color: files.surfaceMuted
                 border.width: 1
-                height: Math.max(160, parent.height - titleBar.height - navigationRow.height
-                    - locationsSurface.height - searchRow.height - actionRow.height - footerText.implicitHeight - 60)
+                height: Math.max(160, parent.height - titleBar.height - tabBar.height
+                    - navigationRow.height - locationsSurface.height - searchRow.height
+                    - transferRow.height - actionRow.height - footerText.implicitHeight - 72)
                 radius: 8
                 width: parent.width
 
@@ -1928,6 +2305,55 @@ Window {
                     text: "Cancel"
                     onClicked: associationDialog.close()
                 }
+            }
+        }
+    }
+
+    Dialog {
+        id: pasteConflictDialog
+
+        title: "An item already exists"
+        modal: true
+        padding: 16
+        standardButtons: Dialog.Cancel
+        width: Math.min(460, files.width - 48)
+        x: (files.width - width) / 2
+        y: (files.height - height) / 2
+
+        background: Rectangle {
+            color: files.surfaceBackground
+            border.color: lunar.warning
+            border.width: 1
+            radius: 8
+        }
+
+        contentItem: Column {
+            spacing: 12
+            width: pasteConflictDialog.width - (2 * pasteConflictDialog.padding)
+
+            Text {
+                color: files.surfaceForeground
+                text: "A file or folder named \""
+                    + (files.fileBrowserController ? files.fileBrowserController.conflictName : "item")
+                    + "\" is already in this location. Keep both items with a safe copy name?"
+                wrapMode: Text.WordWrap
+                width: parent.width
+            }
+
+            Button {
+                text: "Keep Both"
+                onClicked: {
+                    if (files.fileBrowserController.pasteClipboard("keepBoth")) {
+                        pasteConflictDialog.close()
+                        files.clearSelection()
+                    }
+                }
+            }
+        }
+
+        onRejected: {
+            if (files.fileBrowserController) {
+                files.fileBrowserController.cancelConflict()
             }
         }
     }
