@@ -33,7 +33,14 @@ int main(int argc, char *argv[])
         return 2;
     }
 
-    const QString socketPath = ShellCommandServer::defaultSocketPath();
+    const QString socketPath = ShellCommandServer::resolveSocketPath();
+    if (socketPath.isEmpty()) {
+        error << QStringLiteral("More than one Northstar shell socket is present in %1; "
+                                "set WAYLAND_DISPLAY to choose one.
+")
+                     .arg(ShellCommandServer::runtimeDirectory());
+        return 1;
+    }
     QLocalSocket socket;
     socket.connectToServer(socketPath);
     if (!socket.waitForConnected(2000)) {

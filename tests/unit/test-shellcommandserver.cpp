@@ -27,6 +27,7 @@ private slots:
     void reclaimsAStaleSocket();
     void stopsListeningAndRemovesItsSocket();
     void namesTheSocketAfterTheWaylandDisplay();
+    void discoversTheSocketWithoutAWaylandDisplay();
 
 private:
     QString socketPath() const;
@@ -235,6 +236,46 @@ void ShellCommandServerTest::namesTheSocketAfterTheWaylandDisplay()
     qunsetenv("WAYLAND_DISPLAY");
     QCOMPARE(ShellCommandServer::defaultSocketPath(),
              QDir(m_directory->path()).filePath(QStringLiteral("northstar-shell.sock")));
+
+    if (previousRuntime.isEmpty()) {
+        qunsetenv("XDG_RUNTIME_DIR");
+    } else {
+        qputenv("XDG_RUNTIME_DIR", previousRuntime);
+    }
+    if (previousDisplay.isEmpty()) {
+        qunsetenv("WAYLAND_DISPLAY");
+    } else {
+        qputenv("WAYLAND_DISPLAY", previousDisplay);
+    }
+}
+
+void ShellCommandServerTest::discoversTheSocketWithoutAWaylandDisplay()
+{
+    const QByteArray previousRuntime = qgetenv("XDG_RUNTIME_DIR");
+    const QByteArray previousDisplay = qgetenv("WAYLAND_DISPLAY");
+    qputenv("XDG_RUNTIME_DIR", m_directory->path().toUtf8());
+
+    // The shell names its socket after the display it runs on.
+    qputenv("WAYLAND_DISPLAY", QByteArray("wayland-1"));
+    ShellCommandServer server(nullptr, ShellCommandServer::defaultSocketPath());
+    QVERIFY(server.start());
+
+    // The compositor runs binding commands without WAYLAND_DISPLAY, so a
+    // client cannot derive that name and must still find the running shell.
+    qunsetenv("WAYLAND_DISPLAY");
+    QVERIFY(ShellCommandServer::defaultSocketPath() != server.socketPath());
+    QCOMPARE(ShellCommandServer::resolveSocketPath(), server.socketPath());
+
+    // A second session is ambiguous, so refuse to guess rather than drive the
+    // wrong shell.
+    ShellCommandServer other(nullptr,
+                             QDir(m_directory->path())
+                                 .filePath(QStringLiteral("northstar-shell-wayland-9.sock")));
+    QVERIFY(other.start());
+    QVERIFY(ShellCommandServer::resolveSocketPath().isEmpty());
+
+    other.stop();
+    QCOMPARE(ShellCommandServer::resolveSocketPath(), server.socketPath());
 
     if (previousRuntime.isEmpty()) {
         qunsetenv("XDG_RUNTIME_DIR");

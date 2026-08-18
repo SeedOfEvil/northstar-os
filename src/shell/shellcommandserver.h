@@ -30,6 +30,12 @@ public:
     static QStringList supportedCommands();
     static bool isSupportedCommand(const QString &command);
     static QString defaultSocketPath();
+
+    // Where a client should connect. The compositor runs binding commands
+    // without WAYLAND_DISPLAY set, so a client cannot always derive the
+    // running shell's socket name and has to discover it.
+    static QString resolveSocketPath();
+    static QString runtimeDirectory();
     static qint64 maximumRequestBytes();
 
     bool listening() const;

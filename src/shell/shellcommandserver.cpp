@@ -43,15 +43,43 @@ qint64 ShellCommandServer::maximumRequestBytes()
     return MaximumRequestBytes;
 }
 
+QString ShellCommandServer::runtimeDirectory()
+{
+    QString directory = qEnvironmentVariable("XDG_RUNTIME_DIR");
+    if (directory.isEmpty()) {
+        directory = QStandardPaths::writableLocation(QStandardPaths::RuntimeLocation);
+    }
+    if (directory.isEmpty()) {
+        directory = QDir::tempPath();
+    }
+    return directory;
+}
+
+QString ShellCommandServer::resolveSocketPath()
+{
+    const QString preferred = defaultSocketPath();
+    if (QFileInfo::exists(preferred)) {
+        return preferred;
+    }
+
+    // The compositor launches binding commands without WAYLAND_DISPLAY, so the
+    // name derived above will not match the running shell's socket. The
+    // runtime directory is owned by this account and nothing else writes these
+    // names into it, so a single match identifies the session unambiguously.
+    QDir directory(runtimeDirectory());
+    const QStringList candidates = directory.entryList(
+        QStringList{QStringLiteral("northstar-shell*.sock")}, QDir::System | QDir::Files);
+    if (candidates.size() == 1) {
+        return directory.filePath(candidates.first());
+    }
+
+    // No shell, or more than one session: refuse to guess.
+    return candidates.isEmpty() ? preferred : QString();
+}
+
 QString ShellCommandServer::defaultSocketPath()
 {
-    QString runtimeDirectory = qEnvironmentVariable("XDG_RUNTIME_DIR");
-    if (runtimeDirectory.isEmpty()) {
-        runtimeDirectory = QStandardPaths::writableLocation(QStandardPaths::RuntimeLocation);
-    }
-    if (runtimeDirectory.isEmpty()) {
-        runtimeDirectory = QDir::tempPath();
-    }
+    const QString runtimeDirectory = ShellCommandServer::runtimeDirectory();
 
     // One socket per Wayland display keeps two sessions on one account from
     // fighting over the same path.
