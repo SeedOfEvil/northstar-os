@@ -9,7 +9,10 @@ database, early service, GPT/ZFS, or rollback boundary.
 
 ## Candidate
 
-- Branch head and product candidate: `b8dab58def7a932f8f5efe6a494df275fff3f921`.
+- Product candidate, built and gated:
+  `b8dab58def7a932f8f5efe6a494df275fff3f921`.
+- The branch head also carries this documentation-only evidence commit, which
+  changes no build input and was not rebuilt.
 - The canonical checkout `/home/northstar/src/northstar` was clean on `main`
   at `a257d9f` before the handoff, so nothing needed quarantining. It was
   fast-forwarded onto the pushed branch and verified clean at the candidate.
