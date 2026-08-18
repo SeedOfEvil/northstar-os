@@ -102,7 +102,7 @@ contains src/shell/FileBrowserWindow.qml 'id: tabBar'
 contains src/shell/FileBrowserWindow.qml 'function newTab()'
 contains src/shell/FileBrowserWindow.qml 'function activateTab(index)'
 contains src/shell/FileBrowserWindow.qml 'id: locationField'
-contains src/shell/FileBrowserWindow.qml 'sequence: StandardKey.Copy'
+contains src/shell/FileBrowserWindow.qml 'sequences: [StandardKey.Copy]'
 contains src/shell/FileBrowserWindow.qml 'fileBrowserController.pasteClipboard()'
 contains src/shell/FileBrowserWindow.qml 'fileBrowserController.transferActive'
 contains src/shell/FileBrowserWindow.qml 'activeTab.label'
@@ -324,5 +324,30 @@ done
 [ -r "$ROOT/apps/samples/NorthstarTextEditor.app/Contents/Info.plist" ] \
     || fail 'Text Editor bundle manifest is missing'
 contains apps/samples/NorthstarTextEditor.app/Contents/Info.plist 'DocumentExtensions'
+
+# Every Lunar palette token a surface references must exist in LunarPalette.
+# A missing one silently evaluates to [undefined] and the control renders with
+# no colour at all, which is how the unified-search selection highlight was
+# lost without any surface check noticing.
+palette_definitions=$(grep -oE 'property (color|int|bool) [a-zA-Z][a-zA-Z0-9]*' \
+    "$ROOT/src/ui/LunarPalette.qml" | awk '{print $3}' | sort -u)
+[ -n "$palette_definitions" ] || fail 'could not read any LunarPalette token definitions'
+
+palette_references=$(grep -rhoE '\b(lunar|lunarPalette)\.[a-zA-Z][a-zA-Z0-9]*' \
+    "$ROOT/src" "$ROOT/apps" --include=*.qml | sed 's/^[a-zA-Z]*\.//' | sort -u)
+[ -n "$palette_references" ] || fail 'could not read any LunarPalette token references'
+
+for palette_token in $palette_references; do
+    printf '%s\n' "$palette_definitions" | grep -qx "$palette_token" \
+        || fail "LunarPalette defines no '$palette_token', but a QML surface uses it"
+done
+
+# A StandardKey often maps to several platform key sequences. Binding with
+# `sequence:` registers only the first and leaves the alternates dead, so every
+# StandardKey shortcut must use the list form.
+if grep -rn 'sequence: StandardKey\.' "$ROOT/src" "$ROOT/apps" --include=*.qml >/dev/null 2>&1; then
+    grep -rn 'sequence: StandardKey\.' "$ROOT/src" "$ROOT/apps" --include=*.qml >&2
+    fail 'use sequences: [StandardKey.X] so every platform binding is registered'
+fi
 
 printf '%s\n' 'All Northstar QML surface contract checks passed.'

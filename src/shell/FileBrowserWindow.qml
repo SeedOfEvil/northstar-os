@@ -113,26 +113,26 @@ Window {
     }
 
     Shortcut {
-        sequence: StandardKey.Copy
+        sequences: [StandardKey.Copy]
         enabled: files.visible && files.hasSelection && !files.showingTrash
         onActivated: files.fileBrowserController.copyEntry(files.selectedPath)
     }
 
     Shortcut {
-        sequence: StandardKey.Cut
+        sequences: [StandardKey.Cut]
         enabled: files.visible && files.hasSelection && !files.showingTrash
             && files.fileBrowserController && files.fileBrowserController.homeLocation
         onActivated: files.fileBrowserController.cutEntry(files.selectedPath)
     }
 
     Shortcut {
-        sequence: StandardKey.Paste
+        sequences: [StandardKey.Paste]
         enabled: files.visible && files.fileBrowserController && files.fileBrowserController.canPaste
         onActivated: files.fileBrowserController.pasteClipboard()
     }
 
     Shortcut {
-        sequence: StandardKey.Undo
+        sequences: [StandardKey.Undo]
         enabled: files.visible && files.fileBrowserController && files.fileBrowserController.canUndo
         onActivated: files.fileBrowserController.undoLastTransfer()
     }

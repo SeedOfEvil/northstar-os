@@ -100,7 +100,7 @@ Window {
         anchors.fill: parent
         color: search.surfaceBackground
         radius: 22
-        border.color: lunar.borderStrong
+        border.color: lunar.border
         border.width: 1
 
         gradient: Gradient {
@@ -218,7 +218,7 @@ Window {
                             height: 58
                             radius: 13
                             color: resultDelegate.index === search.selectedIndex
-                                ? lunar.selection : resultMouse.containsMouse
+                                ? lunar.accentSoft : resultMouse.containsMouse
                                     ? lunar.raisedHover : "transparent"
 
                             Item {
