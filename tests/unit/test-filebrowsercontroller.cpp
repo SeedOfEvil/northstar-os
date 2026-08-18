@@ -27,6 +27,10 @@ private slots:
     void movesEntriesToTrashWithMetadata();
     void showsAndRestoresTrashEntries();
     void emptiesTrash();
+    void copiesAndUndoesEntries();
+    void movesAndUndoesEntries();
+    void resolvesPasteConflictsWithKeepBoth();
+    void copiesFromMountedLocationButRejectsCut();
     void rejectsUnsafeMutations();
     void opensMountedLocationReadOnly();
 };
@@ -367,6 +371,99 @@ void FileBrowserControllerTest::emptiesTrash()
     QVERIFY(controller.entries().isEmpty());
     QVERIFY(QDir(QDir(temporaryDirectory.path()).filePath(QStringLiteral(".local/share/Trash/files")))
                 .entryList(QDir::AllEntries | QDir::Hidden | QDir::NoDotAndDotDot).isEmpty());
+}
+
+void FileBrowserControllerTest::copiesAndUndoesEntries()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    const QString sourceDirectory = QDir(temporaryDirectory.path()).filePath(QStringLiteral("Source"));
+    const QString destinationDirectory = QDir(temporaryDirectory.path()).filePath(QStringLiteral("Destination"));
+    QVERIFY(QDir().mkpath(sourceDirectory));
+    QVERIFY(QDir().mkpath(destinationDirectory));
+    QVERIFY(writeFile(QDir(sourceDirectory).filePath(QStringLiteral("notes.txt")), "Northstar"));
+
+    FileBrowserController controller(nullptr, temporaryDirectory.path());
+    QVERIFY(controller.copyEntry(sourceDirectory));
+    QCOMPARE(controller.clipboardOperation(), QStringLiteral("copy"));
+    QVERIFY(controller.navigateTo(destinationDirectory));
+    QVERIFY(controller.canPaste());
+    QVERIFY(controller.pasteClipboard());
+
+    const QString copiedDirectory = QDir(destinationDirectory).filePath(QStringLiteral("Source"));
+    QVERIFY(QFileInfo::exists(QDir(copiedDirectory).filePath(QStringLiteral("notes.txt"))));
+    QVERIFY(controller.canUndo());
+    QCOMPARE(controller.transferProgress(), 100);
+    QVERIFY(controller.undoLastTransfer());
+    QVERIFY(!QFileInfo::exists(copiedDirectory));
+    QVERIFY(!controller.canUndo());
+    QVERIFY(QFileInfo::exists(QDir(sourceDirectory).filePath(QStringLiteral("notes.txt"))));
+}
+
+void FileBrowserControllerTest::movesAndUndoesEntries()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    const QString destinationDirectory = QDir(temporaryDirectory.path()).filePath(QStringLiteral("Destination"));
+    const QString sourcePath = QDir(temporaryDirectory.path()).filePath(QStringLiteral("move-me.txt"));
+    QVERIFY(QDir().mkpath(destinationDirectory));
+    QVERIFY(writeFile(sourcePath, "move"));
+
+    FileBrowserController controller(nullptr, temporaryDirectory.path());
+    QVERIFY(controller.cutEntry(sourcePath));
+    QCOMPARE(controller.clipboardOperation(), QStringLiteral("cut"));
+    QVERIFY(controller.navigateTo(destinationDirectory));
+    QVERIFY(controller.pasteClipboard());
+    const QString movedPath = QDir(destinationDirectory).filePath(QStringLiteral("move-me.txt"));
+    QVERIFY(!QFileInfo::exists(sourcePath));
+    QVERIFY(QFileInfo::exists(movedPath));
+    QVERIFY(controller.clipboardOperation().isEmpty());
+    QCOMPARE(controller.undoLabel(), QStringLiteral("Undo move"));
+
+    QVERIFY(controller.undoLastTransfer());
+    QVERIFY(QFileInfo::exists(sourcePath));
+    QVERIFY(!QFileInfo::exists(movedPath));
+}
+
+void FileBrowserControllerTest::resolvesPasteConflictsWithKeepBoth()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    const QString sourceDirectory = QDir(temporaryDirectory.path()).filePath(QStringLiteral("Source"));
+    const QString destinationDirectory = QDir(temporaryDirectory.path()).filePath(QStringLiteral("Destination"));
+    QVERIFY(QDir().mkpath(sourceDirectory));
+    QVERIFY(QDir().mkpath(destinationDirectory));
+    const QString sourcePath = QDir(sourceDirectory).filePath(QStringLiteral("notes.txt"));
+    QVERIFY(writeFile(sourcePath, "new"));
+    QVERIFY(writeFile(QDir(destinationDirectory).filePath(QStringLiteral("notes.txt")), "old"));
+
+    FileBrowserController controller(nullptr, temporaryDirectory.path());
+    QVERIFY(controller.copyEntry(sourcePath));
+    QVERIFY(controller.navigateTo(destinationDirectory));
+    QVERIFY(!controller.pasteClipboard());
+    QVERIFY(controller.conflictPending());
+    QCOMPARE(controller.conflictName(), QStringLiteral("notes.txt"));
+    QVERIFY(controller.pasteClipboard(QStringLiteral("keepBoth")));
+    QVERIFY(!controller.conflictPending());
+    QVERIFY(QFileInfo::exists(QDir(destinationDirectory).filePath(QStringLiteral("notes copy.txt"))));
+}
+
+void FileBrowserControllerTest::copiesFromMountedLocationButRejectsCut()
+{
+    QTemporaryDir homeDirectory;
+    QTemporaryDir volumeDirectory;
+    QVERIFY(homeDirectory.isValid());
+    QVERIFY(volumeDirectory.isValid());
+    const QString sourcePath = QDir(volumeDirectory.path()).filePath(QStringLiteral("volume-note.txt"));
+    QVERIFY(writeFile(sourcePath, "mounted"));
+
+    FileBrowserController controller(nullptr, homeDirectory.path(), {}, {volumeDirectory.path()});
+    QVERIFY(controller.openLocation(volumeDirectory.path(), QStringLiteral("Volume")));
+    QVERIFY(controller.copyEntry(sourcePath));
+    QVERIFY(!controller.cutEntry(sourcePath));
+    QVERIFY(controller.goHome());
+    QVERIFY(controller.pasteClipboard());
+    QVERIFY(QFileInfo::exists(QDir(homeDirectory.path()).filePath(QStringLiteral("volume-note.txt"))));
 }
 
 void FileBrowserControllerTest::rejectsUnsafeMutations()
