@@ -117,6 +117,10 @@ contains src/shell/QuickSettings.qml 'settingsWindow.openSettings()'
 contains src/shell/ShellWindow.qml 'controller: northstarQuickSettingsController'
 contains src/shell/SystemMenu.qml 'NativeWindowMoveHandler {'
 contains src/shell/NotificationCenterWindow.qml 'NativeWindowMoveHandler {'
+# History now survives a restart, so the panel has to show an age rather than
+# the stored ISO timestamp, and keep the exact time reachable.
+contains src/shell/NotificationCenterWindow.qml 'text: modelData.displayTime'
+contains src/shell/NotificationCenterWindow.qml 'ToolTip.text: modelData.timestamp'
 contains src/shell/ApplicationOverview.qml 'NativeWindowMoveHandler {'
 contains src/shell/FileBrowserWindow.qml 'text: "New File"'
 contains src/shell/FileBrowserWindow.qml 'text: "Delete"'

@@ -79,6 +79,7 @@ struct Desktop
         : shellState(nullptr, QDir(root).filePath(QStringLiteral("shell.ini")))
         , quickSettings(nullptr, QDir(root).filePath(QStringLiteral("quick.ini")),
                         unequippedSystem())
+        , notifications(nullptr, 40, QDir(root).filePath(QStringLiteral("notifications.ini")))
         , desktopLayout(nullptr, QDir(root).filePath(QStringLiteral("layout.ini")))
         , launcher(nullptr, {}, {QDir(root).filePath(QStringLiteral("applications"))},
                    QDir(root).filePath(QStringLiteral("launch.log")),

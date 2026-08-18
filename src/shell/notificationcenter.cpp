@@ -1,12 +1,89 @@
 #include "notificationcenter.h"
 
+#include "notificationstore.h"
+
 #include <QDateTime>
+#include <QLocale>
 #include <QVariantMap>
 
-NotificationCenter::NotificationCenter(QObject *parent, int maxNotifications)
+#include <utility>
+
+namespace {
+
+const QLatin1String IdPrefix("notification-");
+
+// Restored entries keep the ids they were dismissed by, so the next id has to
+// clear every one of them or a fresh notification could collide with history.
+int nextIdAfter(const QList<NotificationEntry> &entries)
+{
+    int highest = 0;
+    for (const NotificationEntry &entry : entries) {
+        if (!entry.id.startsWith(IdPrefix)) {
+            continue;
+        }
+        bool numeric = false;
+        const int value = entry.id.mid(IdPrefix.size()).toInt(&numeric);
+        if (numeric && value > highest) {
+            highest = value;
+        }
+    }
+    return highest + 1;
+}
+
+} // namespace
+
+NotificationCenter::NotificationCenter(QObject *parent, int maxNotifications, QString storePath)
     : QObject(parent)
+    , m_storePath(NotificationStore(std::move(storePath)).settingsPath())
     , m_maxNotifications(qMax(1, maxNotifications))
 {
+    m_entries = NotificationStore(m_storePath).load(m_maxNotifications);
+    m_nextId = nextIdAfter(m_entries);
+}
+
+QString NotificationCenter::normalizedKind(const QString &kind)
+{
+    const QString normalized = kind.trimmed().toLower();
+    if (normalized == QStringLiteral("success") || normalized == QStringLiteral("warning")
+        || normalized == QStringLiteral("error")) {
+        return normalized;
+    }
+    return QStringLiteral("info");
+}
+
+QString NotificationCenter::relativeTime(const QDateTime &when, const QDateTime &now)
+{
+    if (!when.isValid()) {
+        return {};
+    }
+
+    // A history file carried across a clock change can be stamped ahead of the
+    // current time; treat that as the present rather than a negative age.
+    const qint64 seconds = qMax<qint64>(0, when.secsTo(now));
+    if (seconds < 60) {
+        return QStringLiteral("Just now");
+    }
+    if (seconds < 3600) {
+        return QStringLiteral("%1m ago").arg(seconds / 60);
+    }
+    if (seconds < 86400) {
+        return QStringLiteral("%1h ago").arg(seconds / 3600);
+    }
+    if (seconds < 7 * 86400) {
+        const qint64 days = seconds / 86400;
+        return days == 1 ? QStringLiteral("Yesterday") : QStringLiteral("%1d ago").arg(days);
+    }
+    return QLocale().toString(when, QLocale::ShortFormat);
+}
+
+QString NotificationCenter::storePath() const
+{
+    return m_storePath;
+}
+
+void NotificationCenter::persist() const
+{
+    NotificationStore(m_storePath).save(m_entries);
 }
 
 QList<NotificationEntry> NotificationCenter::entries() const
@@ -43,12 +120,7 @@ QString NotificationCenter::pushNotification(const QString &title,
     entry.id = QStringLiteral("notification-%1").arg(m_nextId++);
     entry.title = title.trimmed().left(120);
     entry.body = body.trimmed().left(500);
-    entry.kind = kind.trimmed().toLower();
-    if (entry.kind != QStringLiteral("success")
-        && entry.kind != QStringLiteral("warning")
-        && entry.kind != QStringLiteral("error")) {
-        entry.kind = QStringLiteral("info");
-    }
+    entry.kind = normalizedKind(kind);
     if (entry.title.isEmpty()) {
         entry.title = QStringLiteral("Northstar");
     }
@@ -64,6 +136,7 @@ QString NotificationCenter::pushNotification(const QString &title,
         m_entries.removeLast();
     }
 
+    persist();
     emit notificationsChanged();
     if (previousUnreadCount != unreadCount()) {
         emit unreadCountChanged();
@@ -88,6 +161,7 @@ bool NotificationCenter::markRead(const QString &id)
             continue;
         }
         entry.read = true;
+        persist();
         emit notificationsChanged();
         emit unreadCountChanged();
         return true;
@@ -108,6 +182,7 @@ void NotificationCenter::markAllRead()
         return;
     }
 
+    persist();
     emit notificationsChanged();
     emit unreadCountChanged();
 }
@@ -122,6 +197,7 @@ bool NotificationCenter::dismissNotification(const QString &id)
 
         const int previousUnreadCount = unreadCount();
         m_entries.removeAt(index);
+        persist();
         emit notificationsChanged();
         if (previousUnreadCount != unreadCount()) {
             emit unreadCountChanged();
@@ -139,6 +215,7 @@ void NotificationCenter::clearNotifications()
 
     const bool hadUnread = unreadCount() > 0;
     m_entries.clear();
+    persist();
     emit notificationsChanged();
     if (hadUnread) {
         emit unreadCountChanged();
@@ -149,6 +226,7 @@ QVariantList NotificationCenter::toVariantList(const QList<NotificationEntry> &e
 {
     QVariantList result;
     result.reserve(entries.size());
+    const QDateTime now = QDateTime::currentDateTime();
     for (const NotificationEntry &entry : entries) {
         QVariantMap item;
         item.insert(QStringLiteral("id"), entry.id);
@@ -156,6 +234,8 @@ QVariantList NotificationCenter::toVariantList(const QList<NotificationEntry> &e
         item.insert(QStringLiteral("body"), entry.body);
         item.insert(QStringLiteral("kind"), entry.kind);
         item.insert(QStringLiteral("timestamp"), entry.timestamp);
+        item.insert(QStringLiteral("displayTime"),
+                    relativeTime(QDateTime::fromString(entry.timestamp, Qt::ISODateWithMs), now));
         item.insert(QStringLiteral("read"), entry.read);
         result.append(item);
     }

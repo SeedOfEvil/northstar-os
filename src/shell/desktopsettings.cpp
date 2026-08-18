@@ -3,6 +3,7 @@
 #include "applicationlauncher.h"
 #include "desktoplayoutcontroller.h"
 #include "notificationcenter.h"
+#include "notificationstore.h"
 #include "pinnedapplicationmodel.h"
 #include "quicksettingscontroller.h"
 #include "sessioncontroller.h"
@@ -259,11 +260,23 @@ void registerDesktopSettings(SettingsCatalog *catalog,
                         QStringLiteral("badge")},
             [notifications]() { return QVariant(notifications->unreadCount()); }));
 
+        catalog->registerEntry(info(
+            QStringLiteral("notifications.history"), QStringLiteral("notifications"),
+            QStringLiteral("Notification history"),
+            QStringLiteral("Kept in this account's own history file and restored at login."),
+            QStringList{QStringLiteral("history"), QStringLiteral("persist"),
+                        QStringLiteral("stored"), QStringLiteral("restart")},
+            [notifications]() {
+                return QVariant(QStringLiteral("%1 kept, %2 days")
+                                    .arg(notifications->entries().size())
+                                    .arg(NotificationStore::retentionDays()));
+            }));
+
         SettingsCatalog::Entry clear;
         clear.id = QStringLiteral("notifications.clear");
         clear.section = QStringLiteral("notifications");
         clear.title = QStringLiteral("Clear all notifications");
-        clear.description = QStringLiteral("Discard every notification currently held by the shell.");
+        clear.description = QStringLiteral("Discard every notification, on screen and on disk.");
         clear.keywords = QStringList{QStringLiteral("clear"), QStringLiteral("dismiss"),
                                      QStringLiteral("empty")};
         clear.kind = SettingsCatalog::actionKind();

@@ -109,7 +109,7 @@ Window {
                         color: notifications.surfaceMuted
                         font.pixelSize: 11
                         text: notifications.center && notifications.center.notifications.length > 0
-                            ? notifications.center.notifications.length + " recent event(s)"
+                            ? notifications.center.notifications.length + " recent event(s), kept across restarts"
                             : "You're all caught up"
                     }
                 }
@@ -208,16 +208,31 @@ Window {
                         }
 
                         Text {
+                            id: entryAge
                             anchors.right: dismissButton.left
                             anchors.rightMargin: 8
                             anchors.bottom: parent.bottom
                             anchors.bottomMargin: 7
                             color: notifications.surfaceMuted
                             font.pixelSize: 9
-                            text: modelData.timestamp
+                            // History survives a restart, so an age reads far
+                            // better here than a stored ISO timestamp. The
+                            // exact time stays available on hover.
+                            text: modelData.displayTime
                             width: Math.min(150, parent.width * 0.4)
                             elide: Text.ElideLeft
                             horizontalAlignment: Text.AlignRight
+
+                            ToolTip.text: modelData.timestamp
+                            ToolTip.visible: entryAgeMouse.containsMouse
+                                             && modelData.timestamp.length > 0
+
+                            MouseArea {
+                                id: entryAgeMouse
+                                anchors.fill: parent
+                                acceptedButtons: Qt.NoButton
+                                hoverEnabled: true
+                            }
                         }
 
                         Rectangle {
