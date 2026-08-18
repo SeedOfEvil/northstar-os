@@ -40,6 +40,58 @@ namespace {
 constexpr int PanelHeight = 44;
 constexpr int DockHeight = 72;
 
+bool expectVisible(QObject *overlay, bool expected, const char *stage)
+{
+    const bool actual = overlay->property("visible").toBool();
+    if (actual != expected) {
+        qCritical().noquote()
+            << QStringLiteral("search overlay visible=%1 after %2, expected %3")
+                   .arg(actual ? QStringLiteral("true") : QStringLiteral("false"),
+                        QString::fromLatin1(stage),
+                        expected ? QStringLiteral("true") : QStringLiteral("false"));
+        return false;
+    }
+    return true;
+}
+
+// Headless check of the shell surfaces that a contract grep cannot reach.
+// Unified search must reopen after it has been closed, not only once per shell
+// start, so the open/close/open cycle is driven explicitly.
+int runShellSelfTest(const QList<QObject *> &surfaces)
+{
+    QObject *overlay = nullptr;
+    for (QObject *surface : surfaces) {
+        overlay = surface->findChild<QObject *>(QStringLiteral("searchOverlay"));
+        if (overlay != nullptr) {
+            break;
+        }
+    }
+    if (overlay == nullptr) {
+        qCritical() << "the shell surface exposes no searchOverlay object";
+        return 1;
+    }
+
+    const auto open = [overlay]() {
+        return QMetaObject::invokeMethod(overlay, "openSearch",
+                                         Q_ARG(QVariant, QVariant(QString())));
+    };
+    const auto close = [overlay]() {
+        return QMetaObject::invokeMethod(overlay, "closeSearch");
+    };
+
+    if (!open() || !expectVisible(overlay, true, "the first open")) {
+        return 1;
+    }
+    if (!close() || !expectVisible(overlay, false, "close")) {
+        return 1;
+    }
+    if (!open() || !expectVisible(overlay, true, "reopening after close")) {
+        return 1;
+    }
+    close();
+    return 0;
+}
+
 QUrl northstarLogoSource()
 {
     const QString path = QStandardPaths::locate(
@@ -72,6 +124,8 @@ QUrl northstarGeneratedIconsDirectory()
 int main(int argc, char *argv[])
 {
     QGuiApplication application(argc, argv);
+    const bool qmlSelfTest =
+        application.arguments().contains(QStringLiteral("--qml-self-test"));
     QCoreApplication::setApplicationName(QStringLiteral("northstar-shell"));
     QCoreApplication::setApplicationVersion(QStringLiteral("0.1.0"));
 
@@ -302,5 +356,10 @@ int main(int argc, char *argv[])
     }
 
     Q_UNUSED(contexts);
+
+    if (qmlSelfTest) {
+        return runShellSelfTest(surfaces);
+    }
+
     return application.exec();
 }
