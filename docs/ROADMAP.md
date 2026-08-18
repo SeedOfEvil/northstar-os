@@ -11,7 +11,7 @@ The project advances through user-visible milestones with explicit pass gates. A
 | M4 | Packages, updates, rollback | Signed package and transactional foundations accepted; installed-image execution accepted through M5 | Signed packages and ZFS boot-environment rollback work end to end |
 | M5 | Reproducible image and installer | Accepted: r85 passed assembly, UEFI smoke, full-disk installation, First Boot, graphical login, signed update, failure recovery, explicit rollback, and `/home` preservation | Pinned inputs produce a bootable UEFI root-on-ZFS image |
 | M6 | Alpha hardware release | Readiness inventory accepted; repeatable matrix runner in progress; physical Intel/AMD evidence pending | The supported VM and narrow Intel/AMD hardware matrix meets the alpha definition |
-| M7 | Daily-driver desktop | In progress; Files v3 accepted, Text Editor v2 next | First-party applications provide dependable, coherent everyday workflows while physical graphics evidence remains deferred |
+| M7 | Daily-driver desktop | In progress; Files v3 and Text Editor v2 accepted, Settings v2 next | First-party applications provide dependable, coherent everyday workflows while physical graphics evidence remains deferred |
 
 ## Current baseline and clear path forward
 
@@ -53,8 +53,8 @@ until the appropriate hardware or graphics path is available. This keeps the
 product work moving while preserving honest release gates.
 
 Hardware-independent work now continues in parallel as M7. The ordered daily-
-driver slices are: Files v3 tabs and safe transfers (PR #94), Text Editor v2,
-Settings v2, then persistent notifications. These slices use the existing
+driver slices are: Files v3 tabs and safe transfers (PR #94), Text Editor v2
+(PR #95), Settings v2, then persistent notifications. These slices use the existing
 NSTAR-DEV01 noVNC lane and do not trigger a full image rebuild; installer-image
 cycles remain reserved for named release-candidate milestones.
 
@@ -440,10 +440,25 @@ handling, bounded progress feedback, and one-step recoverable undo. Mounted
 volumes remain read-only sources: copying into Home is allowed, while cutting
 or mutating mounted content is rejected.
 
-The next M7 slices are Text Editor v2 (documents, recent files, find/replace,
-and save-state clarity), Settings v2 (search and consolidated real controls),
-and persistent notifications. Each remains a separate branch and squash-
-merged PR after immutable FreeBSD automation and focused 1280x800 noVNC
+Text Editor v2 is accepted through PR #95. It replaces the single-buffer editor with
+multiple documents in one window: a tab strip with an explicit unsaved marker,
+New/Open/Save/Save As, a user-private recent-file history that survives a
+restart, and a find/replace bar with keyboard stepping and wraparound. Loading
+refuses oversized, unreadable, and non-UTF-8 documents with a stated reason
+instead of opening them empty, a document deleted underneath the editor is
+reported and recreated on the next save, and a document changed on disk by
+another program requires an explicit Overwrite or Reload before it is
+replaced. Saving stays atomic through `QSaveFile` and preserves the original
+file mode. Closing a tab or the window asks Save, Discard, or Cancel for each
+unsaved document in turn.
+
+Files and desktop activation still launch one editor process per opened
+document; the tab strip groups the documents opened inside a single window.
+Cross-process single-instance handover is deliberately out of this slice.
+
+The remaining M7 slices are Settings v2 (search and consolidated real
+controls) and persistent notifications. Each remains a separate branch and
+squash-merged PR after immutable FreeBSD automation and focused 1280x800 noVNC
 acceptance.
 
 PR90 begins M6 with a privacy-bounded alpha-readiness probe and deterministic
