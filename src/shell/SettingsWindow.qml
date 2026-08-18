@@ -14,22 +14,20 @@ Window {
     property var desktopLayoutController
     property var launcherController
     property var sessionController
+    property var settingsCatalog
+    property bool hasCatalog: settingsCatalog !== null && settingsCatalog !== undefined
     property bool hasSessionController: sessionController !== null && sessionController !== undefined
     property bool sessionFailed: settings.hasSessionController
         && settings.sessionController.state === "failed"
     property var targetScreen
-    property string shellApplicationName: "northstar-shell"
-    property string shellApplicationVersion: "0.1.0"
     property int panelHeight: 44
     property int desktopMargin: 24
-    property string selectedSection: "appearance"
-    property string layoutStatus: ""
     property int screenX: targetScreen ? targetScreen.geometry.x : 0
     property int screenY: targetScreen ? targetScreen.geometry.y : 0
     property int screenWidth: targetScreen ? targetScreen.geometry.width : 1280
     property int screenHeight: targetScreen ? targetScreen.geometry.height : 800
-    property int minimumSurfaceWidth: 640
-    property int minimumSurfaceHeight: 420
+    property int minimumSurfaceWidth: 720
+    property int minimumSurfaceHeight: 440
     property bool maximized: false
     property point normalGeometryPosition: Qt.point(0, 0)
     property size normalGeometrySize: Qt.size(0, 0)
@@ -43,7 +41,9 @@ Window {
     property color surfaceMuted: lunar.muted
     property color surfaceAccent: lunar.accent
     property color surfaceRaised: lunar.raised
-    property string catalogStatus: ""
+
+    property string selectedSection: settings.hasCatalog ? settings.settingsCatalog.selectedSection : ""
+    property bool searching: settings.hasCatalog && settings.settingsCatalog.searching
 
     visible: false
     color: "transparent"
@@ -53,8 +53,8 @@ Window {
 
     minimumWidth: settings.minimumSurfaceWidth
     minimumHeight: settings.minimumSurfaceHeight
-    width: Math.min(900, Math.max(minimumSurfaceWidth, screenWidth - (desktopMargin * 2)))
-    height: Math.min(screenHeight - panelHeight - desktopMargin, Math.max(minimumSurfaceHeight, 520))
+    width: Math.min(960, Math.max(minimumSurfaceWidth, screenWidth - (desktopMargin * 2)))
+    height: Math.min(screenHeight - panelHeight - desktopMargin, Math.max(minimumSurfaceHeight, 560))
     x: screenX + Math.max(desktopMargin, (screenWidth - width) / 2)
     y: screenY + panelHeight + desktopMargin
 
@@ -65,6 +65,38 @@ Window {
         if (sessionController) {
             sessionController.refresh()
         }
+        if (settings.hasCatalog) {
+            settings.settingsCatalog.refresh()
+        }
+        searchField.forceActiveFocus()
+        searchField.selectAll()
+    }
+
+    function selectSection(sectionId) {
+        if (!settings.hasCatalog) {
+            return
+        }
+        settings.settingsCatalog.clearQuery()
+        searchField.text = ""
+        settings.settingsCatalog.setSelectedSection(sectionId)
+    }
+
+    // Destructive entries are confirmed here rather than in each delegate, so
+    // every one of them gets the same explicit confirmation.
+    function activateEntry(entry) {
+        if (!settings.hasCatalog || !entry.available) {
+            return
+        }
+        if (entry.destructive) {
+            confirmDialog.entryId = entry.id
+            confirmDialog.entryTitle = entry.title
+            confirmDialog.entryDescription = entry.description
+            confirmDialog.hidesWindow = entry.id === "session.restartshell"
+                || entry.id === "session.end"
+            confirmDialog.open()
+            return
+        }
+        settings.settingsCatalog.invoke(entry.id)
     }
 
     function toggleMaximize() {
@@ -142,62 +174,63 @@ Window {
         onTriggered: settings.sessionController.refresh()
     }
 
-    Timer {
-        id: catalogStatusTimer
-        interval: 2500
-        onTriggered: settings.catalogStatus = ""
+    Shortcut {
+        sequences: [StandardKey.Find]
+        enabled: settings.visible
+        onActivated: {
+            searchField.forceActiveFocus()
+            searchField.selectAll()
+        }
     }
 
-    Timer {
-        id: layoutStatusTimer
-        interval: 2500
-        onTriggered: settings.layoutStatus = ""
+    Shortcut {
+        sequence: "Escape"
+        enabled: settings.visible && settings.searching
+        onActivated: {
+            searchField.text = ""
+            settings.settingsCatalog.clearQuery()
+        }
     }
 
     Dialog {
-        id: endSessionDialog
+        id: confirmDialog
         modal: true
-        title: "End Northstar session?"
+        title: "Confirm"
         standardButtons: Dialog.Cancel | Dialog.Ok
-        width: 420
+        width: 440
         x: (settings.width - width) / 2
         y: (settings.height - height) / 2
 
-        contentItem: Text {
-            color: settings.surfaceForeground
-            text: "This closes the Northstar shell and its supervised compositor. Other user applications are not targeted."
-            wrapMode: Text.WordWrap
-            width: 360
-        }
+        property string entryId: ""
+        property string entryTitle: ""
+        property string entryDescription: ""
+        property bool hidesWindow: false
 
-        onAccepted: {
-            const requested = settings.hasSessionController && settings.sessionController.requestEndSession()
-            if (requested) {
-                settings.hide()
+        contentItem: Column {
+            spacing: 10
+            width: confirmDialog.width - 32
+
+            Text {
+                color: settings.surfaceForeground
+                font.bold: true
+                font.pixelSize: 14
+                text: confirmDialog.entryTitle
+                width: parent.width
+                wrapMode: Text.WordWrap
+            }
+
+            Text {
+                color: settings.surfaceMuted
+                font.pixelSize: 12
+                text: confirmDialog.entryDescription
+                width: parent.width
+                wrapMode: Text.WordWrap
             }
         }
-    }
-
-    Dialog {
-        id: restartShellDialog
-        modal: true
-        title: "Restart Northstar shell?"
-        standardButtons: Dialog.Cancel | Dialog.Ok
-        width: 420
-        x: (settings.width - width) / 2
-        y: (settings.height - height) / 2
-
-        contentItem: Text {
-            color: settings.surfaceForeground
-            text: "This restarts only the supervised Northstar shell. The compositor and other user applications are not targeted."
-            wrapMode: Text.WordWrap
-            width: 360
-        }
 
         onAccepted: {
-            const requested = settings.hasSessionController
-                && settings.sessionController.requestShellRestart()
-            if (requested) {
+            const performed = settings.settingsCatalog.invoke(confirmDialog.entryId)
+            if (performed && confirmDialog.hidesWindow) {
                 settings.hide()
             }
         }
@@ -207,14 +240,15 @@ Window {
         anchors.fill: parent
         darkMode: lunar.darkMode
 
-        Column {
+        Item {
             anchors.fill: parent
             anchors.margins: 22
-            spacing: 18
 
             Item {
                 id: titleBar
-                width: parent.width
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
                 height: 48
 
                 NativeWindowMoveHandler {
@@ -231,113 +265,127 @@ Window {
                     window: settings
                     onMaximizeRequested: settings.toggleMaximize()
                 }
+            }
 
-                Column {
-                    anchors.left: parent.left
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: parent.width - closeButton.width - 12
-                    spacing: 3
-                    visible: false
+            // --- Search --------------------------------------------------------
 
-                    Text {
-                        color: settings.surfaceForeground
-                        font.bold: true
-                        font.pixelSize: 24
-                        text: "Settings"
-                    }
-
-                    Text {
-                        color: settings.surfaceMuted
-                        font.pixelSize: 12
-                        text: "Northstar desktop preferences"
-                    }
-                }
+            Rectangle {
+                id: searchBar
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: titleBar.bottom
+                anchors.topMargin: 14
+                border.color: searchField.activeFocus ? lunar.accent : lunar.borderSoft
+                border.width: 1
+                color: lunar.field
+                height: 46
+                radius: lunar.radiusMedium
 
                 Row {
-                    id: closeButton
-                    anchors.right: parent.right
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: 6
-                    visible: false
+                    anchors.fill: parent
+                    anchors.leftMargin: 12
+                    anchors.rightMargin: 12
+                    spacing: 10
 
-                    Rectangle {
-                        color: minimizeMouse.containsMouse ? settings.surfaceAccent : settings.surfaceRaised
-                        height: 32
-                        radius: 16
-                        width: 34
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: settings.surfaceMuted
+                        font.pixelSize: 15
+                        text: "⌕"
+                    }
 
-                        Text {
-                            anchors.centerIn: parent
-                            color: settings.surfaceForeground
-                            font.pixelSize: 15
-                            text: "_"
-                        }
-
-                        MouseArea {
-                            id: minimizeMouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            onClicked: settings.hide()
+                    TextField {
+                        id: searchField
+                        anchors.verticalCenter: parent.verticalCenter
+                        background: null
+                        color: settings.surfaceForeground
+                        placeholderText: "Search settings"
+                        placeholderTextColor: settings.surfaceMuted
+                        selectByMouse: true
+                        width: parent.width - 200
+                        onTextChanged: {
+                            if (settings.hasCatalog) {
+                                settings.settingsCatalog.setQuery(text)
+                            }
                         }
                     }
 
-                    Rectangle {
-                        color: maximizeMouse.containsMouse ? settings.surfaceAccent : settings.surfaceRaised
-                        height: 32
-                        radius: 16
-                        width: 34
-
-                        Text {
-                            anchors.centerIn: parent
-                            color: settings.surfaceForeground
-                            font.pixelSize: 14
-                            text: settings.maximized ? "❐" : "□"
-                        }
-
-                        MouseArea {
-                            id: maximizeMouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            onClicked: settings.toggleMaximize()
-                        }
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: settings.surfaceMuted
+                        font.pixelSize: 12
+                        horizontalAlignment: Text.AlignRight
+                        text: settings.searching && settings.hasCatalog
+                            ? (settings.settingsCatalog.resultCount === 1
+                                ? "1 result" : settings.settingsCatalog.resultCount + " results")
+                            : ""
+                        width: 84
                     }
 
                     Rectangle {
-                        color: closeMouse.containsMouse ? lunar.danger : settings.surfaceRaised
-                        height: 32
-                        radius: 16
-                        width: 34
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: clearSearchMouse.containsMouse ? lunar.raisedHover : "transparent"
+                        height: 26
+                        radius: 13
+                        visible: settings.searching
+                        width: 26
 
                         Text {
                             anchors.centerIn: parent
                             color: settings.surfaceForeground
-                            font.bold: true
-                            font.pixelSize: 15
+                            font.pixelSize: 13
                             text: "×"
                         }
 
                         MouseArea {
-                            id: closeMouse
+                            id: clearSearchMouse
                             anchors.fill: parent
                             hoverEnabled: true
-                            onClicked: settings.hide()
+                            onClicked: {
+                                searchField.text = ""
+                                settings.settingsCatalog.clearQuery()
+                            }
                         }
                     }
                 }
             }
 
+            // --- Status --------------------------------------------------------
+
+            Text {
+                id: statusLine
+                anchors.bottom: parent.bottom
+                anchors.left: parent.left
+                anchors.right: parent.right
+                color: settings.hasCatalog && settings.settingsCatalog.statusIsError
+                    ? lunar.danger : settings.surfaceMuted
+                elide: Text.ElideRight
+                font.pixelSize: 12
+                height: 20
+                text: settings.hasCatalog ? settings.settingsCatalog.statusMessage : ""
+                verticalAlignment: Text.AlignVCenter
+            }
+
+            // --- Sections and results -------------------------------------------
+
             Row {
-                width: parent.width
-                height: parent.height - 74
+                anchors.bottom: statusLine.top
+                anchors.bottomMargin: 8
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: searchBar.bottom
+                anchors.topMargin: 14
                 spacing: 18
 
                 Rectangle {
-                    color: lunar.panel
+                    id: sectionSidebar
                     border.color: lunar.borderSoft
                     border.width: 1
+                    color: lunar.panel
                     height: parent.height
+                    opacity: settings.searching ? 0.5 : 1
                     radius: lunar.radiusLarge
-                    width: 190
+                    width: 196
 
                     Column {
                         anchors.fill: parent
@@ -345,17 +393,14 @@ Window {
                         spacing: 4
 
                         Repeater {
-                            model: [
-                                { id: "appearance", label: "Appearance" },
-                                { id: "session", label: "Session" },
-                                { id: "about", label: "About Northstar" }
-                            ]
+                            model: settings.hasCatalog ? settings.settingsCatalog.sections : []
 
                             delegate: Rectangle {
                                 required property var modelData
 
-                                color: settings.selectedSection === modelData.id
-                                    ? lunar.accentSoft : sectionMouse.containsMouse ? lunar.raisedHover : "transparent"
+                                color: !settings.searching && settings.selectedSection === modelData.id
+                                    ? lunar.accentSoft
+                                    : sectionMouse.containsMouse ? lunar.raisedHover : "transparent"
                                 height: 40
                                 radius: lunar.radiusSmall
                                 width: parent.width
@@ -363,18 +408,32 @@ Window {
                                 Text {
                                     anchors.left: parent.left
                                     anchors.leftMargin: 12
+                                    anchors.right: sectionCount.left
+                                    anchors.rightMargin: 6
                                     anchors.verticalCenter: parent.verticalCenter
-                                    color: settings.selectedSection === modelData.id ? settings.surfaceForeground : settings.surfaceMuted
-                                    font.bold: settings.selectedSection === modelData.id
+                                    color: !settings.searching && settings.selectedSection === modelData.id
+                                        ? settings.surfaceForeground : settings.surfaceMuted
+                                    elide: Text.ElideRight
+                                    font.bold: !settings.searching && settings.selectedSection === modelData.id
                                     font.pixelSize: 13
                                     text: modelData.label
+                                }
+
+                                Text {
+                                    id: sectionCount
+                                    anchors.right: parent.right
+                                    anchors.rightMargin: 10
+                                    anchors.verticalCenter: parent.verticalCenter
+                                    color: settings.surfaceMuted
+                                    font.pixelSize: 11
+                                    text: modelData.count
                                 }
 
                                 MouseArea {
                                     id: sectionMouse
                                     anchors.fill: parent
                                     hoverEnabled: true
-                                    onClicked: settings.selectedSection = modelData.id
+                                    onClicked: settings.selectSection(modelData.id)
                                 }
                             }
                         }
@@ -384,485 +443,113 @@ Window {
                 Rectangle {
                     color: settings.surfaceRaised
                     height: parent.height
-                    radius: 8
-                    width: parent.width - 208
+                    radius: lunar.radiusLarge
+                    width: parent.width - sectionSidebar.width - parent.spacing
 
-                    Column {
-                        id: appearancePage
+                    Text {
+                        anchors.centerIn: parent
+                        color: settings.surfaceMuted
+                        font.pixelSize: 13
+                        horizontalAlignment: Text.AlignHCenter
+                        text: "No setting matches \"" + (settings.hasCatalog
+                            ? settings.settingsCatalog.query : "") + "\"."
+                        visible: settings.searching && settings.hasCatalog
+                            && settings.settingsCatalog.resultCount === 0
+                        width: parent.width - 60
+                        wrapMode: Text.WordWrap
+                    }
+
+                    ListView {
+                        id: entryList
                         anchors.fill: parent
-                        anchors.margins: 22
-                        spacing: 16
-                        visible: settings.selectedSection === "appearance"
+                        anchors.margins: 16
+                        clip: true
+                        model: settings.hasCatalog ? settings.settingsCatalog.entries : []
+                        spacing: 10
 
-                        Text {
-                            color: settings.surfaceForeground
-                            font.bold: true
-                            font.pixelSize: 20
-                            text: "Appearance"
-                        }
+                        delegate: Rectangle {
+                            required property var modelData
 
-                        Text {
-                            color: settings.surfaceMuted
-                            font.pixelSize: 13
-                            text: "Choose how the Northstar shell presents its panels and surfaces."
-                            wrapMode: Text.WordWrap
-                            width: parent.width
-                        }
-
-                        Rectangle {
-                            color: settings.surfaceBackground
-                            border.color: settings.surfaceMuted
+                            border.color: lunar.borderSoft
                             border.width: 1
-                            height: 76
-                            radius: 8
-                            width: parent.width
+                            color: settings.surfaceBackground
+                            height: entryBody.implicitHeight + 26
+                            radius: lunar.radiusMedium
+                            width: entryList.width
 
                             Row {
                                 anchors.fill: parent
                                 anchors.leftMargin: 16
                                 anchors.rightMargin: 16
-                                spacing: 12
+                                spacing: 14
 
                                 Column {
+                                    id: entryBody
                                     anchors.verticalCenter: parent.verticalCenter
                                     spacing: 3
-                                    width: parent.width - appearanceToggle.width - parent.spacing
+                                    width: parent.width - entryControl.width - parent.spacing
 
                                     Text {
                                         color: settings.surfaceForeground
+                                        elide: Text.ElideRight
                                         font.bold: true
                                         font.pixelSize: 14
-                                        text: "Dark appearance"
+                                        text: modelData.title
+                                        width: parent.width
                                     }
 
                                     Text {
                                         color: settings.surfaceMuted
                                         font.pixelSize: 12
-                                        text: "Use the dark Northstar design tokens."
+                                        text: modelData.description
+                                        visible: text.length > 0
+                                        width: parent.width
+                                        wrapMode: Text.WordWrap
+                                    }
+
+                                    // Searching crosses sections, so each result
+                                    // says where it actually lives.
+                                    Text {
+                                        color: settings.surfaceAccent
+                                        font.pixelSize: 11
+                                        text: modelData.sectionLabel
+                                        visible: settings.searching
+                                        width: parent.width
+                                    }
+
+                                    Text {
+                                        color: lunar.warning
+                                        font.pixelSize: 11
+                                        text: modelData.unavailableReason
+                                        visible: !modelData.available
+                                            && modelData.unavailableReason.length > 0
+                                        width: parent.width
+                                        wrapMode: Text.WordWrap
                                     }
                                 }
 
-                                CheckBox {
-                                    id: appearanceToggle
+                                Item {
+                                    id: entryControl
                                     anchors.verticalCenter: parent.verticalCenter
-                                    checked: settings.state ? settings.state.darkMode : true
-                                    text: checked ? "On" : "Off"
-                                    onToggled: {
-                                        if (settings.state) {
-                                            settings.state.setDarkMode(checked)
-                                        }
+                                    height: 34
+                                    width: modelData.kind === "slider" ? 210 : 150
+
+                                    Loader {
+                                        id: controlLoader
+                                        anchors.right: parent.right
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        sourceComponent: modelData.kind === "toggle"
+                                            ? toggleControl
+                                            : modelData.kind === "slider"
+                                                ? sliderControl
+                                                : modelData.kind === "action"
+                                                    ? actionControl
+                                                    : infoControl
+
+                                        property var entry: modelData
                                     }
                                 }
                             }
-                        }
-
-                        Button {
-                            enabled: !!settings.desktopLayoutController
-                            text: "Reset Desktop Icon Layout"
-                            onClicked: {
-                                settings.desktopLayoutController.reset()
-                                settings.layoutStatus = "Desktop icon layout reset to the default column."
-                                layoutStatusTimer.restart()
-                            }
-                        }
-
-                        Text {
-                            color: settings.surfaceMuted
-                            font.pixelSize: 12
-                            text: settings.layoutStatus
-                            visible: text.length > 0
-                            wrapMode: Text.WordWrap
-                            width: parent.width
-                        }
-
-                        Text {
-                            color: settings.surfaceMuted
-                            font.pixelSize: 12
-                            text: "More appearance controls will be added as the desktop settings service matures."
-                            wrapMode: Text.WordWrap
-                            width: parent.width
-                        }
-                    }
-
-                    Column {
-                        id: sessionPage
-                        anchors.fill: parent
-                        anchors.margins: 22
-                        spacing: 16
-                        visible: settings.selectedSection === "session"
-
-                        Text {
-                            color: settings.surfaceForeground
-                            font.bold: true
-                            font.pixelSize: 20
-                            text: "Session"
-                        }
-
-                        Text {
-                            color: settings.surfaceMuted
-                            font.pixelSize: 13
-                            text: "Review the supervised Northstar session and refresh its application catalog."
-                            wrapMode: Text.WordWrap
-                            width: parent.width
-                        }
-
-                        Rectangle {
-                            color: settings.surfaceBackground
-                            border.color: settings.surfaceMuted
-                            border.width: 1
-                            height: 286
-                            radius: 8
-                            width: parent.width
-
-                            Column {
-                                anchors.fill: parent
-                                anchors.margins: 16
-                                spacing: 10
-
-                                Row {
-                                    spacing: 8
-                                    width: parent.width
-
-                                    Text {
-                                        color: settings.surfaceMuted
-                                        font.pixelSize: 13
-                                        text: "Session"
-                                        width: 150
-                                    }
-
-                                    Text {
-                                        color: settings.surfaceForeground
-                                        font.pixelSize: 13
-                                        text: settings.hasSessionController && settings.sessionController.state.length > 0
-                                            ? settings.sessionController.state : "Not supervised"
-                                    }
-                                }
-
-                                Row {
-                                    spacing: 8
-                                    width: parent.width
-
-                                    Text {
-                                        color: settings.surfaceMuted
-                                        font.pixelSize: 13
-                                        text: "Supervisor PID"
-                                        width: 150
-                                    }
-
-                                    Text {
-                                        color: settings.surfaceForeground
-                                        font.pixelSize: 13
-                                        text: settings.hasSessionController && settings.sessionController.supervisorPid > 0
-                                            ? settings.sessionController.supervisorPid : "—"
-                                    }
-                                }
-
-                                Row {
-                                    spacing: 8
-                                    width: parent.width
-
-                                    Text {
-                                        color: settings.surfaceMuted
-                                        font.pixelSize: 13
-                                        text: "Wayland display"
-                                        width: 150
-                                    }
-
-                                    Text {
-                                        color: settings.surfaceForeground
-                                        font.pixelSize: 13
-                                        text: settings.hasSessionController && settings.sessionController.available
-                                            ? settings.sessionController.waylandDisplay : "—"
-                                    }
-                                }
-
-                                Row {
-                                    spacing: 8
-                                    width: parent.width
-
-                                    Text {
-                                        color: settings.surfaceMuted
-                                        font.pixelSize: 13
-                                        text: "Shell PID"
-                                        width: 150
-                                    }
-
-                                    Text {
-                                        color: settings.surfaceForeground
-                                        font.pixelSize: 13
-                                        text: settings.hasSessionController && settings.sessionController.shellPid > 0
-                                            ? settings.sessionController.shellPid : "—"
-                                    }
-                                }
-
-                                Row {
-                                    spacing: 8
-                                    width: parent.width
-
-                                    Text {
-                                        color: settings.surfaceMuted
-                                        font.pixelSize: 13
-                                        text: "Compositor PID"
-                                        width: 150
-                                    }
-
-                                    Text {
-                                        color: settings.surfaceForeground
-                                        font.pixelSize: 13
-                                        text: settings.hasSessionController && settings.sessionController.compositorPid > 0
-                                            ? settings.sessionController.compositorPid : "—"
-                                    }
-                                }
-
-                                Row {
-                                    spacing: 8
-                                    width: parent.width
-
-                                    Text {
-                                        color: settings.surfaceMuted
-                                        font.pixelSize: 13
-                                        text: "Restart count"
-                                        width: 150
-                                    }
-
-                                    Text {
-                                        color: settings.surfaceForeground
-                                        font.pixelSize: 13
-                                        text: settings.hasSessionController ? settings.sessionController.restartCount : 0
-                                    }
-                                }
-
-                                Row {
-                                    spacing: 8
-                                    width: parent.width
-
-                                    Text {
-                                        color: settings.surfaceMuted
-                                        font.pixelSize: 13
-                                        text: "Last event"
-                                        width: 150
-                                    }
-
-                                    Text {
-                                        color: settings.surfaceForeground
-                                        font.pixelSize: 13
-                                        text: settings.hasSessionController && settings.sessionController.lastEvent.length > 0
-                                            ? settings.sessionController.lastEvent : "—"
-                                    }
-                                }
-
-                                Row {
-                                    spacing: 8
-                                    width: parent.width
-
-                                    Text {
-                                        color: settings.surfaceMuted
-                                        font.pixelSize: 13
-                                        text: "Desktop"
-                                        width: 150
-                                    }
-
-                                    Text {
-                                        color: settings.surfaceForeground
-                                        font.pixelSize: 13
-                                        text: settings.state && settings.state.activeWindowTitle
-                                            ? settings.state.activeWindowTitle : "Desktop"
-                                    }
-                                }
-
-                                Row {
-                                    spacing: 8
-                                    width: parent.width
-
-                                    Text {
-                                        color: settings.surfaceMuted
-                                        font.pixelSize: 13
-                                        text: "Display"
-                                        width: 150
-                                    }
-
-                                    Text {
-                                        color: settings.surfaceForeground
-                                        font.pixelSize: 13
-                                        text: settings.screenWidth + " x " + settings.screenHeight
-                                    }
-                                }
-
-                                Row {
-                                    spacing: 8
-                                    width: parent.width
-
-                                    Text {
-                                        color: settings.surfaceMuted
-                                        font.pixelSize: 13
-                                        text: "Applications"
-                                        width: 150
-                                    }
-
-                                    Text {
-                                        color: settings.surfaceForeground
-                                        font.pixelSize: 13
-                                        text: settings.launcherController && settings.launcherController.applications
-                                            ? settings.launcherController.applications.length : 0
-                                    }
-                                }
-                            }
-                        }
-
-                        Button {
-                            text: "Refresh Application Catalog"
-                            onClicked: {
-                                if (settings.launcherController) {
-                                    const changed = settings.launcherController.refreshApplications()
-                                    settings.catalogStatus = changed
-                                        ? "Application catalog refreshed."
-                                        : "Application catalog is already current."
-                                    catalogStatusTimer.restart()
-                                } else {
-                                    settings.catalogStatus = "Application catalog is unavailable."
-                                    catalogStatusTimer.restart()
-                                }
-                            }
-                        }
-
-                        Text {
-                            color: settings.surfaceMuted
-                            font.pixelSize: 12
-                            text: settings.catalogStatus
-                            visible: text.length > 0
-                        }
-
-                        Rectangle {
-                            color: settings.state && settings.state.darkMode ? "#3b2328" : "#fff0f0"
-                            border.color: settings.state && settings.state.darkMode ? "#d96c7a" : "#c7465b"
-                            border.width: 1
-                            height: sessionRecoveryMessage.implicitHeight + 24
-                            radius: 8
-                            visible: settings.sessionFailed
-                            width: parent.width
-
-                            Text {
-                                id: sessionRecoveryMessage
-                                anchors.fill: parent
-                                anchors.margins: 12
-                                color: settings.state && settings.state.darkMode ? "#ffd9de" : "#7f1d2d"
-                                font.pixelSize: 12
-                                text: "The supervised session reached a terminal failure. Save your work and restart Northstar from the console or login session before testing again."
-                                wrapMode: Text.WordWrap
-                            }
-                        }
-
-                        Button {
-                            enabled: settings.hasSessionController
-                                && settings.sessionController.restartable
-                            text: "Restart Northstar Shell"
-                            onClicked: restartShellDialog.open()
-                        }
-
-                        Button {
-                            enabled: settings.hasSessionController && settings.sessionController.available
-                            text: "End Northstar Session"
-                            onClicked: endSessionDialog.open()
-                        }
-                    }
-
-                    Column {
-                        id: aboutPage
-                        anchors.fill: parent
-                        anchors.margins: 22
-                        spacing: 16
-                        visible: settings.selectedSection === "about"
-
-                        Text {
-                            color: settings.surfaceForeground
-                            font.bold: true
-                            font.pixelSize: 20
-                            text: "About Northstar"
-                        }
-
-                        Text {
-                            color: settings.surfaceMuted
-                            font.pixelSize: 13
-                            text: "Northstar is a FreeBSD-native desktop experience built around a small, testable shell."
-                            wrapMode: Text.WordWrap
-                            width: parent.width
-                        }
-
-                        Rectangle {
-                            color: settings.surfaceBackground
-                            border.color: settings.surfaceMuted
-                            border.width: 1
-                            height: 132
-                            radius: 8
-                            width: parent.width
-
-                            Column {
-                                anchors.fill: parent
-                                anchors.margins: 16
-                                spacing: 10
-
-                                Row {
-                                    spacing: 8
-                                    width: parent.width
-
-                                    Text {
-                                        color: settings.surfaceMuted
-                                        font.pixelSize: 13
-                                        text: "Application"
-                                        width: 150
-                                    }
-
-                                    Text {
-                                        color: settings.surfaceForeground
-                                        font.pixelSize: 13
-                                        text: settings.shellApplicationName
-                                    }
-                                }
-
-                                Row {
-                                    spacing: 8
-                                    width: parent.width
-
-                                    Text {
-                                        color: settings.surfaceMuted
-                                        font.pixelSize: 13
-                                        text: "Version"
-                                        width: 150
-                                    }
-
-                                    Text {
-                                        color: settings.surfaceForeground
-                                        font.pixelSize: 13
-                                        text: settings.shellApplicationVersion
-                                    }
-                                }
-
-                                Row {
-                                    spacing: 8
-                                    width: parent.width
-
-                                    Text {
-                                        color: settings.surfaceMuted
-                                        font.pixelSize: 13
-                                        text: "Desktop"
-                                        width: 150
-                                    }
-
-                                    Text {
-                                        color: settings.surfaceForeground
-                                        font.pixelSize: 13
-                                        text: "Northstar / Wayland"
-                                    }
-                                }
-                            }
-                        }
-
-                        Text {
-                            color: settings.surfaceMuted
-                            font.pixelSize: 12
-                            text: "This development build is running from the user-local Northstar prefix."
-                            wrapMode: Text.WordWrap
-                            width: parent.width
                         }
                     }
                 }
@@ -870,30 +557,77 @@ Window {
         }
     }
 
-    Rectangle {
-        id: resizeHandle
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        color: settings.maximized ? "transparent" : settings.surfaceAccent
-        height: 18
-        opacity: settings.maximized ? 0 : 0.85
-        visible: false
-        width: 18
-        z: 10
+    // --- Control kinds ---------------------------------------------------------
+
+    Component {
+        id: toggleControl
+
+        CheckBox {
+            checked: entry.value === true
+            enabled: entry.available
+            text: checked ? "On" : "Off"
+            onToggled: settings.settingsCatalog.setValue(entry.id, checked)
+        }
+    }
+
+    Component {
+        id: sliderControl
+
+        Row {
+            spacing: 10
+
+            Slider {
+                id: valueSlider
+                anchors.verticalCenter: parent.verticalCenter
+                enabled: entry.available
+                from: entry.minimum
+                to: entry.maximum
+                stepSize: 1
+                value: entry.value
+                width: 150
+                onMoved: {
+                    if (!pressed) {
+                        settings.settingsCatalog.setValue(entry.id, Math.round(value))
+                    }
+                }
+                onPressedChanged: {
+                    if (!pressed) {
+                        settings.settingsCatalog.setValue(entry.id, Math.round(value))
+                    }
+                }
+            }
+
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                color: settings.surfaceForeground
+                font.pixelSize: 12
+                horizontalAlignment: Text.AlignRight
+                text: entry.available ? Math.round(valueSlider.value) + entry.unit : "—"
+                width: 44
+            }
+        }
+    }
+
+    Component {
+        id: actionControl
+
+        Button {
+            enabled: entry.available
+            text: entry.actionLabel
+            onClicked: settings.activateEntry(entry)
+        }
+    }
+
+    Component {
+        id: infoControl
 
         Text {
-            anchors.centerIn: parent
-            color: settings.surfaceBackground
+            color: settings.surfaceForeground
+            elide: Text.ElideRight
             font.pixelSize: 12
-            rotation: 45
-            text: "···"
-        }
-
-        MouseArea {
-            anchors.fill: parent
-            cursorShape: Qt.SizeFDiagCursor
-            onPressed: settings.beginResize(mouse.x, mouse.y)
-            onPositionChanged: settings.updateResize(mouse.x, mouse.y)
+            horizontalAlignment: Text.AlignRight
+            text: entry.value
+            width: 150
         }
     }
 

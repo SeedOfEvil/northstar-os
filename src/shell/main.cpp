@@ -1,6 +1,7 @@
 #include "applicationlauncher.h"
 #include "desktopitemscontroller.h"
 #include "desktoplayoutcontroller.h"
+#include "desktopsettings.h"
 #include "filebrowsercontroller.h"
 #include "layershellsurface.h"
 #include "notificationcenter.h"
@@ -12,6 +13,7 @@
 #include "quicksettingscontroller.h"
 #include "searchcontroller.h"
 #include "sessioncontroller.h"
+#include "settingscatalog.h"
 #include "shellstate.h"
 #include "shortcutcatalog.h"
 #include "updateauthorizationcontroller.h"
@@ -115,6 +117,34 @@ int main(int argc, char *argv[])
                 ? QStringLiteral("success")
                 : QStringLiteral("error"));
     });
+    SettingsCatalog settingsCatalog;
+    registerDesktopSettings(&settingsCatalog,
+                            &shellState,
+                            &quickSettingsController,
+                            &notificationCenter,
+                            &desktopLayoutController,
+                            &applicationLauncher,
+                            &pinnedApplicationModel,
+                            &sessionController);
+
+    // Settings reads straight through to the controllers, so it only has to be
+    // told when one of them changed underneath it.
+    const auto refreshSettings = [&settingsCatalog]() { settingsCatalog.refresh(); };
+    QObject::connect(&shellState, &ShellState::darkModeChanged, &settingsCatalog, refreshSettings);
+    QObject::connect(&shellState, &ShellState::filesGridViewChanged, &settingsCatalog, refreshSettings);
+    QObject::connect(&quickSettingsController, &QuickSettingsController::capabilitiesChanged,
+                     &settingsCatalog, refreshSettings);
+    QObject::connect(&quickSettingsController, &QuickSettingsController::doNotDisturbChanged,
+                     &settingsCatalog, refreshSettings);
+    QObject::connect(&notificationCenter, &NotificationCenter::notificationsChanged,
+                     &settingsCatalog, refreshSettings);
+    QObject::connect(&sessionController, &SessionController::statusChanged,
+                     &settingsCatalog, refreshSettings);
+    QObject::connect(&applicationLauncher, &ApplicationLauncher::applicationsChanged,
+                     &settingsCatalog, refreshSettings);
+    QObject::connect(&pinnedApplicationModel, &PinnedApplicationModel::desktopIdsChanged,
+                     &settingsCatalog, refreshSettings);
+
     const QUrl logoSource = northstarLogoSource();
     const QUrl iconsSource = northstarIconsSource();
     const QUrl generatedIconsDirectory = northstarGeneratedIconsDirectory();
@@ -192,6 +222,7 @@ int main(int argc, char *argv[])
                                     &quickSettingsController);
         context->setContextProperty(QStringLiteral("northstarSearchController"), &searchController);
         context->setContextProperty(QStringLiteral("northstarSessionController"), &sessionController);
+        context->setContextProperty(QStringLiteral("northstarSettingsCatalog"), &settingsCatalog);
         context->setContextProperty(QStringLiteral("northstarShortcutCatalog"), &shortcutCatalog);
         context->setContextProperty(QStringLiteral("northstarVolumeController"), &volumeController);
         context->setContextProperty(QStringLiteral("northstarWindowController"), &windowController);

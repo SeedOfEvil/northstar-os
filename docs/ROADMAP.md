@@ -11,7 +11,7 @@ The project advances through user-visible milestones with explicit pass gates. A
 | M4 | Packages, updates, rollback | Signed package and transactional foundations accepted; installed-image execution accepted through M5 | Signed packages and ZFS boot-environment rollback work end to end |
 | M5 | Reproducible image and installer | Accepted: r85 passed assembly, UEFI smoke, full-disk installation, First Boot, graphical login, signed update, failure recovery, explicit rollback, and `/home` preservation | Pinned inputs produce a bootable UEFI root-on-ZFS image |
 | M6 | Alpha hardware release | Readiness inventory accepted; repeatable matrix runner in progress; physical Intel/AMD evidence pending | The supported VM and narrow Intel/AMD hardware matrix meets the alpha definition |
-| M7 | Daily-driver desktop | In progress; Files v3 and Text Editor v2 accepted, Settings v2 next | First-party applications provide dependable, coherent everyday workflows while physical graphics evidence remains deferred |
+| M7 | Daily-driver desktop | In progress; Files v3, Text Editor v2, and Settings v2 accepted, persistent notifications next | First-party applications provide dependable, coherent everyday workflows while physical graphics evidence remains deferred |
 
 ## Current baseline and clear path forward
 
@@ -54,7 +54,7 @@ product work moving while preserving honest release gates.
 
 Hardware-independent work now continues in parallel as M7. The ordered daily-
 driver slices are: Files v3 tabs and safe transfers (PR #94), Text Editor v2
-(PR #95), Settings v2, then persistent notifications. These slices use the existing
+(PR #95), Settings v2 (PR #96), then persistent notifications. These slices use the existing
 NSTAR-DEV01 noVNC lane and do not trigger a full image rebuild; installer-image
 cycles remain reserved for named release-candidate milestones.
 
@@ -456,10 +456,24 @@ Files and desktop activation still launch one editor process per opened
 document; the tab strip groups the documents opened inside a single window.
 Cross-process single-instance handover is deliberately out of this slice.
 
-The remaining M7 slices are Settings v2 (search and consolidated real
-controls) and persistent notifications. Each remains a separate branch and
-squash-merged PR after immutable FreeBSD automation and focused 1280x800 noVNC
-acceptance.
+Settings v2 is accepted through PR #96. It replaces the three hand-written
+Settings pages with a catalog every control is declared into, where each entry
+names the controller accessor that actually reads, writes, or performs it, so
+the surface cannot drift from the behavior it claims. Search crosses every
+section, requires each query token to match, and ranks working controls above
+unavailable ones. Seven sections consolidate the real controls.
+
+Registering an entry whose accessors cannot back its declared kind is refused,
+which is what prevents a non-functioning control from reaching the surface. A
+capability the system does not provide is reported unavailable with the reason
+its own controller gave. Wi-Fi, Bluetooth, brightness, and night light have no
+writable backend in this build and are declared read-only for that reason; the
+writable controls are dark appearance, Files grid view, output volume, Do Not
+Disturb, and the declared actions.
+
+The remaining M7 slice is persistent notifications. It remains a separate
+branch and squash-merged PR after immutable FreeBSD automation and focused
+1280x800 noVNC acceptance.
 
 PR90 begins M6 with a privacy-bounded alpha-readiness probe and deterministic
 classification tests. The probe distinguishes `ready`, `supplemental`, and

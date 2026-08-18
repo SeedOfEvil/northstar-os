@@ -259,6 +259,30 @@ add_test(NAME northstar-text-editor-qml COMMAND northstar-text-editor --qml-self
 set_tests_properties(northstar-text-editor-qml PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
+qt_add_executable(test-desktopsettings
+    test-desktopsettings.cpp
+)
+
+target_link_libraries(test-desktopsettings
+    PRIVATE
+        northstar-shell-core
+        Qt6::Test
+)
+
+add_test(NAME northstar-desktopsettings COMMAND test-desktopsettings)
+
+qt_add_executable(test-settingscatalog
+    test-settingscatalog.cpp
+)
+
+target_link_libraries(test-settingscatalog
+    PRIVATE
+        northstar-shell-core
+        Qt6::Test
+)
+
+add_test(NAME northstar-settingscatalog COMMAND test-settingscatalog)
+
 qt_add_executable(test-desktoplayoutcontroller
     test-desktoplayoutcontroller.cpp
 )
@@ -300,6 +324,8 @@ set_tests_properties(
     northstar-welcome-gui
     northstar-texteditorcontroller
     northstar-text-editor-qml
+    northstar-settingscatalog
+    northstar-desktopsettings
     northstar-desktoplayoutcontroller
     PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )

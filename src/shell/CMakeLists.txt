@@ -2,6 +2,7 @@ add_library(northstar-shell-core STATIC
     applicationlauncher.cpp
     desktopitemscontroller.cpp
     desktoplayoutcontroller.cpp
+    desktopsettings.cpp
     filebrowsercontroller.cpp
     notificationcenter.cpp
     packagecatalog.cpp
@@ -12,6 +13,7 @@ add_library(northstar-shell-core STATIC
     quicksettingscontroller.cpp
     searchcontroller.cpp
     sessioncontroller.cpp
+    settingscatalog.cpp
     shellstate.cpp
     shortcutcatalog.cpp
     updateauthorizationcontroller.cpp
