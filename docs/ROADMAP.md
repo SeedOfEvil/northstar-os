@@ -53,7 +53,7 @@ until the appropriate hardware or graphics path is available. This keeps the
 product work moving while preserving honest release gates.
 
 Hardware-independent work now continues in parallel as M7. The ordered daily-
-driver slices are: Files v3 tabs and safe transfers (PR #96), Text Editor v2,
+driver slices are: Files v3 tabs and safe transfers (PR #94), Text Editor v2,
 Settings v2, then persistent notifications. These slices use the existing
 NSTAR-DEV01 noVNC lane and do not trigger a full image rebuild; installer-image
 cycles remain reserved for named release-candidate milestones.
