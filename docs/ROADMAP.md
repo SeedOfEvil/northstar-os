@@ -11,7 +11,7 @@ The project advances through user-visible milestones with explicit pass gates. A
 | M4 | Packages, updates, rollback | Signed package and transactional foundations accepted; installed-image execution accepted through M5 | Signed packages and ZFS boot-environment rollback work end to end |
 | M5 | Reproducible image and installer | Accepted: r85 passed assembly, UEFI smoke, full-disk installation, First Boot, graphical login, signed update, failure recovery, explicit rollback, and `/home` preservation | Pinned inputs produce a bootable UEFI root-on-ZFS image |
 | M6 | Alpha hardware release | Readiness inventory accepted; repeatable matrix runner in progress; physical Intel/AMD evidence pending | The supported VM and narrow Intel/AMD hardware matrix meets the alpha definition |
-| M7 | Daily-driver desktop | In progress; Files v3 is the first slice | First-party applications provide dependable, coherent everyday workflows while physical graphics evidence remains deferred |
+| M7 | Daily-driver desktop | In progress; Files v3 accepted, Text Editor v2 next | First-party applications provide dependable, coherent everyday workflows while physical graphics evidence remains deferred |
 
 ## Current baseline and clear path forward
 
@@ -434,8 +434,8 @@ Alpha requires install, boot, login, Qt/Xwayland/browser applications, file mana
 ## M7: Daily-driver desktop
 
 M7 advances first-party application usability without weakening the open M6
-physical-hardware gates. Files v3 adds in-window tabs, editable home/mounted-
-volume navigation, asynchronous copy and move operations, explicit conflict
+physical-hardware gates. Files v3 is accepted through PR #94 and adds in-window
+tabs, editable home/mounted-volume navigation, asynchronous copy and move operations, explicit conflict
 handling, bounded progress feedback, and one-step recoverable undo. Mounted
 volumes remain read-only sources: copying into Home is allowed, while cutting
 or mutating mounted content is rejected.
