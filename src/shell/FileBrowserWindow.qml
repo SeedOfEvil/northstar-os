@@ -1613,9 +1613,11 @@ Window {
                 ProgressBar {
                     anchors.verticalCenter: parent.verticalCenter
                     from: 0
+                    indeterminate: files.fileBrowserController
+                        ? files.fileBrowserController.transferActive : false
                     to: 100
                     value: files.fileBrowserController ? files.fileBrowserController.transferProgress : 0
-                    visible: value > 0
+                    visible: indeterminate || value > 0
                     width: visible ? 100 : 0
                 }
 

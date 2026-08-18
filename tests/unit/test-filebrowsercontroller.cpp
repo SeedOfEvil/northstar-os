@@ -391,7 +391,9 @@ void FileBrowserControllerTest::copiesAndUndoesEntries()
     QVERIFY(controller.pasteClipboard());
 
     const QString copiedDirectory = QDir(destinationDirectory).filePath(QStringLiteral("Source"));
-    QVERIFY(QFileInfo::exists(QDir(copiedDirectory).filePath(QStringLiteral("notes.txt"))));
+    QTRY_VERIFY_WITH_TIMEOUT(
+        QFileInfo::exists(QDir(copiedDirectory).filePath(QStringLiteral("notes.txt"))), 2000);
+    QTRY_VERIFY_WITH_TIMEOUT(!controller.transferActive(), 2000);
     QVERIFY(controller.canUndo());
     QCOMPARE(controller.transferProgress(), 100);
     QVERIFY(controller.undoLastTransfer());
@@ -415,6 +417,7 @@ void FileBrowserControllerTest::movesAndUndoesEntries()
     QVERIFY(controller.navigateTo(destinationDirectory));
     QVERIFY(controller.pasteClipboard());
     const QString movedPath = QDir(destinationDirectory).filePath(QStringLiteral("move-me.txt"));
+    QTRY_VERIFY_WITH_TIMEOUT(!controller.transferActive(), 2000);
     QVERIFY(!QFileInfo::exists(sourcePath));
     QVERIFY(QFileInfo::exists(movedPath));
     QVERIFY(controller.clipboardOperation().isEmpty());
@@ -444,6 +447,7 @@ void FileBrowserControllerTest::resolvesPasteConflictsWithKeepBoth()
     QVERIFY(controller.conflictPending());
     QCOMPARE(controller.conflictName(), QStringLiteral("notes.txt"));
     QVERIFY(controller.pasteClipboard(QStringLiteral("keepBoth")));
+    QTRY_VERIFY_WITH_TIMEOUT(!controller.transferActive(), 2000);
     QVERIFY(!controller.conflictPending());
     QVERIFY(QFileInfo::exists(QDir(destinationDirectory).filePath(QStringLiteral("notes copy.txt"))));
 }
@@ -463,7 +467,8 @@ void FileBrowserControllerTest::copiesFromMountedLocationButRejectsCut()
     QVERIFY(!controller.cutEntry(sourcePath));
     QVERIFY(controller.goHome());
     QVERIFY(controller.pasteClipboard());
-    QVERIFY(QFileInfo::exists(QDir(homeDirectory.path()).filePath(QStringLiteral("volume-note.txt"))));
+    QTRY_VERIFY_WITH_TIMEOUT(
+        QFileInfo::exists(QDir(homeDirectory.path()).filePath(QStringLiteral("volume-note.txt"))), 2000);
 }
 
 void FileBrowserControllerTest::rejectsUnsafeMutations()

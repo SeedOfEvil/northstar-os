@@ -35,6 +35,7 @@ class FileBrowserController final : public QObject
     Q_PROPERTY(QString conflictName READ conflictName NOTIFY conflictChanged)
     Q_PROPERTY(QString transferStatus READ transferStatus NOTIFY transferChanged)
     Q_PROPERTY(int transferProgress READ transferProgress NOTIFY transferChanged)
+    Q_PROPERTY(bool transferActive READ transferActive NOTIFY transferChanged)
     Q_PROPERTY(bool canUndo READ canUndo NOTIFY undoChanged)
     Q_PROPERTY(QString undoLabel READ undoLabel NOTIFY undoChanged)
 
@@ -68,6 +69,7 @@ public:
     QString conflictName() const;
     QString transferStatus() const;
     int transferProgress() const;
+    bool transferActive() const;
     bool canUndo() const;
     QString undoLabel() const;
 
@@ -159,6 +161,7 @@ private:
     QString m_undoDestination;
     QString m_undoOperation;
     int m_transferProgress = 0;
+    bool m_transferActive = false;
     QFileSystemWatcher *m_desktopWatcher = nullptr;
     QTimer *m_desktopRefreshTimer = nullptr;
 };

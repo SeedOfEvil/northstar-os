@@ -3,12 +3,14 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QFutureWatcher>
 #include <QDesktopServices>
 #include <QDateTime>
 #include <QDirIterator>
 #include <QSaveFile>
 #include <QStandardPaths>
 #include <QStorageInfo>
+#include <QtConcurrentRun>
 
 #include <algorithm>
 
@@ -208,7 +210,7 @@ QString FileBrowserController::clipboardName() const
 bool FileBrowserController::canPaste() const
 {
     return !m_showingTrash && homeLocation() && !m_clipboardPath.isEmpty()
-        && QFileInfo::exists(m_clipboardPath);
+        && QFileInfo::exists(m_clipboardPath) && !m_transferActive;
 }
 
 bool FileBrowserController::conflictPending() const
@@ -229,6 +231,11 @@ QString FileBrowserController::transferStatus() const
 int FileBrowserController::transferProgress() const
 {
     return m_transferProgress;
+}
+
+bool FileBrowserController::transferActive() const
+{
+    return m_transferActive;
 }
 
 bool FileBrowserController::canUndo() const
@@ -791,6 +798,10 @@ bool FileBrowserController::pasteClipboard()
 
 bool FileBrowserController::pasteClipboard(const QString &conflictResolution)
 {
+    if (m_transferActive) {
+        setErrorMessage(QStringLiteral("Wait for the current transfer to finish."));
+        return false;
+    }
     if (!canPaste()) {
         setErrorMessage(QStringLiteral("Choose an item and a writable Home folder before pasting."));
         return false;
@@ -826,32 +837,45 @@ bool FileBrowserController::pasteClipboard(const QString &conflictResolution)
     clearConflict();
     clearUndo();
     setTransferStatus(QStringLiteral("Transferring %1...").arg(sourceInfo.fileName()), 10);
+    m_transferActive = true;
+    emit transferChanged();
+    emit clipboardChanged();
     const bool moving = m_clipboardOperation == QStringLiteral("cut");
     const QString sourcePath = m_clipboardPath;
-    const bool succeeded = moving
-        ? QFile::rename(sourcePath, destinationPath)
-        : copyEntryRecursively(sourcePath, destinationPath);
-    if (!succeeded) {
-        setTransferStatus(QStringLiteral("Transfer failed."), 0);
-        setErrorMessage(QStringLiteral("Unable to transfer that item."));
-        return false;
-    }
+    auto *watcher = new QFutureWatcher<bool>(this);
+    connect(watcher, &QFutureWatcher<bool>::finished, this,
+            [this, watcher, moving, sourcePath, destinationPath]() {
+        const bool succeeded = watcher->result();
+        watcher->deleteLater();
+        m_transferActive = false;
+        if (!succeeded) {
+            setTransferStatus(QStringLiteral("Transfer failed."), 0);
+            setErrorMessage(QStringLiteral("Unable to transfer that item."));
+            emit clipboardChanged();
+            return;
+        }
 
-    m_undoSource = sourcePath;
-    m_undoDestination = destinationPath;
-    m_undoOperation = moving ? QStringLiteral("cut") : QStringLiteral("copy");
-    emit undoChanged();
-    if (moving) {
-        m_clipboardPath.clear();
-        m_clipboardOperation.clear();
+        m_undoSource = sourcePath;
+        m_undoDestination = destinationPath;
+        m_undoOperation = moving ? QStringLiteral("cut") : QStringLiteral("copy");
+        emit undoChanged();
+        if (moving) {
+            m_clipboardPath.clear();
+            m_clipboardOperation.clear();
+        }
+        setTransferStatus(QStringLiteral("%1 completed: %2")
+                              .arg(moving ? QStringLiteral("Move") : QStringLiteral("Copy"),
+                                   QFileInfo(destinationPath).fileName()),
+                          100);
+        setErrorMessage({});
         emit clipboardChanged();
-    }
-    setTransferStatus(QStringLiteral("%1 completed: %2")
-                          .arg(moving ? QStringLiteral("Move") : QStringLiteral("Copy"),
-                               QFileInfo(destinationPath).fileName()),
-                      100);
-    setErrorMessage({});
-    refresh();
+        refresh();
+    });
+    watcher->setFuture(QtConcurrent::run([moving, sourcePath, destinationPath]() {
+        return moving
+            ? QFile::rename(sourcePath, destinationPath)
+            : copyEntryRecursively(sourcePath, destinationPath);
+    }));
     return true;
 }
 
@@ -875,6 +899,10 @@ void FileBrowserController::clearClipboard()
 
 bool FileBrowserController::undoLastTransfer()
 {
+    if (m_transferActive) {
+        setErrorMessage(QStringLiteral("Wait for the current transfer to finish."));
+        return false;
+    }
     if (!canUndo()) {
         setErrorMessage(QStringLiteral("There is no recent file transfer to undo."));
         return false;
