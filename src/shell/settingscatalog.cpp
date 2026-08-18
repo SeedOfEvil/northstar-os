@@ -6,11 +6,47 @@ namespace {
 
 constexpr int TitleExactScore = 1000;
 constexpr int TitlePrefixScore = 400;
-constexpr int TitleContainsScore = 220;
-constexpr int KeywordExactScore = 260;
-constexpr int KeywordPrefixScore = 150;
-constexpr int SectionContainsScore = 90;
-constexpr int DescriptionContainsScore = 60;
+constexpr int TitleWordScore = 300;
+constexpr int TitleWordPrefixScore = 220;
+constexpr int KeywordWordScore = 260;
+constexpr int KeywordWordPrefixScore = 150;
+constexpr int SectionWordScore = 90;
+constexpr int DescriptionWordScore = 60;
+
+// Matching runs on whole words rather than raw substrings. Substring matching
+// finds "out" inside "about" and ranks unrelated entries above the one the
+// user meant.
+QStringList words(const QString &text)
+{
+    QStringList result;
+    QString current;
+    for (const QChar character : text) {
+        if (character.isLetterOrNumber()) {
+            current.append(character.toLower());
+        } else if (!current.isEmpty()) {
+            result.append(current);
+            current.clear();
+        }
+    }
+    if (!current.isEmpty()) {
+        result.append(current);
+    }
+    return result;
+}
+
+int wordScore(const QStringList &candidates, const QString &token, int exactScore,
+              int prefixScore)
+{
+    int best = 0;
+    for (const QString &candidate : candidates) {
+        if (candidate == token) {
+            best = std::max(best, exactScore);
+        } else if (candidate.startsWith(token)) {
+            best = std::max(best, prefixScore);
+        }
+    }
+    return best;
+}
 
 } // namespace
 
@@ -154,8 +190,16 @@ int SettingsCatalog::scoreEntry(const Entry &entry, const QStringList &tokens) c
     }
 
     const QString title = entry.title.toLower();
-    const QString description = entry.description.toLower();
-    const QString section = sectionLabel(entry.section).toLower();
+    const QStringList titleWords = words(entry.title);
+    const QStringList descriptionWords = words(entry.description);
+    const QStringList sectionWords = words(sectionLabel(entry.section));
+
+    // A multi-word keyword such as "log out" has to be reachable by either of
+    // its words, so keywords are matched word by word too.
+    QStringList keywordWords;
+    for (const QString &keyword : entry.keywords) {
+        keywordWords.append(words(keyword));
+    }
 
     int total = 0;
     for (const QString &token : tokens) {
@@ -165,25 +209,15 @@ int SettingsCatalog::scoreEntry(const Entry &entry, const QStringList &tokens) c
             best = std::max(best, TitleExactScore);
         } else if (title.startsWith(token)) {
             best = std::max(best, TitlePrefixScore);
-        } else if (title.contains(token)) {
-            best = std::max(best, TitleContainsScore);
         }
 
-        for (const QString &keyword : entry.keywords) {
-            const QString lowered = keyword.toLower();
-            if (lowered == token) {
-                best = std::max(best, KeywordExactScore);
-            } else if (lowered.startsWith(token)) {
-                best = std::max(best, KeywordPrefixScore);
-            }
-        }
-
-        if (section.contains(token)) {
-            best = std::max(best, SectionContainsScore);
-        }
-        if (description.contains(token)) {
-            best = std::max(best, DescriptionContainsScore);
-        }
+        best = std::max(best, wordScore(titleWords, token, TitleWordScore, TitleWordPrefixScore));
+        best = std::max(best,
+                        wordScore(keywordWords, token, KeywordWordScore, KeywordWordPrefixScore));
+        best = std::max(best, wordScore(sectionWords, token, SectionWordScore, SectionWordScore));
+        best = std::max(best,
+                        wordScore(descriptionWords, token, DescriptionWordScore,
+                                  DescriptionWordScore));
 
         // Every token must match something, so "dark files" does not return
         // every entry that merely mentions one of the two words.
