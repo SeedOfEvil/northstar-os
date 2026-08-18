@@ -276,6 +276,19 @@ target_link_libraries(test-desktopsettings
 
 add_test(NAME northstar-desktopsettings COMMAND test-desktopsettings)
 
+qt_add_executable(test-shellcommandserver
+    test-shellcommandserver.cpp
+)
+
+target_link_libraries(test-shellcommandserver
+    PRIVATE
+        northstar-shell-core
+        Qt6::Network
+        Qt6::Test
+)
+
+add_test(NAME northstar-shellcommandserver COMMAND test-shellcommandserver)
+
 qt_add_executable(test-settingscatalog
     test-settingscatalog.cpp
 )
@@ -332,6 +345,7 @@ set_tests_properties(
     northstar-settingscatalog
     northstar-desktopsettings
     northstar-shell-qml
+    northstar-shellcommandserver
     northstar-desktoplayoutcontroller
     PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )

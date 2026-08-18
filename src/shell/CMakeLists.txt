@@ -14,6 +14,7 @@ add_library(northstar-shell-core STATIC
     searchcontroller.cpp
     sessioncontroller.cpp
     settingscatalog.cpp
+    shellcommandserver.cpp
     shellstate.cpp
     shortcutcatalog.cpp
     updateauthorizationcontroller.cpp
@@ -75,7 +76,18 @@ target_link_libraries(northstar-shell
         northstar-ui
 )
 
-install(TARGETS northstar-shell
+qt_add_executable(northstar-shell-command
+    northstar-shell-command.cpp
+)
+
+target_link_libraries(northstar-shell-command
+    PRIVATE
+        northstar-shell-core
+        Qt6::Core
+        Qt6::Network
+)
+
+install(TARGETS northstar-shell northstar-shell-command
     RUNTIME DESTINATION bin
 )
 

@@ -14,6 +14,7 @@
 #include "searchcontroller.h"
 #include "sessioncontroller.h"
 #include "settingscatalog.h"
+#include "shellcommandserver.h"
 #include "shellfocus.h"
 #include "shellstate.h"
 #include "shortcutcatalog.h"
@@ -229,6 +230,15 @@ int main(int argc, char *argv[])
     }
 
     ShellFocus shellFocus;
+
+    // Shell shortcuts registered in QML only fire while a shell window holds
+    // keyboard focus, which a layer-shell panel does not. A global shortcut is
+    // bound in the compositor and arrives here instead.
+    ShellCommandServer shellCommandServer;
+    if (!shellCommandServer.start()) {
+        qWarning().noquote() << QStringLiteral("Northstar shell control socket unavailable: %1")
+                                    .arg(shellCommandServer.lastError());
+    }
     QList<QObject *> surfaces;
     QList<QQmlContext *> contexts;
     int displayIndex = 0;
@@ -280,6 +290,8 @@ int main(int argc, char *argv[])
         context->setContextProperty(QStringLiteral("northstarSessionController"), &sessionController);
         context->setContextProperty(QStringLiteral("northstarSettingsCatalog"), &settingsCatalog);
         context->setContextProperty(QStringLiteral("northstarShellFocus"), &shellFocus);
+        context->setContextProperty(QStringLiteral("northstarShellCommands"),
+                                    &shellCommandServer);
         context->setContextProperty(QStringLiteral("northstarShortcutCatalog"), &shortcutCatalog);
         context->setContextProperty(QStringLiteral("northstarVolumeController"), &volumeController);
         context->setContextProperty(QStringLiteral("northstarWindowController"), &windowController);

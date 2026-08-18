@@ -64,6 +64,32 @@ Window {
     // normal toplevel: when it closes, the compositor has nothing to hand focus
     // back to, and every Qt.ApplicationShortcut stops receiving keys until the
     // user clicks the panel. Ask for focus back explicitly instead.
+    // Global shortcuts are bound in the compositor and delivered over the
+    // shell control socket, because a Qt application shortcut only fires while
+    // a shell window holds keyboard focus.
+    function runShellCommand(command) {
+        if (displayIndex !== 0) {
+            return
+        }
+        if (command === "open-search") {
+            searchOverlay.openSearch("")
+        } else if (command === "toggle-search") {
+            if (searchOverlay.visible) {
+                searchOverlay.closeSearch()
+            } else {
+                searchOverlay.openSearch("")
+            }
+        }
+    }
+
+    Connections {
+        target: typeof northstarShellCommands !== "undefined" ? northstarShellCommands : null
+
+        function onCommandReceived(command) {
+            root.runShellCommand(command)
+        }
+    }
+
     function restoreShellFocus() {
         if (displayIndex !== 0) {
             return
