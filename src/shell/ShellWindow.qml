@@ -557,6 +557,7 @@ Window {
         desktopLayoutController: northstarDesktopLayoutController
         launcherController: launcher
         sessionController: northstarSessionController
+        settingsCatalog: northstarSettingsCatalog
         targetScreen: targetScreen
         panelHeight: root.height
     }
