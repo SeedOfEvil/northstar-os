@@ -14,6 +14,7 @@
 #include "searchcontroller.h"
 #include "sessioncontroller.h"
 #include "settingscatalog.h"
+#include "shellfocus.h"
 #include "shellstate.h"
 #include "shortcutcatalog.h"
 #include "updateauthorizationcontroller.h"
@@ -227,6 +228,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    ShellFocus shellFocus;
     QList<QObject *> surfaces;
     QList<QQmlContext *> contexts;
     int displayIndex = 0;
@@ -277,6 +279,7 @@ int main(int argc, char *argv[])
         context->setContextProperty(QStringLiteral("northstarSearchController"), &searchController);
         context->setContextProperty(QStringLiteral("northstarSessionController"), &sessionController);
         context->setContextProperty(QStringLiteral("northstarSettingsCatalog"), &settingsCatalog);
+        context->setContextProperty(QStringLiteral("northstarShellFocus"), &shellFocus);
         context->setContextProperty(QStringLiteral("northstarShortcutCatalog"), &shortcutCatalog);
         context->setContextProperty(QStringLiteral("northstarVolumeController"), &volumeController);
         context->setContextProperty(QStringLiteral("northstarWindowController"), &windowController);
@@ -296,6 +299,9 @@ int main(int argc, char *argv[])
             backgroundObject->setProperty("quickLookWindow", QVariant::fromValue(quickLookWindow));
         }
         auto *window = qobject_cast<QWindow *>(object);
+        if (window != nullptr && index == 0) {
+            shellFocus.setPanelWindow(window);
+        }
         if (window == nullptr || !LayerShellSurface::configurePanel(window, screen, PanelHeight, index)) {
             qWarning() << "Unable to configure Northstar shell surface for display" << index;
             delete object;

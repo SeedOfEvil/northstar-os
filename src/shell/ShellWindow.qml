@@ -68,6 +68,12 @@ Window {
         if (displayIndex !== 0) {
             return
         }
+        // requestActivate() alone is ignored for an on-demand layer surface,
+        // so the panel asks the compositor for focus through layer-shell.
+        if (typeof northstarShellFocus !== "undefined" && northstarShellFocus) {
+            northstarShellFocus.restore()
+            return
+        }
         root.requestActivate()
     }
 

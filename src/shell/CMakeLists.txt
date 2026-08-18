@@ -39,6 +39,7 @@ target_link_libraries(northstar-shell-core
 qt_add_executable(northstar-shell
     main.cpp
     layershellsurface.cpp
+    shellfocus.cpp
 )
 
 qt_add_qml_module(northstar-shell

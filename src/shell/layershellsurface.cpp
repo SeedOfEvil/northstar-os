@@ -1,6 +1,7 @@
 #include "layershellsurface.h"
 
 #include <QString>
+#include <QTimer>
 #include <QWindow>
 
 #include <LayerShellQt/Window>
@@ -95,5 +96,36 @@ bool LayerShellSurface::configureDock(QWindow *window, QScreen *screen, int excl
 
     window->setScreen(screen);
     window->setHeight(exclusiveZone);
+    return true;
+}
+
+bool LayerShellSurface::restoreKeyboardFocus(QWindow *window)
+{
+    if (window == nullptr || !window->isVisible()) {
+        return false;
+    }
+
+    auto *surface = LayerShellQt::Window::get(window);
+    if (surface == nullptr) {
+        return false;
+    }
+
+    // A layer surface only receives keyboard focus when it asks for it. The
+    // panel is configured on demand, which means the compositor focuses it
+    // when the user interacts with it; after an ordinary toplevel closes there
+    // is nothing to hand focus back to, and requestActivate() alone is
+    // ignored. Briefly declaring exclusive interactivity makes the compositor
+    // focus the panel, and dropping back to on demand on the next event-loop
+    // turn stops the panel from swallowing the keyboard from application
+    // windows.
+    surface->setKeyboardInteractivity(LayerShellQt::Window::KeyboardInteractivityExclusive);
+    window->requestActivate();
+    QTimer::singleShot(0, window, [window]() {
+        auto *current = LayerShellQt::Window::get(window);
+        if (current != nullptr) {
+            current->setKeyboardInteractivity(
+                LayerShellQt::Window::KeyboardInteractivityOnDemand);
+        }
+    });
     return true;
 }
