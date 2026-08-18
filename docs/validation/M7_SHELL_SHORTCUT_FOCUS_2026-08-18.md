@@ -141,8 +141,9 @@ from interactive observation on the live session.
 root-owned manifest still describes PR74/r78, unchanged from PR #95, #96, and
 #97.
 
-## Still open
+## Resolved
 
-`Ctrl+K` does not reopen unified search after any shell window has been opened
-and closed. Workarounds available today: click the panel, or focus any shell
-window. Tracked for the compositor-level fix described above.
+`Ctrl+K` was fixed in PR #99 by exactly the compositor-level approach described
+above: the binding moved into `wayfire.ini` and reaches the shell over a
+user-private control socket. Evidence in
+[`M7_GLOBAL_SHORTCUT_IPC_2026-08-18.md`](M7_GLOBAL_SHORTCUT_IPC_2026-08-18.md).
