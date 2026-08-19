@@ -110,4 +110,10 @@ command the file declares.
 
 ## Interactive acceptance
 
-Status: **open**.
+Accepted by Hector on 2026-08-19: "success pass". The walkthrough covered both
+Firefox actions in the dock menu above a separator, opening a new private
+window, the QTerminal action, the same actions in the application overview,
+and an application with no actions showing a plain menu with no stray
+separator.
+
+Status: **accepted**.
