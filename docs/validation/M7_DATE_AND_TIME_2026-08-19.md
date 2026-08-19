@@ -1,7 +1,7 @@
 # Date and time — 2026-08-19
 
 PR #108, verified on NSTAR-DEV01 (FreeBSD 15.1-RELEASE-p2, Qt 6.11.1, Clang
-19.1.7) at commit `3b6a131`, built in `/home/northstar/builds/pr108-3b6a131`
+19.1.7) at commit `83eb0c9`, built in `/home/northstar/builds/pr108-83eb0c9`
 with the project's canonical `-DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON`.
 
 The timezone was set once by the first-boot provisioner and could never be
@@ -99,10 +99,57 @@ values instead of carrying a fixed list. It is held to the same standard either
 way, because a source that answers nothing at registration is refused exactly
 as an empty list is.
 
+## A defect the first walkthrough found
+
+Reported from the machine: setting a timezone appeared not to take, and setting
+it a second time fixed it.
+
+The timezone was in fact being written correctly every time. `/var/db/zoneinfo`
+held `Canada/Mountain` and the boundary read it back. What was wrong was the
+display: the control offered the zones of the region being *browsed* and
+nothing else, so as soon as the user moved to another region while hunting for
+a zone, the one already in effect was no longer among the options and the
+control rendered as "Not set". Browsing regions is exactly what a person does
+the first time they open this.
+
+### Reproduced before fixing
+
+A read-only probe drove the real controller and the real declaration against
+the machine:
+
+```
+--- after switching region to Europe ---
+datetime.region   value= Europe          options= 17  valueIsOffered= true
+datetime.timezone value= Canada/Mountain options= 64  valueIsOffered= false
+```
+
+`valueIsOffered= false` is the defect: the entry holds a timezone the control
+does not offer, and a value outside its own options is what the surface draws
+as unset.
+
+Two earlier hypotheses were tested and discarded rather than shipped. A QML
+probe showed the ComboBox binding survived both an activation and a rebuilt
+option list, so the control was not at fault; the boundary was verified to have
+written correctly, so the privileged path was not at fault either.
+
+### The fix, and its control
+
+The zone in effect is now always offered, whichever region is being browsed.
+Browsing is not choosing, and a control that hides the value it holds is
+reporting something untrue.
+
+| Declaration | New case |
+| --- | --- |
+| Pre-fix (offers only the browsed region) | **FAIL** — `the timezone in effect was not offered, so the control reads as unset` |
+| Fixed | **PASS** |
+
+The pre-fix declaration was restored into the working tree, built, and run
+against the new case, then reverted and the tree confirmed clean.
+
 ## Automated evidence
 
 - Clean build, all 408 targets, 0 errors.
-- `env QT_QPA_PLATFORM=offscreen ctest --test-dir /home/northstar/builds/pr108-3b6a131 --output-on-failure`
+- `env QT_QPA_PLATFORM=offscreen ctest --test-dir /home/northstar/builds/pr108-83eb0c9 --output-on-failure`
   — **36/36 suites passed, 0 failed**.
 - `northstar-clockcontroller` is new: 12 cases covering region listing with the
   `posix` and `right` copies excluded, zones nested a further level down
@@ -110,8 +157,9 @@ as an empty list is.
   files never offered as zones, refusal of an absent zone and of a name that
   escapes the database, the unrecorded-timezone state, reading a recorded one,
   everything read-only without the boundary, writing through a stub boundary,
-  a boundary that refuses, the network-time toggle, and refusal of a one-shot
-  correction while the daemon is running.
+  a boundary that refuses, the network-time toggle, refusal of a one-shot
+  correction while the daemon is running, and the zone in effect staying on
+  offer while another region is browsed.
 - The suite was re-run **after** `cmake --install` into `~/.local` and still
   reported 36/36.
 - `northstar-shell --qml-self-test` on the installed binary — exit 0, no QML
@@ -137,5 +185,8 @@ Whether `ntpd` can actually reach a time server is a property of this network,
 not of this code. A correction that fails for that reason reports it.
 
 ## Interactive acceptance
+
+First walkthrough on 2026-08-19 set a timezone successfully and found the
+browsing defect above. Re-handed off at `83eb0c9` with that fixed.
 
 Status: **open**.
