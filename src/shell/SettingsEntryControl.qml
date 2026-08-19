@@ -193,8 +193,11 @@ Item {
 
         Row {
             spacing: 8
+            // Not an alias named enabled: that shadows the one every Item
+            // already has, which the shell's QML gate reports as an override
+            // of a base member.
             property alias readout: pathReadout.text
-            property alias enabled: chooseButton.enabled
+            enabled: control.entry.available
 
             Text {
                 id: pathReadout
@@ -208,9 +211,7 @@ Item {
             }
 
             Button {
-                id: chooseButton
                 anchors.verticalCenter: parent.verticalCenter
-                enabled: control.entry.available
                 text: "Choose..."
                 onClicked: control.pathChooseRequested(control.entry)
             }

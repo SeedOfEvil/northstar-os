@@ -530,6 +530,7 @@ Window {
                                 }
 
                                 SettingsEntryControl {
+                                    id: entryControl
                                     anchors.verticalCenter: parent.verticalCenter
                                     catalog: settings.settingsCatalog
                                     entry: modelData
