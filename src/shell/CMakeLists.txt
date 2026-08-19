@@ -1,5 +1,6 @@
 add_library(northstar-shell-core STATIC
     applicationlauncher.cpp
+    clockcontroller.cpp
     desktopitemscontroller.cpp
     desktoplayoutcontroller.cpp
     desktopsettings.cpp
@@ -95,6 +96,7 @@ install(TARGETS northstar-shell northstar-shell-command
 )
 
 install(PROGRAMS ${PROJECT_SOURCE_DIR}/src/power/northstar-power
+    ${PROJECT_SOURCE_DIR}/src/power/northstar-clock
     ${PROJECT_SOURCE_DIR}/src/power/northstar-radio
     DESTINATION bin
 )

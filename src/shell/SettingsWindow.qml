@@ -628,17 +628,36 @@ Window {
         id: choiceControl
 
         ComboBox {
+            id: choiceBox
             enabled: entry.available
             model: entry.options
             textRole: "label"
             valueRole: "value"
             width: 150
 
-            // Bound to the entry rather than tracked locally, so a value the
-            // controller refused snaps back to what is actually in effect.
-            currentIndex: indexOfValue(entry.value)
+            // An unset choice would otherwise render as an empty box that
+            // looks broken rather than unanswered.
+            displayText: currentIndex < 0 ? "Not set" : currentText
 
-            onActivated: settings.settingsCatalog.setValue(entry.id, valueAt(currentIndex))
+            // Not a binding on currentIndex. The answer depends on the model
+            // as well as the value, and the model is not part of that
+            // expression, so a binding evaluated before the model arrived
+            // stayed at -1 and every control opened reading "Not set".
+            function syncToEntry() {
+                currentIndex = indexOfValue(entry.value)
+            }
+
+            Component.onCompleted: syncToEntry()
+            onModelChanged: syncToEntry()
+
+            onActivated: {
+                // A refused write leaves the list showing the rejected pick,
+                // so it is put back to what is actually in effect. On a write
+                // that succeeds the catalog rebuilds this delegate instead.
+                if (!settings.settingsCatalog.setValue(entry.id, valueAt(currentIndex))) {
+                    syncToEntry()
+                }
+            }
         }
     }
 

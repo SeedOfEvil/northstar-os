@@ -52,6 +52,21 @@ public:
         // would present a control the user cannot answer.
         QVariantList options;
 
+        // choice entries only: whether reading back nothing is a state this
+        // setting can legitimately be in, as a timezone is on a system that
+        // has never recorded one. A choice without this must always read back
+        // one of the values it offers, or it would open showing nothing
+        // selected and no reason why. Declaring it is what separates that
+        // from a control that is simply broken.
+        bool allowsUnset = false;
+
+        // choice entries whose options are not fixed. When set, this is asked
+        // for the current list instead of reading `options`, so a choice can
+        // depend on another setting or on what the system actually has. It is
+        // still required to offer something: a choice that can answer nothing
+        // is refused exactly as an empty list is.
+        std::function<QVariantList()> optionSource;
+
         // path entries only: what the file dialog should offer, and the empty
         // state to show when nothing is chosen.
         QStringList nameFilters;
@@ -117,6 +132,8 @@ private:
     };
 
     static QStringList searchTokens(const QString &text);
+
+    static QVariantList optionsFor(const Entry &entry);
 
     const Entry *findEntry(const QString &id) const;
     int scoreEntry(const Entry &entry, const QStringList &tokens) const;

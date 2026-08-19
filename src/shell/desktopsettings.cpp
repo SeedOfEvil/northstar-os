@@ -1,6 +1,7 @@
 #include "desktopsettings.h"
 
 #include "applicationlauncher.h"
+#include "clockcontroller.h"
 #include "desktoplayoutcontroller.h"
 #include "notificationcenter.h"
 #include "notificationstore.h"
@@ -12,6 +13,7 @@
 #include "wallpapercontroller.h"
 
 #include <QCoreApplication>
+#include <QDateTime>
 #include <QString>
 
 namespace {
@@ -51,7 +53,8 @@ void registerDesktopSettings(SettingsCatalog *catalog,
                              ApplicationLauncher *launcher,
                              PinnedApplicationModel *pinnedApplications,
                              SessionController *session,
-                             WallpaperController *wallpaper)
+                             WallpaperController *wallpaper,
+                             ClockController *clock)
 {
     if (!catalog) {
         return;
@@ -67,6 +70,8 @@ void registerDesktopSettings(SettingsCatalog *catalog,
                              QStringLiteral("Wireless and Bluetooth adapters detected on this system."));
     catalog->registerSection(QStringLiteral("notifications"), QStringLiteral("Notifications"),
                              QStringLiteral("Delivery and quiet hours for shell notifications."));
+    catalog->registerSection(QStringLiteral("datetime"), QStringLiteral("Date & Time"),
+                             QStringLiteral("The system clock, its timezone, and network time."));
     catalog->registerSection(QStringLiteral("session"), QStringLiteral("Session"),
                              QStringLiteral("The supervised Northstar session and its lifecycle."));
     catalog->registerSection(QStringLiteral("about"), QStringLiteral("About Northstar"),
@@ -381,6 +386,144 @@ void registerDesktopSettings(SettingsCatalog *catalog,
             return true;
         };
         catalog->registerEntry(clear);
+    }
+
+    // --- Date & Time -------------------------------------------------------
+
+    if (clock) {
+        catalog->registerEntry(info(
+            QStringLiteral("datetime.current"), QStringLiteral("datetime"),
+            QStringLiteral("Current time"),
+            QStringLiteral("The system clock as this desktop reads it."),
+            QStringList{QStringLiteral("clock"), QStringLiteral("time"),
+                        QStringLiteral("date"), QStringLiteral("now")},
+            []() {
+                return QVariant(QDateTime::currentDateTime().toString(
+                    QStringLiteral("ddd d MMM yyyy, HH:mm t")));
+            }));
+
+        const QStringList regions = clock->regions();
+        if (regions.isEmpty()) {
+            // No zoneinfo database means there is no timezone to choose. Say
+            // so rather than leaving the section silently short of controls.
+            catalog->registerEntry(info(
+                QStringLiteral("datetime.timezone"), QStringLiteral("datetime"),
+                QStringLiteral("Timezone"),
+                QStringLiteral("Read from the system zoneinfo database."),
+                QStringList{QStringLiteral("timezone"), QStringLiteral("zone"),
+                            QStringLiteral("region"), QStringLiteral("utc")},
+                []() {
+                    return QVariant(QStringLiteral("No zoneinfo database on this system"));
+                }));
+        } else {
+            SettingsCatalog::Entry region;
+            region.id = QStringLiteral("datetime.region");
+            region.section = QStringLiteral("datetime");
+            region.title = QStringLiteral("Region");
+            region.description =
+                QStringLiteral("Which part of the world to list timezones from.");
+            region.keywords = QStringList{QStringLiteral("region"), QStringLiteral("continent"),
+                                          QStringLiteral("timezone"), QStringLiteral("zone")};
+            region.kind = SettingsCatalog::choiceKind();
+            for (const QString &name : regions) {
+                region.options.append(SettingsCatalog::choiceOption(name, name));
+            }
+            region.read = [clock]() { return QVariant(clock->region()); };
+            region.write = [clock](const QVariant &value) {
+                clock->setRegion(value.toString());
+                return clock->region() == value.toString();
+            };
+            catalog->registerEntry(region);
+
+            SettingsCatalog::Entry zone;
+            zone.id = QStringLiteral("datetime.timezone");
+            zone.section = QStringLiteral("datetime");
+            zone.title = QStringLiteral("Timezone");
+            zone.description = QStringLiteral("The zone the system clock is set to.");
+            zone.keywords = QStringList{QStringLiteral("timezone"), QStringLiteral("zone"),
+                                        QStringLiteral("city"), QStringLiteral("utc"),
+                                        QStringLiteral("clock")};
+            zone.kind = SettingsCatalog::choiceKind();
+            // A system that has never recorded its timezone reads back
+            // nothing, and the honest answer is to show that rather than
+            // name a zone it is not actually in.
+            zone.allowsUnset = true;
+            // The zone list follows the chosen region, so it is asked for
+            // rather than fixed when the catalog is built.
+            zone.optionSource = [clock]() {
+                QVariantList options;
+                for (const QString &name : clock->selectableZones()) {
+                    options.append(SettingsCatalog::choiceOption(name, name));
+                }
+                return options;
+            };
+            zone.read = [clock]() { return QVariant(clock->timeZone()); };
+            zone.write = [clock](const QVariant &value) {
+                return clock->setTimeZone(value.toString());
+            };
+            zone.available = [clock]() { return clock->timeZoneWritable(); };
+            zone.unavailableReason = []() {
+                return QStringLiteral("The clock boundary is not installed on this system.");
+            };
+            zone.writeFailureReason = [clock]() { return clock->status(); };
+            catalog->registerEntry(zone);
+        }
+
+        SettingsCatalog::Entry networkTime;
+        networkTime.id = QStringLiteral("datetime.ntp");
+        networkTime.section = QStringLiteral("datetime");
+        networkTime.title = QStringLiteral("Set time automatically");
+        networkTime.description =
+            QStringLiteral("Keep the clock set from the network time servers this system "
+                           "is configured with.");
+        networkTime.keywords = QStringList{QStringLiteral("ntp"), QStringLiteral("network"),
+                                           QStringLiteral("automatic"), QStringLiteral("sync"),
+                                           QStringLiteral("time")};
+        networkTime.kind = SettingsCatalog::toggleKind();
+        networkTime.read = [clock]() { return QVariant(clock->ntpEnabled()); };
+        networkTime.write = [clock](const QVariant &value) {
+            return clock->setNtpEnabled(value.toBool());
+        };
+        networkTime.available = [clock]() { return clock->ntpWritable(); };
+        networkTime.unavailableReason = [clock]() { return clock->ntpStatus(); };
+        networkTime.writeFailureReason = [clock]() { return clock->status(); };
+        catalog->registerEntry(networkTime);
+
+        catalog->registerEntry(info(
+            QStringLiteral("datetime.ntpstate"), QStringLiteral("datetime"),
+            QStringLiteral("Network time status"),
+            QStringLiteral("What the time daemon is doing right now."),
+            QStringList{QStringLiteral("ntp"), QStringLiteral("daemon"),
+                        QStringLiteral("status"), QStringLiteral("running")},
+            [clock]() { return QVariant(clock->ntpStatus()); }));
+
+        SettingsCatalog::Entry syncNow;
+        syncNow.id = QStringLiteral("datetime.sync");
+        syncNow.section = QStringLiteral("datetime");
+        syncNow.title = QStringLiteral("Set the clock now");
+        syncNow.description =
+            QStringLiteral("Correct the clock once from the network, without leaving the "
+                           "time daemon running.");
+        syncNow.keywords = QStringList{QStringLiteral("sync"), QStringLiteral("correct"),
+                                       QStringLiteral("now"), QStringLiteral("ntp"),
+                                       QStringLiteral("clock")};
+        syncNow.kind = SettingsCatalog::actionKind();
+        syncNow.actionLabel = QStringLiteral("Set now");
+        syncNow.perform = [clock]() { return clock->synchroniseNow(); };
+        // A one-shot step has nothing to do while the daemon already holds
+        // the clock, so it is offered only when it would actually act.
+        syncNow.available = [clock]() {
+            return clock->ntpWritable() && !clock->ntpRunning() && !clock->synchronising();
+        };
+        syncNow.unavailableReason = [clock]() {
+            if (clock->synchronising()) {
+                return QStringLiteral("Setting the clock from the network...");
+            }
+            return clock->ntpRunning()
+                ? QStringLiteral("Network time is already running and keeping the clock set.")
+                : clock->ntpStatus();
+        };
+        catalog->registerEntry(syncNow);
     }
 
     // --- Session -----------------------------------------------------------
