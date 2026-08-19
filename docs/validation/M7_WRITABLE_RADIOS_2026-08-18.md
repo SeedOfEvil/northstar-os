@@ -115,8 +115,26 @@ Run against `~/.local/bin/northstar-radio` as installed, not the source tree.
 
 ## Interactive acceptance
 
-**Open.** Deferred to the physical machine, expected 2026-08-20 or
-2026-08-21. The checklist is:
+**Accepted on the automated and boundary evidence only, with radio behaviour
+explicitly untested.** Hector accepted the slice on that basis, knowing no
+radio has been switched by this code, and asked that the detailed check be run
+when the physical machine arrives.
+
+What that acceptance does and does not cover:
+
+- **Covered:** the privilege boundary's refusal and absent-hardware paths
+  against the real install, the writer's behaviour against injected command
+  providers, and the observable state on a machine with no radios.
+- **Not covered:** any actual radio changing state. Nothing below the
+  boundary has been exercised.
+
+This is recorded as a deliberate decision rather than an oversight, so that a
+later reader does not mistake this slice for one that had hardware evidence.
+Until the checklist below is completed, the honest claim is that the code is
+correct where it could be tested and unproven where it could not.
+
+The checklist, to be run on the physical machine (expected 2026-08-20 or
+2026-08-21):
 
 1. Quick Settings shows the Wi-Fi tile as pressable, not greyed.
 2. Pressing it switches the radio off; the tile dims and `ifconfig` shows the
@@ -134,11 +152,16 @@ Run against `~/.local/bin/northstar-radio` as installed, not the source tree.
 
 ## Not claimed
 
-No radio has been switched by this code. Toggling has been proven only against
-injected command providers and against the boundary's refusal paths. Whether
-`ifconfig up`/`down` behaves as expected on the target adapter, and whether
-`sudo -n` is permitted for it under the machine's policy, are exactly what the
-checklist above exists to establish.
+No radio has been switched by this code, and merging does not change that.
+Toggling has been proven only against injected command providers and against
+the boundary's refusal paths. Whether `ifconfig up`/`down` behaves as expected
+on the target adapter, whether the adapter reports `associated` or `active`,
+and whether `sudo -n` is permitted for the helper under the machine's policy
+are all unestablished and are exactly what the checklist above exists to
+settle.
+
+If the checklist fails on real hardware, that is a defect in this merged slice,
+not a new one.
 
 Physical Intel/AMD DRM/KMS acceptance, native compositor quality, and
 multi-display evidence remain deferred and are not advanced by this change.
