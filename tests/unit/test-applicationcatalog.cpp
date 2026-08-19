@@ -359,7 +359,7 @@ void ApplicationCatalogTest::readsAdditionalActionsInTheOrderTheFileLists()
             "[Desktop Entry]\n"
             "Type=Application\n"
             "Name=Browser\n"
-            "Exec=/bin/sh -c true %%U\n"
+            "Exec=/bin/sh -c true %U\n"
             "Actions=NewWindow;NewPrivateWindow;\n"
             "\n"
             "[Desktop Action NewPrivateWindow]\n"
@@ -371,7 +371,6 @@ void ApplicationCatalogTest::readsAdditionalActionsInTheOrderTheFileLists()
             "Exec=/bin/sh -c true -new-window\n")).isEmpty());
 
     ApplicationCatalog catalog({directory.path()});
-    QVERIFY(catalog.reload());
     QCOMPARE(catalog.entries().size(), 1);
 
     const QList<DesktopAction> actions = catalog.entries().constFirst().actions;
@@ -415,7 +414,6 @@ void ApplicationCatalogTest::ignoresActionsThatCannotBeShownOrRun()
             "OnlyShowIn=GNOME;\n")).isEmpty());
 
     ApplicationCatalog catalog({directory.path()});
-    QVERIFY(catalog.reload());
     QCOMPARE(catalog.entries().size(), 1);
 
     // An action with no name cannot be shown, one with no command cannot be
@@ -436,15 +434,14 @@ void ApplicationCatalogTest::buildsTheCommandForAnAdditionalAction()
             "Type=Application\n"
             "Name=Browser\n"
             "Icon=browser-icon\n"
-            "Exec=/bin/sh -c true %%U\n"
+            "Exec=/bin/sh -c true %U\n"
             "Actions=NewPrivateWindow;\n"
             "\n"
             "[Desktop Action NewPrivateWindow]\n"
             "Name=Open a New Private Window\n"
-            "Exec=/bin/sh -c true -private-window %%U\n")).isEmpty());
+            "Exec=/bin/sh -c true -private-window %U\n")).isEmpty());
 
     ApplicationCatalog catalog({directory.path()});
-    QVERIFY(catalog.reload());
 
     QString program;
     QStringList arguments;
@@ -477,7 +474,6 @@ void ApplicationCatalogTest::refusesAnActionTheApplicationDoesNotDeclare()
             "Exec=/bin/sh -c true\n")).isEmpty());
 
     ApplicationCatalog catalog({directory.path()});
-    QVERIFY(catalog.reload());
 
     QString program;
     QStringList arguments;
