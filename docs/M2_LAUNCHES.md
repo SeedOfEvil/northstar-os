@@ -20,7 +20,7 @@ arguments or environment variables are recorded.
 
 The shell exposes the most recent result through `ApplicationLauncher` QML
 properties and displays a short success/failure notification. The in-shell
-Notification Center also keeps a bounded, session-scoped history of those
+Notification Center also keeps a bounded, persistent history of those
 events with mark-read and clear controls. Notifications are feedback only; they
 do not supervise or terminate the launched application.
 
