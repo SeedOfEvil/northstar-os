@@ -127,6 +127,11 @@ bool ClockController::ntpWritable() const
     return m_writable && m_ntpPresent;
 }
 
+bool ClockController::synchronising() const
+{
+    return m_synchroniser != nullptr;
+}
+
 QString ClockController::ntpStatus() const
 {
     return m_ntpStatus;
@@ -180,6 +185,11 @@ QStringList ClockController::zonesIn(const QString &region) const
         return found;
     }
 
+    const auto cached = m_zoneCache.constFind(trimmed);
+    if (cached != m_zoneCache.constEnd()) {
+        return *cached;
+    }
+
     const QDir database(zoneinfoPath());
     if (!database.exists()) {
         return found;
@@ -193,6 +203,7 @@ QStringList ClockController::zonesIn(const QString &region) const
                 found.append(entry.fileName());
             }
         }
+        m_zoneCache.insert(trimmed, found);
         return found;
     }
 
@@ -218,6 +229,7 @@ QStringList ClockController::zonesIn(const QString &region) const
         }
     }
     found.sort();
+    m_zoneCache.insert(trimmed, found);
     return found;
 }
 
@@ -329,19 +341,54 @@ bool ClockController::synchroniseNow()
                  true);
         return false;
     }
+    if (m_synchroniser) {
+        announce(QStringLiteral("The clock is already being set."), true);
+        return false;
+    }
 
-    const HelperResult result = runHelper({QStringLiteral("sync")});
-    if (!result.started || result.exitCode != 0) {
+    const QString helper = helperPath();
+    if (helper.isEmpty()) {
+        announce(QStringLiteral("The clock boundary is not installed on this system."), true);
+        return false;
+    }
+
+    // A time server is on the other side of a network, so this takes seconds
+    // rather than milliseconds. Waiting for it here would freeze every shell
+    // surface, because this runs on the thread that draws them. The step is
+    // started and reported when it finishes instead.
+    m_synchroniser = new QProcess(this);
+    m_synchroniser->setProgram(helper);
+    m_synchroniser->setArguments({QStringLiteral("sync")});
+    connect(m_synchroniser, &QProcess::finished, this, &ClockController::finishSynchronise);
+    connect(m_synchroniser, &QProcess::errorOccurred, this, [this]() {
+        finishSynchronise(-1, QProcess::CrashExit);
+    });
+    m_synchroniser->start(QIODevice::ReadOnly);
+
+    announce(QStringLiteral("Setting the clock from the network..."), false);
+    emit clockChanged();
+    return true;
+}
+
+void ClockController::finishSynchronise(int exitCode, QProcess::ExitStatus exitStatus)
+{
+    if (!m_synchroniser) {
+        return;
+    }
+    m_synchroniser->deleteLater();
+    m_synchroniser = nullptr;
+
+    if (exitStatus != QProcess::NormalExit || exitCode != 0) {
         announce(QStringLiteral("The clock could not be set from the network. "
                                 "Check that this system can reach its time servers."),
                  true);
-        return false;
+        emit clockChanged();
+        return;
     }
 
     readState();
     announce(QStringLiteral("Clock set from the network."), false);
     emit clockChanged();
-    return true;
 }
 
 void ClockController::refresh()

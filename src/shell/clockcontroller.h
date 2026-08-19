@@ -1,6 +1,8 @@
 #pragma once
 
+#include <QHash>
 #include <QObject>
+#include <QProcess>
 #include <QString>
 #include <QStringList>
 
@@ -24,6 +26,7 @@ class ClockController final : public QObject
     Q_PROPERTY(bool ntpRunning READ ntpRunning NOTIFY clockChanged)
     Q_PROPERTY(bool ntpWritable READ ntpWritable NOTIFY clockChanged)
     Q_PROPERTY(QString ntpStatus READ ntpStatus NOTIFY clockChanged)
+    Q_PROPERTY(bool synchronising READ synchronising NOTIFY clockChanged)
     Q_PROPERTY(QString status READ status NOTIFY statusChanged)
     Q_PROPERTY(bool statusIsError READ statusIsError NOTIFY statusChanged)
 
@@ -50,6 +53,7 @@ public:
     bool ntpRunning() const;
     bool ntpWritable() const;
     QString ntpStatus() const;
+    bool synchronising() const;
     QString status() const;
     bool statusIsError() const;
 
@@ -67,9 +71,14 @@ public:
     Q_INVOKABLE bool isKnownZone(const QString &zone) const;
 
 public slots:
+    // Starts a one-shot correction and returns whether it started. The step
+    // itself talks to a time server and takes seconds, so it is deliberately
+    // not waited on: blocking here would freeze every shell surface, since
+    // this runs on the thread that draws them.
+    bool synchroniseNow();
+
     bool setTimeZone(const QString &zone);
     bool setNtpEnabled(bool enabled);
-    bool synchroniseNow();
     void setRegion(const QString &region);
     void refresh();
 
@@ -86,6 +95,7 @@ private:
     };
 
     HelperResult runHelper(const QStringList &arguments) const;
+    void finishSynchronise(int exitCode, QProcess::ExitStatus exitStatus);
     QString zoneinfoPath() const;
     QString recordedZonePath() const;
     void readState();
@@ -102,4 +112,9 @@ private:
     QString m_ntpStatus;
     QString m_status;
     bool m_statusIsError = false;
+    QProcess *m_synchroniser = nullptr;
+
+    // Listing a region walks the zoneinfo database, and a surface reads its
+    // options far more often than the database changes.
+    mutable QHash<QString, QStringList> m_zoneCache;
 };

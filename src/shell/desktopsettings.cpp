@@ -512,8 +512,13 @@ void registerDesktopSettings(SettingsCatalog *catalog,
         syncNow.perform = [clock]() { return clock->synchroniseNow(); };
         // A one-shot step has nothing to do while the daemon already holds
         // the clock, so it is offered only when it would actually act.
-        syncNow.available = [clock]() { return clock->ntpWritable() && !clock->ntpRunning(); };
+        syncNow.available = [clock]() {
+            return clock->ntpWritable() && !clock->ntpRunning() && !clock->synchronising();
+        };
         syncNow.unavailableReason = [clock]() {
+            if (clock->synchronising()) {
+                return QStringLiteral("Setting the clock from the network...");
+            }
             return clock->ntpRunning()
                 ? QStringLiteral("Network time is already running and keeping the clock set.")
                 : clock->ntpStatus();

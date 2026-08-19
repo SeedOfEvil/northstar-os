@@ -1,6 +1,7 @@
 #include "clockcontroller.h"
 
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
 #include <QSignalSpy>
@@ -32,6 +33,8 @@ private slots:
     void togglesNetworkTimeThroughTheBoundary();
     void refusesAOneShotSyncWhileTheDaemonIsRunning();
     void keepsOfferingTheZoneInEffectWhileBrowsingAnotherRegion();
+    void doesNotWaitForTheClockToBeSetFromTheNetwork();
+    void reportsAOneShotCorrectionThatFailed();
 
 private:
     QString root() const;
@@ -353,6 +356,65 @@ void ClockControllerTest::keepsOfferingTheZoneInEffectWhileBrowsingAnotherRegion
     // Back in its own region it is offered exactly once.
     clock.setRegion(QStringLiteral("America"));
     QCOMPARE(clock.selectableZones().count(QStringLiteral("America/Denver")), 1);
+}
+
+void ClockControllerTest::doesNotWaitForTheClockToBeSetFromTheNetwork()
+{
+    // A time server is across a network, so the step takes seconds. This
+    // stub stands in for that. If the controller waits for it, every shell
+    // surface is frozen for the duration, which is what the walkthrough hit.
+    installHelper(QStringLiteral("case \"$1\" in\n"
+                                 "  state)\n"
+                                 "    printf 'ntp_present=yes\\n'\n"
+                                 "    printf 'ntp_enabled=no\\n'\n"
+                                 "    printf 'ntp_running=no\\n'\n"
+                                 "    exit 0 ;;\n"
+                                 "  sync) sleep 2; exit 0 ;;\n"
+                                 "esac\n"
+                                 "exit 64\n"));
+
+    ClockController clock(nullptr, root());
+    QVERIFY(clock.ntpWritable());
+    QVERIFY(!clock.synchronising());
+
+    QElapsedTimer elapsed;
+    elapsed.start();
+    QVERIFY(clock.synchroniseNow());
+    const qint64 returnedAfter = elapsed.elapsed();
+
+    // The call has to come back promptly, having only started the work.
+    QVERIFY2(returnedAfter < 1000,
+             qPrintable(QStringLiteral("synchroniseNow blocked for %1 ms").arg(returnedAfter)));
+    QVERIFY(clock.synchronising());
+
+    // A second request while one is in flight is refused rather than queued.
+    QVERIFY(!clock.synchroniseNow());
+
+    QSignalSpy changed(&clock, &ClockController::clockChanged);
+    QVERIFY(QTest::qWaitFor([&clock]() { return !clock.synchronising(); }, 15000));
+    QVERIFY(changed.count() >= 1);
+    QVERIFY(!clock.statusIsError());
+}
+
+void ClockControllerTest::reportsAOneShotCorrectionThatFailed()
+{
+    // A system that cannot reach its time servers must be told so, not left
+    // believing the clock was set.
+    installHelper(QStringLiteral("case \"$1\" in\n"
+                                 "  state)\n"
+                                 "    printf 'ntp_present=yes\\n'\n"
+                                 "    printf 'ntp_enabled=no\\n'\n"
+                                 "    printf 'ntp_running=no\\n'\n"
+                                 "    exit 0 ;;\n"
+                                 "  sync) exit 1 ;;\n"
+                                 "esac\n"
+                                 "exit 64\n"));
+
+    ClockController clock(nullptr, root());
+    QVERIFY(clock.synchroniseNow());
+    QVERIFY(QTest::qWaitFor([&clock]() { return !clock.synchronising(); }, 15000));
+    QVERIFY(clock.statusIsError());
+    QVERIFY(clock.status().contains(QStringLiteral("could not be set")));
 }
 
 QTEST_MAIN(ClockControllerTest)
