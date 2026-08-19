@@ -1,0 +1,57 @@
+#!/bin/sh
+
+# Fixed-argument radio boundary for the Northstar shell.
+#
+# The shell runs unprivileged and must never be able to construct a command
+# line here. This helper therefore accepts only an enumerated pair of words and
+# resolves the interface itself, so no caller-supplied string ever reaches
+# ifconfig, service, or sudo.
+#
+# The current development VM authorizes sudo non-interactively. Production
+# installs should replace this with a root-owned helper and a narrow policy
+# allowing only these exact actions.
+
+set -eu
+
+SUDO=/usr/local/bin/sudo
+IFCONFIG=/sbin/ifconfig
+SERVICE=/usr/sbin/service
+
+usage_error=64
+unavailable=69
+
+[ "$#" -eq 2 ] || exit "$usage_error"
+
+case "$2" in
+    on|off) ;;
+    *) exit "$usage_error" ;;
+esac
+
+# The first wireless interface the kernel reports. Never an argument.
+wireless_interface() {
+    "$IFCONFIG" -l 2>/dev/null | tr ' ' '\n' | grep -E '^wlan[0-9]+$' | head -1
+}
+
+case "$1" in
+    wifi)
+        interface=$(wireless_interface)
+        [ -n "$interface" ] || exit "$unavailable"
+        if [ "$2" = on ]; then
+            exec "$SUDO" -n "$IFCONFIG" "$interface" up
+        else
+            exec "$SUDO" -n "$IFCONFIG" "$interface" down
+        fi
+        ;;
+    bluetooth)
+        # The stack is started and stopped as a whole; there is no per-device
+        # enable that survives a controller reset.
+        if [ "$2" = on ]; then
+            exec "$SUDO" -n "$SERVICE" bluetooth start
+        else
+            exec "$SUDO" -n "$SERVICE" bluetooth stop
+        fi
+        ;;
+    *)
+        exit "$usage_error"
+        ;;
+esac

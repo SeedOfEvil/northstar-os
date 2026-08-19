@@ -61,6 +61,8 @@ QuickSettingsController::QuickSettingsController(QObject *parent,
 }
 
 bool QuickSettingsController::wifiAvailable() const { return m_wifiAvailable; }
+bool QuickSettingsController::wifiWritable() const { return m_wifiWritable; }
+bool QuickSettingsController::bluetoothWritable() const { return m_bluetoothWritable; }
 bool QuickSettingsController::wifiEnabled() const { return m_wifiEnabled; }
 QString QuickSettingsController::wifiStatus() const { return m_wifiStatus; }
 bool QuickSettingsController::bluetoothAvailable() const { return m_bluetoothAvailable; }
@@ -85,6 +87,83 @@ void QuickSettingsController::refresh()
     refreshSound();
     refreshDisplay();
     emit capabilitiesChanged();
+}
+
+QString QuickSettingsController::radioHelperPath()
+{
+    const QString configuredPath = qEnvironmentVariable("NORTHSTAR_RADIO_HELPER");
+    if (!configuredPath.isEmpty()) {
+        return configuredPath;
+    }
+
+    const QString userPath = QDir::home().filePath(QStringLiteral(".local/bin/northstar-radio"));
+    if (QFileInfo(userPath).isExecutable()) {
+        return userPath;
+    }
+
+    return QStandardPaths::findExecutable(QStringLiteral("northstar-radio"));
+}
+
+bool QuickSettingsController::radioControlAvailable()
+{
+    return !radioHelperPath().isEmpty();
+}
+
+bool QuickSettingsController::setRadioEnabled(const QString &radio, bool enabled)
+{
+    const QString helper = radioHelperPath();
+    if (helper.isEmpty()) {
+        setStatusMessage(QStringLiteral("Radio control helper is not installed"));
+        return false;
+    }
+
+    // Only ever two fixed words. Nothing the user typed reaches the helper.
+    const QuickSettingsCommandResult result = m_commandProvider(
+        helper, {radio, enabled ? QStringLiteral("on") : QStringLiteral("off")});
+
+    if (!result.started) {
+        setStatusMessage(QStringLiteral("Radio control helper could not be run"));
+        return false;
+    }
+    if (result.exitCode != 0) {
+        // 69 is the helper reporting that the hardware is absent, which is a
+        // different thing from the request being malformed or refused.
+        setStatusMessage(result.exitCode == 69
+            ? QStringLiteral("No %1 hardware is present").arg(radio)
+            : QStringLiteral("%1 change was refused").arg(radio));
+        refresh();
+        return false;
+    }
+
+    refresh();
+    return true;
+}
+
+bool QuickSettingsController::setWifiEnabled(bool enabled)
+{
+    if (!m_wifiAvailable) {
+        setStatusMessage(QStringLiteral("No wireless interface detected"));
+        return false;
+    }
+    if (!setRadioEnabled(QStringLiteral("wifi"), enabled)) {
+        return false;
+    }
+    setStatusMessage(enabled ? QStringLiteral("Wi-Fi enabled") : QStringLiteral("Wi-Fi disabled"));
+    return true;
+}
+
+bool QuickSettingsController::setBluetoothEnabled(bool enabled)
+{
+    if (!m_bluetoothAvailable && enabled) {
+        setStatusMessage(QStringLiteral("No Bluetooth adapter detected"));
+        return false;
+    }
+    if (!setRadioEnabled(QStringLiteral("bluetooth"), enabled)) {
+        return false;
+    }
+    setStatusMessage(enabled ? QStringLiteral("Bluetooth enabled")
+                             : QStringLiteral("Bluetooth disabled"));
+    return true;
 }
 
 bool QuickSettingsController::setVolume(int volume)
@@ -178,6 +257,7 @@ void QuickSettingsController::refreshWifi()
 {
     m_wifiAvailable = false;
     m_wifiEnabled = false;
+    m_wifiWritable = false;
     m_wifiStatus = QStringLiteral("No wireless interface detected");
 
     const QuickSettingsCommandResult listResult = m_commandProvider(
@@ -201,14 +281,39 @@ void QuickSettingsController::refreshWifi()
             return;
         }
         const QString output = interfaceResult.standardOutput;
-        m_wifiEnabled = output.contains(QStringLiteral("status: active"), Qt::CaseInsensitive);
+
+        // The toggle brings the interface administratively up or down, so that
+        // is what "enabled" has to mean. Association is a separate, slower
+        // thing owned by wpa_supplicant: reporting enabled only once associated
+        // would leave the control looking dead for several seconds after it
+        // was switched on, and stuck on for a moment after it was switched off.
+        static const QRegularExpression flagsExpression(QStringLiteral(R"(flags=[0-9a-fx]*<([^>]*)>)"));
+        const QRegularExpressionMatch flagsMatch = flagsExpression.match(output);
+        const QStringList flags = flagsMatch.hasMatch()
+            ? flagsMatch.captured(1).split(QLatin1Char(','), Qt::SkipEmptyParts)
+            : QStringList();
+        m_wifiEnabled = flags.contains(QStringLiteral("UP"), Qt::CaseInsensitive);
+        m_wifiWritable = !radioHelperPath().isEmpty();
+
+        // FreeBSD reports "associated" for a wireless link and "active" for a
+        // wired one; accept either rather than depending on which driver is in
+        // use.
+        const bool associated =
+            output.contains(QStringLiteral("status: associated"), Qt::CaseInsensitive)
+            || output.contains(QStringLiteral("status: active"), Qt::CaseInsensitive);
+
         static const QRegularExpression ssidExpression(QStringLiteral(R"(ssid\s+([^\s]+))"));
         const QRegularExpressionMatch ssidMatch = ssidExpression.match(output);
-        m_wifiStatus = m_wifiEnabled
-            ? (ssidMatch.hasMatch()
-                ? QStringLiteral("Connected to %1").arg(ssidMatch.captured(1))
-                : QStringLiteral("Wireless link active"))
-            : QStringLiteral("Wireless interface inactive");
+
+        if (!m_wifiEnabled) {
+            m_wifiStatus = QStringLiteral("Wireless interface off");
+        } else if (associated && ssidMatch.hasMatch()) {
+            m_wifiStatus = QStringLiteral("Connected to %1").arg(ssidMatch.captured(1));
+        } else if (associated) {
+            m_wifiStatus = QStringLiteral("Wireless link active");
+        } else {
+            m_wifiStatus = QStringLiteral("Wireless interface on, not connected");
+        }
         return;
     }
 }
@@ -220,6 +325,7 @@ void QuickSettingsController::refreshBluetooth()
         {QStringLiteral("-n"), QStringLiteral("ubt0hci"), QStringLiteral("read_node_list")});
     m_bluetoothAvailable = commandSucceeded(result);
     m_bluetoothEnabled = m_bluetoothAvailable;
+    m_bluetoothWritable = m_bluetoothAvailable && !radioHelperPath().isEmpty();
     m_bluetoothStatus = m_bluetoothAvailable
         ? QStringLiteral("Bluetooth controller available")
         : QStringLiteral("No Bluetooth adapter detected");

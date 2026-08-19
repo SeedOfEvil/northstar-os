@@ -142,14 +142,34 @@ Window {
                 width: parent.width
 
                 Rectangle {
+                    id: wifiTile
+
+                    // Only a radio this build can actually change offers to be
+                    // pressed. Everything else stays a reading.
+                    readonly property bool writable: !!quickSettings.controller
+                        && quickSettings.controller.wifiWritable
+
                     color: quickSettings.controller && quickSettings.controller.wifiEnabled
-                        ? lunar.accentSoft : quickSettings.surfaceRaised
+                        ? (wifiMouse.containsMouse && wifiTile.writable
+                            ? lunar.accentBright : lunar.accentSoft)
+                        : (wifiMouse.containsMouse && wifiTile.writable
+                            ? lunar.raisedHover : quickSettings.surfaceRaised)
                     border.color: quickSettings.controller && quickSettings.controller.wifiEnabled
                         ? lunar.accentBright : lunar.borderSoft
                     border.width: 1
                     height: 62
                     radius: lunar.radiusMedium
                     width: (parent.width - parent.spacing) / 2
+
+                    MouseArea {
+                        id: wifiMouse
+                        anchors.fill: parent
+                        enabled: wifiTile.writable
+                        hoverEnabled: true
+                        cursorShape: wifiTile.writable ? Qt.PointingHandCursor : Qt.ArrowCursor
+                        onClicked: quickSettings.controller.setWifiEnabled(
+                            !quickSettings.controller.wifiEnabled)
+                    }
 
                     Column {
                         anchors.centerIn: parent
@@ -177,14 +197,32 @@ Window {
                 }
 
                 Rectangle {
+                    id: bluetoothTile
+
+                    readonly property bool writable: !!quickSettings.controller
+                        && quickSettings.controller.bluetoothWritable
+
                     color: quickSettings.controller && quickSettings.controller.bluetoothEnabled
-                        ? lunar.accentSoft : quickSettings.surfaceRaised
+                        ? (bluetoothMouse.containsMouse && bluetoothTile.writable
+                            ? lunar.accentBright : lunar.accentSoft)
+                        : (bluetoothMouse.containsMouse && bluetoothTile.writable
+                            ? lunar.raisedHover : quickSettings.surfaceRaised)
                     border.color: quickSettings.controller && quickSettings.controller.bluetoothEnabled
                         ? lunar.accentBright : lunar.borderSoft
                     border.width: 1
                     height: 62
                     radius: lunar.radiusMedium
                     width: (parent.width - parent.spacing) / 2
+
+                    MouseArea {
+                        id: bluetoothMouse
+                        anchors.fill: parent
+                        enabled: bluetoothTile.writable
+                        hoverEnabled: true
+                        cursorShape: bluetoothTile.writable ? Qt.PointingHandCursor : Qt.ArrowCursor
+                        onClicked: quickSettings.controller.setBluetoothEnabled(
+                            !quickSettings.controller.bluetoothEnabled)
+                    }
 
                     Column {
                         anchors.centerIn: parent

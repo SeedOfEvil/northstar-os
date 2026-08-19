@@ -196,39 +196,81 @@ void registerDesktopSettings(SettingsCatalog *catalog,
     // --- Network -----------------------------------------------------------
 
     if (quickSettings) {
-        SettingsCatalog::Entry wifi = info(
-            QStringLiteral("network.wifi"), QStringLiteral("network"),
-            QStringLiteral("Wi-Fi"),
-            QStringLiteral("Observed wireless state. Northstar does not change it on this system."),
-            QStringList{QStringLiteral("wifi"), QStringLiteral("wireless"),
-                        QStringLiteral("network"), QStringLiteral("internet")},
-            [quickSettings]() {
-                if (!quickSettings->wifiAvailable()) {
-                    return QVariant(quickSettings->wifiStatus());
-                }
-                return QVariant(quickSettings->wifiEnabled() ? QStringLiteral("On")
-                                                             : QStringLiteral("Off"));
-            });
-        wifi.available = [quickSettings]() { return quickSettings->wifiAvailable(); };
-        wifi.unavailableReason = [quickSettings]() { return quickSettings->wifiStatus(); };
-        catalog->registerEntry(wifi);
+        const QStringList wifiKeywords{QStringLiteral("wifi"), QStringLiteral("wireless"),
+                                       QStringLiteral("network"), QStringLiteral("internet")};
+        const QStringList bluetoothKeywords{QStringLiteral("bluetooth"),
+                                            QStringLiteral("adapter"), QStringLiteral("pair")};
 
-        SettingsCatalog::Entry bluetooth = info(
-            QStringLiteral("network.bluetooth"), QStringLiteral("network"),
-            QStringLiteral("Bluetooth"),
-            QStringLiteral("Observed adapter state. Northstar does not change it on this system."),
-            QStringList{QStringLiteral("bluetooth"), QStringLiteral("adapter"),
-                        QStringLiteral("pair")},
-            [quickSettings]() {
-                if (!quickSettings->bluetoothAvailable()) {
-                    return QVariant(quickSettings->bluetoothStatus());
-                }
-                return QVariant(quickSettings->bluetoothEnabled() ? QStringLiteral("On")
-                                                                  : QStringLiteral("Off"));
-            });
-        bluetooth.available = [quickSettings]() { return quickSettings->bluetoothAvailable(); };
-        bluetooth.unavailableReason = [quickSettings]() { return quickSettings->bluetoothStatus(); };
-        catalog->registerEntry(bluetooth);
+        // A radio becomes a real toggle only where the privileged boundary is
+        // installed. Without it the entry stays a reading, because a control
+        // that cannot act is worse than an honest observation.
+        if (QuickSettingsController::radioControlAvailable()) {
+            SettingsCatalog::Entry wifi;
+            wifi.id = QStringLiteral("network.wifi");
+            wifi.section = QStringLiteral("network");
+            wifi.title = QStringLiteral("Wi-Fi");
+            wifi.description = QStringLiteral("Bring the wireless interface up or down.");
+            wifi.keywords = wifiKeywords;
+            wifi.kind = SettingsCatalog::toggleKind();
+            wifi.read = [quickSettings]() { return QVariant(quickSettings->wifiEnabled()); };
+            wifi.write = [quickSettings](const QVariant &value) {
+                return quickSettings->setWifiEnabled(value.toBool());
+            };
+            wifi.available = [quickSettings]() { return quickSettings->wifiWritable(); };
+            wifi.unavailableReason = [quickSettings]() { return quickSettings->wifiStatus(); };
+            catalog->registerEntry(wifi);
+
+            SettingsCatalog::Entry bluetooth;
+            bluetooth.id = QStringLiteral("network.bluetooth");
+            bluetooth.section = QStringLiteral("network");
+            bluetooth.title = QStringLiteral("Bluetooth");
+            bluetooth.description = QStringLiteral("Start or stop the Bluetooth stack.");
+            bluetooth.keywords = bluetoothKeywords;
+            bluetooth.kind = SettingsCatalog::toggleKind();
+            bluetooth.read = [quickSettings]() { return QVariant(quickSettings->bluetoothEnabled()); };
+            bluetooth.write = [quickSettings](const QVariant &value) {
+                return quickSettings->setBluetoothEnabled(value.toBool());
+            };
+            bluetooth.available = [quickSettings]() { return quickSettings->bluetoothWritable(); };
+            bluetooth.unavailableReason = [quickSettings]() {
+                return quickSettings->bluetoothStatus();
+            };
+            catalog->registerEntry(bluetooth);
+        } else {
+            SettingsCatalog::Entry wifi = info(
+                QStringLiteral("network.wifi"), QStringLiteral("network"),
+                QStringLiteral("Wi-Fi"),
+                QStringLiteral("Observed wireless state. Radio control is not installed."),
+                wifiKeywords,
+                [quickSettings]() {
+                    if (!quickSettings->wifiAvailable()) {
+                        return QVariant(quickSettings->wifiStatus());
+                    }
+                    return QVariant(quickSettings->wifiEnabled() ? QStringLiteral("On")
+                                                                 : QStringLiteral("Off"));
+                });
+            wifi.available = [quickSettings]() { return quickSettings->wifiAvailable(); };
+            wifi.unavailableReason = [quickSettings]() { return quickSettings->wifiStatus(); };
+            catalog->registerEntry(wifi);
+
+            SettingsCatalog::Entry bluetooth = info(
+                QStringLiteral("network.bluetooth"), QStringLiteral("network"),
+                QStringLiteral("Bluetooth"),
+                QStringLiteral("Observed adapter state. Radio control is not installed."),
+                bluetoothKeywords,
+                [quickSettings]() {
+                    if (!quickSettings->bluetoothAvailable()) {
+                        return QVariant(quickSettings->bluetoothStatus());
+                    }
+                    return QVariant(quickSettings->bluetoothEnabled() ? QStringLiteral("On")
+                                                                      : QStringLiteral("Off"));
+                });
+            bluetooth.available = [quickSettings]() { return quickSettings->bluetoothAvailable(); };
+            bluetooth.unavailableReason = [quickSettings]() {
+                return quickSettings->bluetoothStatus();
+            };
+            catalog->registerEntry(bluetooth);
+        }
     }
 
     // --- Notifications -----------------------------------------------------
