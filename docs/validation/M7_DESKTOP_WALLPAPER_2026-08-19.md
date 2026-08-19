@@ -115,4 +115,12 @@ Handed off at 1280×800 over noVNC with the shell installed beneath
 `/home/northstar/.local` and three sample pictures of different aspect ratios
 in `~/Pictures`, plus one text file named `not-a-picture.png`.
 
-Status: **open**.
+Accepted by Hector on 2026-08-19: "It is indeed all working". The walkthrough
+covered the built-in background before any picture was set, applying a picture
+from the desktop context menu, refusal of the text file wearing a `.png` name,
+all five fits on pictures of two different shapes, the same controls in
+Settings and their agreement with the desktop, search reaching both entries,
+persistence across a logout, and the fallback after deleting the picture in
+use and refreshing the desktop.
+
+Status: **accepted**.
