@@ -130,13 +130,41 @@ through to the compositor already running, and next login is unchanged.
 
 ## Interactive acceptance
 
-Pending.
+Completed by Hector against the installed `pr101-ce30d9c` build, across two
+full logout and login cycles rather than a shell restart, which is the only way
+to exercise the refreshed system session entry points.
+
+- The desktop starts normally. The session resolves through the refreshed
+  `/usr/local/bin/northstar-session-x11` and on to
+  `/home/northstar/.local/bin/northstar-session`, confirmed in the process
+  tree.
+- `Ctrl+K` opens unified search after each login, so PR #99's compositor
+  binding is not regressed by either the teardown change or the refreshed
+  entry points.
+- Notification history survived a full logout and login, not merely a shell
+  restart. The launch recorded during login was still present afterwards,
+  which is stronger evidence for PR #100 than the supervised restarts used at
+  its own acceptance.
+
+The first acceptance attempt was run against the previous build, because the
+new one had not been installed before the checklist was handed over. It was
+reinstalled and re-accepted rather than counted.
+
+The manifest described above was installed by Hector as root; the audit result
+below is from the installed copy.
 
 ## Not claimed
 
-`make validation-deployment-audit` is **not** claimed to pass. It now reports 2
-failures instead of 7, and both are true statements about DEV01 rather than
-stale pointers.
+`make validation-deployment-audit` is **not** claimed to pass. Against the
+installed manifest it reports 2 failures and 2 warnings, down from 7 failures
+and 4 warnings. Both remaining failures are true statements about DEV01 rather
+than stale pointers, and both are recorded above with what closing them would
+require. The two warnings are the retained predecessor build trees, which the
+retention rule expects.
+
+The staged pkg repository repair was deliberately not applied. It remains a
+trust decision for a privileged operator, and the development repository has
+been non-functional since r78 was removed, so nothing regressed by leaving it.
 
 Physical Intel/AMD DRM/KMS acceptance, native compositor quality, and
 multi-display evidence remain deferred. The Proxmox scfb/pixman VM remains
