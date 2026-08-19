@@ -529,159 +529,19 @@ Window {
                                     }
                                 }
 
-                                Item {
-                                    id: entryControl
+                                SettingsEntryControl {
                                     anchors.verticalCenter: parent.verticalCenter
-                                    height: 34
-                                    width: modelData.kind === "slider" ? 210
-                                        : modelData.kind === "path" ? 230 : 150
-
-                                    Loader {
-                                        id: controlLoader
-                                        anchors.right: parent.right
-                                        anchors.verticalCenter: parent.verticalCenter
-                                        sourceComponent: modelData.kind === "toggle"
-                                            ? toggleControl
-                                            : modelData.kind === "slider"
-                                                ? sliderControl
-                                                : modelData.kind === "choice"
-                                                    ? choiceControl
-                                                    : modelData.kind === "path"
-                                                        ? pathControl
-                                                        : modelData.kind === "action"
-                                                            ? actionControl
-                                                            : infoControl
-
-                                        property var entry: modelData
-                                    }
+                                    catalog: settings.settingsCatalog
+                                    entry: modelData
+                                    foregroundColor: settings.surfaceForeground
+                                    mutedColor: settings.surfaceMuted
+                                    onActionRequested: (requested) => settings.activateEntry(requested)
+                                    onPathChooseRequested: settingsWallpaperPicker.openAt()
                                 }
                             }
                         }
                     }
                 }
-            }
-        }
-    }
-
-    // --- Control kinds ---------------------------------------------------------
-
-    Component {
-        id: toggleControl
-
-        CheckBox {
-            checked: entry.value === true
-            enabled: entry.available
-            text: checked ? "On" : "Off"
-            onToggled: settings.settingsCatalog.setValue(entry.id, checked)
-        }
-    }
-
-    Component {
-        id: sliderControl
-
-        Row {
-            spacing: 10
-
-            Slider {
-                id: valueSlider
-                anchors.verticalCenter: parent.verticalCenter
-                enabled: entry.available
-                from: entry.minimum
-                to: entry.maximum
-                stepSize: 1
-                value: entry.value
-                width: 150
-                onMoved: {
-                    if (!pressed) {
-                        settings.settingsCatalog.setValue(entry.id, Math.round(value))
-                    }
-                }
-                onPressedChanged: {
-                    if (!pressed) {
-                        settings.settingsCatalog.setValue(entry.id, Math.round(value))
-                    }
-                }
-            }
-
-            Text {
-                anchors.verticalCenter: parent.verticalCenter
-                color: settings.surfaceForeground
-                font.pixelSize: 12
-                horizontalAlignment: Text.AlignRight
-                text: entry.available ? Math.round(valueSlider.value) + entry.unit : "—"
-                width: 44
-            }
-        }
-    }
-
-    Component {
-        id: actionControl
-
-        Button {
-            enabled: entry.available
-            text: entry.actionLabel
-            onClicked: settings.activateEntry(entry)
-        }
-    }
-
-    Component {
-        id: choiceControl
-
-        ComboBox {
-            id: choiceBox
-            enabled: entry.available
-            model: entry.options
-            textRole: "label"
-            valueRole: "value"
-            width: 150
-
-            // An unset choice would otherwise render as an empty box that
-            // looks broken rather than unanswered.
-            displayText: currentIndex < 0 ? "Not set" : currentText
-
-            // Not a binding on currentIndex. The answer depends on the model
-            // as well as the value, and the model is not part of that
-            // expression, so a binding evaluated before the model arrived
-            // stayed at -1 and every control opened reading "Not set".
-            function syncToEntry() {
-                currentIndex = indexOfValue(entry.value)
-            }
-
-            Component.onCompleted: syncToEntry()
-            onModelChanged: syncToEntry()
-
-            onActivated: {
-                // A refused write leaves the list showing the rejected pick,
-                // so it is put back to what is actually in effect. On a write
-                // that succeeds the catalog rebuilds this delegate instead.
-                if (!settings.settingsCatalog.setValue(entry.id, valueAt(currentIndex))) {
-                    syncToEntry()
-                }
-            }
-        }
-    }
-
-    Component {
-        id: pathControl
-
-        Row {
-            spacing: 8
-
-            Text {
-                anchors.verticalCenter: parent.verticalCenter
-                color: settings.surfaceMuted
-                elide: Text.ElideLeft
-                font.pixelSize: 12
-                horizontalAlignment: Text.AlignRight
-                text: entry.value !== "" ? entry.value : entry.emptyLabel
-                width: 130
-            }
-
-            Button {
-                anchors.verticalCenter: parent.verticalCenter
-                enabled: entry.available
-                text: "Choose..."
-                onClicked: settingsWallpaperPicker.openAt()
             }
         }
     }
@@ -701,19 +561,6 @@ Window {
         width: Math.min(620, settings.width - 48)
         x: (settings.width - width) / 2
         y: Math.max(24, (settings.height - height) / 2)
-    }
-
-    Component {
-        id: infoControl
-
-        Text {
-            color: settings.surfaceForeground
-            elide: Text.ElideRight
-            font.pixelSize: 12
-            horizontalAlignment: Text.AlignRight
-            text: entry.value
-            width: 150
-        }
     }
 
     NativeWindowResizeHandler {

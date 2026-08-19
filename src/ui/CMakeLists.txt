@@ -19,6 +19,7 @@ qt_add_qml_module(northstar-ui
         NorthstarWindowControls.qml
         NorthstarWindowFrame.qml
         NorthstarWindowTitleBar.qml
+        SettingsEntryControl.qml
 )
 
 target_link_libraries(northstar-ui

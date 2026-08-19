@@ -34,6 +34,7 @@ add_subdirectory(src/update)
 
 if(BUILD_TESTING)
     add_subdirectory(tests/unit)
+    add_subdirectory(tests/qml)
 endif()
 
 set(CPACK_GENERATOR "FREEBSD")
