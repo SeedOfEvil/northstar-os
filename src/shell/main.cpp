@@ -31,6 +31,7 @@
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQmlEngine>
+#include <QQmlError>
 #include <QScreen>
 #include <QStandardPaths>
 #include <QVariant>
@@ -133,6 +134,19 @@ int main(int argc, char *argv[])
 
     NorthstarUi::registerTypes();
     QQmlApplicationEngine engine;
+
+    // A QML binding error is invisible in a normal session but means a surface
+    // silently rendered nothing. The self-test treats any of them as failure.
+    int qmlWarnings = 0;
+    if (qmlSelfTest) {
+        QObject::connect(&engine, &QQmlApplicationEngine::warnings,
+                         [&qmlWarnings](const QList<QQmlError> &reported) {
+            for (const QQmlError &error : reported) {
+                qmlWarnings += 1;
+                qWarning().noquote() << QStringLiteral("QML warning: %1").arg(error.toString());
+            }
+        });
+    }
     ShellState shellState;
     ApplicationLauncher applicationLauncher;
     NotificationCenter notificationCenter;
@@ -373,11 +387,30 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    Q_UNUSED(contexts);
+    // The surfaces hold bindings onto the controllers declared above, and those
+    // controllers are destroyed when this function returns. Tearing the surfaces
+    // down first stops their bindings re-evaluating against half-destroyed
+    // objects, which otherwise fills shutdown with TypeError warnings. Objects
+    // go before the contexts they were created in.
+    const auto destroySurfaces = [&surfaces, &contexts]() {
+        qDeleteAll(surfaces);
+        surfaces.clear();
+        qDeleteAll(contexts);
+        contexts.clear();
+    };
 
     if (qmlSelfTest) {
-        return runShellSelfTest(surfaces);
+        const int selfTestStatus = runShellSelfTest(surfaces);
+        destroySurfaces();
+        if (qmlWarnings > 0) {
+            qCritical().noquote()
+                << QStringLiteral("the shell self-test produced %1 QML warning(s)").arg(qmlWarnings);
+            return 1;
+        }
+        return selfTestStatus;
     }
 
-    return application.exec();
+    const int status = application.exec();
+    destroySurfaces();
+    return status;
 }
