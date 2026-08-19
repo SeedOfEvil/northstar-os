@@ -1,6 +1,10 @@
 import QtQuick
 import QtTest
-import Northstar.Ui 1.0
+
+// Imported as a directory rather than as a module. The component is part of
+// the shell's QML module, and how that module is linked into a binary is not
+// something these tests should have to depend on.
+import "../../src/shell" 
 
 // Drives the settings control the way the Settings window does and asserts
 // what it puts on screen.
