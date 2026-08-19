@@ -38,6 +38,18 @@ private slots:
 
 namespace {
 
+// These are failure deadlines, not expected durations. QTRY_* returns as soon
+// as its condition holds, so a generous value costs a passing run nothing and
+// only decides how long a genuine hang takes to report.
+//
+// The previous 5000 ms sat close to the real time an asynchronous copy takes,
+// so a loaded machine failed the suite: one copy measured 6600 ms while the VM
+// was busy, against 2.9 s for the whole suite when idle.
+constexpr int TransferTimeoutMs = 30000;
+
+// A filesystem watch has the same shape of risk on a loaded machine.
+constexpr int WatchTimeoutMs = 10000;
+
 bool writeFile(const QString &path, const QByteArray &contents)
 {
     QFile file(path);
@@ -174,7 +186,7 @@ void FileBrowserControllerTest::watchesForDesktopFolderCreation()
     QVERIFY(QDir().mkpath(desktopPath));
     QVERIFY(writeFile(QDir(desktopPath).filePath(QStringLiteral("created-later.txt")), "later"));
 
-    QTRY_COMPARE_WITH_TIMEOUT(controller.desktopEntries().size(), 1, 2000);
+    QTRY_COMPARE_WITH_TIMEOUT(controller.desktopEntries().size(), 1, WatchTimeoutMs);
     QCOMPARE(entryName(controller.desktopEntries().first()), QStringLiteral("created-later.txt"));
 }
 
@@ -393,8 +405,8 @@ void FileBrowserControllerTest::copiesAndUndoesEntries()
 
     const QString copiedDirectory = QDir(destinationDirectory).filePath(QStringLiteral("Source"));
     QTRY_VERIFY_WITH_TIMEOUT(
-        QFileInfo::exists(QDir(copiedDirectory).filePath(QStringLiteral("notes.txt"))), 5000);
-    QTRY_VERIFY_WITH_TIMEOUT(!controller.transferActive(), 5000);
+        QFileInfo::exists(QDir(copiedDirectory).filePath(QStringLiteral("notes.txt"))), TransferTimeoutMs);
+    QTRY_VERIFY_WITH_TIMEOUT(!controller.transferActive(), TransferTimeoutMs);
     QVERIFY(controller.canUndo());
     QCOMPARE(controller.transferProgress(), 100);
     QVERIFY(controller.undoLastTransfer());
@@ -423,7 +435,7 @@ void FileBrowserControllerTest::keepsClipboardStableDuringTransfer()
     controller.clearClipboard();
     QCOMPARE(controller.clipboardOperation(), QStringLiteral("copy"));
     QVERIFY(controller.errorMessage().contains(QStringLiteral("finish")));
-    QTRY_VERIFY_WITH_TIMEOUT(!controller.transferActive(), 5000);
+    QTRY_VERIFY_WITH_TIMEOUT(!controller.transferActive(), TransferTimeoutMs);
     QVERIFY(QFileInfo::exists(QDir(destinationDirectory).filePath(QStringLiteral("Source/entry-127.txt"))));
 }
 
@@ -442,7 +454,7 @@ void FileBrowserControllerTest::movesAndUndoesEntries()
     QVERIFY(controller.navigateTo(destinationDirectory));
     QVERIFY(controller.pasteClipboard());
     const QString movedPath = QDir(destinationDirectory).filePath(QStringLiteral("move-me.txt"));
-    QTRY_VERIFY_WITH_TIMEOUT(!controller.transferActive(), 5000);
+    QTRY_VERIFY_WITH_TIMEOUT(!controller.transferActive(), TransferTimeoutMs);
     QVERIFY(!QFileInfo::exists(sourcePath));
     QVERIFY(QFileInfo::exists(movedPath));
     QVERIFY(controller.clipboardOperation().isEmpty());
@@ -472,7 +484,7 @@ void FileBrowserControllerTest::resolvesPasteConflictsWithKeepBoth()
     QVERIFY(controller.conflictPending());
     QCOMPARE(controller.conflictName(), QStringLiteral("notes.txt"));
     QVERIFY(controller.pasteClipboard(QStringLiteral("keepBoth")));
-    QTRY_VERIFY_WITH_TIMEOUT(!controller.transferActive(), 5000);
+    QTRY_VERIFY_WITH_TIMEOUT(!controller.transferActive(), TransferTimeoutMs);
     QVERIFY(!controller.conflictPending());
     QVERIFY(QFileInfo::exists(QDir(destinationDirectory).filePath(QStringLiteral("notes copy.txt"))));
 }
@@ -493,7 +505,7 @@ void FileBrowserControllerTest::copiesFromMountedLocationButRejectsCut()
     QVERIFY(controller.goHome());
     QVERIFY(controller.pasteClipboard());
     QTRY_VERIFY_WITH_TIMEOUT(
-        QFileInfo::exists(QDir(homeDirectory.path()).filePath(QStringLiteral("volume-note.txt"))), 5000);
+        QFileInfo::exists(QDir(homeDirectory.path()).filePath(QStringLiteral("volume-note.txt"))), TransferTimeoutMs);
 }
 
 void FileBrowserControllerTest::rejectsUnsafeMutations()

@@ -4,8 +4,9 @@ PR #103, built from commit `dd79fca` in `/home/northstar/builds/pr103-dd79fca`
 on NSTAR-DEV01 (FreeBSD 15.1-RELEASE-p2) with the project's canonical
 `-DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON`.
 
-**Interactive acceptance is open.** It cannot be completed on DEV01, for the
-reason in the next section, and is deferred to the physical machine.
+**Accepted with radio behaviour explicitly untested**, because it cannot be
+exercised on DEV01 for the reason in the next section. The hardware checklist
+is recorded below and remains outstanding.
 
 ## The development VM has no radios
 
