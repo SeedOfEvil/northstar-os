@@ -18,7 +18,6 @@ qt_add_qml_module(northstar-ui
         NorthstarIcon.qml
         NorthstarWindowControls.qml
         NorthstarWindowFrame.qml
-        NorthstarWindowRecovery.qml
         NorthstarWindowTitleBar.qml
 )
 
