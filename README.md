@@ -6,22 +6,24 @@ Northstar is a planning codename for an open-source, FreeBSD-native desktop oper
 
 ## Project status
 
-This repository has completed the M0 tooling and supplemental Proxmox basic-VGA
-validation lane. The first M1 shell slice now builds and runs natively on the
-validation VM, including the initial standard `.desktop` application catalog
-and searchable application overview;
-direct DRM/KMS acceptance, multi-display coverage, and the full desktop session
-remain ahead. It is not yet an installable operating system.
+Northstar installs and runs. A pinned image assembles into a bootable UEFI
+root-on-ZFS system that installs to a disk, completes first boot, logs in
+through a display manager, updates through a signed repository, and rolls back
+a failed upgrade through ZFS boot environments. That sequence was accepted end
+to end as M5.
 
-The first implementation target is a repeatable custom shell on a stock FreeBSD installation:
+The desktop provides a session with supervised restart, a top bar and dock,
+desktop icons, files, a text editor, searchable settings, unified search, Quick
+Look, notifications that survive a restart, and a read-only software inventory.
 
-```text
-FreeBSD 15.1 amd64
-  -> Wayfire session
-  -> Northstar Qt top bar and dock
-  -> QTerminal and Firefox launch
-  -> shell restart without terminating applications
-```
+What is **not** done: direct DRM/KMS acceptance on physical Intel and AMD
+graphics, multi-display coverage, and the alpha hardware matrix. The Proxmox
+scfb/pixman lane used for daily development is supplemental product evidence
+and is not physical GPU acceptance. Wi-Fi and Bluetooth switching has been
+built but not yet exercised on hardware that has radios.
+
+[`docs/ROADMAP.md`](docs/ROADMAP.md) carries the per-milestone status, and
+`docs/validation/` carries the dated evidence behind each accepted slice.
 
 ## Fixed baseline
 
@@ -56,12 +58,12 @@ tests/         Unit, integration, VM, and screenshot tests
 tools/         Contributor and diagnostic command wrappers
 ```
 
-Directories remain intentionally scaffolded ahead of implementation, while
-the M1 shell seed is now the first implemented source component.
+Every directory above is implemented. `docs/validation/` additionally holds
+one dated evidence document per accepted change.
 
 ## Development interface
 
-The stable contributor commands are being introduced incrementally. The command names are reserved now so documentation, CI, and local workflows can converge on one interface:
+`make help` lists every target. The common ones:
 
 ```sh
 make check-host
@@ -71,22 +73,29 @@ make build
 make test
 make run-shell
 make package
-make vm-smoke
-make nested-wayfire
-make nested-wayfire-session
 make image
-make diagnostics OUTPUT=/tmp/northstar-m0-diagnostics
+make validation-deployment-audit
+make diagnostics OUTPUT=/tmp/northstar-diagnostics
 ```
 
-The M0 commands are now functional. `make nested-wayfire-session` is the
-optional Proxmox basic-VGA lane: it builds a user-local Wayfire compatibility
-binary and installs the session files needed by `startx`; it does not replace
-the package-managed compositor or satisfy the direct DRM/KMS gate. The
-configure, build, shell, package, and image targets remain guarded until their
-milestones are implemented. See
-[`docs/M0_BOOTSTRAP.md`](docs/M0_BOOTSTRAP.md) for the native FreeBSD
-bootstrap and [`docs/M0_PROXMOX.md`](docs/M0_PROXMOX.md) for the local Proxmox
-media and VM runbook.
+These are functional, not reserved names. Two cautions worth knowing before
+using them against a validation machine:
+
+- `BUILD_DIR` defaults to `build` inside the checkout. Pass it explicitly when
+  building somewhere else, or a target will create a tree in your working copy.
+- `make install-user` depends on `build`, so it reconfigures and rebuilds
+  `BUILD_DIR` with the Makefile's own flags. To install artifacts you have
+  already tested, use `cmake --install <tree> --prefix "$HOME/.local"`.
+
+`make nested-wayfire-session` is the optional Proxmox basic-VGA lane: it builds
+a user-local Wayfire compatibility binary and installs the session files needed
+by `startx`. It does not replace the package-managed compositor and does not
+satisfy the direct DRM/KMS gate.
+
+See [`docs/M0_BOOTSTRAP.md`](docs/M0_BOOTSTRAP.md) for the native FreeBSD
+bootstrap, [`docs/M0_PROXMOX.md`](docs/M0_PROXMOX.md) for the Proxmox media and
+VM runbook, and [`docs/VM_VALIDATION_DEPLOYMENT.md`](docs/VM_VALIDATION_DEPLOYMENT.md)
+for the contract every validation-machine handoff follows.
 
 ## Scope guardrails
 
