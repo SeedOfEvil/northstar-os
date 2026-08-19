@@ -169,5 +169,65 @@ if audit "$MANIFEST.bogus" >/dev/null 2>&1; then
     exit 1
 fi
 
+# --- The state between handoffs ---------------------------------------------
+#
+# Once a validation branch is merged it is deleted and the machine returns to
+# main. That is a legitimate resting state, but only for a revision that is
+# genuinely merged, or "main" would describe any working state at all.
+
+git -C "$CHECKOUT" switch -q main 2>/dev/null || git -C "$CHECKOUT" switch -qc main
+git -C "$CHECKOUT" merge -q --ff-only codex/fixture 2>/dev/null || true
+MERGED_REVISION=$(git -C "$CHECKOUT" rev-parse HEAD)
+git -C "$CHECKOUT" update-ref refs/remotes/origin/main "$MERGED_REVISION"
+
+merged_manifest() {
+    sed -e "s|^source_branch=.*|source_branch=main|" \
+        -e "s|^source_revision=.*|source_revision=$1|" \
+        "$MANIFEST.ui" > "$MANIFEST.merged"
+}
+
+merged_manifest "$MERGED_REVISION"
+if ! audit "$MANIFEST.merged" >/dev/null 2>&1; then
+    printf 'FAIL: audit rejected a deployment resting on merged main\n' >&2
+    exit 1
+fi
+if ! audit "$MANIFEST.merged" | grep -q 'NOTE: deployment rests on merged main'; then
+    printf 'FAIL: audit did not report the merged resting state it accepted\n' >&2
+    exit 1
+fi
+
+# An unmerged revision on main is the case this must still catch. The commit
+# is real and the checkout is clean; only its reachability from origin/main
+# separates it from the accepted state above.
+git -C "$CHECKOUT" switch -qc codex/unmerged
+printf 'unmerged\n' > "$CHECKOUT/UNMERGED"
+git -C "$CHECKOUT" add UNMERGED
+git -C "$CHECKOUT" commit -qm unmerged
+UNMERGED_REVISION=$(git -C "$CHECKOUT" rev-parse HEAD)
+git -C "$CHECKOUT" switch -q main
+git -C "$CHECKOUT" reset -q --hard "$UNMERGED_REVISION"
+
+merged_manifest "$UNMERGED_REVISION"
+if audit "$MANIFEST.merged" >/dev/null 2>&1; then
+    printf 'FAIL: audit accepted an unmerged revision described as main\n' >&2
+    exit 1
+fi
+if ! audit "$MANIFEST.merged" 2>&1 | grep -q 'is not merged into origin/main'; then
+    printf 'FAIL: audit rejected the unmerged revision without saying why\n' >&2
+    exit 1
+fi
+
+# A branch that is neither codex/* nor main is still refused outright.
+git -C "$CHECKOUT" switch -qc scratch
+sed -e 's|^source_branch=.*|source_branch=scratch|' "$MANIFEST.ui" > "$MANIFEST.scratch"
+if audit "$MANIFEST.scratch" >/dev/null 2>&1; then
+    printf 'FAIL: audit accepted a branch outside the validation convention\n' >&2
+    exit 1
+fi
+
+git -C "$CHECKOUT" switch -q main
+git -C "$CHECKOUT" reset -q --hard "$MERGED_REVISION"
+
 printf 'PASS: validation deployment auditor accepts canonical state and rejects drift\n'
 printf 'PASS: validation deployment auditor enforces lane expectations and a live pkg repository\n'
+printf 'PASS: validation deployment auditor accepts merged main and rejects unmerged work on it\n'

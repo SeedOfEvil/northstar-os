@@ -25,6 +25,11 @@ The manifest's optional 'lane' key selects the expectation. 'package', the
 default, requires the publication to have been built from the deployed source
 revision. 'ui' reports that divergence as a NOTE, because an interface handoff
 publishes no package and cannot close it. Every other check applies to both.
+
+'source_branch' names either a codex/* validation branch, which is the state
+during a handoff, or main, which is the state between handoffs once a branch
+has been merged and deleted. Resting on main additionally requires the
+deployed revision to be merged into origin/main.
 USAGE
 }
 
@@ -141,7 +146,15 @@ case "$lane" in
     ui|package) : ;;
     *) fail "unsupported deployment lane '$lane'" ;;
 esac
-case "$source_branch" in codex/*) : ;; *) fail "source branch is not a codex/* validation branch" ;; esac
+# A deployment has two legitimate resting states, and the audit has to accept
+# both. During a handoff the machine sits on the codex/* branch under
+# validation. Once that branch is merged it is deleted and the machine returns
+# to main, so requiring codex/* unconditionally left the second state
+# permanently failing, which is how a gate stops being read at all.
+case "$source_branch" in
+    codex/*|main) : ;;
+    *) fail "source branch is neither a codex/* validation branch nor main" ;;
+esac
 printf '%s\n' "$source_revision" | grep -Eq '^[0-9a-f]{40}$' \
     || fail "source revision is not a full lowercase Git commit"
 printf '%s\n' "$repository_revision" | grep -Eq '^[0-9]+$' \
@@ -165,6 +178,19 @@ if [ -d "$canonical_checkout/.git" ]; then
     [ -z "$(git -C "$canonical_checkout" status --porcelain 2>/dev/null)" ] \
         && pass "canonical checkout is clean" \
         || fail "canonical checkout contains uncommitted changes"
+
+    # Resting on main is only honest when the revision it names is genuinely
+    # merged. Without this check, "main" would become a way to describe any
+    # working state at all, including one nobody ever reviewed.
+    if [ "$source_branch" = main ]; then
+        if ! git -C "$canonical_checkout" rev-parse --verify -q origin/main >/dev/null 2>&1; then
+            fail "deployment rests on main but origin/main is unknown to the checkout"
+        elif git -C "$canonical_checkout" merge-base --is-ancestor "$source_revision" origin/main 2>/dev/null; then
+            note "deployment rests on merged main between handoffs"
+        else
+            fail "deployment rests on main but $source_revision is not merged into origin/main"
+        fi
+    fi
 else
     fail "canonical checkout is missing: $canonical_checkout"
 fi

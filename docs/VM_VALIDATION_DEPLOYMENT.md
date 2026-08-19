@@ -173,13 +173,22 @@ updating its record is how a deployment drifts.
 
    | Key | Source |
    | --- | --- |
-   | `source_branch`, `source_revision` | The checkout, which must be on the branch, not detached |
+   | `source_branch`, `source_revision` | The checkout, which must be on the branch, not detached. `codex/*` during a handoff, or `main` between them — see below |
    | `canonical_build` | The commit-named tree from step 4 |
    | `repository_*`, `package_file` | The active signed publication |
    | `package_sha256`, `catalogue_sha256`, `metadata_sha256` | Computed with `sha256 -q` from the published files |
    | `signature_fingerprint` | The publication record |
    | `quarantine_root` | The dated quarantine for this cycle |
    | `lane` | `ui` or `package`, see below. Absent means `package` |
+
+   **The two resting states.** A deployment is either mid-handoff, on the
+   `codex/*` branch under validation, or between handoffs, on `main` at the
+   revision that was just merged. Both are legitimate and the audit accepts
+   both. `main` carries one extra requirement the in-flight state does not:
+   the revision must be reachable from `origin/main`, so resting on `main`
+   cannot be used to describe work that was never merged. After a
+   squash-merge, update `source_branch` to `main` and `source_revision` to the
+   new head; the branch itself no longer exists to name.
 
    The manifest names the commit under validation, so the later commit that
    records the audit result in the validation document is necessarily not the
