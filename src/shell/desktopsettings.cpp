@@ -444,6 +444,10 @@ void registerDesktopSettings(SettingsCatalog *catalog,
                                         QStringLiteral("city"), QStringLiteral("utc"),
                                         QStringLiteral("clock")};
             zone.kind = SettingsCatalog::choiceKind();
+            // A system that has never recorded its timezone reads back
+            // nothing, and the honest answer is to show that rather than
+            // name a zone it is not actually in.
+            zone.allowsUnset = true;
             // The zone list follows the chosen region, so it is asked for
             // rather than fixed when the catalog is built.
             zone.optionSource = [clock]() {

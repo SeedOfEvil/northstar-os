@@ -638,6 +638,10 @@ Window {
             // controller refused snaps back to what is actually in effect.
             currentIndex: indexOfValue(entry.value)
 
+            // An unset choice would otherwise render as an empty box that
+            // looks broken rather than unanswered.
+            displayText: currentIndex < 0 ? "Not set" : currentText
+
             onActivated: settings.settingsCatalog.setValue(entry.id, valueAt(currentIndex))
         }
     }

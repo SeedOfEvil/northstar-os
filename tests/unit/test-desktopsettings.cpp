@@ -220,9 +220,17 @@ void DesktopSettingsTest::registersNoDeadControls()
                     values.append(map.value(QStringLiteral("value")).toString());
                 }
                 // Whatever it currently reads has to be one of the things it
-                // offers, or the control opens showing nothing selected.
-                QVERIFY2(values.contains(entry.value(QStringLiteral("value")).toString()),
-                         qPrintable(id));
+                // offers, or the control opens showing nothing selected. The
+                // one exception is a choice that declared an unset state, and
+                // even then only nothing is allowed through: a value that is
+                // neither empty nor offered is still a broken control.
+                const QString current = entry.value(QStringLiteral("value")).toString();
+                if (current.isEmpty()) {
+                    QVERIFY2(entry.value(QStringLiteral("allowsUnset")).toBool(),
+                             qPrintable(id));
+                } else {
+                    QVERIFY2(values.contains(current), qPrintable(id));
+                }
             }
 
             // A path entry has to say what it shows when nothing is chosen,

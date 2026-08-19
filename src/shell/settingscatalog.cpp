@@ -302,6 +302,7 @@ QVariantMap SettingsCatalog::describeEntry(const Entry &entry) const
                                          || entry.kind == choiceKind()
                                          || entry.kind == pathKind()},
         {QStringLiteral("options"), optionsFor(entry)},
+        {QStringLiteral("allowsUnset"), entry.allowsUnset},
         {QStringLiteral("nameFilters"), entry.nameFilters},
         {QStringLiteral("emptyLabel"), entry.emptyLabel},
     };
