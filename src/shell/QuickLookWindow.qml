@@ -78,10 +78,19 @@ Window {
         quickLook.showMaximized()
     }
 
-    Shortcut {
-        sequence: "Escape"
-        enabled: quickLook.visible
-        onActivated: quickLook.hide()
+    // Every window that can be maximised can also be stranded beyond reach,
+    // so each one carries the same way back.
+    NorthstarWindowRecovery {
+        id: quickLookRecovery
+        window: quickLook
+        panelHeight: quickLook.panelHeight
+        desktopMargin: quickLook.desktopMargin
+        screenX: quickLook.screenX
+        screenY: quickLook.screenY
+        screenWidth: quickLook.screenWidth
+        screenHeight: quickLook.screenHeight
+        minimumSurfaceWidth: quickLook.minimumSurfaceWidth
+        minimumSurfaceHeight: quickLook.minimumSurfaceHeight
     }
 
     NorthstarWindowFrame {

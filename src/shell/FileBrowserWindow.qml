@@ -166,6 +166,7 @@ Window {
     y: files.screenY + files.panelHeight + Math.max(files.desktopMargin, (files.screenHeight - files.panelHeight - files.height) / 2)
 
     function openBrowser() {
+        filesRecovery.restoreToReach()
         if (!files.fileBrowserController) {
             return
         }
@@ -2556,6 +2557,22 @@ Window {
             onPressed: files.beginResize(mouse.x, mouse.y)
             onPositionChanged: files.updateResize(mouse.x, mouse.y)
         }
+    }
+
+
+    // Every window that can be maximised can also be stranded beyond reach,
+    // so each one carries the same way back.
+    NorthstarWindowRecovery {
+        id: filesRecovery
+        window: files
+        panelHeight: files.panelHeight
+        desktopMargin: files.desktopMargin
+        screenX: files.screenX
+        screenY: files.screenY
+        screenWidth: files.screenWidth
+        screenHeight: files.screenHeight
+        minimumSurfaceWidth: files.minimumSurfaceWidth
+        minimumSurfaceHeight: files.minimumSurfaceHeight
     }
 
     NativeWindowResizeHandler {

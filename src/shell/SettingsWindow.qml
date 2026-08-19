@@ -60,6 +60,7 @@ Window {
     y: screenY + panelHeight + desktopMargin
 
     function openSettings() {
+        settingsRecovery.restoreToReach()
         show()
         raise()
         requestActivate()
@@ -184,14 +185,6 @@ Window {
         }
     }
 
-    Shortcut {
-        sequence: "Escape"
-        enabled: settings.visible && settings.searching
-        onActivated: {
-            searchField.text = ""
-            settings.settingsCatalog.clearQuery()
-        }
-    }
 
     Dialog {
         id: confirmDialog
@@ -562,6 +555,30 @@ Window {
         width: Math.min(620, settings.width - 48)
         x: (settings.width - width) / 2
         y: Math.max(24, (settings.height - height) / 2)
+    }
+
+
+    // Every window that can be maximised can also be stranded beyond reach,
+    // so each one carries the same way back.
+    NorthstarWindowRecovery {
+        id: settingsRecovery
+        window: settings
+        panelHeight: settings.panelHeight
+        desktopMargin: settings.desktopMargin
+        screenX: settings.screenX
+        screenY: settings.screenY
+        screenWidth: settings.screenWidth
+        screenHeight: settings.screenHeight
+        minimumSurfaceWidth: settings.minimumSurfaceWidth
+        minimumSurfaceHeight: settings.minimumSurfaceHeight
+
+        // Clearing a search is a better answer to Escape than closing the
+        // window someone is searching in.
+        handledLocally: settings.searching
+        onEscapePressed: {
+            searchField.text = ""
+            settings.settingsCatalog.clearQuery()
+        }
     }
 
     NativeWindowResizeHandler {
