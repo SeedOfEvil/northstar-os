@@ -6,24 +6,33 @@ Northstar is a planning codename for an open-source, FreeBSD-native desktop oper
 
 ## Project status
 
-Northstar installs and runs. A pinned image assembles into a bootable UEFI
-root-on-ZFS system that installs to a disk, completes first boot, logs in
-through a display manager, updates through a signed repository, and rolls back
-a failed upgrade through ZFS boot environments. That sequence was accepted end
-to end as M5.
+**Pre-alpha.** Northstar runs as a complete system on its supported lane, and
+the first alpha extends that lane to physical Intel and AMD hardware.
 
-The desktop provides a session with supervised restart, a top bar and dock,
-desktop icons, files, a text editor, searchable settings, unified search, Quick
-Look, notifications that survive a restart, and a read-only software inventory.
+A pinned image assembles into a bootable UEFI root-on-ZFS system that installs
+to a disk, completes first boot, logs in through a display manager, updates
+through a signed repository, and rolls back a failed upgrade through ZFS boot
+environments. That sequence is accepted end to end.
 
-What is **not** done: direct DRM/KMS acceptance on physical Intel and AMD
-graphics, multi-display coverage, and the alpha hardware matrix. The Proxmox
-scfb/pixman lane used for daily development is supplemental product evidence
-and is not physical GPU acceptance. Wi-Fi and Bluetooth switching has been
-built but not yet exercised on hardware that has radios.
+The desktop provides:
 
-[`docs/ROADMAP.md`](docs/ROADMAP.md) carries the per-milestone status, and
-`docs/validation/` carries the dated evidence behind each accepted slice.
+- a supervised session that survives a shell restart without closing your
+  applications
+- a top bar, dock, desktop icons, and application overview
+- a file manager with tabs, background copy and move, conflict handling, and
+  one-step undo
+- a multi-document text editor with atomic saves and a private recent-file
+  history
+- searchable settings where every control is declared against the code that
+  backs it
+- unified search, Quick Look, and notifications that survive a restart
+- a read-only software inventory over signed package provenance
+
+**Supported today:** amd64 UEFI on QEMU and Proxmox.
+
+[`docs/ROADMAP.md`](docs/ROADMAP.md) carries per-milestone status and what
+comes next; `docs/validation/` carries the dated evidence behind each accepted
+slice.
 
 ## Fixed baseline
 
