@@ -59,6 +59,16 @@ Item {
         return control.catalog ? control.catalog.setValue(control.entry.id, value) : false
     }
 
+    // A rebuilt entry can carry a new value with an identical option list, in
+    // which case the model never changes and nothing else would re-read the
+    // selection. Syncing on the entry itself covers that; the surface
+    // showing a stale selection is the same defect as showing none.
+    onEntryChanged: {
+        if (loader.item && loader.item.syncToEntry) {
+            loader.item.syncToEntry()
+        }
+    }
+
     Loader {
         id: loader
         anchors.right: parent.right
