@@ -154,9 +154,14 @@ record acceptance with radio behaviour untested. Corrected.
 
 ## Not claimed
 
-This changes only test wait budgets and one documentation header. No product
-behaviour is affected, so there is no new binary for a user to accept and no
-interactive checklist.
+Product behaviour **is** affected, in one narrow way: a configured
+`NORTHSTAR_RADIO_HELPER` that names a path which does not exist now reports no
+radio control, where it previously reported control as available. On a machine
+with no override set, which is every ordinary session, the behaviour is
+unchanged, so there is no user-visible difference to accept and no interactive
+checklist. This is stated rather than filed under test changes because the
+first draft of this document claimed no product behaviour was affected, which
+was wrong.
 
 The radio checklist from PR #103 remains outstanding and is unaffected by this
-change.
+change. Nothing here brings it closer to being settled.
