@@ -199,6 +199,16 @@ QVariantList ApplicationCatalog::toVariantList(const QList<DesktopApplication> &
         item.insert(QStringLiteral("exec"), application.exec);
         item.insert(QStringLiteral("launchable"), application.launchable);
         item.insert(QStringLiteral("mimeTypes"), application.mimeTypes);
+
+        QVariantList actions;
+        for (const DesktopAction &action : application.actions) {
+            actions.append(QVariantMap{
+                {QStringLiteral("id"), action.id},
+                {QStringLiteral("name"), action.name},
+                {QStringLiteral("icon"), action.icon},
+            });
+        }
+        item.insert(QStringLiteral("actions"), actions);
         result.append(item);
     }
 
@@ -299,6 +309,39 @@ bool ApplicationCatalog::launchSpec(const QString &desktopId, QString *program, 
     return !program->isEmpty();
 }
 
+bool ApplicationCatalog::actionLaunchSpec(const QString &desktopId, const QString &actionId,
+                                          QString *program, QStringList *arguments) const
+{
+    if (program == nullptr || arguments == nullptr) {
+        return false;
+    }
+
+    const auto match = std::find_if(m_entries.cbegin(), m_entries.cend(),
+                                    [&desktopId](const DesktopApplication &application) {
+        return application.desktopId == desktopId;
+    });
+    if (match == m_entries.cend()) {
+        return false;
+    }
+
+    const auto action = std::find_if(match->actions.cbegin(), match->actions.cend(),
+                                     [&actionId](const DesktopAction &candidate) {
+        return candidate.id == actionId;
+    });
+    if (action == match->actions.cend()) {
+        return false;
+    }
+
+    const QStringList command = expandActionExec(*match, *action);
+    if (command.isEmpty()) {
+        return false;
+    }
+
+    *program = command.constFirst();
+    *arguments = command.mid(1);
+    return !program->isEmpty();
+}
+
 QStringList ApplicationCatalog::defaultApplicationDirectories()
 {
     QString dataHome = qEnvironmentVariable("XDG_DATA_HOME");
@@ -339,7 +382,10 @@ bool ApplicationCatalog::readDesktopEntry(const QString &path, const QString &de
     }
 
     QHash<QString, QString> values;
-    bool inDesktopEntryGroup = false;
+    // Additional actions live in their own groups further down the file, so
+    // every group is collected rather than only [Desktop Entry].
+    QHash<QString, QHash<QString, QString>> actionGroups;
+    QString currentGroup;
     const QStringList lines = QString::fromUtf8(file.readAll()).split(QLatin1Char('\n'));
     for (QString line : lines) {
         if (line.startsWith(QChar::ByteOrderMark)) {
@@ -352,11 +398,7 @@ bool ApplicationCatalog::readDesktopEntry(const QString &path, const QString &de
         }
 
         if (trimmed.startsWith(QLatin1Char('[')) && trimmed.endsWith(QLatin1Char(']'))) {
-            inDesktopEntryGroup = trimmed == QStringLiteral("[Desktop Entry]");
-            continue;
-        }
-
-        if (!inDesktopEntryGroup) {
+            currentGroup = trimmed.mid(1, trimmed.size() - 2).trimmed();
             continue;
         }
 
@@ -369,7 +411,17 @@ bool ApplicationCatalog::readDesktopEntry(const QString &path, const QString &de
         if (key.isEmpty()) {
             continue;
         }
-        values.insert(key, line.mid(equalsPosition + 1).trimmed());
+        const QString value = line.mid(equalsPosition + 1).trimmed();
+
+        if (currentGroup == QStringLiteral("Desktop Entry")) {
+            values.insert(key, value);
+        } else if (currentGroup.startsWith(QStringLiteral("Desktop Action "))) {
+            const QString actionId =
+                currentGroup.mid(QStringLiteral("Desktop Action ").size()).trimmed();
+            if (!actionId.isEmpty()) {
+                actionGroups[actionId].insert(key, value);
+            }
+        }
     }
 
     if (values.value(QStringLiteral("Type")).trimmed().compare(QStringLiteral("Application"), Qt::CaseInsensitive) != 0
@@ -405,6 +457,41 @@ bool ApplicationCatalog::readDesktopEntry(const QString &path, const QString &de
     }
 
     parsed.launchable = tryExecutable(command.constFirst());
+
+    // Actions are taken in the order the file lists them, because that order
+    // is the author's and a menu that reorders them is harder to use twice.
+    for (const QString &actionId : desktopList(values.value(QStringLiteral("Actions")))) {
+        const auto group = actionGroups.constFind(actionId);
+        if (group == actionGroups.constEnd()) {
+            continue;
+        }
+
+        DesktopAction action;
+        action.id = actionId;
+        action.name = localizedValue(*group, QStringLiteral("Name"));
+        action.exec = group->value(QStringLiteral("Exec")).trimmed();
+        action.icon = unescapeDesktopValue(group->value(QStringLiteral("Icon"))).trimmed();
+
+        // An action with nothing to show or nothing to run is not offered.
+        // Silently dropping it is right: the application itself is still
+        // perfectly usable without it.
+        if (action.name.isEmpty() || action.exec.isEmpty()) {
+            continue;
+        }
+        if (expandActionExec(parsed, action).isEmpty()) {
+            continue;
+        }
+
+        const QStringList onlyShowInAction =
+            desktopList(group->value(QStringLiteral("OnlyShowIn")));
+        const QStringList notShowInAction = desktopList(group->value(QStringLiteral("NotShowIn")));
+        if ((!onlyShowInAction.isEmpty() && !containsNorthstar(onlyShowInAction))
+            || containsNorthstar(notShowInAction)) {
+            continue;
+        }
+
+        parsed.actions.append(action);
+    }
 
     *application = std::move(parsed);
     return true;
@@ -502,6 +589,20 @@ QStringList ApplicationCatalog::tokenizeExec(const QString &exec)
         tokens.append(current);
     }
     return tokens;
+}
+
+QStringList ApplicationCatalog::expandActionExec(const DesktopApplication &application,
+                                                 const DesktopAction &action)
+{
+    // An action names its own command but borrows the application's identity
+    // for the %i and %c field codes, which is what the specification says
+    // those codes mean.
+    DesktopApplication asApplication = application;
+    asApplication.exec = action.exec;
+    if (!action.icon.isEmpty()) {
+        asApplication.icon = action.icon;
+    }
+    return expandExec(asApplication);
 }
 
 QStringList ApplicationCatalog::expandExec(const DesktopApplication &application)
