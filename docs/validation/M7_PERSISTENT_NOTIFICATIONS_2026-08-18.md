@@ -128,10 +128,11 @@ session.
   toggle-search` run twice from the compositor's own environment returns exit
   0 both times, against a freshly created `srwx------`
   `northstar-shell-wayland-1.sock`.
-- `~/.config/northstar-shell/notifications.ini` is correctly absent at this
-  point: the file is written on the first mutation, and no producer has fired
-  since the restart. Its creation and permissions are the first item on the
-  interactive checklist.
+- `~/.config/northstar-shell/notifications.ini` was absent until the first
+  notification was produced, then created as
+  `-rw-------  northstar northstar`. The neighbouring `preferences.ini` in the
+  same directory is `-rw-r--r--`, so the tighter mode is this store's own
+  doing and not inherited from the directory.
 
 The shell self-test emits 7 QML `TypeError` lines in offscreen mode. The same
 7 appear from the pre-change `pr99-1480ec4` build, so they are pre-existing
@@ -140,7 +141,42 @@ They are worth fixing on their own, not in this slice.
 
 ## Interactive acceptance
 
-Pending Hector's 1280x800 noVNC checklist.
+Completed by Hector at 1280x800 over noVNC, against the installed build. The
+shell was restarted four times during the run with `SIGTERM` under its
+supervisor; the compositor stayed up throughout, so each was a shell-only
+restart rather than a new login.
+
+The decisive observations were taken from the history file at each step, so
+what follows is what the desktop actually stored, not a description of what it
+should have stored.
+
+1. **History survives a restart.** A Firefox launch produced
+   `notification-1`. After a restart the panel still showed it, and the file
+   was unchanged byte for byte. Before this change the panel came back empty.
+2. **Read state survives with it.** The restored entry kept `read=true`, so no
+   badge was resurrected for an entry the user had already seen.
+3. **Identifiers do not collide after a restart.** A Northstar Welcome launch
+   in the restarted shell was issued `notification-2` alongside the restored
+   `notification-1`. This is the failure the slice was most concerned with:
+   had the counter reset, the new entry would have reused `notification-1`.
+4. **Dismissal removes the right entry and stays removed.** Hector dismissed
+   the Welcome entry. The survivor was `notification-1`, Firefox — the
+   restored one — and it was still there after a restart. Under a colliding
+   identifier the row count would have looked correct while the wrong entry
+   disappeared, which is why the surviving entry was checked by identity
+   rather than by count.
+5. **The file shrinks rather than leaving stale records.** `size` went from 2
+   to 1 on dismissal with no orphaned keys, confirming
+   `shrinksWhenTheHistoryShrinks` against real data.
+6. **Clearing persists.** After Clear the file held `[notifications]` and
+   `size=0` with no residual records, and the panel was still empty after a
+   restart.
+7. **Settings.** The searchable **Notification history** entry resolved and
+   read back the live count and retention window.
+8. **No regression in PR #99's shortcut.** `Ctrl+K` still opens unified
+   search from a real keypress, not only from the command-line probe.
+
+Hector's summary across the run: "all looks good" and "works!".
 
 ## Not claimed
 
