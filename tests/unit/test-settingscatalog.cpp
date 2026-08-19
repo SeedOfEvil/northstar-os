@@ -20,6 +20,9 @@ private slots:
     void clampsSliderValuesToTheDeclaredRange();
     void refusesToWriteAnUnavailableControlAndStatesWhy();
     void refusesToWriteReadOnlyEntries();
+    void refusesChoicesWithNothingToChooseFrom();
+    void writesOnlyValuesAChoiceOffers();
+    void writesPathsAndReportsTheControllersReason();
     void performsActions();
     void reportsAFailedAction();
     void reportsCurrentValuesOnEveryRead();
@@ -425,6 +428,125 @@ void SettingsCatalogTest::refusesToWriteReadOnlyEntries()
     const QVariantMap entry = catalog.entryFor(QStringLiteral("session.display"));
     QVERIFY(!entry.value(QStringLiteral("writable")).toBool());
     QCOMPARE(entry.value(QStringLiteral("value")).toString(), QStringLiteral("wayland-1"));
+}
+
+void SettingsCatalogTest::refusesChoicesWithNothingToChooseFrom()
+{
+    SettingsCatalog catalog;
+    catalog.registerSection(QStringLiteral("appearance"), QStringLiteral("Appearance"));
+    QString fit = QStringLiteral("fill");
+
+    // A choice with no options presents a control the user cannot answer.
+    SettingsCatalog::Entry empty;
+    empty.id = QStringLiteral("appearance.emptychoice");
+    empty.section = QStringLiteral("appearance");
+    empty.title = QStringLiteral("Empty choice");
+    empty.kind = SettingsCatalog::choiceKind();
+    empty.read = [&fit]() { return QVariant(fit); };
+    empty.write = [&fit](const QVariant &value) {
+        fit = value.toString();
+        return true;
+    };
+    QVERIFY(!catalog.registerEntry(empty));
+
+    // An option with no value cannot be written back through the accessor.
+    SettingsCatalog::Entry valueless = empty;
+    valueless.id = QStringLiteral("appearance.valuelesschoice");
+    valueless.options.append(SettingsCatalog::choiceOption(QString(), QStringLiteral("Nothing")));
+    QVERIFY(!catalog.registerEntry(valueless));
+
+    SettingsCatalog::Entry good = empty;
+    good.id = QStringLiteral("appearance.fit");
+    good.options.append(SettingsCatalog::choiceOption(QStringLiteral("fill"),
+                                                     QStringLiteral("Fill screen")));
+    good.options.append(SettingsCatalog::choiceOption(QStringLiteral("tile"),
+                                                     QStringLiteral("Tile")));
+    QVERIFY(catalog.registerEntry(good));
+    QVERIFY(catalog.entryFor(QStringLiteral("appearance.fit"))
+                .value(QStringLiteral("writable"))
+                .toBool());
+}
+
+void SettingsCatalogTest::writesOnlyValuesAChoiceOffers()
+{
+    SettingsCatalog catalog;
+    catalog.registerSection(QStringLiteral("appearance"), QStringLiteral("Appearance"));
+    QString fit = QStringLiteral("fill");
+    int writes = 0;
+
+    SettingsCatalog::Entry entry;
+    entry.id = QStringLiteral("appearance.fit");
+    entry.section = QStringLiteral("appearance");
+    entry.title = QStringLiteral("Background fit");
+    entry.kind = SettingsCatalog::choiceKind();
+    entry.options.append(SettingsCatalog::choiceOption(QStringLiteral("fill"),
+                                                      QStringLiteral("Fill screen")));
+    entry.options.append(SettingsCatalog::choiceOption(QStringLiteral("tile"),
+                                                      QStringLiteral("Tile")));
+    entry.read = [&fit]() { return QVariant(fit); };
+    entry.write = [&fit, &writes](const QVariant &value) {
+        ++writes;
+        fit = value.toString();
+        return true;
+    };
+    QVERIFY(catalog.registerEntry(entry));
+
+    QVERIFY(catalog.setValue(QStringLiteral("appearance.fit"), QStringLiteral("tile")));
+    QCOMPARE(fit, QStringLiteral("tile"));
+    QCOMPARE(writes, 1);
+
+    // A value not on the list never reaches the controller at all.
+    QVERIFY(!catalog.setValue(QStringLiteral("appearance.fit"), QStringLiteral("diagonal")));
+    QCOMPARE(fit, QStringLiteral("tile"));
+    QCOMPARE(writes, 1);
+    QVERIFY(catalog.statusIsError());
+}
+
+void SettingsCatalogTest::writesPathsAndReportsTheControllersReason()
+{
+    SettingsCatalog catalog;
+    catalog.registerSection(QStringLiteral("appearance"), QStringLiteral("Appearance"));
+    QString picture;
+    bool accept = true;
+
+    SettingsCatalog::Entry entry;
+    entry.id = QStringLiteral("appearance.wallpaper");
+    entry.section = QStringLiteral("appearance");
+    entry.title = QStringLiteral("Desktop background");
+    entry.kind = SettingsCatalog::pathKind();
+    entry.emptyLabel = QStringLiteral("Built-in background");
+    entry.read = [&picture]() { return QVariant(picture); };
+    entry.write = [&picture, &accept](const QVariant &value) {
+        if (!accept) {
+            return false;
+        }
+        picture = value.toString();
+        return true;
+    };
+    entry.writeFailureReason = []() {
+        return QStringLiteral("photo.txt is not a picture Northstar can display.");
+    };
+    QVERIFY(catalog.registerEntry(entry));
+
+    const QVariantMap described = catalog.entryFor(QStringLiteral("appearance.wallpaper"));
+    QVERIFY(described.value(QStringLiteral("writable")).toBool());
+    QCOMPARE(described.value(QStringLiteral("emptyLabel")).toString(),
+             QStringLiteral("Built-in background"));
+
+    QVERIFY(catalog.setValue(QStringLiteral("appearance.wallpaper"),
+                             QStringLiteral("  /home/northstar/desert.png  ")));
+    // The surface trims what it was given; judging the file is the
+    // controller's business, not the catalog's.
+    QCOMPARE(picture, QStringLiteral("/home/northstar/desert.png"));
+
+    // A refusal repeats the controller's reason rather than inventing a
+    // vaguer one of its own.
+    accept = false;
+    QVERIFY(!catalog.setValue(QStringLiteral("appearance.wallpaper"),
+                              QStringLiteral("/home/northstar/photo.txt")));
+    QVERIFY(catalog.statusIsError());
+    QCOMPARE(catalog.statusMessage(),
+             QStringLiteral("photo.txt is not a picture Northstar can display."));
 }
 
 void SettingsCatalogTest::performsActions()

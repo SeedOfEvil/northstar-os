@@ -21,6 +21,7 @@
 #include "updateauthorizationcontroller.h"
 #include "updateplancontroller.h"
 #include "volumecatalog.h"
+#include "wallpapercontroller.h"
 #include "windowcontroller.h"
 #include "northstarui.h"
 
@@ -166,6 +167,7 @@ int main(int argc, char *argv[])
     SessionController sessionController;
     ShortcutCatalog shortcutCatalog;
     VolumeController volumeController;
+    WallpaperController wallpaperController;
     WindowController windowController;
     notificationCenter.setDoNotDisturb(quickSettingsController.doNotDisturb());
     QObject::connect(&quickSettingsController, &QuickSettingsController::doNotDisturbChanged,
@@ -195,13 +197,16 @@ int main(int argc, char *argv[])
                             &desktopLayoutController,
                             &applicationLauncher,
                             &pinnedApplicationModel,
-                            &sessionController);
+                            &sessionController,
+                            &wallpaperController);
 
     // Settings reads straight through to the controllers, so it only has to be
     // told when one of them changed underneath it.
     const auto refreshSettings = [&settingsCatalog]() { settingsCatalog.refresh(); };
     QObject::connect(&shellState, &ShellState::darkModeChanged, &settingsCatalog, refreshSettings);
     QObject::connect(&shellState, &ShellState::filesGridViewChanged, &settingsCatalog, refreshSettings);
+    QObject::connect(&wallpaperController, &WallpaperController::wallpaperChanged, &settingsCatalog,
+                     refreshSettings);
     QObject::connect(&quickSettingsController, &QuickSettingsController::capabilitiesChanged,
                      &settingsCatalog, refreshSettings);
     QObject::connect(&quickSettingsController, &QuickSettingsController::doNotDisturbChanged,
@@ -297,6 +302,8 @@ int main(int argc, char *argv[])
         backgroundContext->setContextProperty(QStringLiteral("northstarGeneratedIconsDirectory"), generatedIconsDirectory);
         backgroundContext->setContextProperty(QStringLiteral("northstarDesktopLayoutController"), &desktopLayoutController);
         backgroundContext->setContextProperty(QStringLiteral("shellState"), &shellState);
+        backgroundContext->setContextProperty(QStringLiteral("northstarWallpaperController"),
+                                              &wallpaperController);
         backgroundContext->setContextProperty(QStringLiteral("targetScreen"), screen);
         backgroundContext->setContextProperty(QStringLiteral("displayIndex"), index);
 
@@ -335,6 +342,8 @@ int main(int argc, char *argv[])
                                     &shellCommandServer);
         context->setContextProperty(QStringLiteral("northstarShortcutCatalog"), &shortcutCatalog);
         context->setContextProperty(QStringLiteral("northstarVolumeController"), &volumeController);
+        context->setContextProperty(QStringLiteral("northstarWallpaperController"),
+                                    &wallpaperController);
         context->setContextProperty(QStringLiteral("northstarWindowController"), &windowController);
         context->setContextProperty(QStringLiteral("northstarPinnedApplicationModel"),
                                     &pinnedApplicationModel);

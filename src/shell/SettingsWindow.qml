@@ -15,6 +15,7 @@ Window {
     property var launcherController
     property var sessionController
     property var settingsCatalog
+    property var wallpaperController
     property bool hasCatalog: settingsCatalog !== null && settingsCatalog !== undefined
     property bool hasSessionController: sessionController !== null && sessionController !== undefined
     property bool sessionFailed: settings.hasSessionController
@@ -532,7 +533,8 @@ Window {
                                     id: entryControl
                                     anchors.verticalCenter: parent.verticalCenter
                                     height: 34
-                                    width: modelData.kind === "slider" ? 210 : 150
+                                    width: modelData.kind === "slider" ? 210
+                                        : modelData.kind === "path" ? 230 : 150
 
                                     Loader {
                                         id: controlLoader
@@ -542,9 +544,13 @@ Window {
                                             ? toggleControl
                                             : modelData.kind === "slider"
                                                 ? sliderControl
-                                                : modelData.kind === "action"
-                                                    ? actionControl
-                                                    : infoControl
+                                                : modelData.kind === "choice"
+                                                    ? choiceControl
+                                                    : modelData.kind === "path"
+                                                        ? pathControl
+                                                        : modelData.kind === "action"
+                                                            ? actionControl
+                                                            : infoControl
 
                                         property var entry: modelData
                                     }
@@ -616,6 +622,66 @@ Window {
             text: entry.actionLabel
             onClicked: settings.activateEntry(entry)
         }
+    }
+
+    Component {
+        id: choiceControl
+
+        ComboBox {
+            enabled: entry.available
+            model: entry.options
+            textRole: "label"
+            valueRole: "value"
+            width: 150
+
+            // Bound to the entry rather than tracked locally, so a value the
+            // controller refused snaps back to what is actually in effect.
+            currentIndex: indexOfValue(entry.value)
+
+            onActivated: settings.settingsCatalog.setValue(entry.id, valueAt(currentIndex))
+        }
+    }
+
+    Component {
+        id: pathControl
+
+        Row {
+            spacing: 8
+
+            Text {
+                anchors.verticalCenter: parent.verticalCenter
+                color: settings.surfaceMuted
+                elide: Text.ElideLeft
+                font.pixelSize: 12
+                horizontalAlignment: Text.AlignRight
+                text: entry.value !== "" ? entry.value : entry.emptyLabel
+                width: 130
+            }
+
+            Button {
+                anchors.verticalCenter: parent.verticalCenter
+                enabled: entry.available
+                text: "Choose..."
+                onClicked: settingsWallpaperPicker.openAt()
+            }
+        }
+    }
+
+    // Settings offers the same picker the desktop does. It is declared once
+    // here and reached by every path entry, because this build has exactly
+    // one picture-valued setting.
+    WallpaperPicker {
+        id: settingsWallpaperPicker
+
+        surfaceAccent: settings.surfaceAccent
+        surfaceBackground: settings.surfaceBackground
+        surfaceForeground: settings.surfaceForeground
+        surfaceMuted: settings.surfaceMuted
+        surfaceRaised: settings.surfaceRaised
+        wallpaper: settings.wallpaperController
+        width: Math.min(620, settings.width - 48)
+        x: (settings.width - width) / 2
+        y: Math.max(24, (settings.height - height) / 2)
     }
 
     Component {

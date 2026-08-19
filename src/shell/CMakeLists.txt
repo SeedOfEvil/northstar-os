@@ -21,6 +21,7 @@ add_library(northstar-shell-core STATIC
     updateauthorizationcontroller.cpp
     updateplancontroller.cpp
     volumecatalog.cpp
+    wallpapercontroller.cpp
     windowcontroller.cpp
 )
 
@@ -62,6 +63,7 @@ qt_add_qml_module(northstar-shell
         FileBrowserWindow.qml
         SystemMenu.qml
         SettingsWindow.qml
+        WallpaperPicker.qml
 )
 
 find_package(LayerShellQt 6.6 CONFIG REQUIRED)

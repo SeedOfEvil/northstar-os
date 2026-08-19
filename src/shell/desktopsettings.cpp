@@ -9,6 +9,7 @@
 #include "sessioncontroller.h"
 #include "settingscatalog.h"
 #include "shellstate.h"
+#include "wallpapercontroller.h"
 
 #include <QCoreApplication>
 #include <QString>
@@ -49,7 +50,8 @@ void registerDesktopSettings(SettingsCatalog *catalog,
                              DesktopLayoutController *desktopLayout,
                              ApplicationLauncher *launcher,
                              PinnedApplicationModel *pinnedApplications,
-                             SessionController *session)
+                             SessionController *session,
+                             WallpaperController *wallpaper)
 {
     if (!catalog) {
         return;
@@ -88,6 +90,56 @@ void registerDesktopSettings(SettingsCatalog *catalog,
             return shellState->darkMode() == value.toBool();
         };
         catalog->registerEntry(dark);
+    }
+
+    if (wallpaper) {
+        SettingsCatalog::Entry picture;
+        picture.id = QStringLiteral("appearance.wallpaper");
+        picture.section = QStringLiteral("appearance");
+        picture.title = QStringLiteral("Desktop background");
+        picture.description =
+            QStringLiteral("A picture from your files, or the built-in Northstar background.");
+        picture.keywords = QStringList{QStringLiteral("wallpaper"), QStringLiteral("background"),
+                                       QStringLiteral("desktop"), QStringLiteral("picture"),
+                                       QStringLiteral("image"), QStringLiteral("photo")};
+        picture.kind = SettingsCatalog::pathKind();
+        picture.emptyLabel = QStringLiteral("Built-in Northstar background");
+        picture.nameFilters = QStringList{
+            QStringLiteral("Pictures (*.png *.jpg *.jpeg *.webp *.bmp *.gif)"),
+            QStringLiteral("All files (*)")};
+        picture.read = [wallpaper]() { return QVariant(wallpaper->imagePath()); };
+        picture.write = [wallpaper](const QVariant &value) {
+            return wallpaper->setImagePath(value.toString());
+        };
+        // The controller has already worked out why a picture was refused;
+        // repeating that reason is better than inventing a vaguer one.
+        picture.writeFailureReason = [wallpaper]() { return wallpaper->status(); };
+        catalog->registerEntry(picture);
+
+        SettingsCatalog::Entry fit;
+        fit.id = QStringLiteral("appearance.wallpaperfit");
+        fit.section = QStringLiteral("appearance");
+        fit.title = QStringLiteral("Background fit");
+        fit.description = QStringLiteral("How the picture is scaled to the screen.");
+        fit.keywords = QStringList{QStringLiteral("fit"), QStringLiteral("fill"),
+                                   QStringLiteral("stretch"), QStringLiteral("centre"),
+                                   QStringLiteral("center"), QStringLiteral("tile"),
+                                   QStringLiteral("scale"), QStringLiteral("wallpaper")};
+        fit.kind = SettingsCatalog::choiceKind();
+        for (const QString &mode : WallpaperController::fitModes()) {
+            fit.options.append(
+                SettingsCatalog::choiceOption(mode, WallpaperController::fitModeLabel(mode)));
+        }
+        fit.read = [wallpaper]() { return QVariant(wallpaper->fitMode()); };
+        fit.write = [wallpaper](const QVariant &value) {
+            return wallpaper->setFitMode(value.toString());
+        };
+        // Fit only means something once there is a picture to fit.
+        fit.available = [wallpaper]() { return wallpaper->hasImage(); };
+        fit.unavailableReason = []() {
+            return QStringLiteral("No picture is set, so there is nothing to fit.");
+        };
+        catalog->registerEntry(fit);
     }
 
     if (quickSettings) {

@@ -8,6 +8,7 @@ class QuickSettingsController;
 class SessionController;
 class SettingsCatalog;
 class ShellState;
+class WallpaperController;
 
 // Declares every desktop setting Northstar actually backs, wiring each one to
 // the controller that owns the behavior. Kept out of the shell entry point so
@@ -19,4 +20,5 @@ void registerDesktopSettings(SettingsCatalog *catalog,
                              DesktopLayoutController *desktopLayout,
                              ApplicationLauncher *launcher,
                              PinnedApplicationModel *pinnedApplications,
-                             SessionController *session);
+                             SessionController *session,
+                             WallpaperController *wallpaper);

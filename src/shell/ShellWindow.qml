@@ -612,6 +612,7 @@ Window {
         launcherController: launcher
         sessionController: northstarSessionController
         settingsCatalog: northstarSettingsCatalog
+        wallpaperController: northstarWallpaperController
         targetScreen: targetScreen
         panelHeight: root.height
     }
