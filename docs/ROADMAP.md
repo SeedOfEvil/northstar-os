@@ -471,9 +471,26 @@ writable backend in this build and are declared read-only for that reason; the
 writable controls are dark appearance, Files grid view, output volume, Do Not
 Disturb, and the declared actions.
 
-The remaining M7 slice is persistent notifications. It remains a separate
-branch and squash-merged PR after immutable FreeBSD automation and focused
-1280x800 noVNC acceptance.
+Persistent notifications are accepted through PR #100. Notification history is
+written to a user-private, owner-only file and restored at login with read and
+unread state intact, bounded by the same 40-entry cap and a 14-day retention
+window. Restored entries keep the identifiers they were dismissed by, so the
+centre derives its next identifier from the highest one it loaded rather than
+reusing one. Entries show an age rather than a stored timestamp, which is what
+history outliving a session requires to stay readable.
+
+PR #101 removes seven QML TypeErrors emitted at shutdown by tearing the shell
+surfaces down from a scope guard before the controllers they bind to, which
+also closes two early-return paths that leaked surfaces. PR #102 makes the
+deployment auditor enforce per-lane expectations, so a UI handoff that
+publishes no package no longer requires an exception written in prose, and
+makes the pkg configuration check read the filesystem rather than the manifest.
+
+Writable Wi-Fi and Bluetooth are in progress on PR #103. Radio changes go
+through a fixed-argument privilege boundary that resolves the interface itself,
+and a radio becomes a control only where that boundary is installed and the
+hardware is present. Its interactive acceptance is deferred to a physical
+machine, because the development VM has no wireless or Bluetooth hardware.
 
 PR90 begins M6 with a privacy-bounded alpha-readiness probe and deterministic
 classification tests. The probe distinguishes `ready`, `supplemental`, and
