@@ -1,8 +1,12 @@
-# Transfer test failure deadlines — 2026-08-18
+# Tests that depended on the machine running them — 2026-08-18
 
-PR #104, verified on NSTAR-DEV01 (FreeBSD 15.1-RELEASE-p2) at commit `a73c102`,
-built in `/home/northstar/builds/pr104-a73c102` with the project's canonical
+PR #104, verified on NSTAR-DEV01 (FreeBSD 15.1-RELEASE-p2) at commit `59a05ee`,
+built in `/home/northstar/builds/pr104-59a05ee` with the project's canonical
 `-DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON`.
+
+Two defects of the same shape: a test whose result depended on the machine
+rather than the code. The first depended on how *busy* the machine was, the
+second on what was *installed* on it.
 
 ## The failure
 
@@ -80,12 +84,66 @@ applied was well beyond anything a normal run encounters — sixteen compiler
 jobs and six disk writers on an eight-processor VM — so the remaining margin is
 adequate rather than tight.
 
+## The second defect: tests that read the real filesystem
+
+The idle `ctest` run for this branch reported **32/34**, and both failures came
+from PR #103, merged earlier the same day.
+
+`QuickSettingsController::radioHelperPath()` falls back to `~/.local/bin` and
+then `PATH`. The new radio tests expressed "no helper installed" by *unsetting*
+the `NORTHSTAR_RADIO_HELPER` override, which fell through to the real
+filesystem. Once `northstar-radio` was installed on DEV01 during that same
+pull request's own verification, two suites began to fail:
+
+- `QuickSettingsControllerTest::leavesRadiosReadOnlyWithoutTheHelper` asserted
+  no radio control was available and found the freshly installed helper.
+- `DesktopSettingsTest::reportsMissingWirelessHardwareHonestly`, which is
+  **pre-existing from Settings v2 (#96)**, expects the Wi-Fi entry to be a
+  reading and found it declared as a toggle.
+
+PR #103's suite passed only because it ran before the install. The ordering
+concealed it.
+
+This is the same defect that was caught during persistent notifications, where
+tests constructing a controller with its default path would have written the
+real desktop's history, and it was reintroduced two slices later. The trap is
+already recorded in `docs/VM_VALIDATION_DEPLOYMENT.md`; writing it down did not
+prevent it.
+
+### It was not only a test bug
+
+A configured `NORTHSTAR_RADIO_HELPER` naming a path that did not exist
+previously reported radio control as **available**. The shell would have
+offered a Wi-Fi toggle backed by a helper that was not there, which is exactly
+the failure this surface is built to avoid.
+
+A configured override is now authoritative including when it names nothing, so
+it can say "no helper here" as well as "this one". That is what makes the tests
+isolatable and fixes the shell behaviour at the same time.
+
+Every radio case now pins the override, installing an executable stub where the
+boundary is meant to exist. The Settings suite pins it to an absent path so the
+declaration is deterministic, and gains a case for the branch that was
+previously untested: boundary installed, radios declared as controls, still
+honestly unavailable without hardware.
+
+### Verified in both directions
+
+Machine independence is the claim, so both machine states were measured rather
+than one:
+
+| Machine state | `quicksettingscontroller` | `desktopsettings` |
+| --- | --- | --- |
+| Helper installed in `~/.local/bin` | 12 passed, 0 failed | 12 passed, 0 failed |
+| Helper removed from the machine | 12 passed, 0 failed | 12 passed, 0 failed |
+
 ## Automated evidence
 
 - Clean build, all 394 targets, 0 errors.
-- `env QT_QPA_PLATFORM=offscreen ctest --test-dir /home/northstar/builds/pr104-a73c102 --output-on-failure`
-  — **34/34 suites passed, 0 failed**, idle.
-- The A/B under load recorded above.
+- `env QT_QPA_PLATFORM=offscreen ctest --test-dir /home/northstar/builds/pr104-59a05ee --output-on-failure`
+  — **34/34 suites passed, 0 failed**, run with the helper installed, which is
+  the condition that exposed the second defect.
+- The load A/B and the installed/removed A/B recorded above.
 - `git diff --check` — exit 0.
 
 ## Also in this change

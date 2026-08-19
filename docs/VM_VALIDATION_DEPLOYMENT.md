@@ -367,6 +367,21 @@ false claim.
   because the server never gets a chance to accept. Pump the event loop instead.
 - **Leave no stray processes.** Check after any aborted run, and kill only what
   that run started.
+- **A test must not read the machine it runs on.** Any lookup that falls back to
+  `$HOME`, `PATH`, or a system prefix will make a suite pass or fail according
+  to what happens to be installed. Expressing absent by unsetting an override
+  is not enough when the override has a filesystem fallback: give the override
+  authority to name nothing, and pin it in every case. This has now happened
+  twice — first with a controller whose default path would have written the
+  real desktop's history, then with a privileged helper looked up in
+  `~/.local/bin`. In the second instance the suite passed only because it ran
+  before the helper was installed, so run a suite again after installing
+  anything it can see.
+- **Timeouts are failure deadlines, not stopwatches.** `QTRY_*` returns as soon
+  as its condition holds, so a generous value costs a passing run nothing and
+  only sets how long a genuine hang takes to report. A budget close to the real
+  duration will fail on a loaded machine. Name the constant so the next reader
+  knows which it is.
 
 ## Acceptance and retirement
 
