@@ -221,6 +221,16 @@ QStringList ClockController::zonesIn(const QString &region) const
     return found;
 }
 
+QStringList ClockController::selectableZones() const
+{
+    QStringList zones = zonesIn(m_region);
+    if (!m_timeZone.isEmpty() && !zones.contains(m_timeZone)) {
+        zones.append(m_timeZone);
+        zones.sort();
+    }
+    return zones;
+}
+
 bool ClockController::isKnownZone(const QString &zone) const
 {
     const QString trimmed = zone.trimmed();

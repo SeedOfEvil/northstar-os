@@ -31,6 +31,7 @@ private slots:
     void reportsABoundaryThatRefusesTheChange();
     void togglesNetworkTimeThroughTheBoundary();
     void refusesAOneShotSyncWhileTheDaemonIsRunning();
+    void keepsOfferingTheZoneInEffectWhileBrowsingAnotherRegion();
 
 private:
     QString root() const;
@@ -329,6 +330,29 @@ void ClockControllerTest::refusesAOneShotSyncWhileTheDaemonIsRunning()
     // nothing for it to do anyway.
     QVERIFY(!clock.synchroniseNow());
     QVERIFY(clock.statusIsError());
+}
+
+void ClockControllerTest::keepsOfferingTheZoneInEffectWhileBrowsingAnotherRegion()
+{
+    recordZone(QStringLiteral("America/Denver"));
+    ClockController clock(nullptr, root());
+    QCOMPARE(clock.timeZone(), QStringLiteral("America/Denver"));
+    QCOMPARE(clock.region(), QStringLiteral("America"));
+
+    // Browsing is not choosing. Looking at another region must not make the
+    // surface report that no timezone is set, which is what happens when the
+    // zone in effect is missing from the list the control offers.
+    clock.setRegion(QStringLiteral("Europe"));
+
+    const QStringList offered = clock.selectableZones();
+    QVERIFY(offered.contains(QStringLiteral("Europe/London")));
+    QVERIFY2(offered.contains(QStringLiteral("America/Denver")),
+             "the zone in effect disappeared while another region was browsed");
+    QCOMPARE(clock.timeZone(), QStringLiteral("America/Denver"));
+
+    // Back in its own region it is offered exactly once.
+    clock.setRegion(QStringLiteral("America"));
+    QCOMPARE(clock.selectableZones().count(QStringLiteral("America/Denver")), 1);
 }
 
 QTEST_MAIN(ClockControllerTest)

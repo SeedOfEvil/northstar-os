@@ -57,6 +57,13 @@ public:
     // beneath one, which can be two levels deep (America/Indiana/Knox).
     Q_INVOKABLE QStringList regions() const;
     Q_INVOKABLE QStringList zonesIn(const QString &region) const;
+
+    // What a surface should offer: the zones in the region being browsed,
+    // plus the zone actually in effect. Browsing is not the same act as
+    // choosing, and a control that dropped the current zone while the user
+    // looked at another region would report the timezone as unset when it is
+    // nothing of the kind.
+    Q_INVOKABLE QStringList selectableZones() const;
     Q_INVOKABLE bool isKnownZone(const QString &zone) const;
 
 public slots:

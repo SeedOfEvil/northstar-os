@@ -452,7 +452,7 @@ void registerDesktopSettings(SettingsCatalog *catalog,
             // rather than fixed when the catalog is built.
             zone.optionSource = [clock]() {
                 QVariantList options;
-                for (const QString &name : clock->zonesIn(clock->region())) {
+                for (const QString &name : clock->selectableZones()) {
                     options.append(SettingsCatalog::choiceOption(name, name));
                 }
                 return options;

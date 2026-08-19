@@ -38,6 +38,7 @@ private slots:
     void offersNoFitUntilAPictureIsChosen();
     void declaresTheClockAgainstTheZoneinfoDatabase();
     void leavesTheClockReadOnlyWithoutTheBoundary();
+    void keepsTheTimezoneOnShowWhileAnotherRegionIsBrowsed();
     void refusesSessionActionsWhenTheSessionIsNotSupervised();
     void resetsTheDesktopLayoutThroughItsController();
     void findsRepresentativeSettingsBySearch();
@@ -398,6 +399,37 @@ void DesktopSettingsTest::declaresTheClockAgainstTheZoneinfoDatabase()
 
     // An index file in the database is not a zone and is never offered.
     QVERIFY(!offeredZones.contains(QStringLiteral("zone.tab")));
+}
+
+void DesktopSettingsTest::keepsTheTimezoneOnShowWhileAnotherRegionIsBrowsed()
+{
+    // Record a zone the way a successful change does, so the fixture starts
+    // where a configured system does.
+    const QString recordPath = m_directory->filePath(QStringLiteral("system/var/db/zoneinfo"));
+    QVERIFY(QDir().mkpath(QFileInfo(recordPath).absolutePath()));
+    QFile record(recordPath);
+    QVERIFY(record.open(QIODevice::WriteOnly));
+    record.write("America/Denver\n");
+    record.close();
+
+    Desktop desktop(m_directory->path());
+    QCOMPARE(desktop.clock.timeZone(), QStringLiteral("America/Denver"));
+
+    QVERIFY(desktop.catalog.setValue(QStringLiteral("datetime.region"),
+                                     QStringLiteral("Europe")));
+
+    // The control must still be showing the timezone that is actually in
+    // effect. When its value is not among the options it offers, the surface
+    // renders it as unset, which reads as the setting having been lost.
+    const QVariantMap zone = desktop.catalog.entryFor(QStringLiteral("datetime.timezone"));
+    QCOMPARE(zone.value(QStringLiteral("value")).toString(), QStringLiteral("America/Denver"));
+    QStringList offered;
+    for (const QVariant &option : zone.value(QStringLiteral("options")).toList()) {
+        offered.append(option.toMap().value(QStringLiteral("value")).toString());
+    }
+    QVERIFY(offered.contains(QStringLiteral("Europe/London")));
+    QVERIFY2(offered.contains(QStringLiteral("America/Denver")),
+             "the timezone in effect was not offered, so the control reads as unset");
 }
 
 void DesktopSettingsTest::leavesTheClockReadOnlyWithoutTheBoundary()
