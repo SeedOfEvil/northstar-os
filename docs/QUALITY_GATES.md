@@ -341,9 +341,41 @@ Every persistent Proxmox handoff must also follow
 make validation-deployment-audit
 ```
 
-The auditor is deliberately read-only. A failed audit blocks handoff or merge;
-it never authorizes deletion of historical checkouts, builds, repositories,
-signing identities, snapshots, or boot environments.
+The auditor is deliberately read-only. It never authorizes deletion of
+historical checkouts, builds, repositories, signing identities, snapshots, or
+boot environments.
+
+**What counts as a failed audit depends on the lane**, and stating this as an
+unconditional pass requirement is what produced eight days of recorded
+exceptions. The auditor cross-checks the deployed source revision against the
+signed publication's source revision, and a user-interface pull request
+installed under `~/.local` publishes no package, so those two legitimately
+differ. Closing that check requires a protected publication environment, which
+by design holds signing material that does not exist in pull-request execution.
+
+Declare the lane in the manifest so the auditor enforces the right expectation
+instead of a reviewer remembering an exception:
+
+- `lane=package` (the default when absent): the publication must have been built
+  from the deployed source revision.
+- `lane=ui`: that one divergence is reported as a `NOTE`. Nothing else is
+  relaxed.
+
+**In both lanes the audit must report zero failures, and any failure blocks
+handoff and merge.** Because the lane is declared, a correctly written UI
+manifest passes, so there is no longer a case where the only way to satisfy this
+gate is to write an exception.
+
+In both lanes the manifest must be rewritten for the handoff, and the result
+must be recorded honestly in the validation document. Never claim the audit
+passes when it does not. A stale manifest is worse than an absent one: it can
+agree with an equally stale `pkg` configuration and hide a broken repository
+behind a passing check, which is precisely what happened between 2026-08-10 and
+2026-08-18.
+
+`docs/VM_VALIDATION_DEPLOYMENT.md` carries the per-lane expectations, the
+per-step update obligations, and a catalogue of traps that have each cost real
+time.
 
 ## Release gate
 

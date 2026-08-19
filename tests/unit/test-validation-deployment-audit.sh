@@ -89,5 +89,85 @@ if "$AUDITOR" --manifest "$MANIFEST" --allow-unprivileged-manifest --strict >/de
     printf 'FAIL: strict audit accepted an orphaned build\n' >&2
     exit 1
 fi
+rmdir "$TMP_DIR/builds/orphaned-build"
+
+audit() {
+    "$AUDITOR" --manifest "$1" --allow-unprivileged-manifest --strict 2>&1
+}
+
+# --- The pkg configuration is read against the filesystem, not the manifest ---
+#
+# A manifest and a pkg configuration that went stale together name the same
+# removed directory and agree with each other. Before this check, that state
+# reported the active repository as correct while pkg was pointed at nothing.
+STALE_REPOSITORY=$TMP_DIR/validation/development-channel-r00
+cat > "$ACTIVE_CONFIG" <<EOF
+northstar-development: { url: "file://$STALE_REPOSITORY" }
+EOF
+sed "s|^repository_path=.*|repository_path=$STALE_REPOSITORY|" "$MANIFEST" > "$MANIFEST.stale"
+if audit "$MANIFEST.stale" | grep -q 'PASS: every repository named by the active pkg configuration exists'; then
+    printf 'FAIL: audit accepted a pkg configuration naming a removed repository\n' >&2
+    exit 1
+fi
+if ! audit "$MANIFEST.stale" | grep -q 'names a directory that does not exist'; then
+    printf 'FAIL: audit did not report the removed repository directory\n' >&2
+    exit 1
+fi
+
+cat > "$ACTIVE_CONFIG" <<EOF
+northstar-development: { url: "file://$REPOSITORY" }
+EOF
+audit "$MANIFEST" >/dev/null
+
+# --- Lane expectations -------------------------------------------------------
+#
+# An interface handoff publishes no package, so its deployed source is ahead of
+# the last signed publication. That is expected and reported as a note. A
+# package handoff must still fail on it, and an absent lane must behave as the
+# stricter package lane so the key can never weaken an audit by omission.
+cat > "$REPOSITORY/publication-record.conf" <<EOF
+repository_revision=76
+source_revision=0000000000000000000000000000000000000000
+catalogue_sha256=$CATALOGUE_SHA
+metadata_sha256=$METADATA_SHA
+signature_fingerprint=$FINGERPRINT
+EOF
+
+if audit "$MANIFEST" >/dev/null 2>&1; then
+    printf 'FAIL: audit accepted a diverged publication without a declared lane\n' >&2
+    exit 1
+fi
+
+sed 's|^schema_version=2$|schema_version=2\nlane=package|' "$MANIFEST" > "$MANIFEST.package"
+if audit "$MANIFEST.package" >/dev/null 2>&1; then
+    printf 'FAIL: package lane accepted a diverged publication\n' >&2
+    exit 1
+fi
+
+sed 's|^schema_version=2$|schema_version=2\nlane=ui|' "$MANIFEST" > "$MANIFEST.ui"
+if ! audit "$MANIFEST.ui" >/dev/null 2>&1; then
+    printf 'FAIL: ui lane rejected the divergence it is defined to expect\n' >&2
+    exit 1
+fi
+if ! audit "$MANIFEST.ui" | grep -q 'NOTE: deployed source is ahead of the signed publication'; then
+    printf 'FAIL: ui lane did not report the divergence it tolerated\n' >&2
+    exit 1
+fi
+
+# The ui lane relaxes exactly one check and nothing else.
+rm -f "$PREFIX/bin/northstar-shell"
+if audit "$MANIFEST.ui" >/dev/null 2>&1; then
+    printf 'FAIL: ui lane accepted a missing development shell\n' >&2
+    exit 1
+fi
+printf '#!/bin/sh\nexit 0\n' > "$PREFIX/bin/northstar-shell"
+chmod 0755 "$PREFIX/bin/northstar-shell"
+
+sed 's|^schema_version=2$|schema_version=2\nlane=nonsense|' "$MANIFEST" > "$MANIFEST.bogus"
+if audit "$MANIFEST.bogus" >/dev/null 2>&1; then
+    printf 'FAIL: audit accepted an unsupported lane\n' >&2
+    exit 1
+fi
 
 printf 'PASS: validation deployment auditor accepts canonical state and rejects drift\n'
+printf 'PASS: validation deployment auditor enforces lane expectations and a live pkg repository\n'
