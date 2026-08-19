@@ -181,6 +181,13 @@ updating its record is how a deployment drifts.
    | `quarantine_root` | The dated quarantine for this cycle |
    | `lane` | `ui` or `package`, see below. Absent means `package` |
 
+   The manifest names the commit under validation, so the later commit that
+   records the audit result in the validation document is necessarily not the
+   one the manifest names. That is expected and is not drift: the evidence
+   cannot be written before the run it reports. Do not rewrite the manifest to
+   chase it, and do not re-run the audit after committing the evidence and
+   report the mismatch as a failure.
+
    Compute the digests from the files and confirm they match the publication
    record. Agreement between the two is what proves the repository intact.
    Never copy a digest forward from a previous manifest, and never supply a
