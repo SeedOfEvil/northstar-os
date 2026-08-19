@@ -33,6 +33,21 @@ private slots:
 
 namespace {
 
+// Writes an executable stand-in at the given path, so a test can say "the
+// boundary is installed here" without depending on whether the real one
+// happens to be installed on the machine running the suite.
+bool installHelperStub(const QString &path)
+{
+    QFile stub(path);
+    if (!stub.open(QIODevice::WriteOnly)) {
+        return false;
+    }
+    stub.write("#!/bin/sh\nexit 0\n");
+    stub.close();
+    return QFile::setPermissions(path,
+                                 QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
+}
+
 // A stand-in for the privileged boundary. It records what it was asked to do
 // and never runs anything, so the writer can be tested without a radio.
 struct RadioHelper
@@ -183,13 +198,18 @@ void QuickSettingsControllerTest::leavesRadiosReadOnlyWithoutTheHelper()
     QuickSettingsController controller(nullptr, directory.filePath(QStringLiteral("quick.ini")),
                                        equippedSystem(&helper, absent));
 
-    // The path is configured but nothing is installed there, so a control must
-    // not be offered for something this build cannot change.
+    // The path is configured but nothing is installed there. The hardware is
+    // present, yet no control may be offered, and the override must stay
+    // authoritative rather than falling through to whatever this machine has
+    // installed -- otherwise the result depends on the build host.
     QVERIFY(controller.wifiAvailable());
+    QVERIFY(!QuickSettingsController::radioControlAvailable());
+    QVERIFY(!controller.wifiWritable());
+    QVERIFY(!controller.bluetoothWritable());
+    QVERIFY(!controller.setWifiEnabled(false));
+    QVERIFY(helper.calls.isEmpty());
 
     qunsetenv("NORTHSTAR_RADIO_HELPER");
-    QVERIFY(!QuickSettingsController::radioControlAvailable());
-    QVERIFY(helper.calls.isEmpty());
 }
 
 void QuickSettingsControllerTest::togglesARadioThroughTheHelper()
@@ -197,12 +217,7 @@ void QuickSettingsControllerTest::togglesARadioThroughTheHelper()
     QTemporaryDir directory;
     QVERIFY(directory.isValid());
     const QString helperPath = directory.filePath(QStringLiteral("northstar-radio"));
-    QFile stub(helperPath);
-    QVERIFY(stub.open(QIODevice::WriteOnly));
-    stub.write("#!/bin/sh\nexit 0\n");
-    stub.close();
-    QVERIFY(QFile::setPermissions(helperPath,
-                                  QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner));
+    QVERIFY(installHelperStub(helperPath));
     qputenv("NORTHSTAR_RADIO_HELPER", helperPath.toUtf8());
 
     RadioHelper helper;
@@ -234,6 +249,7 @@ void QuickSettingsControllerTest::reportsAbsentRadioHardware()
     QTemporaryDir directory;
     QVERIFY(directory.isValid());
     const QString helperPath = directory.filePath(QStringLiteral("northstar-radio"));
+    QVERIFY(installHelperStub(helperPath));
     qputenv("NORTHSTAR_RADIO_HELPER", helperPath.toUtf8());
 
     RadioHelper helper;
@@ -252,6 +268,7 @@ void QuickSettingsControllerTest::reportsARefusedRadioChange()
     QTemporaryDir directory;
     QVERIFY(directory.isValid());
     const QString helperPath = directory.filePath(QStringLiteral("northstar-radio"));
+    QVERIFY(installHelperStub(helperPath));
     qputenv("NORTHSTAR_RADIO_HELPER", helperPath.toUtf8());
 
     RadioHelper helper;
@@ -276,6 +293,7 @@ void QuickSettingsControllerTest::refusesToActOnAbsentWireless()
     QTemporaryDir directory;
     QVERIFY(directory.isValid());
     const QString helperPath = directory.filePath(QStringLiteral("northstar-radio"));
+    QVERIFY(installHelperStub(helperPath));
     qputenv("NORTHSTAR_RADIO_HELPER", helperPath.toUtf8());
 
     RadioHelper helper;
@@ -310,6 +328,8 @@ void QuickSettingsControllerTest::reportsAdministrativeStateRatherThanAssociatio
 {
     QTemporaryDir directory;
     QVERIFY(directory.isValid());
+    qputenv("NORTHSTAR_RADIO_HELPER",
+            directory.filePath(QStringLiteral("absent-radio")).toUtf8());
 
     const auto systemWith = [](const QString &interfaceBlock) {
         return [interfaceBlock](const QString &program, const QStringList &arguments) {
@@ -360,6 +380,8 @@ void QuickSettingsControllerTest::reportsAdministrativeStateRatherThanAssociatio
             "\tstatus: active")));
     QVERIFY(active.wifiEnabled());
     QCOMPARE(active.wifiStatus(), QStringLiteral("Wireless link active"));
+
+    qunsetenv("NORTHSTAR_RADIO_HELPER");
 }
 
 QTEST_MAIN(QuickSettingsControllerTest)
