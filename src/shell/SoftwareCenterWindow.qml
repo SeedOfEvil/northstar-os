@@ -108,10 +108,33 @@ Window {
     y: software.screenY + software.panelHeight
         + Math.max(software.desktopMargin, (software.screenHeight - software.panelHeight - software.height) / 2)
 
+    // A window can be left where its own controls cannot be reached: maximised
+    // beyond the visible area, moved off the edge, or sized for a screen that
+    // is no longer this one. Opening it is the moment to put it back within
+    // reach, because that is when someone is asking to use it.
+    function restoreToReach() {
+        const maximumWidth = software.screenWidth - (software.desktopMargin * 2)
+        const maximumHeight = software.screenHeight - software.panelHeight
+            - (software.desktopMargin * 2)
+
+        software.width = Math.max(software.minimumSurfaceWidth,
+            Math.min(software.width, Math.max(software.minimumSurfaceWidth, maximumWidth)))
+        software.height = Math.max(software.minimumSurfaceHeight,
+            Math.min(software.height, Math.max(software.minimumSurfaceHeight, maximumHeight)))
+
+        const minimumX = software.screenX
+        const maximumX = software.screenX + software.screenWidth - software.width
+        const minimumY = software.screenY + software.panelHeight
+        const maximumY = software.screenY + software.screenHeight - software.height
+        software.x = Math.max(minimumX, Math.min(software.x, Math.max(minimumX, maximumX)))
+        software.y = Math.max(minimumY, Math.min(software.y, Math.max(minimumY, maximumY)))
+    }
+
     function openSoftware() {
         if (!software.packageCatalog) {
             return
         }
+        software.restoreToReach()
         software.packageCatalog.setQuery("")
         if (software.applicationLauncher) {
             software.applicationLauncher.setApplicationQuery("")
@@ -216,6 +239,20 @@ Window {
         software.height = Math.max(software.minimumSurfaceHeight,
             software.screenHeight - software.panelHeight)
         software.maximized = true
+    }
+
+    // Without this there was no way out of a maximised window whose own
+    // controls had ended up off the visible area.
+    Shortcut {
+        sequence: "Escape"
+        enabled: software.visible
+        onActivated: {
+            if (software.maximized) {
+                software.toggleMaximize()
+            } else {
+                software.hide()
+            }
+        }
     }
 
     NorthstarWindowFrame {
