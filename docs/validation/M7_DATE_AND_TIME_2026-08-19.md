@@ -151,7 +151,7 @@ against the new case, then reverted and the tree confirmed clean.
 - Clean build, all 408 targets, 0 errors.
 - `env QT_QPA_PLATFORM=offscreen ctest --test-dir /home/northstar/builds/pr108-83eb0c9 --output-on-failure`
   — **36/36 suites passed, 0 failed**.
-- `northstar-clockcontroller` is new: 12 cases covering region listing with the
+- `northstar-clockcontroller` is new: 13 cases covering region listing with the
   `posix` and `right` copies excluded, zones nested a further level down
   (`America/Indiana/Knox`), region-less zones gathered under one name, index
   files never offered as zones, refusal of an absent zone and of a name that
