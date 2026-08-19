@@ -301,6 +301,18 @@ target_link_libraries(test-shellcommandserver
 
 add_test(NAME northstar-shellcommandserver COMMAND test-shellcommandserver)
 
+qt_add_executable(test-wallpapercontroller
+    test-wallpapercontroller.cpp
+)
+
+target_link_libraries(test-wallpapercontroller
+    PRIVATE
+        northstar-shell-core
+        Qt6::Test
+)
+
+add_test(NAME northstar-wallpapercontroller COMMAND test-wallpapercontroller)
+
 qt_add_executable(test-settingscatalog
     test-settingscatalog.cpp
 )
@@ -356,6 +368,7 @@ set_tests_properties(
     northstar-texteditorcontroller
     northstar-text-editor-qml
     northstar-settingscatalog
+    northstar-wallpapercontroller
     northstar-desktopsettings
     northstar-shell-qml
     northstar-shellcommandserver

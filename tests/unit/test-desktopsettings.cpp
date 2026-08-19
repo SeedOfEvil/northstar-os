@@ -7,9 +7,11 @@
 #include "sessioncontroller.h"
 #include "settingscatalog.h"
 #include "shellstate.h"
+#include "wallpapercontroller.h"
 
 #include <QDir>
 #include <QFile>
+#include <QImage>
 #include <QTemporaryDir>
 #include <QtTest/QtTest>
 
@@ -31,6 +33,8 @@ private slots:
     void reportsMissingSoundAsUnavailableWithTheMixerReason();
     void reportsMissingWirelessHardwareHonestly();
     void offersRadioTogglesWhereControlIsInstalled();
+    void declaresTheDesktopBackgroundAgainstTheWallpaperController();
+    void offersNoFitUntilAPictureIsChosen();
     void refusesSessionActionsWhenTheSessionIsNotSupervised();
     void resetsTheDesktopLayoutThroughItsController();
     void findsRepresentativeSettingsBySearch();
@@ -97,9 +101,10 @@ struct Desktop
         , session(QDir(root).filePath(QStringLiteral("absent-status")),
                   QDir(root).filePath(QStringLiteral("absent-control")),
                   0)
+        , wallpaper(nullptr, QDir(root).filePath(QStringLiteral("wallpaper.ini")))
     {
         registerDesktopSettings(&catalog, &shellState, &quickSettings, &notifications,
-                                &desktopLayout, &launcher, &pinned, &session);
+                                &desktopLayout, &launcher, &pinned, &session, &wallpaper);
     }
 
     SettingsCatalog catalog;
@@ -110,6 +115,7 @@ struct Desktop
     ApplicationLauncher launcher;
     PinnedApplicationModel pinned;
     SessionController session;
+    WallpaperController wallpaper;
 };
 
 void DesktopSettingsTest::registersEverySection()
@@ -154,9 +160,39 @@ void DesktopSettingsTest::registersNoDeadControls()
 
             const QString kind = entry.value(QStringLiteral("kind")).toString();
             QVERIFY2(kind == SettingsCatalog::toggleKind() || kind == SettingsCatalog::sliderKind()
+                         || kind == SettingsCatalog::choiceKind()
+                         || kind == SettingsCatalog::pathKind()
                          || kind == SettingsCatalog::actionKind()
                          || kind == SettingsCatalog::infoKind(),
                      qPrintable(id));
+
+            // A choice is dead in a way the kind check cannot see: it can be
+            // well formed and still offer nothing, or offer a value its own
+            // reader never returns.
+            if (kind == SettingsCatalog::choiceKind()) {
+                const QVariantList options = entry.value(QStringLiteral("options")).toList();
+                QVERIFY2(!options.isEmpty(), qPrintable(id));
+                QStringList values;
+                for (const QVariant &option : options) {
+                    const QVariantMap map = option.toMap();
+                    QVERIFY2(!map.value(QStringLiteral("value")).toString().isEmpty(),
+                             qPrintable(id));
+                    QVERIFY2(!map.value(QStringLiteral("label")).toString().isEmpty(),
+                             qPrintable(id));
+                    values.append(map.value(QStringLiteral("value")).toString());
+                }
+                // Whatever it currently reads has to be one of the things it
+                // offers, or the control opens showing nothing selected.
+                QVERIFY2(values.contains(entry.value(QStringLiteral("value")).toString()),
+                         qPrintable(id));
+            }
+
+            // A path entry has to say what it shows when nothing is chosen,
+            // otherwise the control renders as an empty gap.
+            if (kind == SettingsCatalog::pathKind()) {
+                QVERIFY2(!entry.value(QStringLiteral("emptyLabel")).toString().isEmpty(),
+                         qPrintable(id));
+            }
 
             // An unavailable control has to say why.
             if (!entry.value(QStringLiteral("available")).toBool()) {
@@ -208,6 +244,69 @@ void DesktopSettingsTest::reportsMissingSoundAsUnavailableWithTheMixerReason()
     // The control refuses rather than pretending it applied a value.
     QVERIFY(!desktop.catalog.setValue(QStringLiteral("sound.volume"), 70));
     QVERIFY(desktop.catalog.statusIsError());
+}
+
+void DesktopSettingsTest::declaresTheDesktopBackgroundAgainstTheWallpaperController()
+{
+    Desktop desktop(m_directory->path());
+
+    const QVariantMap picture = desktop.catalog.entryFor(QStringLiteral("appearance.wallpaper"));
+    QCOMPARE(picture.value(QStringLiteral("kind")).toString(), SettingsCatalog::pathKind());
+    QVERIFY(picture.value(QStringLiteral("writable")).toBool());
+    QVERIFY(picture.value(QStringLiteral("available")).toBool());
+    QVERIFY(picture.value(QStringLiteral("value")).toString().isEmpty());
+    QVERIFY(!picture.value(QStringLiteral("emptyLabel")).toString().isEmpty());
+
+    // Writing through the catalog has to reach the controller that owns the
+    // behaviour, and a refusal has to carry that controller's own reason.
+    const QString absent = m_directory->filePath(QStringLiteral("nowhere.png"));
+    QVERIFY(!desktop.catalog.setValue(QStringLiteral("appearance.wallpaper"), absent));
+    QVERIFY(desktop.catalog.statusIsError());
+    QCOMPARE(desktop.catalog.statusMessage(), desktop.wallpaper.status());
+
+    QImage image(8, 8, QImage::Format_RGB32);
+    image.fill(Qt::green);
+    const QString accepted = m_directory->filePath(QStringLiteral("chosen.png"));
+    QVERIFY(image.save(accepted, "PNG"));
+
+    QVERIFY(desktop.catalog.setValue(QStringLiteral("appearance.wallpaper"), accepted));
+    QVERIFY(desktop.wallpaper.hasImage());
+    QCOMPARE(desktop.catalog.entryFor(QStringLiteral("appearance.wallpaper"))
+                 .value(QStringLiteral("value"))
+                 .toString(),
+             desktop.wallpaper.imagePath());
+}
+
+void DesktopSettingsTest::offersNoFitUntilAPictureIsChosen()
+{
+    Desktop desktop(m_directory->path());
+
+    // Fit is declared as a choice, but it has nothing to act on while the
+    // desktop is still on the built-in background.
+    const QVariantMap fit = desktop.catalog.entryFor(QStringLiteral("appearance.wallpaperfit"));
+    QCOMPARE(fit.value(QStringLiteral("kind")).toString(), SettingsCatalog::choiceKind());
+    QVERIFY(!fit.value(QStringLiteral("available")).toBool());
+    QVERIFY(!fit.value(QStringLiteral("unavailableReason")).toString().isEmpty());
+
+    // Every fit the controller accepts is offered, and no others.
+    QStringList offered;
+    for (const QVariant &option : fit.value(QStringLiteral("options")).toList()) {
+        offered.append(option.toMap().value(QStringLiteral("value")).toString());
+    }
+    QCOMPARE(offered, WallpaperController::fitModes());
+
+    QImage image(8, 8, QImage::Format_RGB32);
+    image.fill(Qt::red);
+    const QString picture = m_directory->filePath(QStringLiteral("backdrop.png"));
+    QVERIFY(image.save(picture, "PNG"));
+    QVERIFY(desktop.wallpaper.setImagePath(picture));
+
+    QVERIFY(desktop.catalog.entryFor(QStringLiteral("appearance.wallpaperfit"))
+                .value(QStringLiteral("available"))
+                .toBool());
+    QVERIFY(desktop.catalog.setValue(QStringLiteral("appearance.wallpaperfit"),
+                                     QStringLiteral("tile")));
+    QCOMPARE(desktop.wallpaper.fitMode(), QStringLiteral("tile"));
 }
 
 void DesktopSettingsTest::offersRadioTogglesWhereControlIsInstalled()

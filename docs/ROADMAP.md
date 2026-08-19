@@ -11,7 +11,7 @@ The project advances through user-visible milestones with explicit pass gates. A
 | M4 | Packages, updates, rollback | Signed package and transactional foundations accepted; installed-image execution accepted through M5 | Signed packages and ZFS boot-environment rollback work end to end |
 | M5 | Reproducible image and installer | Accepted: r85 passed assembly, UEFI smoke, full-disk installation, First Boot, graphical login, signed update, failure recovery, explicit rollback, and `/home` preservation | Pinned inputs produce a bootable UEFI root-on-ZFS image |
 | M6 | Alpha hardware release | Readiness inventory accepted; repeatable matrix runner in progress; physical Intel/AMD evidence pending | The supported VM and narrow Intel/AMD hardware matrix meets the alpha definition |
-| M7 | Daily-driver desktop | In progress; Files v3, Text Editor v2, Settings v2, and persistent notifications accepted; writable radios await hardware | First-party applications provide dependable, coherent everyday workflows while physical graphics evidence remains deferred |
+| M7 | Daily-driver desktop | In progress; Files v3, Text Editor v2, Settings v2, persistent notifications, and desktop wallpaper accepted; writable radios await hardware | First-party applications provide dependable, coherent everyday workflows while physical graphics evidence remains deferred |
 
 ## Current baseline and clear path forward
 

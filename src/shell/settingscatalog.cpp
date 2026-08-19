@@ -1,6 +1,7 @@
 #include "settingscatalog.h"
 
 #include <algorithm>
+#include <utility>
 
 namespace {
 
@@ -60,6 +61,22 @@ QString SettingsCatalog::sliderKind()
     return QStringLiteral("slider");
 }
 
+QString SettingsCatalog::choiceKind()
+{
+    return QStringLiteral("choice");
+}
+
+QString SettingsCatalog::pathKind()
+{
+    return QStringLiteral("path");
+}
+
+QVariantMap SettingsCatalog::choiceOption(const QString &value, const QString &label)
+{
+    return QVariantMap{{QStringLiteral("value"), value},
+                       {QStringLiteral("label"), label.isEmpty() ? value : label}};
+}
+
 QString SettingsCatalog::actionKind()
 {
     return QStringLiteral("action");
@@ -109,9 +126,24 @@ bool SettingsCatalog::registerEntry(Entry entry)
 
     // A registered control must be able to do what its kind promises,
     // otherwise Settings would show a dead control.
-    if (entry.kind == toggleKind() || entry.kind == sliderKind()) {
+    if (entry.kind == toggleKind() || entry.kind == sliderKind() || entry.kind == pathKind()) {
         if (!entry.read || !entry.write) {
             return false;
+        }
+    } else if (entry.kind == choiceKind()) {
+        if (!entry.read || !entry.write) {
+            return false;
+        }
+        // A choice with nothing to choose from is a dead control by another
+        // name, and every option has to carry a value the write accessor can
+        // actually be given.
+        if (entry.options.isEmpty()) {
+            return false;
+        }
+        for (const QVariant &option : std::as_const(entry.options)) {
+            if (option.toMap().value(QStringLiteral("value")).toString().isEmpty()) {
+                return false;
+            }
         }
     } else if (entry.kind == actionKind()) {
         if (!entry.perform) {
@@ -258,7 +290,12 @@ QVariantMap SettingsCatalog::describeEntry(const Entry &entry) const
         {QStringLiteral("destructive"), entry.destructive},
         {QStringLiteral("available"), available},
         {QStringLiteral("unavailableReason"), reason},
-        {QStringLiteral("writable"), entry.kind == toggleKind() || entry.kind == sliderKind()},
+        {QStringLiteral("writable"), entry.kind == toggleKind() || entry.kind == sliderKind()
+                                         || entry.kind == choiceKind()
+                                         || entry.kind == pathKind()},
+        {QStringLiteral("options"), entry.options},
+        {QStringLiteral("nameFilters"), entry.nameFilters},
+        {QStringLiteral("emptyLabel"), entry.emptyLabel},
     };
     map.insert(QStringLiteral("value"), entry.read ? entry.read() : QVariant());
     return map;
@@ -409,7 +446,8 @@ bool SettingsCatalog::setValue(const QString &id, const QVariant &value)
         announce(QStringLiteral("That setting is not available in this build."), true);
         return false;
     }
-    if (entry->kind != toggleKind() && entry->kind != sliderKind()) {
+    if (entry->kind != toggleKind() && entry->kind != sliderKind()
+        && entry->kind != choiceKind() && entry->kind != pathKind()) {
         announce(QStringLiteral("%1 cannot be changed here.").arg(entry->title), true);
         return false;
     }
@@ -431,12 +469,35 @@ bool SettingsCatalog::setValue(const QString &id, const QVariant &value)
             return false;
         }
         requested = std::clamp(number, entry->minimum, entry->maximum);
+    } else if (entry->kind == choiceKind()) {
+        // The catalog owns the option list, so it is the catalog that rejects
+        // a value not on it. Anything further is the controller's business.
+        const QString candidate = value.toString();
+        bool offered = false;
+        for (const QVariant &option : std::as_const(entry->options)) {
+            if (option.toMap().value(QStringLiteral("value")).toString() == candidate) {
+                offered = true;
+                break;
+            }
+        }
+        if (!offered) {
+            announce(QStringLiteral("%1 does not offer that choice.").arg(entry->title), true);
+            return false;
+        }
+        requested = candidate;
+    } else if (entry->kind == pathKind()) {
+        // Whether a path is usable depends on the file behind it, which only
+        // the controller can judge. Pass it through and let the refusal come
+        // back with a reason.
+        requested = value.toString().trimmed();
     } else {
         requested = value.toBool();
     }
 
     if (!entry->write(requested)) {
-        announce(QStringLiteral("%1 could not be changed.").arg(entry->title), true);
+        const QString why = entry->writeFailureReason ? entry->writeFailureReason() : QString();
+        announce(why.isEmpty() ? QStringLiteral("%1 could not be changed.").arg(entry->title) : why,
+                 true);
         return false;
     }
 

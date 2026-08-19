@@ -15,6 +15,7 @@ Window {
     property var desktopItems: northstarDesktopItemsController
     property var fileBrowserController: northstarFileBrowserController
     property var layoutController: northstarDesktopLayoutController
+    property var wallpaper: northstarWallpaperController
     property var fileBrowserWindow: null
     property var quickLookWindow: null
     property var targetScreen
@@ -38,6 +39,28 @@ Window {
     flags: Qt.FramelessWindowHint | Qt.Tool
     title: "Northstar Desktop Background"
 
+    // The picture covers the built-in background entirely, so the generated
+    // artwork is not drawn behind it rather than merely hidden by it.
+    readonly property bool hasWallpaper: !!desktopBackground.wallpaper
+        && desktopBackground.wallpaper.hasImage
+
+    function wallpaperFillMode() {
+        const mode = desktopBackground.wallpaper ? desktopBackground.wallpaper.fitMode : "fill"
+        if (mode === "fit") {
+            return Image.PreserveAspectFit
+        }
+        if (mode === "stretch") {
+            return Image.Stretch
+        }
+        if (mode === "centre") {
+            return Image.Pad
+        }
+        if (mode === "tile") {
+            return Image.Tile
+        }
+        return Image.PreserveAspectCrop
+    }
+
     function iconNameFor(entry) {
         if (!entry) {
             return "file"
@@ -53,6 +76,11 @@ Window {
     }
 
     function refreshDesktop() {
+        // A wallpaper can be deleted while the session is running, and the
+        // desktop would otherwise keep showing a texture whose file is gone.
+        if (desktopBackground.wallpaper) {
+            desktopBackground.wallpaper.revalidate()
+        }
         if (desktopBackground.fileBrowserController) {
             desktopBackground.fileBrowserController.refresh()
         }
@@ -251,11 +279,26 @@ Window {
             GradientStop { position: 1.0; color: lunar.desktopBottom }
         }
 
+        // The chosen picture sits below the desktop icons and above the
+        // built-in gradient, which stays visible in the fits that do not
+        // cover the whole screen.
+        Image {
+            anchors.fill: parent
+            asynchronous: true
+            cache: false
+            fillMode: desktopBackground.wallpaperFillMode()
+            mipmap: true
+            smooth: true
+            source: desktopBackground.wallpaper ? desktopBackground.wallpaper.imageSource : ""
+            visible: desktopBackground.hasWallpaper && status === Image.Ready
+        }
+
         Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.verticalCenter: parent.verticalCenter
             anchors.verticalCenterOffset: -80
             border.color: lunar.accentBright
+            visible: !desktopBackground.hasWallpaper
             border.width: 44
             color: "transparent"
             height: 300
@@ -271,6 +314,7 @@ Window {
             anchors.verticalCenter: parent.verticalCenter
             anchors.verticalCenterOffset: 115
             border.color: lunar.accent
+            visible: !desktopBackground.hasWallpaper
             border.width: 58
             color: "transparent"
             height: 250
@@ -286,6 +330,7 @@ Window {
             anchors.verticalCenter: parent.verticalCenter
             anchors.verticalCenterOffset: 190
             color: lunar.accentSoft
+            visible: !desktopBackground.hasWallpaper
             height: 170
             opacity: 0.12
             radius: 85
@@ -301,6 +346,7 @@ Window {
             opacity: desktopBackground.state && desktopBackground.state.darkMode ? 0.20 : 0.16
             smooth: true
             source: desktopBackground.logoSource
+            visible: !desktopBackground.hasWallpaper
             width: Math.min(390, desktopBackground.screenWidth * 0.34)
         }
 
@@ -561,10 +607,32 @@ Window {
         MenuSeparator {}
 
         MenuItem {
+            text: "Change Desktop Background..."
+            enabled: !!desktopBackground.wallpaper
+            onTriggered: wallpaperDialog.openAt()
+        }
+
+        MenuItem {
             text: "Refresh Desktop"
             enabled: !!desktopBackground.fileBrowserController || !!desktopBackground.desktopItems
             onTriggered: desktopBackground.refreshDesktop()
         }
+    }
+
+    // --- Desktop background picker -----------------------------------------
+
+    WallpaperPicker {
+        id: wallpaperDialog
+
+        surfaceAccent: desktopBackground.surfaceAccent
+        surfaceBackground: desktopBackground.surfaceBackground
+        surfaceForeground: desktopBackground.surfaceForeground
+        surfaceMuted: desktopBackground.surfaceMuted
+        surfaceRaised: desktopBackground.surfaceRaised
+        wallpaper: desktopBackground.wallpaper
+        width: Math.min(620, desktopBackground.screenWidth - 48)
+        x: (desktopBackground.width - width) / 2
+        y: (desktopBackground.height - height) / 2
     }
 
     Dialog {
