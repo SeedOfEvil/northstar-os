@@ -31,6 +31,7 @@
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQmlEngine>
+#include <QQmlError>
 #include <QScreen>
 #include <QStandardPaths>
 #include <QVariant>
@@ -133,6 +134,19 @@ int main(int argc, char *argv[])
 
     NorthstarUi::registerTypes();
     QQmlApplicationEngine engine;
+
+    // A QML binding error is invisible in a normal session but means a surface
+    // silently rendered nothing. The self-test treats any of them as failure.
+    int qmlWarnings = 0;
+    if (qmlSelfTest) {
+        QObject::connect(&engine, &QQmlApplicationEngine::warnings,
+                         [&qmlWarnings](const QList<QQmlError> &reported) {
+            for (const QQmlError &error : reported) {
+                qmlWarnings += 1;
+                qWarning().noquote() << QStringLiteral("QML warning: %1").arg(error.toString());
+            }
+        });
+    }
     ShellState shellState;
     ApplicationLauncher applicationLauncher;
     NotificationCenter notificationCenter;
@@ -241,6 +255,33 @@ int main(int argc, char *argv[])
     }
     QList<QObject *> surfaces;
     QList<QQmlContext *> contexts;
+
+    // The surfaces hold bindings onto every controller declared above, and
+    // those controllers are destroyed when this function returns. Tearing the
+    // surfaces down first stops their bindings re-evaluating against
+    // half-destroyed objects, which otherwise fills shutdown with TypeErrors.
+    //
+    // This is a scope guard rather than a call at the end because it has to
+    // run on the early failure returns too, and because a teardown that can be
+    // forgotten is a teardown that eventually is. Declared here, after the
+    // controllers, it is destroyed before them. Objects go before the contexts
+    // they were created in.
+    struct SurfaceTeardown
+    {
+        QList<QObject *> &surfaces;
+        QList<QQmlContext *> &contexts;
+
+        void operator()()
+        {
+            qDeleteAll(surfaces);
+            surfaces.clear();
+            qDeleteAll(contexts);
+            contexts.clear();
+        }
+
+        ~SurfaceTeardown() { (*this)(); }
+    } destroySurfaces{surfaces, contexts};
+
     int displayIndex = 0;
 
     const auto createSurface = [&](QScreen *screen, int index) -> bool {
@@ -373,11 +414,23 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    Q_UNUSED(contexts);
-
     if (qmlSelfTest) {
-        return runShellSelfTest(surfaces);
+        const int selfTestStatus = runShellSelfTest(surfaces);
+
+        // Run the teardown early rather than leaving it to the scope guard, so
+        // any binding error it raises is counted before the check below.
+        destroySurfaces();
+        // Counted after teardown so binding errors raised on the way down are
+        // included. Anything emitted later than this cannot be seen from here,
+        // which is why the teardown above is a scope guard and not a gate.
+        if (qmlWarnings > 0) {
+            qCritical().noquote()
+                << QStringLiteral("the shell self-test produced %1 QML warning(s)").arg(qmlWarnings);
+            return 1;
+        }
+        return selfTestStatus;
     }
 
+    // The scope guard tears the surfaces down on the way out of here.
     return application.exec();
 }
