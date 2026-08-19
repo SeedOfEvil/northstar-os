@@ -1,4 +1,5 @@
 #include "applicationlauncher.h"
+#include "clockcontroller.h"
 #include "desktopitemscontroller.h"
 #include "desktoplayoutcontroller.h"
 #include "desktopsettings.h"
@@ -150,6 +151,7 @@ int main(int argc, char *argv[])
     }
     ShellState shellState;
     ApplicationLauncher applicationLauncher;
+    ClockController clockController;
     NotificationCenter notificationCenter;
     QuickSettingsController quickSettingsController;
     PackageCatalog packageCatalog;
@@ -198,7 +200,8 @@ int main(int argc, char *argv[])
                             &applicationLauncher,
                             &pinnedApplicationModel,
                             &sessionController,
-                            &wallpaperController);
+                            &wallpaperController,
+                            &clockController);
 
     // Settings reads straight through to the controllers, so it only has to be
     // told when one of them changed underneath it.
@@ -206,6 +209,8 @@ int main(int argc, char *argv[])
     QObject::connect(&shellState, &ShellState::darkModeChanged, &settingsCatalog, refreshSettings);
     QObject::connect(&shellState, &ShellState::filesGridViewChanged, &settingsCatalog, refreshSettings);
     QObject::connect(&wallpaperController, &WallpaperController::wallpaperChanged, &settingsCatalog,
+                     refreshSettings);
+    QObject::connect(&clockController, &ClockController::clockChanged, &settingsCatalog,
                      refreshSettings);
     QObject::connect(&quickSettingsController, &QuickSettingsController::capabilitiesChanged,
                      &settingsCatalog, refreshSettings);
@@ -344,6 +349,7 @@ int main(int argc, char *argv[])
         context->setContextProperty(QStringLiteral("northstarVolumeController"), &volumeController);
         context->setContextProperty(QStringLiteral("northstarWallpaperController"),
                                     &wallpaperController);
+        context->setContextProperty(QStringLiteral("northstarClockController"), &clockController);
         context->setContextProperty(QStringLiteral("northstarWindowController"), &windowController);
         context->setContextProperty(QStringLiteral("northstarPinnedApplicationModel"),
                                     &pinnedApplicationModel);

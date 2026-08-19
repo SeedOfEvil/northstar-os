@@ -136,11 +136,14 @@ bool SettingsCatalog::registerEntry(Entry entry)
         }
         // A choice with nothing to choose from is a dead control by another
         // name, and every option has to carry a value the write accessor can
-        // actually be given.
-        if (entry.options.isEmpty()) {
+        // actually be given. A dynamic source is held to the same standard by
+        // asking it now: one that cannot answer at registration would render
+        // an empty control.
+        const QVariantList declared = optionsFor(entry);
+        if (declared.isEmpty()) {
             return false;
         }
-        for (const QVariant &option : std::as_const(entry.options)) {
+        for (const QVariant &option : std::as_const(declared)) {
             if (option.toMap().value(QStringLiteral("value")).toString().isEmpty()) {
                 return false;
             }
@@ -175,6 +178,11 @@ bool SettingsCatalog::registerEntry(Entry entry)
     m_entries.append(std::move(entry));
     emit resultsChanged();
     return true;
+}
+
+QVariantList SettingsCatalog::optionsFor(const Entry &entry)
+{
+    return entry.optionSource ? entry.optionSource() : entry.options;
 }
 
 const SettingsCatalog::Entry *SettingsCatalog::findEntry(const QString &id) const
@@ -293,7 +301,7 @@ QVariantMap SettingsCatalog::describeEntry(const Entry &entry) const
         {QStringLiteral("writable"), entry.kind == toggleKind() || entry.kind == sliderKind()
                                          || entry.kind == choiceKind()
                                          || entry.kind == pathKind()},
-        {QStringLiteral("options"), entry.options},
+        {QStringLiteral("options"), optionsFor(entry)},
         {QStringLiteral("nameFilters"), entry.nameFilters},
         {QStringLiteral("emptyLabel"), entry.emptyLabel},
     };
@@ -474,7 +482,8 @@ bool SettingsCatalog::setValue(const QString &id, const QVariant &value)
         // a value not on it. Anything further is the controller's business.
         const QString candidate = value.toString();
         bool offered = false;
-        for (const QVariant &option : std::as_const(entry->options)) {
+        const QVariantList available = optionsFor(*entry);
+        for (const QVariant &option : std::as_const(available)) {
             if (option.toMap().value(QStringLiteral("value")).toString() == candidate) {
                 offered = true;
                 break;

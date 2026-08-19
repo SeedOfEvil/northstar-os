@@ -7,6 +7,7 @@
 #include "sessioncontroller.h"
 #include "settingscatalog.h"
 #include "shellstate.h"
+#include "clockcontroller.h"
 #include "wallpapercontroller.h"
 
 #include <QDir>
@@ -35,12 +36,15 @@ private slots:
     void offersRadioTogglesWhereControlIsInstalled();
     void declaresTheDesktopBackgroundAgainstTheWallpaperController();
     void offersNoFitUntilAPictureIsChosen();
+    void declaresTheClockAgainstTheZoneinfoDatabase();
+    void leavesTheClockReadOnlyWithoutTheBoundary();
     void refusesSessionActionsWhenTheSessionIsNotSupervised();
     void resetsTheDesktopLayoutThroughItsController();
     void findsRepresentativeSettingsBySearch();
 
 private:
     QString path(const QString &name) const;
+    void seedZoneinfo() const;
 
     QTemporaryDir *m_directory = nullptr;
 };
@@ -66,15 +70,46 @@ void DesktopSettingsTest::init()
     // Registration consults whether the radio boundary is installed, so pin it
     // to something absent. Without this the declared entries, and therefore
     // this suite, depend on whether the machine running it happens to have the
-    // helper installed.
+    // helper installed. The clock boundary is pinned for the same reason.
     qputenv("NORTHSTAR_RADIO_HELPER", QByteArrayLiteral("/nonexistent/northstar-radio"));
+    qputenv("NORTHSTAR_CLOCK_HELPER", QByteArrayLiteral("/nonexistent/northstar-clock"));
     m_directory = new QTemporaryDir;
     QVERIFY(m_directory->isValid());
+    seedZoneinfo();
+}
+
+// A zoneinfo database small enough to assert against, laid out like the real
+// one: regions holding zones, a region nesting one level further, zones with
+// no region at all, index files that are not zones, and the alternate posix
+// copy of the whole tree that must not be offered a second time.
+void DesktopSettingsTest::seedZoneinfo() const
+{
+    const QString database = m_directory->filePath(QStringLiteral("system/usr/share/zoneinfo"));
+    const QStringList zones{QStringLiteral("America/Denver"),
+                            QStringLiteral("America/New_York"),
+                            QStringLiteral("America/Indiana/Knox"),
+                            QStringLiteral("Europe/London"),
+                            QStringLiteral("UTC"),
+                            QStringLiteral("posix/America/Denver")};
+    for (const QString &zone : zones) {
+        const QString path = QDir(database).filePath(zone);
+        QVERIFY(QDir().mkpath(QFileInfo(path).absolutePath()));
+        QFile file(path);
+        QVERIFY(file.open(QIODevice::WriteOnly));
+        file.write("TZif");
+        file.close();
+    }
+
+    QFile index(QDir(database).filePath(QStringLiteral("zone.tab")));
+    QVERIFY(index.open(QIODevice::WriteOnly));
+    index.write("# not a zone\n");
+    index.close();
 }
 
 void DesktopSettingsTest::cleanup()
 {
     qunsetenv("NORTHSTAR_RADIO_HELPER");
+    qunsetenv("NORTHSTAR_CLOCK_HELPER");
     delete m_directory;
     m_directory = nullptr;
 }
@@ -102,9 +137,11 @@ struct Desktop
                   QDir(root).filePath(QStringLiteral("absent-control")),
                   0)
         , wallpaper(nullptr, QDir(root).filePath(QStringLiteral("wallpaper.ini")))
+        , clock(nullptr, QDir(root).filePath(QStringLiteral("system")))
     {
         registerDesktopSettings(&catalog, &shellState, &quickSettings, &notifications,
-                                &desktopLayout, &launcher, &pinned, &session, &wallpaper);
+                                &desktopLayout, &launcher, &pinned, &session, &wallpaper,
+                                &clock);
     }
 
     SettingsCatalog catalog;
@@ -116,6 +153,7 @@ struct Desktop
     PinnedApplicationModel pinned;
     SessionController session;
     WallpaperController wallpaper;
+    ClockController clock;
 };
 
 void DesktopSettingsTest::registersEverySection()
@@ -129,8 +167,8 @@ void DesktopSettingsTest::registersEverySection()
 
     QCOMPARE(sectionIds, QStringList({QStringLiteral("appearance"), QStringLiteral("desktop"),
                                       QStringLiteral("sound"), QStringLiteral("network"),
-                                      QStringLiteral("notifications"), QStringLiteral("session"),
-                                      QStringLiteral("about")}));
+                                      QStringLiteral("notifications"), QStringLiteral("datetime"),
+                                      QStringLiteral("session"), QStringLiteral("about")}));
 
     // Every section must actually hold something, or it is a dead tab.
     for (const QVariant &value : desktop.catalog.sections()) {
@@ -307,6 +345,79 @@ void DesktopSettingsTest::offersNoFitUntilAPictureIsChosen()
     QVERIFY(desktop.catalog.setValue(QStringLiteral("appearance.wallpaperfit"),
                                      QStringLiteral("tile")));
     QCOMPARE(desktop.wallpaper.fitMode(), QStringLiteral("tile"));
+}
+
+void DesktopSettingsTest::declaresTheClockAgainstTheZoneinfoDatabase()
+{
+    Desktop desktop(m_directory->path());
+
+    // Regions come from the database, with the alternate posix copy excluded
+    // and the region-less zones gathered under one name.
+    const QVariantMap region = desktop.catalog.entryFor(QStringLiteral("datetime.region"));
+    QCOMPARE(region.value(QStringLiteral("kind")).toString(), SettingsCatalog::choiceKind());
+    QStringList offeredRegions;
+    for (const QVariant &option : region.value(QStringLiteral("options")).toList()) {
+        offeredRegions.append(option.toMap().value(QStringLiteral("value")).toString());
+    }
+    QCOMPARE(offeredRegions,
+             QStringList({QStringLiteral("America"), QStringLiteral("Europe"),
+                          ClockController::otherRegion()}));
+
+    // The zone list follows the region rather than being fixed, and reaches
+    // a zone nested a further level down.
+    QVERIFY(desktop.catalog.setValue(QStringLiteral("datetime.region"),
+                                     QStringLiteral("America")));
+    QStringList offeredZones;
+    for (const QVariant &option : desktop.catalog.entryFor(QStringLiteral("datetime.timezone"))
+                                      .value(QStringLiteral("options"))
+                                      .toList()) {
+        offeredZones.append(option.toMap().value(QStringLiteral("value")).toString());
+    }
+    QCOMPARE(offeredZones,
+             QStringList({QStringLiteral("America/Denver"),
+                          QStringLiteral("America/Indiana/Knox"),
+                          QStringLiteral("America/New_York")}));
+
+    QVERIFY(desktop.catalog.setValue(QStringLiteral("datetime.region"),
+                                     QStringLiteral("Europe")));
+    offeredZones.clear();
+    for (const QVariant &option : desktop.catalog.entryFor(QStringLiteral("datetime.timezone"))
+                                      .value(QStringLiteral("options"))
+                                      .toList()) {
+        offeredZones.append(option.toMap().value(QStringLiteral("value")).toString());
+    }
+    QCOMPARE(offeredZones, QStringList({QStringLiteral("Europe/London")}));
+
+    // An index file in the database is not a zone and is never offered.
+    QVERIFY(!offeredZones.contains(QStringLiteral("zone.tab")));
+}
+
+void DesktopSettingsTest::leavesTheClockReadOnlyWithoutTheBoundary()
+{
+    Desktop desktop(m_directory->path());
+
+    // Without the boundary the clock is still described, because reading it
+    // needs no authority at all; what it is not is writable.
+    const QVariantMap zone = desktop.catalog.entryFor(QStringLiteral("datetime.timezone"));
+    QVERIFY(!zone.value(QStringLiteral("available")).toBool());
+    QVERIFY(!zone.value(QStringLiteral("unavailableReason")).toString().isEmpty());
+
+    const QVariantMap ntp = desktop.catalog.entryFor(QStringLiteral("datetime.ntp"));
+    QCOMPARE(ntp.value(QStringLiteral("kind")).toString(), SettingsCatalog::toggleKind());
+    QVERIFY(!ntp.value(QStringLiteral("available")).toBool());
+    QCOMPARE(ntp.value(QStringLiteral("unavailableReason")).toString(),
+             desktop.clock.ntpStatus());
+
+    // A one-shot correction is offered only where it could actually act.
+    const QVariantMap sync = desktop.catalog.entryFor(QStringLiteral("datetime.sync"));
+    QCOMPARE(sync.value(QStringLiteral("kind")).toString(), SettingsCatalog::actionKind());
+    QVERIFY(!sync.value(QStringLiteral("available")).toBool());
+
+    // Writing through an unavailable control is refused with the reason.
+    QVERIFY(!desktop.catalog.setValue(QStringLiteral("datetime.timezone"),
+                                      QStringLiteral("Europe/London")));
+    QVERIFY(desktop.catalog.statusIsError());
+    QCOMPARE(desktop.clock.timeZone(), QString());
 }
 
 void DesktopSettingsTest::offersRadioTogglesWhereControlIsInstalled()

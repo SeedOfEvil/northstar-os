@@ -1,6 +1,7 @@
 #pragma once
 
 class ApplicationLauncher;
+class ClockController;
 class DesktopLayoutController;
 class NotificationCenter;
 class PinnedApplicationModel;
@@ -21,4 +22,5 @@ void registerDesktopSettings(SettingsCatalog *catalog,
                              ApplicationLauncher *launcher,
                              PinnedApplicationModel *pinnedApplications,
                              SessionController *session,
-                             WallpaperController *wallpaper);
+                             WallpaperController *wallpaper,
+                             ClockController *clock);

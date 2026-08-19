@@ -301,6 +301,18 @@ target_link_libraries(test-shellcommandserver
 
 add_test(NAME northstar-shellcommandserver COMMAND test-shellcommandserver)
 
+qt_add_executable(test-clockcontroller
+    test-clockcontroller.cpp
+)
+
+target_link_libraries(test-clockcontroller
+    PRIVATE
+        northstar-shell-core
+        Qt6::Test
+)
+
+add_test(NAME northstar-clockcontroller COMMAND test-clockcontroller)
+
 qt_add_executable(test-wallpapercontroller
     test-wallpapercontroller.cpp
 )
@@ -369,6 +381,7 @@ set_tests_properties(
     northstar-text-editor-qml
     northstar-settingscatalog
     northstar-wallpapercontroller
+    northstar-clockcontroller
     northstar-desktopsettings
     northstar-shell-qml
     northstar-shellcommandserver

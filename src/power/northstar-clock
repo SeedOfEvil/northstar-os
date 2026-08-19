@@ -1,0 +1,114 @@
+#!/bin/sh
+
+# Fixed-argument clock boundary for the Northstar shell.
+#
+# The shell runs unprivileged and must never be able to construct a command
+# line here. Two of the three actions take only enumerated words. The third,
+# timezone, cannot be enumerated because the zoneinfo database holds hundreds
+# of names, so it is validated inside the boundary instead: the identifier
+# must match a conservative shape and must already name a regular file in the
+# system zoneinfo database. Nothing the caller sends is ever expanded by the
+# shell or passed to an interpreter.
+#
+# The current development VM authorizes sudo non-interactively. Production
+# installs should replace this with a root-owned helper and a narrow policy
+# allowing only these exact actions.
+
+set -eu
+
+SUDO=/usr/local/bin/sudo
+CP=/bin/cp
+NTPD=/usr/sbin/ntpd
+SERVICE=/usr/sbin/service
+SYSRC=/usr/sbin/sysrc
+TEE=/usr/bin/tee
+ZONEINFO=/usr/share/zoneinfo
+
+usage_error=64
+unavailable=69
+
+[ "$#" -ge 1 ] || exit "$usage_error"
+
+ntp_enabled() {
+    [ "$("$SYSRC" -n ntpd_enable 2>/dev/null || echo NO)" = YES ]
+}
+
+ntp_running() {
+    "$SERVICE" ntpd status >/dev/null 2>&1
+}
+
+case "$1" in
+    timezone)
+        [ "$#" -eq 2 ] || exit "$usage_error"
+        zone=$2
+
+        # Every component must start with a letter or digit, which is what
+        # keeps "..", a leading "/", and a leading "-" out. The shape is the
+        # same one the first-boot provisioner enforces.
+        [ -n "$zone" ] || exit "$usage_error"
+        [ "${#zone}" -le 255 ] || exit "$usage_error"
+        printf '%s' "$zone" \
+            | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._+-]*(/[A-Za-z0-9][A-Za-z0-9._+-]*)*$' \
+            || exit "$usage_error"
+
+        # The name has to already exist in the database. A zone this system
+        # does not have is refused rather than written through.
+        [ -f "$ZONEINFO/$zone" ] || exit "$unavailable"
+
+        "$SUDO" -n "$CP" "$ZONEINFO/$zone" /etc/localtime || exit 70
+
+        # Record the name too. Without this the system knows its offset but
+        # not which zone produced it, which is why this machine could not
+        # report its own timezone before.
+        printf '%s\n' "$zone" | "$SUDO" -n "$TEE" /var/db/zoneinfo >/dev/null || exit 70
+        exit 0
+        ;;
+    ntp)
+        [ "$#" -eq 2 ] || exit "$usage_error"
+        [ -x "$NTPD" ] || exit "$unavailable"
+        case "$2" in
+            on)
+                "$SUDO" -n "$SYSRC" ntpd_enable=YES >/dev/null || exit 70
+                exec "$SUDO" -n "$SERVICE" ntpd start
+                ;;
+            off)
+                "$SUDO" -n "$SYSRC" ntpd_enable=NO >/dev/null || exit 70
+                # Stopping a service that is not running is not a failure
+                # here: the requested end state is "not running".
+                "$SUDO" -n "$SERVICE" ntpd stop >/dev/null 2>&1 || true
+                exit 0
+                ;;
+            *)
+                exit "$usage_error"
+                ;;
+        esac
+        ;;
+    sync)
+        [ "$#" -eq 1 ] || exit "$usage_error"
+        [ -x "$NTPD" ] || exit "$unavailable"
+
+        # A one-shot step uses the servers already configured for this system.
+        # No server address is accepted from the caller, and there is none
+        # written here either. While the daemon holds the port a one-shot run
+        # cannot bind it, and it is redundant anyway.
+        ! ntp_running || exit "$unavailable"
+        exec "$SUDO" -n "$NTPD" -q -g
+        ;;
+    state)
+        # Read-only, and deliberately unprivileged: the shell uses this to
+        # describe the clock without asking for any authority at all.
+        [ "$#" -eq 1 ] || exit "$usage_error"
+        if ntp_enabled; then printf 'ntp_enabled=yes\n'; else printf 'ntp_enabled=no\n'; fi
+        if ntp_running; then printf 'ntp_running=yes\n'; else printf 'ntp_running=no\n'; fi
+        if [ -x "$NTPD" ]; then printf 'ntp_present=yes\n'; else printf 'ntp_present=no\n'; fi
+        if [ -s /var/db/zoneinfo ]; then
+            printf 'timezone=%s\n' "$(head -1 /var/db/zoneinfo)"
+        else
+            printf 'timezone=\n'
+        fi
+        exit 0
+        ;;
+    *)
+        exit "$usage_error"
+        ;;
+esac
