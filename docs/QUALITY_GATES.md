@@ -341,9 +341,34 @@ Every persistent Proxmox handoff must also follow
 make validation-deployment-audit
 ```
 
-The auditor is deliberately read-only. A failed audit blocks handoff or merge;
-it never authorizes deletion of historical checkouts, builds, repositories,
-signing identities, snapshots, or boot environments.
+The auditor is deliberately read-only. It never authorizes deletion of
+historical checkouts, builds, repositories, signing identities, snapshots, or
+boot environments.
+
+**What counts as a failed audit depends on the lane**, and stating this as an
+unconditional pass requirement is what produced eight days of recorded
+exceptions. The auditor cross-checks the deployed source revision against the
+signed publication's source revision, and a user-interface pull request
+installed under `~/.local` publishes no package, so those two legitimately
+differ. Closing that check requires a protected publication environment, which
+by design holds signing material that does not exist in pull-request execution.
+
+- **Package lane** (a handoff that publishes a signed revision): the audit must
+  report zero failures. Any failure blocks handoff and merge.
+- **UI lane** (no package published): exactly one failure,
+  `publication source revision does not match the manifest`, is the expected
+  steady state and does not block merge. Every other failure blocks.
+
+In both lanes the manifest must be rewritten for the handoff, and the result
+must be recorded honestly in the validation document. Never claim the audit
+passes when it does not. A stale manifest is worse than an absent one: it can
+agree with an equally stale `pkg` configuration and hide a broken repository
+behind a passing check, which is precisely what happened between 2026-08-10 and
+2026-08-18.
+
+`docs/VM_VALIDATION_DEPLOYMENT.md` carries the per-lane expectations, the
+per-step update obligations, and a catalogue of traps that have each cost real
+time.
 
 ## Release gate
 
