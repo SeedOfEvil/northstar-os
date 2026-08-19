@@ -93,5 +93,6 @@ install(TARGETS northstar-shell northstar-shell-command
 )
 
 install(PROGRAMS ${PROJECT_SOURCE_DIR}/src/power/northstar-power
+    ${PROJECT_SOURCE_DIR}/src/power/northstar-radio
     DESTINATION bin
 )

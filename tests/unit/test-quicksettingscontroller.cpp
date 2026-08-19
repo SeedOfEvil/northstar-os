@@ -1,5 +1,6 @@
 #include "quicksettingscontroller.h"
 
+#include <QFile>
 #include <QTemporaryDir>
 #include <QtTest/QtTest>
 
@@ -21,7 +22,54 @@ private slots:
     void confirmsMixerMutations();
     void rejectsUnconfirmedMixerMutations();
     void persistsDoNotDisturb();
+
+    void leavesRadiosReadOnlyWithoutTheHelper();
+    void togglesARadioThroughTheHelper();
+    void reportsAbsentRadioHardware();
+    void reportsARefusedRadioChange();
+    void refusesToActOnAbsentWireless();
+    void reportsAdministrativeStateRatherThanAssociation();
 };
+
+namespace {
+
+// A stand-in for the privileged boundary. It records what it was asked to do
+// and never runs anything, so the writer can be tested without a radio.
+struct RadioHelper
+{
+    QStringList calls;
+    int exitCode = 0;
+    bool started = true;
+};
+
+// The equipped system every radio test starts from: one wireless interface,
+// active, and a Bluetooth controller present.
+QuickSettingsController::CommandProvider equippedSystem(RadioHelper *helper,
+                                                        const QString &helperPath)
+{
+    return [helper, helperPath](const QString &program, const QStringList &arguments) {
+        if (program == helperPath) {
+            helper->calls.append(arguments.join(QLatin1Char(' ')));
+            return QuickSettingsCommandResult{helper->started, helper->exitCode, {}, {}};
+        }
+        if (program == QStringLiteral("/sbin/ifconfig")
+            && arguments == QStringList{QStringLiteral("-l")}) {
+            return result(0, QStringLiteral("lo0 em0 wlan0"));
+        }
+        if (program == QStringLiteral("/sbin/ifconfig")) {
+            return result(0, QStringLiteral(
+                "wlan0: flags=8843<UP,BROADCAST,RUNNING,SIMPLEX,MULTICAST> metric 0 mtu 1500\n"
+                "\tssid NorthstarLab channel 6\n"
+                "\tstatus: associated"));
+        }
+        if (program == QStringLiteral("/usr/sbin/hccontrol")) {
+            return result(0, QStringLiteral("Node list"));
+        }
+        return result(1);
+    };
+}
+
+} // namespace
 
 void QuickSettingsControllerTest::reportsConfirmedCapabilities()
 {
@@ -33,7 +81,10 @@ void QuickSettingsControllerTest::reportsConfirmedCapabilities()
             return result(0, QStringLiteral("lo0 em0 wlan0"));
         }
         if (program == QStringLiteral("/sbin/ifconfig")) {
-            return result(0, QStringLiteral("ssid NorthstarLab\nstatus: active"));
+            return result(0, QStringLiteral(
+                "wlan0: flags=8843<UP,BROADCAST,RUNNING,SIMPLEX,MULTICAST> metric 0 mtu 1500\n"
+                "\tssid NorthstarLab channel 6\n"
+                "\tstatus: associated"));
         }
         if (program == QStringLiteral("/usr/sbin/hccontrol")) {
             return result(0, QStringLiteral("Node list"));
@@ -119,6 +170,196 @@ void QuickSettingsControllerTest::persistsDoNotDisturb()
     }
     QuickSettingsController restored(nullptr, settingsPath, unavailableProvider);
     QVERIFY(restored.doNotDisturb());
+}
+
+void QuickSettingsControllerTest::leavesRadiosReadOnlyWithoutTheHelper()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString absent = directory.filePath(QStringLiteral("northstar-radio"));
+    qputenv("NORTHSTAR_RADIO_HELPER", absent.toUtf8());
+
+    RadioHelper helper;
+    QuickSettingsController controller(nullptr, directory.filePath(QStringLiteral("quick.ini")),
+                                       equippedSystem(&helper, absent));
+
+    // The path is configured but nothing is installed there, so a control must
+    // not be offered for something this build cannot change.
+    QVERIFY(controller.wifiAvailable());
+
+    qunsetenv("NORTHSTAR_RADIO_HELPER");
+    QVERIFY(!QuickSettingsController::radioControlAvailable());
+    QVERIFY(helper.calls.isEmpty());
+}
+
+void QuickSettingsControllerTest::togglesARadioThroughTheHelper()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString helperPath = directory.filePath(QStringLiteral("northstar-radio"));
+    QFile stub(helperPath);
+    QVERIFY(stub.open(QIODevice::WriteOnly));
+    stub.write("#!/bin/sh\nexit 0\n");
+    stub.close();
+    QVERIFY(QFile::setPermissions(helperPath,
+                                  QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner));
+    qputenv("NORTHSTAR_RADIO_HELPER", helperPath.toUtf8());
+
+    RadioHelper helper;
+    QuickSettingsController controller(nullptr, directory.filePath(QStringLiteral("quick.ini")),
+                                       equippedSystem(&helper, helperPath));
+
+    QVERIFY(QuickSettingsController::radioControlAvailable());
+    QVERIFY(controller.wifiWritable());
+    QVERIFY(controller.bluetoothWritable());
+
+    QVERIFY(controller.setWifiEnabled(false));
+    QCOMPARE(helper.calls.size(), 1);
+    QCOMPARE(helper.calls.first(), QStringLiteral("wifi off"));
+
+    QVERIFY(controller.setBluetoothEnabled(true));
+    QCOMPARE(helper.calls.size(), 2);
+    QCOMPARE(helper.calls.last(), QStringLiteral("bluetooth on"));
+
+    // Two fixed words, always. Nothing else is ever handed to the boundary.
+    for (const QString &call : helper.calls) {
+        QCOMPARE(call.split(QLatin1Char(' ')).size(), 2);
+    }
+
+    qunsetenv("NORTHSTAR_RADIO_HELPER");
+}
+
+void QuickSettingsControllerTest::reportsAbsentRadioHardware()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString helperPath = directory.filePath(QStringLiteral("northstar-radio"));
+    qputenv("NORTHSTAR_RADIO_HELPER", helperPath.toUtf8());
+
+    RadioHelper helper;
+    helper.exitCode = 69;
+    QuickSettingsController controller(nullptr, directory.filePath(QStringLiteral("quick.ini")),
+                                       equippedSystem(&helper, helperPath));
+
+    QVERIFY(!controller.setBluetoothEnabled(false));
+    QVERIFY(controller.statusMessage().contains(QStringLiteral("hardware")));
+
+    qunsetenv("NORTHSTAR_RADIO_HELPER");
+}
+
+void QuickSettingsControllerTest::reportsARefusedRadioChange()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString helperPath = directory.filePath(QStringLiteral("northstar-radio"));
+    qputenv("NORTHSTAR_RADIO_HELPER", helperPath.toUtf8());
+
+    RadioHelper helper;
+    helper.exitCode = 1;
+    QuickSettingsController controller(nullptr, directory.filePath(QStringLiteral("quick.ini")),
+                                       equippedSystem(&helper, helperPath));
+
+    QVERIFY(!controller.setWifiEnabled(false));
+    QVERIFY(controller.statusMessage().contains(QStringLiteral("refused")));
+
+    // A boundary that could not be started at all is reported differently from
+    // one that ran and said no.
+    helper.started = false;
+    QVERIFY(!controller.setWifiEnabled(true));
+    QVERIFY(controller.statusMessage().contains(QStringLiteral("could not be run")));
+
+    qunsetenv("NORTHSTAR_RADIO_HELPER");
+}
+
+void QuickSettingsControllerTest::refusesToActOnAbsentWireless()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString helperPath = directory.filePath(QStringLiteral("northstar-radio"));
+    qputenv("NORTHSTAR_RADIO_HELPER", helperPath.toUtf8());
+
+    RadioHelper helper;
+    // A machine with no wireless interface at all, which is what the
+    // development VM actually is.
+    const auto provider = [&helper, helperPath](const QString &program,
+                                                const QStringList &arguments) {
+        if (program == helperPath) {
+            helper.calls.append(arguments.join(QLatin1Char(' ')));
+            return QuickSettingsCommandResult{true, 0, {}, {}};
+        }
+        if (program == QStringLiteral("/sbin/ifconfig")
+            && arguments == QStringList{QStringLiteral("-l")}) {
+            return result(0, QStringLiteral("lo0 vtnet0"));
+        }
+        return result(1);
+    };
+
+    QuickSettingsController controller(nullptr, directory.filePath(QStringLiteral("quick.ini")),
+                                       provider);
+
+    QVERIFY(!controller.wifiAvailable());
+    QVERIFY(!controller.wifiWritable());
+    QVERIFY(!controller.setWifiEnabled(true));
+    QVERIFY(helper.calls.isEmpty());
+    QVERIFY(controller.statusMessage().contains(QStringLiteral("No wireless interface")));
+
+    qunsetenv("NORTHSTAR_RADIO_HELPER");
+}
+
+void QuickSettingsControllerTest::reportsAdministrativeStateRatherThanAssociation()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+
+    const auto systemWith = [](const QString &interfaceBlock) {
+        return [interfaceBlock](const QString &program, const QStringList &arguments) {
+            if (program == QStringLiteral("/sbin/ifconfig")
+                && arguments == QStringList{QStringLiteral("-l")}) {
+                return result(0, QStringLiteral("lo0 wlan0"));
+            }
+            if (program == QStringLiteral("/sbin/ifconfig")) {
+                return result(0, interfaceBlock);
+            }
+            return result(1);
+        };
+    };
+
+    // Up but not yet associated. This is the state immediately after switching
+    // Wi-Fi on, and the control must already read as on.
+    QuickSettingsController connecting(
+        nullptr, directory.filePath(QStringLiteral("a.ini")),
+        systemWith(QStringLiteral(
+            "wlan0: flags=8843<UP,BROADCAST,RUNNING,SIMPLEX,MULTICAST> metric 0 mtu 1500\n"
+            "\tstatus: no carrier")));
+    QVERIFY(connecting.wifiEnabled());
+    QCOMPARE(connecting.wifiStatus(), QStringLiteral("Wireless interface on, not connected"));
+
+    // Down. Associated text can linger in a stale read; the flags decide.
+    QuickSettingsController down(
+        nullptr, directory.filePath(QStringLiteral("b.ini")),
+        systemWith(QStringLiteral(
+            "wlan0: flags=8802<BROADCAST,SIMPLEX,MULTICAST> metric 0 mtu 1500\n"
+            "\tssid NorthstarLab\n\tstatus: associated")));
+    QVERIFY(!down.wifiEnabled());
+    QCOMPARE(down.wifiStatus(), QStringLiteral("Wireless interface off"));
+
+    // Up and associated, which is the only state that names the network.
+    QuickSettingsController connected(
+        nullptr, directory.filePath(QStringLiteral("c.ini")),
+        systemWith(QStringLiteral(
+            "wlan0: flags=8843<UP,BROADCAST,RUNNING,SIMPLEX,MULTICAST> metric 0 mtu 1500\n"
+            "\tssid NorthstarLab channel 6\n\tstatus: associated")));
+    QVERIFY(connected.wifiEnabled());
+    QCOMPARE(connected.wifiStatus(), QStringLiteral("Connected to NorthstarLab"));
+
+    // A wired-style "active" driver report is accepted as association too.
+    QuickSettingsController active(
+        nullptr, directory.filePath(QStringLiteral("d.ini")),
+        systemWith(QStringLiteral(
+            "wlan0: flags=8843<UP,BROADCAST,RUNNING,SIMPLEX,MULTICAST> metric 0 mtu 1500\n"
+            "\tstatus: active")));
+    QVERIFY(active.wifiEnabled());
+    QCOMPARE(active.wifiStatus(), QStringLiteral("Wireless link active"));
 }
 
 QTEST_MAIN(QuickSettingsControllerTest)
