@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QDateTime>
 #include <QList>
 #include <QObject>
 #include <QString>
@@ -33,8 +34,21 @@ class NotificationCenter final : public QObject
     Q_PROPERTY(bool doNotDisturb READ doNotDisturb WRITE setDoNotDisturb NOTIFY doNotDisturbChanged)
 
 public:
-    explicit NotificationCenter(QObject *parent = nullptr, int maxNotifications = 40);
+    // An empty storePath means the account's own history file. Tests pass a
+    // temporary path so they never read or write the real desktop's history.
+    explicit NotificationCenter(QObject *parent = nullptr,
+                                int maxNotifications = 40,
+                                QString storePath = {});
 
+    // The only kinds the panel knows how to colour. Anything else becomes
+    // "info", whether it arrives from a producer or from a hand-edited file.
+    static QString normalizedKind(const QString &kind);
+
+    // Short, human-readable age used by the panel. History now survives a
+    // restart, so a stored ISO timestamp on its own reads badly.
+    static QString relativeTime(const QDateTime &when, const QDateTime &now);
+
+    QString storePath() const;
     QList<NotificationEntry> entries() const;
     QVariantList notifications() const;
     int unreadCount() const;
@@ -58,8 +72,10 @@ signals:
 
 private:
     static QVariantList toVariantList(const QList<NotificationEntry> &entries);
+    void persist() const;
 
     QList<NotificationEntry> m_entries;
+    QString m_storePath;
     int m_maxNotifications = 40;
     int m_nextId = 1;
     bool m_doNotDisturb = false;

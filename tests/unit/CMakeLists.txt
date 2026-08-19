@@ -106,6 +106,18 @@ target_link_libraries(test-notificationcenter
 
 add_test(NAME northstar-notificationcenter COMMAND test-notificationcenter)
 
+qt_add_executable(test-notificationstore
+    test-notificationstore.cpp
+)
+
+target_link_libraries(test-notificationstore
+    PRIVATE
+        northstar-shell-core
+        Qt6::Test
+)
+
+add_test(NAME northstar-notificationstore COMMAND test-notificationstore)
+
 qt_add_executable(test-packagecatalog
     test-packagecatalog.cpp
 )
@@ -323,6 +335,7 @@ set_tests_properties(
     northstar-filebrowsercontroller
     northstar-desktopitemscontroller
     northstar-notificationcenter
+    northstar-notificationstore
     northstar-packagecatalog
     northstar-packagetrustcontroller
     northstar-updateplancontroller

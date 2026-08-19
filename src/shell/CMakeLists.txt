@@ -5,6 +5,7 @@ add_library(northstar-shell-core STATIC
     desktopsettings.cpp
     filebrowsercontroller.cpp
     notificationcenter.cpp
+    notificationstore.cpp
     packagecatalog.cpp
     packagetrustcontroller.cpp
     pinnedapplicationmodel.cpp

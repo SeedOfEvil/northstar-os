@@ -109,7 +109,7 @@ Window {
                         color: notifications.surfaceMuted
                         font.pixelSize: 11
                         text: notifications.center && notifications.center.notifications.length > 0
-                            ? notifications.center.notifications.length + " recent event(s)"
+                            ? notifications.center.notifications.length + " recent event(s), kept across restarts"
                             : "You're all caught up"
                     }
                 }
@@ -164,7 +164,10 @@ Window {
                     delegate: Rectangle {
                         required property var modelData
 
-                        color: notificationMouse.containsMouse ? lunar.raisedHover : notifications.surfaceRaised
+                        // Either hover keeps the row highlighted, so moving
+                        // onto the age label does not blink the highlight off.
+                        color: notificationMouse.containsMouse || entryAgeMouse.containsMouse
+                            ? lunar.raisedHover : notifications.surfaceRaised
                         height: 82
                         radius: lunar.radiusMedium
                         width: notificationList.width - 8
@@ -208,16 +211,38 @@ Window {
                         }
 
                         Text {
+                            id: entryAge
+                            // The row-wide mouse area below is declared later
+                            // and would otherwise stack on top of this label,
+                            // so the hover that reveals the exact time would
+                            // never reach it.
+                            z: 1
                             anchors.right: dismissButton.left
                             anchors.rightMargin: 8
                             anchors.bottom: parent.bottom
                             anchors.bottomMargin: 7
                             color: notifications.surfaceMuted
                             font.pixelSize: 9
-                            text: modelData.timestamp
+                            // History survives a restart, so an age reads far
+                            // better here than a stored ISO timestamp. The
+                            // exact time stays available on hover.
+                            text: modelData.displayTime
                             width: Math.min(150, parent.width * 0.4)
                             elide: Text.ElideLeft
                             horizontalAlignment: Text.AlignRight
+
+                            ToolTip.text: modelData.timestamp
+                            ToolTip.visible: entryAgeMouse.containsMouse
+                                             && modelData.timestamp.length > 0
+
+                            // No buttons accepted, so a click still falls
+                            // through to the row and marks the entry read.
+                            MouseArea {
+                                id: entryAgeMouse
+                                anchors.fill: parent
+                                acceptedButtons: Qt.NoButton
+                                hoverEnabled: true
+                            }
                         }
 
                         Rectangle {
