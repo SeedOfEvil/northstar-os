@@ -105,4 +105,7 @@ walkthrough to exercise. Acceptance rests on the automated evidence above.
 
 ## Interactive acceptance
 
-Status: **open**.
+Accepted by Hector on 2026-08-19 on the automated evidence above, there being
+no user-visible behaviour to walk through.
+
+Status: **accepted**.
