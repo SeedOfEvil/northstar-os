@@ -314,6 +314,10 @@ Window {
                                 if (mouse.button === Qt.RightButton) {
                                     applicationPinMenu.desktopId = modelData.desktopId
                                     applicationPinMenu.applicationName = modelData.name
+                                    // The catalog already carries them, so
+                                    // there is nothing further to ask for.
+                                    applicationPinMenu.applicationActions =
+                                        modelData.actions ? modelData.actions : []
                                     applicationPinMenu.x = Math.max(8, Math.min(
                                         overview.width - applicationPinMenu.implicitWidth - 8,
                                         applicationDelegate.mapToItem(overview.contentItem, 0, 0).x
@@ -484,6 +488,29 @@ Window {
         parent: overview.contentItem
         property string desktopId: ""
         property string applicationName: "Application"
+        property var applicationActions: []
+
+        // An application's own actions come first, matching the dock.
+        Instantiator {
+            model: applicationPinMenu.applicationActions
+
+            delegate: MenuItem {
+                required property var modelData
+                text: modelData.name
+                onTriggered: {
+                    if (overview.applicationLauncher) {
+                        overview.applicationLauncher.launchApplicationAction(
+                            applicationPinMenu.desktopId, modelData.id)
+                    }
+                    overview.hide()
+                }
+            }
+
+            onObjectAdded: (index, object) => applicationPinMenu.insertItem(index, object)
+            onObjectRemoved: (index, object) => applicationPinMenu.removeItem(object)
+        }
+
+        MenuSeparator { visible: applicationPinMenu.applicationActions.length > 0 }
 
         MenuItem {
             enabled: applicationPinMenu.desktopId.length > 0

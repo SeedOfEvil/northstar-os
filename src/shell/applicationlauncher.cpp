@@ -167,6 +167,49 @@ bool ApplicationLauncher::launchApplication(const QString &desktopId)
     return launch(desktopId, applicationNameFor(desktopId), program, arguments);
 }
 
+QVariantList ApplicationLauncher::applicationActions(const QString &desktopId) const
+{
+    for (const QVariant &value : m_catalog.applications()) {
+        const QVariantMap application = value.toMap();
+        if (application.value(QStringLiteral("desktopId")).toString() == desktopId) {
+            return application.value(QStringLiteral("actions")).toList();
+        }
+    }
+    return {};
+}
+
+bool ApplicationLauncher::launchApplicationAction(const QString &desktopId,
+                                                 const QString &actionId)
+{
+    // The action is named in the status line rather than the application
+    // alone, so "New Private Window" is distinguishable from an ordinary
+    // launch in the notification it produces.
+    QString actionName = actionId;
+    for (const DesktopApplication &application : m_catalog.entries()) {
+        if (application.desktopId != desktopId) {
+            continue;
+        }
+        for (const DesktopAction &action : application.actions) {
+            if (action.id == actionId) {
+                actionName = action.name;
+                break;
+            }
+        }
+        break;
+    }
+    const QString label =
+        QStringLiteral("%1 — %2").arg(applicationNameFor(desktopId), actionName);
+
+    QString program;
+    QStringList arguments;
+    if (!m_catalog.actionLaunchSpec(desktopId, actionId, &program, &arguments)) {
+        setLaunchStatus(desktopId, label, {}, 0, false);
+        return false;
+    }
+
+    return launch(desktopId, label, program, arguments);
+}
+
 bool ApplicationLauncher::launchApplicationWithFile(const QString &desktopId, const QString &filePath)
 {
     const QFileInfo fileInfo(filePath);

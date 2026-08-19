@@ -50,6 +50,16 @@ public:
     Q_INVOKABLE bool launchBrowser();
     Q_INVOKABLE bool launchApplication(const QString &desktopId);
     Q_INVOKABLE bool launchApplicationWithFile(const QString &desktopId, const QString &filePath);
+
+    // Runs one of an application's additional actions, such as opening a new
+    // private window. An action the application does not declare is refused
+    // rather than quietly starting the application instead.
+    Q_INVOKABLE bool launchApplicationAction(const QString &desktopId, const QString &actionId);
+
+    // The additional actions an application declares, in the order its
+    // desktop file lists them. Empty for an application that declares none,
+    // which is most of them.
+    Q_INVOKABLE QVariantList applicationActions(const QString &desktopId) const;
     Q_INVOKABLE QString desktopIdForWindow(const QString &appId, const QString &title) const;
     Q_INVOKABLE QVariantList applicationsForFile(const QString &filePath) const;
     Q_INVOKABLE QString preferredApplicationForFile(const QString &filePath) const;

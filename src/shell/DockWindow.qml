@@ -124,6 +124,9 @@ Window {
         const point = sourceItem.mapToItem(dock.contentItem, 0, 0)
         dockAppMenu.desktopId = desktopId || ""
         dockAppMenu.pinIndex = pinIndex
+        // Read once as the menu opens rather than bound: the list is fixed
+        // for as long as the menu is on screen.
+        dockAppMenu.applicationActions = desktopId ? launcher.applicationActions(desktopId) : []
         dockAppMenu.x = Math.max(8, Math.min(
             dock.width - dockAppMenu.implicitWidth - 8,
             point.x))
@@ -491,6 +494,24 @@ Window {
         parent: dock.contentItem
         property string desktopId: ""
         property int pinIndex: -1
+        property var applicationActions: []
+
+        // The application's own actions come first, the way a jump list does
+        // on other desktops, with the dock's own commands below them.
+        Instantiator {
+            model: dockAppMenu.applicationActions
+
+            delegate: MenuItem {
+                required property var modelData
+                text: modelData.name
+                onTriggered: launcher.launchApplicationAction(dockAppMenu.desktopId, modelData.id)
+            }
+
+            onObjectAdded: (index, object) => dockAppMenu.insertItem(index, object)
+            onObjectRemoved: (index, object) => dockAppMenu.removeItem(object)
+        }
+
+        MenuSeparator { visible: dockAppMenu.applicationActions.length > 0 }
 
         MenuItem {
             enabled: dockAppMenu.desktopId.length > 0

@@ -39,6 +39,10 @@ class ApplicationCatalogTest final : public QObject
     Q_OBJECT
 
 private slots:
+    void readsAdditionalActionsInTheOrderTheFileLists();
+    void ignoresActionsThatCannotBeShownOrRun();
+    void buildsTheCommandForAnAdditionalAction();
+    void refusesAnActionTheApplicationDoesNotDeclare();
     void filtersAndSortsDesktopEntries();
     void honorsDirectoryPrecedenceAndRefreshes();
     void autoRefreshesDesktopEntries();
@@ -324,6 +328,162 @@ void ApplicationCatalogTest::persistsFileAssociationsByMimeType()
     QCOMPARE(launcher.preferredApplicationForFile(documentPath), QStringLiteral("demo"));
     QVERIFY(launcher.clearPreferredApplicationForFile(documentPath));
     QVERIFY(launcher.preferredApplicationForFile(documentPath).isEmpty());
+}
+
+
+namespace {
+
+// A desktop file in the shape the installed Firefox one takes: two actions
+// declared in Actions=, each with its own group further down.
+QString writeApplicationWithActions(const QString &directory, const QString &fileName,
+                                    const QString &body)
+{
+    const QString path = QDir(directory).filePath(fileName);
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        return QString();
+    }
+    file.write(body.toUtf8());
+    file.close();
+    return path;
+}
+
+} // namespace
+
+void ApplicationCatalogTest::readsAdditionalActionsInTheOrderTheFileLists()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    QVERIFY(!writeApplicationWithActions(directory.path(), QStringLiteral("browser.desktop"),
+        QStringLiteral(
+            "[Desktop Entry]\n"
+            "Type=Application\n"
+            "Name=Browser\n"
+            "Exec=/bin/sh -c true %U\n"
+            "Actions=NewWindow;NewPrivateWindow;\n"
+            "\n"
+            "[Desktop Action NewPrivateWindow]\n"
+            "Name=Open a New Private Window\n"
+            "Exec=/bin/sh -c true -private-window\n"
+            "\n"
+            "[Desktop Action NewWindow]\n"
+            "Name=Open a New Window\n"
+            "Exec=/bin/sh -c true -new-window\n")).isEmpty());
+
+    ApplicationCatalog catalog({directory.path()});
+    QCOMPARE(catalog.entries().size(), 1);
+
+    const QList<DesktopAction> actions = catalog.entries().constFirst().actions;
+    QCOMPARE(actions.size(), 2);
+
+    // Actions= gives the order, not the order the groups happen to appear in,
+    // so a menu built from this is the one the author intended.
+    QCOMPARE(actions.at(0).id, QStringLiteral("NewWindow"));
+    QCOMPARE(actions.at(0).name, QStringLiteral("Open a New Window"));
+    QCOMPARE(actions.at(1).id, QStringLiteral("NewPrivateWindow"));
+
+    // The application itself is unchanged by having actions.
+    QCOMPARE(catalog.entries().constFirst().name, QStringLiteral("Browser"));
+}
+
+void ApplicationCatalogTest::ignoresActionsThatCannotBeShownOrRun()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    QVERIFY(!writeApplicationWithActions(directory.path(), QStringLiteral("partial.desktop"),
+        QStringLiteral(
+            "[Desktop Entry]\n"
+            "Type=Application\n"
+            "Name=Partial\n"
+            "Exec=/bin/sh -c true\n"
+            "Actions=Good;Nameless;Commandless;Missing;Elsewhere;\n"
+            "\n"
+            "[Desktop Action Good]\n"
+            "Name=Usable\n"
+            "Exec=/bin/sh -c true --good\n"
+            "\n"
+            "[Desktop Action Nameless]\n"
+            "Exec=/bin/sh -c true --nameless\n"
+            "\n"
+            "[Desktop Action Commandless]\n"
+            "Name=Nothing To Run\n"
+            "\n"
+            "[Desktop Action Elsewhere]\n"
+            "Name=Another Desktop Only\n"
+            "Exec=/bin/sh -c true --elsewhere\n"
+            "OnlyShowIn=GNOME;\n")).isEmpty());
+
+    ApplicationCatalog catalog({directory.path()});
+    QCOMPARE(catalog.entries().size(), 1);
+
+    // An action with no name cannot be shown, one with no command cannot be
+    // run, one with no group at all was never defined, and one restricted to
+    // another desktop is not ours. The application stays usable regardless.
+    const QList<DesktopAction> actions = catalog.entries().constFirst().actions;
+    QCOMPARE(actions.size(), 1);
+    QCOMPARE(actions.constFirst().id, QStringLiteral("Good"));
+}
+
+void ApplicationCatalogTest::buildsTheCommandForAnAdditionalAction()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    QVERIFY(!writeApplicationWithActions(directory.path(), QStringLiteral("browser.desktop"),
+        QStringLiteral(
+            "[Desktop Entry]\n"
+            "Type=Application\n"
+            "Name=Browser\n"
+            "Icon=browser-icon\n"
+            "Exec=/bin/sh -c true %U\n"
+            "Actions=NewPrivateWindow;\n"
+            "\n"
+            "[Desktop Action NewPrivateWindow]\n"
+            "Name=Open a New Private Window\n"
+            "Exec=/bin/sh -c true -private-window %U\n")).isEmpty());
+
+    ApplicationCatalog catalog({directory.path()});
+
+    QString program;
+    QStringList arguments;
+    QVERIFY(catalog.actionLaunchSpec(QStringLiteral("browser"),
+                                     QStringLiteral("NewPrivateWindow"), &program, &arguments));
+    QCOMPARE(program, QStringLiteral("/bin/sh"));
+
+    // The action's own command is used, and the file field code is dropped
+    // exactly as it is for an ordinary launch.
+    QVERIFY(arguments.contains(QStringLiteral("-private-window")));
+    QVERIFY(!arguments.contains(QStringLiteral("%U")));
+
+    // The action must not be confused with the application it belongs to.
+    QString applicationProgram;
+    QStringList applicationArguments;
+    QVERIFY(catalog.launchSpec(QStringLiteral("browser"), &applicationProgram,
+                               &applicationArguments));
+    QVERIFY(!applicationArguments.contains(QStringLiteral("-private-window")));
+}
+
+void ApplicationCatalogTest::refusesAnActionTheApplicationDoesNotDeclare()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    QVERIFY(!writeApplicationWithActions(directory.path(), QStringLiteral("plain.desktop"),
+        QStringLiteral(
+            "[Desktop Entry]\n"
+            "Type=Application\n"
+            "Name=Plain\n"
+            "Exec=/bin/sh -c true\n")).isEmpty());
+
+    ApplicationCatalog catalog({directory.path()});
+
+    QString program;
+    QStringList arguments;
+    // Refused rather than falling back to the application: someone asking for
+    // a private window would not want an ordinary one instead.
+    QVERIFY(!catalog.actionLaunchSpec(QStringLiteral("plain"), QStringLiteral("NewWindow"),
+                                      &program, &arguments));
+    QVERIFY(!catalog.actionLaunchSpec(QStringLiteral("absent"), QStringLiteral("NewWindow"),
+                                      &program, &arguments));
+    QVERIFY(program.isEmpty());
 }
 
 QTEST_MAIN(ApplicationCatalogTest)
