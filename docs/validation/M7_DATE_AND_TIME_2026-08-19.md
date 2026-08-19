@@ -248,6 +248,14 @@ not of this code. A correction that fails for that reason reports it.
 
 First walkthrough on 2026-08-19 set a timezone successfully and found the
 browsing defect. The second found the freeze and the empty choice lists.
-Re-handed off at `3fddede` with all three fixed.
+Re-handed off at `3fddede` with all three fixed, and accepted by Hector on
+2026-08-19: "I see my selections there and the button doesnt freeze anything".
 
-Status: **open**.
+Three defects reached the walkthrough that the automated suite could not have
+caught, because all three lived in what the surface rendered rather than in
+what the controllers held. The unit suite proves a controller is right; it
+says nothing about whether the control shows what the controller holds. That
+gap is recorded here as a known limit of this milestone's testing rather than
+closed by this change.
+
+Status: **accepted**.
