@@ -20,10 +20,19 @@ Verifies the canonical checkout, build, signed repository, package artifact,
 active repository configuration, and retention boundaries recorded by a
 schema-2 Northstar validation deployment manifest. --strict treats historical
 directories outside the declared quarantine/current/previous set as failures.
+
+The manifest's optional 'lane' key selects the expectation. 'package', the
+default, requires the publication to have been built from the deployed source
+revision. 'ui' reports that divergence as a NOTE, because an interface handoff
+publishes no package and cannot close it. Every other check applies to both.
 USAGE
 }
 
 pass() { printf 'PASS: %s\n' "$1"; }
+# A condition that is true, expected in this lane, and therefore neither a
+# failure nor a warning. Notes exist so a lane's known divergence is stated in
+# the output instead of being waived in prose somewhere else.
+note() { printf 'NOTE: %s\n' "$1"; }
 warn() {
     WARNINGS=$((WARNINGS + 1))
     printf 'WARN: %s\n' "$1" >&2
@@ -112,6 +121,26 @@ active_repository_config=$(require_value active_repository_config)
 quarantine_root=$(require_value quarantine_root)
 
 [ "$schema_version" = 2 ] || fail "unsupported deployment manifest schema '$schema_version'"
+
+# Which handoff this manifest describes.
+#
+#   package  a handoff that publishes a new signed repository revision. The
+#            checkout, the build, and the publication all describe one commit,
+#            so every check must pass.
+#   ui       an interface handoff installed under the development prefix that
+#            publishes no package. The deployed source is legitimately ahead of
+#            the last signed publication, because closing that gap needs signing
+#            material that deliberately does not exist in pull-request
+#            execution.
+#
+# An absent lane is treated as "package", so omitting the key can only ever make
+# the audit stricter.
+lane=$(manifest_value lane)
+[ -n "$lane" ] || lane=package
+case "$lane" in
+    ui|package) : ;;
+    *) fail "unsupported deployment lane '$lane'" ;;
+esac
 case "$source_branch" in codex/*) : ;; *) fail "source branch is not a codex/* validation branch" ;; esac
 printf '%s\n' "$source_revision" | grep -Eq '^[0-9a-f]{40}$' \
     || fail "source revision is not a full lowercase Git commit"
@@ -151,8 +180,13 @@ publication_record=$repository_path/publication-record.conf
 if [ -f "$publication_record" ] && [ ! -L "$publication_record" ]; then
     [ "$(record_value "$publication_record" repository_revision)" = "$repository_revision" ] \
         || fail "publication repository revision does not match the manifest"
-    [ "$(record_value "$publication_record" source_revision)" = "$source_revision" ] \
-        || fail "publication source revision does not match the manifest"
+    if [ "$(record_value "$publication_record" source_revision)" = "$source_revision" ]; then
+        pass "publication was built from the deployed source revision"
+    elif [ "$lane" = ui ]; then
+        note "deployed source is ahead of the signed publication, expected in the ui lane"
+    else
+        fail "publication source revision does not match the manifest"
+    fi
     [ "$(record_value "$publication_record" catalogue_sha256)" = "$catalogue_sha256" ] \
         || fail "publication catalogue digest does not match the manifest"
     [ "$(record_value "$publication_record" metadata_sha256)" = "$metadata_sha256" ] \
@@ -195,6 +229,18 @@ if [ -f "$active_repository_config" ]; then
     grep -F "$repository_path" "$active_repository_config" >/dev/null 2>&1 \
         && pass "active pkg repository points at the canonical publication" \
         || fail "active pkg repository does not point at $repository_path"
+
+    # Matching the manifest is not enough. A manifest and a pkg configuration
+    # that went stale together name the same removed directory and agree with
+    # each other, so this check reads the filesystem rather than the manifest.
+    configured_missing=0
+    for configured_path in $(sed -n 's|.*file://\(/[^"]*\)".*|\1|p' "$active_repository_config"); do
+        [ -d "$configured_path" ] && continue
+        fail "active pkg repository names a directory that does not exist: $configured_path"
+        configured_missing=$((configured_missing + 1))
+    done
+    [ "$configured_missing" -eq 0 ] \
+        && pass "every repository named by the active pkg configuration exists"
 else
     fail "active repository configuration is missing"
 fi
@@ -231,8 +277,9 @@ if [ "$STRICT" -eq 1 ] && [ "$WARNINGS" -gt 0 ]; then
 fi
 
 if [ "$FAILURES" -gt 0 ]; then
-    printf 'FAIL: deployment audit found %s failure(s) and %s warning(s)\n' "$FAILURES" "$WARNINGS" >&2
+    printf 'FAIL: %s lane deployment audit found %s failure(s) and %s warning(s)\n' \
+        "$lane" "$FAILURES" "$WARNINGS" >&2
     exit 1
 fi
 
-printf 'PASS: canonical validation deployment is coherent (%s warning(s))\n' "$WARNINGS"
+printf 'PASS: canonical %s lane deployment is coherent (%s warning(s))\n' "$lane" "$WARNINGS"

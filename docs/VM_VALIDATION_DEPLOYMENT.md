@@ -179,6 +179,7 @@ updating its record is how a deployment drifts.
    | `package_sha256`, `catalogue_sha256`, `metadata_sha256` | Computed with `sha256 -q` from the published files |
    | `signature_fingerprint` | The publication record |
    | `quarantine_root` | The dated quarantine for this cycle |
+   | `lane` | `ui` or `package`, see below. Absent means `package` |
 
    Compute the digests from the files and confirm they match the publication
    record. Agreement between the two is what proves the repository intact.
@@ -187,42 +188,48 @@ updating its record is how a deployment drifts.
    truthful and fails the audit is worth more than one that passes because it
    was made to.
 
-   The audit ties `source_revision` to the publication's source revision. See
-   the next section for why that check cannot pass in every lane, and what to
-   do about it.
+   The audit ties `source_revision` to the publication's source revision, which
+   a handoff that publishes no package cannot satisfy. Declare the lane rather
+   than waiving the check; see the next section.
 
-## What a clean audit looks like in each lane
+## Declaring the lane
 
-The auditor was written for the package lane, where a handoff publishes a new
+The auditor was written for the package lane, where a handoff publishes a
 signed repository revision at step 5 and the checkout, the build, and the
 publication all describe one commit. It is also run from the UI lane, where
-they legitimately do not.
+they legitimately do not: an interface pull request installs under `~/.local`
+and publishes no package, so the deployed source is ahead of the last signed
+publication. `docs/M4_SIGNED_DEVELOPMENT_CHANNEL.md` is explicit that no
+persistent signing key lives in this repository, so a UI handoff *cannot* close
+that gap, by design rather than by omission.
 
-**UI lane** -- an interface pull request installed under `~/.local`, publishing
-no package. Expected steady state is **one failure**:
+**Declare the lane in the manifest.** The expectation is enforced by the
+auditor, not by a note in a document:
 
+```ini
+lane=ui       # an interface handoff that publishes no package
+lane=package  # a handoff that publishes a signed revision at step 5
 ```
-FAIL: publication source revision does not match the manifest
-```
 
-This is correct and informative. It states that the deployed source is newer
-than the last signed package, which is exactly true for every such pull
-request. It is **not** debt, and it must not be "fixed" by editing the
-manifest to name the publication's older revision -- that would make the
-manifest describe a deployment that is not installed.
+- `lane=package`, which is also the default when the key is absent, requires
+  the publication to have been built from the deployed source revision. Omitting
+  the key can therefore only make an audit stricter, never weaker.
+- `lane=ui` reports that one divergence as
+  `NOTE: deployed source is ahead of the signed publication`, and nothing else
+  is relaxed. A missing shell, a stale repository, a dirty checkout, or a
+  detached HEAD still fail exactly as they do in the package lane.
 
-Closing it requires publishing a new signed revision, and
-`docs/M4_SIGNED_DEVELOPMENT_CHANNEL.md` is explicit that no persistent signing
-key lives in this repository: signing executables and private keys belong to a
-protected publication environment outside pull-request execution. A routine UI
-handoff therefore *cannot* close this check, by design and not by omission.
+A UI handoff with a correctly written manifest therefore **passes**. If it does
+not, something is genuinely wrong, and the fix is never to edit the manifest so
+that it names the publication's older revision: that would make the manifest
+describe a deployment which is not installed.
 
-Record it as expected in the validation document and move on. Do not carry it
-as an open action item; between 2026-08-10 and 2026-08-18 it was recorded as an
-exception in six consecutive documents on the assumption it was repairable.
-
-**Package lane** -- a handoff that publishes at step 5. Expected steady state
-is **zero failures**. Any failure here is real.
+This mechanism exists because the previous arrangement had no way to express
+it. `docs/QUALITY_GATES.md` required a passing audit unconditionally while one
+check was unsatisfiable in the UI lane, so the only available move was to waive
+it in prose, which happened in six consecutive validation documents on the
+assumption it was repairable debt. A rule that can only be honoured by writing
+an exception is a rule that will keep producing exceptions.
 
 **Warnings in both lanes.** Retained predecessor build trees produce
 `historical build remains outside retention boundaries` warnings. The auditor
@@ -237,13 +244,21 @@ never claim `make validation-deployment-audit` passes when it does not.
    validation document. Never delete quarantine, the previous signed revision,
    snapshots, or the rollback boot environment before acceptance.
 
-## Documentation-only changes
+## Changes that produce no new binary
 
-A pull request that changes no buildable source still runs the shell gates and
-`git diff --check`, but does not need a new commit-named build tree, a fresh
-install, or an interactive checklist: there is no new binary to accept. Say so
-explicitly in the validation document, and confirm it with `git diff --stat`
-against the merge base rather than by assertion.
+A pull request touching only documentation, shell tooling, or shell tests still
+runs the shell gates and `git diff --check`, but does not need a new
+commit-named build tree, a fresh install, or an interactive checklist: there is
+no new binary to accept. Confirm it rather than assert it:
+
+```sh
+git diff --name-only origin/main...HEAD -- src apps packaging
+```
+
+An empty result means no compiled artifact changed. The manifest for such a
+handoff keeps the previous `canonical_build`, because that tree really is the
+build the installed prefix came from; note in the validation document that the
+build is carried forward and why.
 
 ## Proving a gate works
 

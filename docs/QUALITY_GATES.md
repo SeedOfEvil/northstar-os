@@ -353,11 +353,18 @@ installed under `~/.local` publishes no package, so those two legitimately
 differ. Closing that check requires a protected publication environment, which
 by design holds signing material that does not exist in pull-request execution.
 
-- **Package lane** (a handoff that publishes a signed revision): the audit must
-  report zero failures. Any failure blocks handoff and merge.
-- **UI lane** (no package published): exactly one failure,
-  `publication source revision does not match the manifest`, is the expected
-  steady state and does not block merge. Every other failure blocks.
+Declare the lane in the manifest so the auditor enforces the right expectation
+instead of a reviewer remembering an exception:
+
+- `lane=package` (the default when absent): the publication must have been built
+  from the deployed source revision.
+- `lane=ui`: that one divergence is reported as a `NOTE`. Nothing else is
+  relaxed.
+
+**In both lanes the audit must report zero failures, and any failure blocks
+handoff and merge.** Because the lane is declared, a correctly written UI
+manifest passes, so there is no longer a case where the only way to satisfy this
+gate is to write an exception.
 
 In both lanes the manifest must be rewritten for the handoff, and the result
 must be recorded honestly in the validation document. Never claim the audit
