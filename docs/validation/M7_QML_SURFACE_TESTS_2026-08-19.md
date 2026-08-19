@@ -119,4 +119,9 @@ The change is structural: every Settings control is now rendered through an
 extracted component. Nothing about the surface should look or behave
 differently, which is exactly what needs confirming.
 
-Status: **open**.
+Accepted by Hector on 2026-08-19: "looks good". The walkthrough covered every
+section reading its real value, changes still taking, values surviving a close
+and reopen, and a refused wallpaper snapping back rather than leaving the
+rejected choice on screen.
+
+Status: **accepted**.
