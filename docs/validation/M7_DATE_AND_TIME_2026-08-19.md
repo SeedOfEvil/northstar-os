@@ -1,7 +1,7 @@
 # Date and time — 2026-08-19
 
 PR #108, verified on NSTAR-DEV01 (FreeBSD 15.1-RELEASE-p2, Qt 6.11.1, Clang
-19.1.7) at commit `83eb0c9`, built in `/home/northstar/builds/pr108-83eb0c9`
+19.1.7) at commit `3fddede`, built in `/home/northstar/builds/pr108-3fddede`
 with the project's canonical `-DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON`.
 
 The timezone was set once by the first-boot provisioner and could never be
@@ -146,20 +146,80 @@ reporting something untrue.
 The pre-fix declaration was restored into the working tree, built, and run
 against the new case, then reverted and the tree confirmed clean.
 
+## Two more defects the second walkthrough found
+
+### The correction froze the shell
+
+Reported: pressing **Set now** froze everything for about ten seconds.
+
+The one-shot correction talks to a time server, so it takes seconds by nature.
+The controller waited for it with `waitForFinished` on the thread that draws
+every shell surface, so the whole desktop stopped until it returned. Every
+other helper call shares that shape, but only this one is slow enough to be
+felt: a `state` read measures 0.20 s and a timezone write is a file copy.
+
+It now starts the step and reports when it finishes. The action returns
+immediately, the control is unavailable while the work is in flight and says
+so, a second request is refused rather than queued, and a correction that fails
+still reports that the system could not reach its time servers.
+
+| Version | New case |
+| --- | --- |
+| Blocking | **FAIL** — `synchroniseNow blocked for 2023 ms` |
+| Fixed | **PASS** |
+
+The control used a stub that sleeps two seconds. A real `ntpd -q -g` is what
+made it ten.
+
+### Every choice opened reading "Not set"
+
+Reported: reopening Settings showed the values gone.
+
+`currentIndex` was bound to `indexOfValue(entry.value)`. That answer depends on
+the model as much as on the value, but the model is not part of the expression,
+so it is not a dependency of the binding. Inside a `ListView` delegate the
+binding evaluated before the model was assigned, returned -1, and nothing ever
+re-ran it.
+
+Reproduced in a standalone probe built to the same shape — `ListView`, delegate,
+`Loader` carrying the entry, choice component:
+
+```
+A first open                currentIndex=-1  display='Not set'  valueSays=1
+B after a catalog refresh   currentIndex=-1  display='Not set'  valueSays=1
+```
+
+The same probe with the fix applied reports `currentIndex=1` and
+`display='Canada/Mountain'` in both positions. The selection is now
+synchronised when the control completes and whenever the model changes, and a
+refused write puts it back to what is in effect rather than leaving the
+rejected pick on screen.
+
+This is why the wallpaper fit control and the timezone both looked empty. It
+was one defect in the shared choice control, not two in the settings that use
+it.
+
+### Also
+
+Listing a region walked the zoneinfo database on every read of the timezone
+control's options, which a surface does far more often than the database
+changes. Those listings are now cached per region.
+
 ## Automated evidence
 
 - Clean build, all 408 targets, 0 errors.
-- `env QT_QPA_PLATFORM=offscreen ctest --test-dir /home/northstar/builds/pr108-83eb0c9 --output-on-failure`
+- `env QT_QPA_PLATFORM=offscreen ctest --test-dir /home/northstar/builds/pr108-3fddede --output-on-failure`
   — **36/36 suites passed, 0 failed**.
-- `northstar-clockcontroller` is new: 13 cases covering region listing with the
+- `northstar-clockcontroller` is new: 15 cases covering region listing with the
   `posix` and `right` copies excluded, zones nested a further level down
   (`America/Indiana/Knox`), region-less zones gathered under one name, index
   files never offered as zones, refusal of an absent zone and of a name that
   escapes the database, the unrecorded-timezone state, reading a recorded one,
   everything read-only without the boundary, writing through a stub boundary,
   a boundary that refuses, the network-time toggle, refusal of a one-shot
-  correction while the daemon is running, and the zone in effect staying on
-  offer while another region is browsed.
+  correction while the daemon is running, the zone in effect staying on offer
+  while another region is browsed, the correction returning without waiting,
+  and a correction that failed being reported as a failure.
 - The suite was re-run **after** `cmake --install` into `~/.local` and still
   reported 36/36.
 - `northstar-shell --qml-self-test` on the installed binary — exit 0, no QML
@@ -187,6 +247,7 @@ not of this code. A correction that fails for that reason reports it.
 ## Interactive acceptance
 
 First walkthrough on 2026-08-19 set a timezone successfully and found the
-browsing defect above. Re-handed off at `83eb0c9` with that fixed.
+browsing defect. The second found the freeze and the empty choice lists.
+Re-handed off at `3fddede` with all three fixed.
 
 Status: **open**.
