@@ -160,9 +160,39 @@ void DesktopSettingsTest::registersNoDeadControls()
 
             const QString kind = entry.value(QStringLiteral("kind")).toString();
             QVERIFY2(kind == SettingsCatalog::toggleKind() || kind == SettingsCatalog::sliderKind()
+                         || kind == SettingsCatalog::choiceKind()
+                         || kind == SettingsCatalog::pathKind()
                          || kind == SettingsCatalog::actionKind()
                          || kind == SettingsCatalog::infoKind(),
                      qPrintable(id));
+
+            // A choice is dead in a way the kind check cannot see: it can be
+            // well formed and still offer nothing, or offer a value its own
+            // reader never returns.
+            if (kind == SettingsCatalog::choiceKind()) {
+                const QVariantList options = entry.value(QStringLiteral("options")).toList();
+                QVERIFY2(!options.isEmpty(), qPrintable(id));
+                QStringList values;
+                for (const QVariant &option : options) {
+                    const QVariantMap map = option.toMap();
+                    QVERIFY2(!map.value(QStringLiteral("value")).toString().isEmpty(),
+                             qPrintable(id));
+                    QVERIFY2(!map.value(QStringLiteral("label")).toString().isEmpty(),
+                             qPrintable(id));
+                    values.append(map.value(QStringLiteral("value")).toString());
+                }
+                // Whatever it currently reads has to be one of the things it
+                // offers, or the control opens showing nothing selected.
+                QVERIFY2(values.contains(entry.value(QStringLiteral("value")).toString()),
+                         qPrintable(id));
+            }
+
+            // A path entry has to say what it shows when nothing is chosen,
+            // otherwise the control renders as an empty gap.
+            if (kind == SettingsCatalog::pathKind()) {
+                QVERIFY2(!entry.value(QStringLiteral("emptyLabel")).toString().isEmpty(),
+                         qPrintable(id));
+            }
 
             // An unavailable control has to say why.
             if (!entry.value(QStringLiteral("available")).toBool()) {
