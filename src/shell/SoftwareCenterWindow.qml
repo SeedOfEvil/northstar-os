@@ -858,6 +858,62 @@ Window {
                 }
             }
 
+            Row {
+                spacing: 8
+                width: parent.width
+
+                Repeater {
+                    model: [
+                        { value: "requested", label: "Installed by you" },
+                        { value: "updatable", label: "Updates" },
+                        { value: "all", label: "Everything" }
+                    ]
+
+                    delegate: Button {
+                        required property var modelData
+
+                        checkable: true
+                        checked: software.packageCatalog
+                            && software.packageCatalog.filter === modelData.value
+                        text: modelData.value === "requested" && software.packageCatalog
+                            ? modelData.label + " (" + software.packageCatalog.requestedCount + ")"
+                            : modelData.value === "all" && software.packageCatalog
+                                ? modelData.label + " (" + software.packageCatalog.installedCount + ")"
+                                : modelData.value === "updatable" && software.packageCatalog
+                                    && software.packageCatalog.updatesKnown
+                                    ? modelData.label + " (" + software.packageCatalog.updatableCount + ")"
+                                    : modelData.label
+                        onClicked: {
+                            if (software.packageCatalog) {
+                                software.packageCatalog.filter = modelData.value
+                            }
+                        }
+                    }
+                }
+
+                Button {
+                    enabled: software.packageCatalog
+                        && !software.packageCatalog.scanningUpdates
+                    text: "Check for updates"
+                    onClicked: software.packageCatalog.scanForUpdates()
+                }
+            }
+
+            Text {
+                color: software.surfaceMuted
+                font.pixelSize: 11
+                // Until the scan has run, the honest answer is that nothing
+                // is known yet rather than that everything is current.
+                text: !software.packageCatalog ? ""
+                    : software.packageCatalog.scanningUpdates
+                        ? software.packageCatalog.updateStatus
+                        : software.packageCatalog.updatesKnown
+                            ? software.packageCatalog.updateStatus
+                            : "Updates have not been checked for yet."
+                width: parent.width
+                wrapMode: Text.WordWrap
+            }
+
             Rectangle {
                 color: software.surfaceRaised
                 radius: 8
@@ -871,6 +927,33 @@ Window {
                     clip: true
                     model: software.packageCatalog ? software.packageCatalog.matchingPackages : []
                     spacing: 8
+
+                    // A list of hundreds with no scrollbar gives no sense of
+                    // how far through it you are, or how much is left.
+                    ScrollBar.vertical: ScrollBar {
+                        policy: ScrollBar.AlwaysOn
+                        visible: packageList.contentHeight > packageList.height
+                    }
+
+                    // Something has to be on screen when a filter matches
+                    // nothing, or the panel reads as broken.
+                    Text {
+                        anchors.centerIn: parent
+                        color: software.surfaceMuted
+                        font.pixelSize: 12
+                        visible: packageList.count === 0
+                        width: parent.width - 40
+                        horizontalAlignment: Text.AlignHCenter
+                        wrapMode: Text.WordWrap
+                        text: !software.packageCatalog ? "No package inventory."
+                            : software.packageCatalog.query.length > 0
+                                ? "Nothing here matches that search."
+                                : software.packageCatalog.filter === "updatable"
+                                    ? (software.packageCatalog.updatesKnown
+                                        ? "Everything is up to date."
+                                        : "Check for updates to see what can be updated.")
+                                    : "No packages to show."
+                    }
 
                     delegate: Rectangle {
                         required property var modelData
@@ -915,8 +998,20 @@ Window {
                                         color: software.surfaceMuted
                                         elide: Text.ElideRight
                                         font.pixelSize: 11
-                                        text: modelData.version
+                                        text: modelData.updatable && modelData.availableVersion
+                                            ? modelData.version + "  \u2192  " + modelData.availableVersion
+                                            : modelData.version
                                         width: parent.width - 280
+                                    }
+
+                                    Text {
+                                        color: modelData.orphaned ? lunar.warning : software.surfaceAccent
+                                        font.bold: true
+                                        font.pixelSize: 10
+                                        text: modelData.orphaned ? "NO LONGER PACKAGED"
+                                            : modelData.updatable ? "UPDATE"
+                                            : modelData.automatic ? "DEPENDENCY" : ""
+                                        visible: text.length > 0
                                     }
                                 }
 
