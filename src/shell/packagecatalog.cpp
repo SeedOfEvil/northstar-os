@@ -152,19 +152,36 @@ QList<InstalledPackage> PackageCatalog::parseQueryOutput(const QByteArray &outpu
     QSet<QString> seenNames;
     const QStringList lines = QString::fromUtf8(output).split(QLatin1Char('\n'), Qt::SkipEmptyParts);
     for (const QString &line : lines) {
-        const QStringList fields = line.split(QLatin1Char('|'));
-        if (fields.size() < 3) {
+        const qsizetype firstSeparator = line.indexOf(QLatin1Char('|'));
+        const qsizetype secondSeparator = firstSeparator < 0
+            ? -1 : line.indexOf(QLatin1Char('|'), firstSeparator + 1);
+        if (firstSeparator <= 0 || secondSeparator <= firstSeparator + 1) {
             continue;
         }
 
+        // A comment may itself contain a separator, so the fields cannot be
+        // split apart wholesale. The automatic flag is the last field and is
+        // only ever 0 or 1, which is what makes it safe to recognise from the
+        // end of the line, and what keeps a comment ending in a separator
+        // from being mistaken for one.
+        qsizetype commentEnd = line.size();
+        bool automatic = false;
+        const qsizetype lastSeparator = line.lastIndexOf(QLatin1Char('|'));
+        if (lastSeparator > secondSeparator) {
+            const QString trailing = line.mid(lastSeparator + 1).trimmed();
+            if (trailing == QLatin1String("0") || trailing == QLatin1String("1")) {
+                commentEnd = lastSeparator;
+                automatic = trailing == QLatin1String("1");
+            }
+        }
+
         InstalledPackage package;
-        package.name = boundedField(fields.at(0), 128);
-        package.version = boundedField(fields.at(1), 128);
-        package.comment = boundedField(fields.at(2), 240);
-        // A file written before this field existed simply has no flag, and
-        // treating that as "requested" keeps such a package visible rather
-        // than hiding it in a list nobody opens.
-        package.automatic = fields.size() > 3 && fields.at(3).trimmed() == QLatin1String("1");
+        package.name = boundedField(line.left(firstSeparator), 128);
+        package.version =
+            boundedField(line.mid(firstSeparator + 1, secondSeparator - firstSeparator - 1), 128);
+        package.comment =
+            boundedField(line.mid(secondSeparator + 1, commentEnd - secondSeparator - 1), 240);
+        package.automatic = automatic;
         if (package.name.isEmpty() || package.version.isEmpty() || seenNames.contains(package.name)) {
             continue;
         }

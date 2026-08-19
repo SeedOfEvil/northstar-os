@@ -103,6 +103,15 @@ void PackageCatalogTest::separatesRequestedPackagesFromDependencies()
         "firefox|153.0.1|Web browser\n");
     QCOMPARE(older.size(), 1);
     QVERIFY(!older.constFirst().automatic);
+
+    // A comment may contain the separator, so the flag is recognised only
+    // when the trailing field is exactly the flag it claims to be. Splitting
+    // the line on every separator would have taken "does a" as the comment.
+    const QList<InstalledPackage> awkward =
+        PackageCatalog::parseQueryOutput("tool|1.0|does a|b|c thing|1\n");
+    QCOMPARE(awkward.size(), 1);
+    QCOMPARE(awkward.constFirst().comment, QStringLiteral("does a|b|c thing"));
+    QVERIFY(awkward.constFirst().automatic);
 }
 
 void PackageCatalogTest::readsUpdateAvailabilityAndOrphansFromVersionOutput()
