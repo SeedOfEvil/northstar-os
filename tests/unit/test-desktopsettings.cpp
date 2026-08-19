@@ -9,6 +9,7 @@
 #include "shellstate.h"
 
 #include <QDir>
+#include <QFile>
 #include <QTemporaryDir>
 #include <QtTest/QtTest>
 
@@ -29,6 +30,7 @@ private slots:
     void togglesFilesGridViewThroughShellState();
     void reportsMissingSoundAsUnavailableWithTheMixerReason();
     void reportsMissingWirelessHardwareHonestly();
+    void offersRadioTogglesWhereControlIsInstalled();
     void refusesSessionActionsWhenTheSessionIsNotSupervised();
     void resetsTheDesktopLayoutThroughItsController();
     void findsRepresentativeSettingsBySearch();
@@ -57,12 +59,18 @@ QuickSettingsController::CommandProvider unequippedSystem()
 
 void DesktopSettingsTest::init()
 {
+    // Registration consults whether the radio boundary is installed, so pin it
+    // to something absent. Without this the declared entries, and therefore
+    // this suite, depend on whether the machine running it happens to have the
+    // helper installed.
+    qputenv("NORTHSTAR_RADIO_HELPER", QByteArrayLiteral("/nonexistent/northstar-radio"));
     m_directory = new QTemporaryDir;
     QVERIFY(m_directory->isValid());
 }
 
 void DesktopSettingsTest::cleanup()
 {
+    qunsetenv("NORTHSTAR_RADIO_HELPER");
     delete m_directory;
     m_directory = nullptr;
 }
@@ -200,6 +208,36 @@ void DesktopSettingsTest::reportsMissingSoundAsUnavailableWithTheMixerReason()
     // The control refuses rather than pretending it applied a value.
     QVERIFY(!desktop.catalog.setValue(QStringLiteral("sound.volume"), 70));
     QVERIFY(desktop.catalog.statusIsError());
+}
+
+void DesktopSettingsTest::offersRadioTogglesWhereControlIsInstalled()
+{
+    // The other half of the declaration: with the boundary installed the
+    // radios are declared as controls rather than readings, while staying
+    // unavailable because this fixture has no hardware.
+    const QString helperPath = m_directory->filePath(QStringLiteral("northstar-radio"));
+    QFile stub(helperPath);
+    QVERIFY(stub.open(QIODevice::WriteOnly));
+    stub.write("#!/bin/sh\nexit 0\n");
+    stub.close();
+    QVERIFY(QFile::setPermissions(helperPath,
+                                  QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner));
+    qputenv("NORTHSTAR_RADIO_HELPER", helperPath.toUtf8());
+
+    Desktop desktop(m_directory->path());
+
+    const QVariantMap wifi = desktop.catalog.entryFor(QStringLiteral("network.wifi"));
+    QCOMPARE(wifi.value(QStringLiteral("kind")).toString(), SettingsCatalog::toggleKind());
+    QVERIFY(wifi.value(QStringLiteral("writable")).toBool());
+
+    // Declared as a control, but still honest about the missing radio.
+    QVERIFY(!wifi.value(QStringLiteral("available")).toBool());
+    QCOMPARE(wifi.value(QStringLiteral("unavailableReason")).toString(),
+             desktop.quickSettings.wifiStatus());
+
+    const QVariantMap bluetooth = desktop.catalog.entryFor(QStringLiteral("network.bluetooth"));
+    QCOMPARE(bluetooth.value(QStringLiteral("kind")).toString(), SettingsCatalog::toggleKind());
+    QVERIFY(!bluetooth.value(QStringLiteral("available")).toBool());
 }
 
 void DesktopSettingsTest::reportsMissingWirelessHardwareHonestly()

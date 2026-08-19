@@ -91,9 +91,13 @@ void QuickSettingsController::refresh()
 
 QString QuickSettingsController::radioHelperPath()
 {
+    // A configured path is authoritative, including when it names nothing: the
+    // override has to be able to say "no helper here" as well as "this one".
+    // Returning a path that does not exist would advertise a control that
+    // cannot act, which is the failure this whole surface is built to avoid.
     const QString configuredPath = qEnvironmentVariable("NORTHSTAR_RADIO_HELPER");
     if (!configuredPath.isEmpty()) {
-        return configuredPath;
+        return QFileInfo(configuredPath).isExecutable() ? configuredPath : QString();
     }
 
     const QString userPath = QDir::home().filePath(QStringLiteral(".local/bin/northstar-radio"));
