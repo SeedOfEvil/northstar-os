@@ -110,4 +110,10 @@ but it also means the answer can differ on another compositor.
 
 ## Interactive acceptance
 
-Status: **open**.
+Accepted by Hector on 2026-08-19: "working now fixed". The walkthrough covered
+maximising to exactly the screen with its controls reachable, un-maximising
+back to a normal window, minimising into the dock and restoring from it, the
+same three on Files and Settings, and the panel, dock, and desktop background
+staying out of the dock as entries.
+
+Status: **accepted**.
