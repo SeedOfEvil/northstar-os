@@ -233,7 +233,7 @@ QString UpdatePlanController::activeRepositoryPath(const QString &repositoryConf
     // Only a local repository can be read without fetching anything, which
     // is the whole point: this reports on what is already on the machine.
     static const QRegularExpression localUrl(
-        QStringLiteral(R"(url\s*:\s*"file://([^"]+)")"));
+        QStringLiteral(R"RE(url\s*:\s*"file://([^"]+)")RE"));
     for (const QString &name : repositories.entryList({QStringLiteral("*.conf")}, QDir::Files)) {
         QFile file(repositories.filePath(name));
         if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
