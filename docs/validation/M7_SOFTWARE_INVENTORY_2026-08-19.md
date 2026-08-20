@@ -109,6 +109,59 @@ reporting that everything is current.
 The new filter and update controls are not covered by the QML surface tests
 from PR #109, which drive the settings control only.
 
+## Window recovery: attempted here, and not achieved
+
+This branch also tried to fix a defect the walkthrough found: a maximised
+window could not be moved or minimised, and its controls sat off the visible
+area. A shared `NorthstarWindowRecovery` component was added to the four
+windows that can be maximised, giving each an Escape key and clamping its
+geometry back within the screen when opened.
+
+**It does not work on this compositor, and the reason is instructive.**
+
+The session runs Wayfire, and the shell's windows are native Wayland surfaces:
+`xwininfo` against Xwayland finds no Northstar window at all, and the session
+status file records `wayland_display=wayland-1`. A Wayland client **cannot set
+its own position**. Every `window.x = ...` in the maximise path and in the
+clamping is silently ignored by the compositor; only the size takes effect.
+
+So maximising sets the width to the full screen while the window stays where
+the compositor put it, and it overflows by however far in it was. That is the
+reported defect, and the clamping written to cure it is inert for the same
+reason the defect exists.
+
+Two further faults were found the same way and are also unfixed here:
+
+| Action | Result | Cause |
+| --- | --- | --- |
+| Maximise | Window overflows the screen, controls unreachable | Client-set position ignored on Wayland |
+| Escape | Nothing happens | `Shortcut` needs the window to hold keyboard focus, which this compositor does not reliably grant |
+| Minimise | Window disappears with no handle | `showMinimized()` iconifies it and the dock lists no shell windows |
+
+All three share one cause: three of the four windows manage their own geometry
+as though the shell owned window management, when the compositor does. Quick
+Look asks the compositor instead — `showMaximized()`, and `maximized` derived
+from `visibility === Window.Maximized` — and is the only one of the four with
+none of these faults.
+
+The component added here is kept because it is the right place for the real
+fix, not because it currently delivers one. **Nothing about window stranding
+should be read as solved by this pull request.** It is the subject of the
+next.
+
+The mistake worth recording is mine: the handler was written against X11
+semantics without checking what the session actually runs, and the session
+status file had said `wayland-1` throughout.
+
 ## Interactive acceptance
 
-Status: **open**.
+Accepted by Hector on 2026-08-19 for the inventory: the Installed tile reads
+481, the status line reads "36 requested, 445 installed as dependencies", the
+filter row offers Installed by you (36), Updates, and Everything (481), and
+the update state reads "Updates have not been checked for yet" until a scan is
+run.
+
+Accepted with the window-management faults above explicitly outstanding and
+carried to the next change.
+
+Status: **accepted**.
