@@ -33,3 +33,6 @@ Accepted records in the initial foundation:
 - [0013: Installer source trust and recoverable journal](0013-installer-source-trust-and-journal.md)
 - [0014: Guarded installer execution](0014-guarded-installer-execution.md)
 - [0015: Installer clean retry and sanitized diagnostics](0015-installer-clean-retry-and-diagnostics.md)
+- [0016: Boot-environment recovery boundary](0016-boot-environment-recovery-boundary.md)
+- [0017: Installer-media assembly boundary](0017-installer-media-assembly-boundary.md)
+- [0018: Pinned trust boundary for third-party packages](0018-third-party-package-trust.md)
