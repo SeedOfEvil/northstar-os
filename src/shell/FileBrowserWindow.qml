@@ -26,9 +26,10 @@ Window {
     property int minimumSurfaceWidth: files.sidebarVisible ? 900 : 620
     property int minimumSurfaceHeight: 460
     property bool dragging: false
-    property bool maximized: false
-    property point normalGeometryPosition: Qt.point(0, 0)
-    property size normalGeometrySize: Qt.size(0, 0)
+    // Read from the compositor rather than tracked here. A shell-held
+    // copy can disagree with the real state, and on Wayland the
+    // compositor is the only thing that knows.
+    property bool maximized: visibility === Window.Maximized
     property point dragOrigin: Qt.point(0, 0)
     property point windowOrigin: Qt.point(0, 0)
     property point resizeOrigin: Qt.point(0, 0)
@@ -710,23 +711,16 @@ Window {
                                 Math.max(files.minimumSurfaceHeight, files.resizeSize.height + deltaY))
     }
 
+    // Asking the compositor rather than placing itself. A Wayland client
+    // cannot set its own position, so the previous approach set a full-screen
+    // width while the window stayed where it was, and it overflowed the screen
+    // by however far in it had been.
     function toggleMaximize() {
         if (files.maximized) {
-            files.x = files.normalGeometryPosition.x
-            files.y = files.normalGeometryPosition.y
-            files.width = files.normalGeometrySize.width
-            files.height = files.normalGeometrySize.height
-            files.maximized = false
+            files.showNormal()
             return
         }
-        files.normalGeometryPosition = Qt.point(files.x, files.y)
-        files.normalGeometrySize = Qt.size(files.width, files.height)
-        files.x = files.screenX
-        files.y = files.screenY + files.panelHeight
-        files.width = files.screenWidth
-        files.height = Math.max(files.minimumSurfaceHeight,
-            files.screenHeight - files.panelHeight)
-        files.maximized = true
+        files.showMaximized()
     }
 
     NorthstarWindowFrame {
