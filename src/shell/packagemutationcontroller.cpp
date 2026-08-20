@@ -4,6 +4,7 @@
 
 #include <QCryptographicHash>
 #include <QDateTime>
+#include <QFileDevice>
 #include <QFileInfo>
 #include <QProcess>
 #include <QProcessEnvironment>
@@ -24,6 +25,13 @@ bool boundedPackageField(const QString &value, qsizetype maximum)
         }
     }
     return true;
+}
+
+bool secureRootFile(const QFileInfo &file, bool executable)
+{
+    const QFileDevice::Permissions permissions = file.permissions();
+    return file.isFile() && (!executable || file.isExecutable()) && file.ownerId() == 0
+        && !(permissions & (QFileDevice::WriteGroup | QFileDevice::WriteOther));
 }
 
 } // namespace
@@ -114,7 +122,10 @@ bool PackageMutationController::refresh()
 {
     const QFileInfo transaction(m_transactionPath);
     const QFileInfo authorization(m_authorizationPath);
-    m_authorizationAvailable = transaction.isFile() && transaction.isExecutable()
+    const QFileInfo policy(QStringLiteral(
+        "/usr/local/share/polkit-1/actions/org.northstar.package.policy"));
+    m_authorizationAvailable = secureRootFile(transaction, true)
+        && secureRootFile(policy, false)
         && authorization.isFile() && authorization.isExecutable();
     if (!m_authorizationAvailable && !m_busy) {
         m_status = QStringLiteral("Install the protected package service to authorize changes.");

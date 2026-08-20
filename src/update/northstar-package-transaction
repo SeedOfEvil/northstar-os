@@ -12,13 +12,24 @@ EX_UNAVAILABLE=69
 EX_SOFTWARE=70
 EX_NOPERM=77
 
-PKG=${NORTHSTAR_PACKAGE_PKG:-/usr/sbin/pkg}
-BECTL=${NORTHSTAR_PACKAGE_BECTL:-/sbin/bectl}
-ZFS=${NORTHSTAR_PACKAGE_ZFS:-/sbin/zfs}
-SHA256=${NORTHSTAR_PACKAGE_SHA256:-/sbin/sha256}
-POLICY=${NORTHSTAR_PACKAGE_POLICY:-/usr/local/etc/northstar/third-party-package-source.conf}
-STATE_DIR=${NORTHSTAR_PACKAGE_STATE_DIR:-/var/db/northstar}
-RUN_DIR=${NORTHSTAR_PACKAGE_RUN_DIR:-/var/run/northstar}
+TEST_MODE=${NORTHSTAR_PACKAGE_TEST_MODE:-0}
+if [ "$TEST_MODE" = 1 ]; then
+    PKG=${NORTHSTAR_PACKAGE_PKG:-/usr/sbin/pkg}
+    BECTL=${NORTHSTAR_PACKAGE_BECTL:-/sbin/bectl}
+    ZFS=${NORTHSTAR_PACKAGE_ZFS:-/sbin/zfs}
+    SHA256=${NORTHSTAR_PACKAGE_SHA256:-/sbin/sha256}
+    POLICY=${NORTHSTAR_PACKAGE_POLICY:-/usr/local/etc/northstar/third-party-package-source.conf}
+    STATE_DIR=${NORTHSTAR_PACKAGE_STATE_DIR:-/var/db/northstar}
+    RUN_DIR=${NORTHSTAR_PACKAGE_RUN_DIR:-/var/run/northstar}
+else
+    PKG=/usr/sbin/pkg
+    BECTL=/sbin/bectl
+    ZFS=/sbin/zfs
+    SHA256=/sbin/sha256
+    POLICY=/usr/local/etc/northstar/third-party-package-source.conf
+    STATE_DIR=/var/db/northstar
+    RUN_DIR=/var/run/northstar
+fi
 
 fail() {
     status=$1
@@ -68,6 +79,16 @@ write_state() {
 }
 
 [ "$(id -u)" -eq 0 ] || fail "$EX_NOPERM" 'package transaction requires root'
+if [ "$TEST_MODE" != 1 ]; then
+    runner=$(realpath "$0")
+    runner_owner=$(stat -f '%u' "$runner")
+    runner_mode=$(stat -f '%Lp' "$runner")
+    [ "$runner_owner" = 0 ] || fail "$EX_NOPERM" 'package transaction executable must be root-owned'
+    case "$runner_mode" in
+        500|550|555|700|750|755) ;;
+        *) fail "$EX_NOPERM" 'package transaction executable must not be group-writable' ;;
+    esac
+fi
 [ "$#" -eq 3 ] && [ "$1" = --apply-plan ] && [ "$3" = --confirm ] \
     || fail "$EX_USAGE" 'use --apply-plan OPAQUE_PLAN_ID --confirm'
 plan_identifier=$2

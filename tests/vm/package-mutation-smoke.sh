@@ -131,6 +131,7 @@ make_plan() {
 
 run_transaction() {
     env NORTHSTAR_PACKAGE_PKG="$TMP_DIR/pkg" \
+        NORTHSTAR_PACKAGE_TEST_MODE=1 \
         NORTHSTAR_PACKAGE_BECTL="$TMP_DIR/bectl" \
         NORTHSTAR_PACKAGE_ZFS="$TMP_DIR/zfs" \
         NORTHSTAR_PACKAGE_SHA256=/sbin/sha256 \

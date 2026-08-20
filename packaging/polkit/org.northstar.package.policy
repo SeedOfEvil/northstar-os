@@ -5,15 +5,15 @@
 <policyconfig>
   <vendor>Northstar</vendor>
   <vendor_url>https://github.com/SeedOfEvil/northstar-os</vendor_url>
-  <action id="org.northstar.update.transaction">
-    <description>Apply or roll back a verified Northstar update</description>
-    <message>Administrator authentication is required to update Northstar</message>
+  <action id="org.northstar.package.transaction">
+    <description>Install or remove a verified FreeBSD package</description>
+    <message>Administrator authentication is required to change installed software</message>
     <defaults>
       <allow_any>no</allow_any>
       <allow_inactive>auth_admin</allow_inactive>
       <allow_active>auth_admin_keep</allow_active>
     </defaults>
-    <annotate key="org.freedesktop.policykit.exec.path">/usr/local/libexec/northstar-update-transaction</annotate>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/local/libexec/northstar-package-transaction</annotate>
     <annotate key="org.freedesktop.policykit.exec.allow_gui">true</annotate>
   </action>
 </policyconfig>
