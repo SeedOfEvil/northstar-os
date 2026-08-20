@@ -849,6 +849,18 @@ Window {
                         width: parent.width
                     }
 
+                    // What is out of step, said first and in full. The
+                    // check-by-check detail below is still there for anyone
+                    // who wants it, but it is not the headline.
+                    Text {
+                        color: software.surfaceForeground
+                        font.pixelSize: 12
+                        text: software.updatePlan ? software.updatePlan.blockedReason : ""
+                        visible: text.length > 0
+                        width: parent.width
+                        wrapMode: Text.WordWrap
+                    }
+
                     Text {
                         color: software.surfaceMuted
                         elide: Text.ElideRight

@@ -121,6 +121,8 @@ class UpdatePlanControllerTest final : public QObject
     Q_OBJECT
 
 private slots:
+    void namesTheRevisionsThatDisagreeWhenTheSignatureCannotMatch();
+    void readsOnlyALocalRepositoryPath();
     void acceptsValidMetadata();
     void rejectsMalformedAndUnknownMetadata();
     void rejectsUnresolvedAndDuplicateProvenance();
@@ -406,6 +408,64 @@ void UpdatePlanControllerTest::blocksPolicyMismatch()
     QVERIFY(controller.metadataValid());
     QVERIFY(!controller.preview({}));
     QVERIFY(controller.planStatus().contains(QStringLiteral("do not match")));
+}
+
+
+void UpdatePlanControllerTest::namesTheRevisionsThatDisagreeWhenTheSignatureCannotMatch()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+
+    // A repository publishing a later revision than the trust material on
+    // this system describes: exactly the state the validation machine was in,
+    // with r78 trusted and r86 published.
+    const QString repository = QDir(directory.path()).filePath(QStringLiteral("channel-r86"));
+    QVERIFY(QDir().mkpath(repository));
+    QFile record(QDir(repository).filePath(QStringLiteral("publication-record.conf")));
+    QVERIFY(record.open(QIODevice::WriteOnly | QIODevice::Text));
+    record.write("schema_version=1\nrepository_revision=86\n");
+    record.close();
+
+    const QString repositoryConfig = QDir(directory.path()).filePath(QStringLiteral("repos"));
+    QVERIFY(QDir().mkpath(repositoryConfig));
+    QFile configuration(QDir(repositoryConfig).filePath(QStringLiteral("northstar.conf")));
+    QVERIFY(configuration.open(QIODevice::WriteOnly | QIODevice::Text));
+    configuration.write(QStringLiteral("northstar-development: {\n    url: \"file://%1\",\n}\n")
+                            .arg(repository)
+                            .toUtf8());
+    configuration.close();
+
+    QCOMPARE(UpdatePlanController::activeRepositoryPath(repositoryConfig), repository);
+}
+
+void UpdatePlanControllerTest::readsOnlyALocalRepositoryPath()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+
+    const QString repositoryConfig = QDir(directory.path()).filePath(QStringLiteral("repos"));
+    QVERIFY(QDir().mkpath(repositoryConfig));
+
+    // A repository reached over the network cannot have its revision
+    // established without fetching, so it is not guessed at.
+    QFile remote(QDir(repositoryConfig).filePath(QStringLiteral("northstar.conf")));
+    QVERIFY(remote.open(QIODevice::WriteOnly | QIODevice::Text));
+    remote.write("northstar-development: {\n"
+                 "    url: \"pkg+https://packages.example.test/northstar/development\",\n}\n");
+    remote.close();
+    QVERIFY(UpdatePlanController::activeRepositoryPath(repositoryConfig).isEmpty());
+
+    // A configuration for some other repository is not ours to read either.
+    QFile other(QDir(repositoryConfig).filePath(QStringLiteral("northstar.conf")));
+    QVERIFY(other.open(QIODevice::WriteOnly | QIODevice::Text));
+    other.write("FreeBSD: {\n    url: \"file:///var/db/ports\",\n}\n");
+    other.close();
+    QVERIFY(UpdatePlanController::activeRepositoryPath(repositoryConfig).isEmpty());
+
+    // And an empty directory yields nothing rather than a guess.
+    const QString empty = QDir(directory.path()).filePath(QStringLiteral("empty"));
+    QVERIFY(QDir().mkpath(empty));
+    QVERIFY(UpdatePlanController::activeRepositoryPath(empty).isEmpty());
 }
 
 QTEST_MAIN(UpdatePlanControllerTest)
