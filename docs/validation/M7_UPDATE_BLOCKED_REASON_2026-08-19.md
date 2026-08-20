@@ -102,6 +102,34 @@ from an unreachable commit deserves a deliberate decision.
 
 The new panel text is not covered by the QML surface tests from PR #109.
 
+## Also in this change: the page scrolls
+
+Reported during the walkthrough: the Software Center needed a scrollbar.
+
+PR #111 gave the package list one. The page holding it had none, so on a small
+window the tiles, application catalog, update panel, search field, filters, and
+the note at the foot ran past the bottom edge with no way to reach them.
+
+Everything below the title bar now sits in a scrolling page. The title bar
+stays put, which is deliberate: a window whose controls scroll out of reach is
+the state that made one unrecoverable earlier the same day.
+
+There are two scrollbars and each has a job. The page scrolls to reach the
+header and the foot; the package list keeps its own and keeps its
+virtualisation. Expanding the list to full height inside the page would have
+instantiated a delegate for every one of the 481 installed packages, trading a
+scrollbar for a stall.
+
+About 600 lines of that commit are the mechanical re-indent of moving the page
+one level deeper. The change itself is the Flickable, its scrollbar, and one
+height that no longer measures itself against a window it can now scroll
+within.
+
 ## Interactive acceptance
 
-Status: **open**.
+Accepted by Hector on 2026-08-19: "looks awesome now". The walkthrough covered
+the update panel leading with the revision mismatch in plain language above the
+check-by-check detail, and the page scrolling with the title bar staying in
+place.
+
+Status: **accepted**.
