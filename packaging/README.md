@@ -11,11 +11,13 @@ Northstar components -> signed Northstar pkg repository
 Major upgrade -> ZFS boot environment created with bectl first
 ```
 
-The shell's current Software Center is intentionally limited to a read-only
-`pkg query` inventory, verified publication preview, and update-safety
-preflight. It must not be treated as repository or update execution support;
-an actual signed `pkg` repository, narrow privileged authorization, and
-`bectl` rollback remain required before any package mutation is exposed.
+Software Center keeps the Northstar update channel separate from the pinned
+`FreeBSD-ports` source. Third-party install/remove actions use a short-lived,
+opaque plan bound to the authenticated catalogue and exact `pkg` dry-run
+preview. The root-owned transaction runner refreshes and independently
+reproduces both, creates a ZFS boot environment, and derives every package
+argument itself. Repository enrollment, local package files, Ports builds,
+dependency removal, and arbitrary repositories remain unsupported.
 
 Do not commit package repositories, signing keys, or unsigned release claims.
 

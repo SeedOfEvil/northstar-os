@@ -1,0 +1,232 @@
+#!/bin/sh
+
+# Root-only third-party package runner. The desktop supplies one opaque,
+# short-lived plan identifier; repository, operation, package name, version,
+# origin, and preview are independently recovered and verified here.
+
+set -eu
+
+EX_USAGE=64
+EX_DATAERR=65
+EX_UNAVAILABLE=69
+EX_SOFTWARE=70
+EX_NOPERM=77
+
+PKG=${NORTHSTAR_PACKAGE_PKG:-/usr/sbin/pkg}
+BECTL=${NORTHSTAR_PACKAGE_BECTL:-/sbin/bectl}
+ZFS=${NORTHSTAR_PACKAGE_ZFS:-/sbin/zfs}
+SHA256=${NORTHSTAR_PACKAGE_SHA256:-/sbin/sha256}
+POLICY=${NORTHSTAR_PACKAGE_POLICY:-/usr/local/etc/northstar/third-party-package-source.conf}
+STATE_DIR=${NORTHSTAR_PACKAGE_STATE_DIR:-/var/db/northstar}
+RUN_DIR=${NORTHSTAR_PACKAGE_RUN_DIR:-/var/run/northstar}
+
+fail() {
+    status=$1
+    shift
+    printf 'ERROR: %s\n' "$*" >&2
+    exit "$status"
+}
+
+value() {
+    key=$1
+    file=$2
+    count=$(awk -F= -v key="$key" '$1 == key { count += 1 } END { print count + 0 }' "$file")
+    [ "$count" -eq 1 ] || fail "$EX_DATAERR" "policy must contain exactly one $key"
+    awk -F= -v key="$key" '$1 == key { sub(/^[^=]*=/, ""); print }' "$file"
+}
+
+sha_text() {
+    printf '%s' "$1" | "$SHA256" -q
+}
+
+record_payload() {
+    operation=$1
+    name=$2
+    version=$3
+    origin=$4
+    printf 'protocol=1\ntimestamp=%s\noperation=%s\nrepository=%s\ncatalogue_sha256=%s\nindex=%s\nname=%s\nversion=%s\norigin=%s\n' \
+        "$timestamp" "$operation" "$repository" "$catalogue_sha256" "$index_number" \
+        "$name" "$version" "$origin"
+}
+
+schedule_rollback() {
+    "$BECTL" activate "$boot_environment" >/dev/null 2>&1 || true
+    write_state rollback-scheduled
+}
+
+write_state() {
+    transaction_status=$1
+    temporary=$STATE.tmp.$$
+    {
+        printf 'protocol=1\nstatus=%s\noperation=%s\nrepository=%s\nports_branch=%s\n' \
+            "$transaction_status" "$operation" "$repository" "$ports_branch"
+        printf 'package=%s\nversion=%s\norigin=%s\n' "$package_name" "$package_version" "$package_origin"
+        printf 'catalogue_sha256=%s\nboot_environment=%s\n' "$catalogue_sha256" "$boot_environment"
+    } > "$temporary"
+    chmod 0600 "$temporary"
+    mv "$temporary" "$STATE"
+}
+
+[ "$(id -u)" -eq 0 ] || fail "$EX_NOPERM" 'package transaction requires root'
+[ "$#" -eq 3 ] && [ "$1" = --apply-plan ] && [ "$3" = --confirm ] \
+    || fail "$EX_USAGE" 'use --apply-plan OPAQUE_PLAN_ID --confirm'
+plan_identifier=$2
+printf '%s\n' "$plan_identifier" \
+    | grep -Eq '^[0-9]{10}-[0-9]{8}-[0-9a-f]{64}-[0-9a-f]{64}$' \
+    || fail "$EX_DATAERR" 'plan identifier is malformed'
+
+for executable in "$PKG" "$BECTL" "$ZFS" "$SHA256"; do
+    [ -x "$executable" ] || fail "$EX_UNAVAILABLE" "required executable is unavailable: $executable"
+done
+[ -f "$POLICY" ] && [ ! -L "$POLICY" ] || fail "$EX_DATAERR" 'package source policy is unavailable'
+owner=$(stat -f '%u' "$POLICY")
+mode=$(stat -f '%Lp' "$POLICY")
+[ "$owner" = 0 ] || fail "$EX_NOPERM" 'package source policy must be root-owned'
+case "$mode" in
+    400|440|444|600|640|644) ;;
+    *) fail "$EX_NOPERM" 'package source policy must not be group-writable' ;;
+esac
+invalid_policy=$(grep -Ev '^(#.*|[[:space:]]*|(protocol|repository|abi|ports_branch|url|mirror_type|signature_type|fingerprints)=[^=[:space:]]+)$' "$POLICY" || true)
+[ -z "$invalid_policy" ] || fail "$EX_DATAERR" 'package source policy contains unsupported fields'
+
+[ "$(value protocol "$POLICY")" = 1 ] || fail "$EX_DATAERR" 'unsupported package source policy protocol'
+repository=$(value repository "$POLICY")
+abi=$(value abi "$POLICY")
+ports_branch=$(value ports_branch "$POLICY")
+url=$(value url "$POLICY")
+mirror_type=$(value mirror_type "$POLICY")
+signature_type=$(value signature_type "$POLICY")
+fingerprints=$(value fingerprints "$POLICY")
+[ "$repository" = FreeBSD-ports ] || fail "$EX_DATAERR" 'only the pinned FreeBSD-ports source is supported'
+[ "$signature_type" = FINGERPRINTS ] || fail "$EX_DATAERR" 'package source must require fingerprints'
+printf '%s\n' "$ports_branch" | grep -Eq '^[0-9]{4}Q[1-4]$' \
+    || fail "$EX_DATAERR" 'Ports branch must be a resolved quarterly branch'
+year=$(date -u +%Y)
+month=$(date -u +%m)
+month_number=$(printf '%s' "$month" | sed 's/^0//')
+quarter=$(((month_number - 1) / 3 + 1))
+[ "$ports_branch" = "${year}Q${quarter}" ] \
+    || fail "$EX_DATAERR" 'pinned Ports branch requires an explicit release-policy refresh'
+
+pkg_configuration=$("$PKG" -vv)
+active_block=$(printf '%s\n' "$pkg_configuration" | awk -v repository="$repository" '
+    $0 ~ "^  " repository ": \\{[[:space:]]*$" { active = 1 }
+    active { print }
+    active && $0 == "  }" { exit }
+')
+[ -n "$active_block" ] || fail "$EX_DATAERR" 'pinned package repository is not active'
+printf '%s\n' "$active_block" | grep -F "url             : \"$url\"" >/dev/null \
+    || fail "$EX_DATAERR" 'active repository URL does not match policy'
+printf '%s\n' "$active_block" | grep -F "mirror_type     : \"$mirror_type\"" >/dev/null \
+    || fail "$EX_DATAERR" 'active repository mirror type does not match policy'
+printf '%s\n' "$active_block" | grep -F "signature_type  : \"$signature_type\"" >/dev/null \
+    || fail "$EX_DATAERR" 'active repository signature type does not match policy'
+printf '%s\n' "$active_block" | grep -F "fingerprints    : \"$fingerprints\"" >/dev/null \
+    || fail "$EX_DATAERR" 'active repository fingerprint path does not match policy'
+printf '%s\n' "$pkg_configuration" | grep -F "ABI = \"$abi\";" >/dev/null \
+    || fail "$EX_DATAERR" 'active package ABI does not match policy'
+
+old_ifs=$IFS
+IFS=-
+set -- $plan_identifier
+IFS=$old_ifs
+timestamp=$1
+index=$2
+record_hash=$3
+preview_hash=$4
+now=$(date +%s)
+age=$((now - timestamp))
+[ "$age" -ge 0 ] && [ "$age" -le 600 ] || fail "$EX_DATAERR" 'plan identifier has expired'
+index_number=$(printf '%s' "$index" | sed 's/^0*//')
+[ -n "$index_number" ] || index_number=0
+
+umask 077
+mkdir -p "$STATE_DIR" "$RUN_DIR"
+chmod 0700 "$STATE_DIR" "$RUN_DIR"
+LOCK=$RUN_DIR/package-transaction.lock
+mkdir "$LOCK" 2>/dev/null || fail "$EX_UNAVAILABLE" 'another package transaction is already running'
+WORK=$RUN_DIR/package-plan.$$
+mkdir "$WORK"
+trap 'rm -rf "$WORK" "$LOCK"' EXIT HUP INT TERM
+STATE=$STATE_DIR/package-state.conf
+
+# pkg authenticates the configured fingerprint repository before replacing its
+# catalogue. The catalogue digest below binds the refreshed result to the plan.
+"$PKG" update -f -r "$repository" >/dev/null
+LC_ALL=C "$PKG" rquery -r "$repository" '%n|%v|%o' | LC_ALL=C sort -u > "$WORK/remote"
+[ -s "$WORK/remote" ] || fail "$EX_DATAERR" 'authenticated package catalogue is empty'
+catalogue_sha256=$("$SHA256" -q "$WORK/remote")
+
+operation=
+package_name=
+package_version=
+package_origin=
+line_number=$((index_number + 1))
+candidate=$(sed -n "${line_number}p" "$WORK/remote")
+if [ -n "$candidate" ]; then
+    package_name=${candidate%%|*}
+    remainder=${candidate#*|}
+    package_version=${remainder%%|*}
+    package_origin=${remainder#*|}
+    computed=$(record_payload install "$package_name" "$package_version" "$package_origin" | "$SHA256" -q)
+    if [ "$computed" = "$record_hash" ] && [ "$package_name" != pkg ] \
+        && ! "$PKG" query -e "%n == $package_name" >/dev/null 2>&1; then
+        operation=install
+    fi
+fi
+
+if [ -z "$operation" ]; then
+    "$PKG" query -a '%n|%v|%o|%a|%R|%k' \
+        | awk -F'|' -v repository="$repository" \
+            '$4 == 0 && $5 == repository && $6 == 0 && $1 != "pkg" && $3 != "" { print $1 "|" $2 "|" $3 }' \
+        | LC_ALL=C sort -u > "$WORK/removable"
+    candidate=$(sed -n "${line_number}p" "$WORK/removable")
+    if [ -n "$candidate" ]; then
+        package_name=${candidate%%|*}
+        remainder=${candidate#*|}
+        package_version=${remainder%%|*}
+        package_origin=${remainder#*|}
+        computed=$(record_payload remove "$package_name" "$package_version" "$package_origin" | "$SHA256" -q)
+        [ "$computed" = "$record_hash" ] && operation=remove
+    fi
+fi
+[ -n "$operation" ] || fail "$EX_DATAERR" 'plan does not identify a current permitted package action'
+
+if [ "$operation" = install ]; then
+    preview=$(LC_ALL=C "$PKG" install -n -r "$repository" "$package_name" 2>&1) \
+        || fail "$EX_DATAERR" 'install preview could not be reproduced'
+else
+    preview=$(LC_ALL=C "$PKG" delete -n "$package_name" 2>&1) \
+        || fail "$EX_DATAERR" 'removal preview could not be reproduced'
+fi
+[ "$(sha_text "$preview")" = "$preview_hash" ] \
+    || fail "$EX_DATAERR" 'package transaction preview changed; review a new plan'
+
+boot_environment="northstar-before-package-${timestamp}-$(printf '%.8s' "$record_hash")"
+"$BECTL" create "$boot_environment"
+write_state boot-environment-created
+
+if [ "$operation" = install ]; then
+    if ! "$PKG" install -y -r "$repository" "$package_name"; then
+        schedule_rollback
+        fail "$EX_SOFTWARE" "install failed; rollback to $boot_environment is scheduled for reboot"
+    fi
+    actual=$("$PKG" query -e "%n == $package_name" '%v|%o|%R' 2>/dev/null || true)
+    [ "$actual" = "$package_version|$package_origin|$repository" ] || {
+        schedule_rollback
+        fail "$EX_SOFTWARE" "installed package verification failed; rollback to $boot_environment is scheduled for reboot"
+    }
+else
+    if ! "$PKG" delete -y "$package_name"; then
+        schedule_rollback
+        fail "$EX_SOFTWARE" "removal failed; rollback to $boot_environment is scheduled for reboot"
+    fi
+    if "$PKG" query -e "%n == $package_name" >/dev/null 2>&1; then
+        schedule_rollback
+        fail "$EX_SOFTWARE" "package removal verification failed; rollback to $boot_environment is scheduled for reboot"
+    fi
+fi
+
+write_state completed
+printf 'PACKAGE_ACTION=%s\nPACKAGE=%s\nBOOT_ENVIRONMENT=%s\nROLLBACK_AVAILABLE=yes\n' \
+    "$operation" "$package_name" "$boot_environment"

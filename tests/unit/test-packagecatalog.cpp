@@ -16,6 +16,7 @@ private slots:
     void ignoresMalformedAndDuplicateRows();
     void filtersAcrossPackageFields();
     void repeatedRefreshNotifiesCompletion();
+    void parsesRemoteCatalogueWithProvenance();
 };
 
 void PackageCatalogTest::parsesAndSortsPackageQueryOutput()
@@ -28,6 +29,21 @@ void PackageCatalogTest::parsesAndSortsPackageQueryOutput()
     QCOMPARE(packages.at(0).name, QStringLiteral("bash"));
     QCOMPARE(packages.at(0).version, QStringLiteral("5.2"));
     QCOMPARE(packages.at(1).name, QStringLiteral("zlib"));
+}
+
+void PackageCatalogTest::parsesRemoteCatalogueWithProvenance()
+{
+    const QList<InstalledPackage> packages = PackageCatalog::parseRemoteQueryOutput(
+        "cowsay|3.04_3|games/cowsay|Configurable talking characters|with separators\n"
+        "qterminal|2.4.0|x11/qterminal|Terminal emulator\n",
+        QStringLiteral("FreeBSD-ports"));
+    QCOMPARE(packages.size(), 2);
+    QCOMPARE(packages.constFirst().name, QStringLiteral("cowsay"));
+    QCOMPARE(packages.constFirst().origin, QStringLiteral("games/cowsay"));
+    QCOMPARE(packages.constFirst().repository, QStringLiteral("FreeBSD-ports"));
+    QCOMPARE(packages.constFirst().comment,
+             QStringLiteral("Configurable talking characters|with separators"));
+    QVERIFY(!packages.constFirst().installed);
 }
 
 void PackageCatalogTest::ignoresMalformedAndDuplicateRows()
@@ -81,10 +97,10 @@ void PackageCatalogTest::separatesRequestedPackagesFromDependencies()
     // The fourth field is pkg's automatic flag: 1 means the package arrived
     // as a dependency rather than because anyone asked for it.
     const QByteArray output =
-        "firefox|153.0.1|Web browser|0\n"
-        "libXfont2|2.0.8|X font library|1\n"
-        "perl5|5.42.2|Practical Extraction and Report Language|1\n"
-        "qterminal|1.4.0|Terminal emulator|0\n";
+        "firefox|153.0.1|www/firefox|FreeBSD-ports|0|0|Web browser\n"
+        "libXfont2|2.0.8|x11-fonts/libXfont2|FreeBSD-ports|1|0|X font library\n"
+        "perl5|5.42.2|lang/perl5.42|FreeBSD-ports|1|0|Practical Extraction and Report Language\n"
+        "qterminal|1.4.0|x11/qterminal|FreeBSD-ports|0|0|Terminal emulator\n";
 
     const QList<InstalledPackage> packages = PackageCatalog::parseQueryOutput(output);
     QCOMPARE(packages.size(), 4);
@@ -96,6 +112,7 @@ void PackageCatalogTest::separatesRequestedPackagesFromDependencies()
         }
     }
     QCOMPARE(requested, 2);
+    QCOMPARE(packages.constFirst().repository, QStringLiteral("FreeBSD-ports"));
 
     // A line written before the flag existed must not vanish from the list;
     // treating the absence as "requested" keeps it visible.

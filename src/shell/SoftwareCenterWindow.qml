@@ -11,6 +11,7 @@ Window {
     }
 
     property var packageCatalog
+    property var packageMutation
     property var packageTrust
     property var updatePlan
     property var updateAuthorization
@@ -99,6 +100,17 @@ Window {
         }
     }
 
+    Connections {
+        target: software.packageMutation
+
+        function onTransactionFinished(success) {
+            if (success && software.packageCatalog) {
+                software.packageCatalog.refresh()
+                software.packageCatalog.refreshAvailable()
+            }
+        }
+    }
+
     minimumWidth: software.minimumSurfaceWidth
     minimumHeight: software.minimumSurfaceHeight
     width: Math.min(980, Math.max(software.minimumSurfaceWidth,
@@ -121,6 +133,10 @@ Window {
         }
         searchField.text = ""
         software.packageCatalog.refresh()
+        software.packageCatalog.refreshAvailable()
+        if (software.packageMutation) {
+            software.packageMutation.refresh()
+        }
         show()
         raise()
         requestActivate()
@@ -910,9 +926,10 @@ Window {
                         width: parent.width
 
                         Repeater {
-                            model: [
-                                { value: "requested", label: "Installed by you" },
-                                { value: "updatable", label: "Updates" },
+                        model: [
+                            { value: "requested", label: "Installed by you" },
+                            { value: "available", label: "Available" },
+                            { value: "updatable", label: "Updates" },
                                 { value: "all", label: "Everything" }
                             ]
 
@@ -926,6 +943,9 @@ Window {
                                     ? modelData.label + " (" + software.packageCatalog.requestedCount + ")"
                                     : modelData.value === "all" && software.packageCatalog
                                         ? modelData.label + " (" + software.packageCatalog.installedCount + ")"
+                                        : modelData.value === "available" && software.packageCatalog
+                                            && software.packageCatalog.availableCatalogReady
+                                            ? modelData.label + " (" + software.packageCatalog.availableCount + ")"
                                         : modelData.value === "updatable" && software.packageCatalog
                                             && software.packageCatalog.updatesKnown
                                             ? modelData.label + " (" + software.packageCatalog.updatableCount + ")"
@@ -933,6 +953,10 @@ Window {
                                 onClicked: {
                                     if (software.packageCatalog) {
                                         software.packageCatalog.filter = modelData.value
+                                        if (modelData.value === "available"
+                                                && !software.packageCatalog.availableCatalogReady) {
+                                            software.packageCatalog.refreshAvailable()
+                                        }
                                     }
                                 }
                             }
@@ -998,11 +1022,15 @@ Window {
                                 text: !software.packageCatalog ? "No package inventory."
                                     : software.packageCatalog.query.length > 0
                                         ? "Nothing here matches that search."
-                                        : software.packageCatalog.filter === "updatable"
+                                    : software.packageCatalog.filter === "updatable"
                                             ? (software.packageCatalog.updatesKnown
                                                 ? "Everything is up to date."
                                                 : "Check for updates to see what can be updated.")
-                                            : "No packages to show."
+                                            : software.packageCatalog.filter === "available"
+                                                ? (software.packageCatalog.refreshingAvailable
+                                                    ? "Reading the pinned FreeBSD package catalogue..."
+                                                    : "No additional packages are available.")
+                                                : "No packages to show."
                             }
 
                             delegate: Rectangle {
@@ -1048,7 +1076,9 @@ Window {
                                                 color: software.surfaceMuted
                                                 elide: Text.ElideRight
                                                 font.pixelSize: 11
-                                                text: modelData.updatable && modelData.availableVersion
+                                                text: !modelData.installed
+                                                    ? modelData.version
+                                                    : modelData.updatable && modelData.availableVersion
                                                     ? modelData.version + "  \u2192  " + modelData.availableVersion
                                                     : modelData.version
                                                 width: parent.width - 280
@@ -1058,7 +1088,8 @@ Window {
                                                 color: modelData.orphaned ? lunar.warning : software.surfaceAccent
                                                 font.bold: true
                                                 font.pixelSize: 10
-                                                text: modelData.orphaned ? "NO LONGER PACKAGED"
+                                                text: !modelData.installed ? "AVAILABLE"
+                                                    : modelData.orphaned ? "NO LONGER PACKAGED"
                                                     : modelData.updatable ? "UPDATE"
                                                     : modelData.automatic ? "DEPENDENCY" : ""
                                                 visible: text.length > 0
@@ -1098,7 +1129,9 @@ Window {
                     Text {
                         color: software.surfaceMuted
                         font.pixelSize: 11
-                        text: "Read-only inventory and provenance-aware update preview. Update authorization, package mutation, and ZFS rollback remain protected M4 work."
+                        text: software.packageCatalog && software.packageCatalog.availableCatalogReady
+                            ? software.packageCatalog.availableStatus
+                            : "Installed inventory and the pinned FreeBSD package catalogue remain separate trust sources."
                         width: parent.width
                         wrapMode: Text.WordWrap
                     }
@@ -1157,7 +1190,9 @@ Window {
                         elide: Text.ElideRight
                         font.pixelSize: 12
                         text: software.selectedPackage
-                            ? "Installed version " + software.selectedPackage.version
+                            ? (software.selectedPackage.installed
+                                ? "Installed version " + software.selectedPackage.version
+                                : "Available version " + software.selectedPackage.version)
                             : ""
                         width: parent.width
                     }
@@ -1178,7 +1213,7 @@ Window {
                 color: software.surfaceRaised
                 radius: 8
                 width: parent.width
-                height: 76
+                height: 94
 
                 Column {
                     anchors.fill: parent
@@ -1186,16 +1221,25 @@ Window {
                     spacing: 5
 
                     Text {
-                        color: "#55c58a"
+                        color: software.selectedPackage && software.selectedPackage.installed
+                            ? "#55c58a" : software.surfaceAccent
                         font.bold: true
                         font.pixelSize: 12
-                        text: "Installed on this system"
+                        text: software.selectedPackage && software.selectedPackage.installed
+                            ? "Installed on this system" : "Available from the pinned FreeBSD source"
                     }
 
                     Text {
                         color: software.surfaceMuted
                         font.pixelSize: 11
-                        text: "Install, remove, and upgrade actions remain disabled until the signed repository and privileged update gates are complete."
+                        text: !software.selectedPackage ? ""
+                            : "Source: " + (software.selectedPackage.repository || "Unknown")
+                                + "  •  Origin: " + (software.selectedPackage.origin || "Unknown")
+                                + (software.selectedPackage.automatic
+                                    ? "\nInstalled as a dependency; direct removal is not permitted."
+                                    : software.selectedPackage.locked
+                                        ? "\nThis package is locked; direct removal is not permitted."
+                                    : "\nReview the exact pkg transaction before administrator authorization.")
                         width: parent.width
                         wrapMode: Text.WordWrap
                     }
@@ -1214,14 +1258,115 @@ Window {
                 }
 
                 Button {
-                    enabled: false
-                    text: "Install"
+                    enabled: software.selectedPackage && !software.selectedPackage.installed
+                        && software.selectedPackage.planIndex >= 0
+                        && software.packageCatalog && software.packageCatalog.availableCatalogReady
+                        && software.packageMutation && !software.packageMutation.busy
+                    text: "Review Install"
+                    onClicked: {
+                        if (software.packageMutation.planInstall(software.selectedPackage)) {
+                            packageDetailsDialog.close()
+                            packageMutationDialog.open()
+                        }
+                    }
                 }
 
                 Button {
-                    enabled: false
-                    text: "Remove"
+                    enabled: software.selectedPackage && software.selectedPackage.installed
+                        && !software.selectedPackage.automatic
+                        && !software.selectedPackage.locked
+                        && software.selectedPackage.planIndex >= 0
+                        && software.packageCatalog && software.packageCatalog.availableCatalogReady
+                        && software.packageMutation && !software.packageMutation.busy
+                    text: "Review Removal"
+                    onClicked: {
+                        if (software.packageMutation.planRemove(software.selectedPackage)) {
+                            packageDetailsDialog.close()
+                            packageMutationDialog.open()
+                        }
+                    }
                 }
+            }
+        }
+    }
+
+    Dialog {
+        id: packageMutationDialog
+        title: !software.packageMutation ? "Package transaction"
+            : software.packageMutation.operation === "remove" ? "Review removal" : "Review installation"
+        modal: true
+        standardButtons: Dialog.Close
+        width: Math.min(640, software.width - 48)
+        x: (software.width - width) / 2
+        y: (software.height - height) / 2
+        onClosed: {
+            if (software.packageMutation && !software.packageMutation.busy) {
+                software.packageMutation.clearPlan()
+            }
+        }
+
+        background: Rectangle {
+            color: software.surfaceBackground
+            border.color: software.surfaceAccent
+            border.width: 1
+            radius: 10
+        }
+
+        contentItem: Column {
+            spacing: 12
+            width: packageMutationDialog.width - (2 * packageMutationDialog.padding)
+
+            Text {
+                color: software.surfaceForeground
+                font.bold: true
+                font.pixelSize: 16
+                text: software.packageMutation
+                    ? (software.packageMutation.operation === "remove" ? "Remove " : "Install ")
+                        + software.packageMutation.packageName
+                    : "Package transaction"
+                width: parent.width
+                wrapMode: Text.WordWrap
+            }
+
+            Text {
+                color: software.surfaceMuted
+                font.pixelSize: 12
+                text: software.packageMutation ? software.packageMutation.status : "Package service unavailable."
+                width: parent.width
+                wrapMode: Text.WordWrap
+            }
+
+            ScrollView {
+                clip: true
+                height: 220
+                width: parent.width
+
+                TextArea {
+                    color: software.surfaceForeground
+                    font.family: "monospace"
+                    font.pixelSize: 11
+                    readOnly: true
+                    text: software.packageMutation && software.packageMutation.preview.length > 0
+                        ? software.packageMutation.preview : "Preparing exact FreeBSD pkg preview..."
+                    wrapMode: TextEdit.Wrap
+                }
+            }
+
+            Text {
+                color: lunar.warning
+                font.pixelSize: 11
+                text: "A ZFS boot environment is created before the package database changes. /home is not rolled back."
+                width: parent.width
+                wrapMode: Text.WordWrap
+            }
+
+            Button {
+                enabled: software.packageMutation && software.packageMutation.planReady
+                    && software.packageMutation.authorizationAvailable
+                    && !software.packageMutation.busy
+                text: software.packageMutation && software.packageMutation.operation === "remove"
+                    ? "Authenticate and Remove" : "Authenticate and Install"
+                onClicked: software.packageMutation.applyPlan()
             }
         }
     }

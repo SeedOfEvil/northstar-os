@@ -8,6 +8,7 @@ add_library(northstar-shell-core STATIC
     notificationcenter.cpp
     notificationstore.cpp
     packagecatalog.cpp
+    packagemutationcontroller.cpp
     packagetrustcontroller.cpp
     pinnedapplicationmodel.cpp
     powercontroller.cpp
