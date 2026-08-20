@@ -63,6 +63,7 @@ qt_add_qml_module(northstar-shell
         SoftwareCenterWindow.qml
         FileBrowserWindow.qml
         SystemMenu.qml
+        NorthstarWindowRecovery.qml
         SettingsEntryControl.qml
         SettingsWindow.qml
         WallpaperPicker.qml
