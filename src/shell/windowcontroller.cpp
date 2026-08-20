@@ -132,7 +132,6 @@ bool WindowController::refresh()
     }
 
     QVariantList nextWindows;
-    const qint64 shellPid = QCoreApplication::applicationPid();
     for (const QJsonValue &value : views) {
         if (!value.isObject()) {
             continue;
@@ -142,7 +141,13 @@ bool WindowController::refresh()
         const qint64 pid = view.value(QStringLiteral("pid")).toVariant().toLongLong();
         const int viewId = view.value(QStringLiteral("id")).toInt(-1);
         const QString role = view.value(QStringLiteral("role")).toString();
-        if (viewId < 0 || pid <= 0 || pid == shellPid
+        // The shell's own panels, dock, and background are excluded by their
+        // role, which is what the compositor reports them as. Excluding
+        // everything from the shell process as well took its ordinary windows
+        // with them: Settings, Files, and the Software Center are toplevels
+        // from the same process, so minimising one sent it somewhere the dock
+        // had been told to ignore, and it could not be got back.
+        if (viewId < 0 || pid <= 0
             || !view.value(QStringLiteral("mapped")).toBool(false)
             || role == QStringLiteral("desktop-environment")) {
             continue;

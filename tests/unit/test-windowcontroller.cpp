@@ -1,5 +1,7 @@
 #include "windowcontroller.h"
 
+#include <QCoreApplication>
+
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QtTest/QtTest>
@@ -10,6 +12,7 @@ class WindowControllerTest final : public QObject
 
 private slots:
     void refreshFiltersDesktopAndShellViews();
+    void listsTheShellsOwnWindowsButNotItsPanels();
     void groupsWindowsByApplicationIdentity();
     void actionsUseWayfireViewIds();
 };
@@ -68,6 +71,63 @@ void WindowControllerTest::refreshFiltersDesktopAndShellViews()
     QCOMPARE(controller.windows().first().toMap().value(QStringLiteral("viewId")).toInt(), 4);
     QCOMPARE(controller.windows().first().toMap().value(QStringLiteral("title")).toString(), QStringLiteral("Terminal"));
     QVERIFY(controller.windows().first().toMap().value(QStringLiteral("active")).toBool());
+}
+
+void WindowControllerTest::listsTheShellsOwnWindowsButNotItsPanels()
+{
+    // Measured from the compositor with the Software Center open: the panel,
+    // dock, and background report role desktop-environment, while the window
+    // itself reports toplevel. All four belong to the shell process, so the
+    // role is what separates them and the process cannot.
+    const qint64 shellPid = QCoreApplication::applicationPid();
+
+    WindowController controller(
+        nullptr,
+        [shellPid](const QString &method, const QJsonObject &, QJsonValue *response, QString *) {
+            if (method != QStringLiteral("window-rules/list-views")) {
+                return false;
+            }
+            *response = QJsonArray{
+                QJsonObject{
+                    {QStringLiteral("id"), 3},
+                    {QStringLiteral("pid"), shellPid},
+                    {QStringLiteral("app-id"), QStringLiteral("northstar-background-0")},
+                    {QStringLiteral("title"), QStringLiteral("layer-shell")},
+                    {QStringLiteral("mapped"), true},
+                    {QStringLiteral("role"), QStringLiteral("desktop-environment")},
+                },
+                QJsonObject{
+                    {QStringLiteral("id"), 5},
+                    {QStringLiteral("pid"), shellPid},
+                    {QStringLiteral("app-id"), QStringLiteral("northstar-dock-0")},
+                    {QStringLiteral("title"), QStringLiteral("layer-shell")},
+                    {QStringLiteral("mapped"), true},
+                    {QStringLiteral("role"), QStringLiteral("desktop-environment")},
+                },
+                QJsonObject{
+                    {QStringLiteral("id"), 8},
+                    {QStringLiteral("pid"), shellPid},
+                    {QStringLiteral("app-id"), QStringLiteral("northstar-shell")},
+                    {QStringLiteral("title"), QStringLiteral("Northstar Software")},
+                    {QStringLiteral("mapped"), true},
+                    {QStringLiteral("role"), QStringLiteral("toplevel")},
+                    {QStringLiteral("minimized"), true},
+                },
+            };
+            return true;
+        });
+
+    QVERIFY(controller.refresh());
+
+    // The one window a person can point at is listed; the surfaces that make
+    // up the desktop itself are not. Without this a minimised Settings or
+    // Software Center window had nowhere to be restored from.
+    QCOMPARE(controller.windows().size(), 1);
+    const QVariantMap window = controller.windows().constFirst().toMap();
+    QCOMPARE(window.value(QStringLiteral("viewId")).toInt(), 8);
+    QCOMPARE(window.value(QStringLiteral("title")).toString(),
+             QStringLiteral("Northstar Software"));
+    QVERIFY(window.value(QStringLiteral("minimized")).toBool());
 }
 
 void WindowControllerTest::actionsUseWayfireViewIds()

@@ -26,15 +26,16 @@ Window {
     property int minimumSurfaceWidth: 700
     property int minimumSurfaceHeight: 500
     property bool dragging: false
-    property bool maximized: false
+    // Read from the compositor rather than tracked here. A shell-held
+    // copy can disagree with the real state, and on Wayland the
+    // compositor is the only thing that knows.
+    property bool maximized: visibility === Window.Maximized
     property int lastTransactionResult: 0
     property string authorizationStatusText: !software.updateAuthorization
         ? "Update authorization is unavailable."
         : software.updateAuthorization.transactionStatus.length > 0
             ? software.updateAuthorization.transactionStatus
             : software.updateAuthorization.status
-    property point normalGeometryPosition: Qt.point(0, 0)
-    property size normalGeometrySize: Qt.size(0, 0)
     property var selectedPackage: null
     property var selectedApplication: null
     property point dragOrigin: Qt.point(0, 0)
@@ -200,23 +201,16 @@ Window {
                                    Math.max(software.minimumSurfaceHeight, software.resizeSize.height + deltaY))
     }
 
+    // Asking the compositor rather than placing itself. A Wayland client
+    // cannot set its own position, so the previous approach set a full-screen
+    // width while the window stayed where it was, and it overflowed the screen
+    // by however far in it had been.
     function toggleMaximize() {
         if (software.maximized) {
-            software.x = software.normalGeometryPosition.x
-            software.y = software.normalGeometryPosition.y
-            software.width = software.normalGeometrySize.width
-            software.height = software.normalGeometrySize.height
-            software.maximized = false
+            software.showNormal()
             return
         }
-        software.normalGeometryPosition = Qt.point(software.x, software.y)
-        software.normalGeometrySize = Qt.size(software.width, software.height)
-        software.x = software.screenX
-        software.y = software.screenY + software.panelHeight
-        software.width = software.screenWidth
-        software.height = Math.max(software.minimumSurfaceHeight,
-            software.screenHeight - software.panelHeight)
-        software.maximized = true
+        software.showMaximized()
     }
 
 

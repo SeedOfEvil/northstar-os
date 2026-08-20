@@ -29,9 +29,10 @@ Window {
     property int screenHeight: targetScreen ? targetScreen.geometry.height : 800
     property int minimumSurfaceWidth: 720
     property int minimumSurfaceHeight: 440
-    property bool maximized: false
-    property point normalGeometryPosition: Qt.point(0, 0)
-    property size normalGeometrySize: Qt.size(0, 0)
+    // Read from the compositor rather than tracked here. A shell-held
+    // copy can disagree with the real state, and on Wayland the
+    // compositor is the only thing that knows.
+    property bool maximized: visibility === Window.Maximized
     property bool dragging: false
     property point dragOrigin: Qt.point(0, 0)
     property point windowOrigin: Qt.point(0, 0)
@@ -101,23 +102,16 @@ Window {
         settings.settingsCatalog.invoke(entry.id)
     }
 
+    // Asking the compositor rather than placing itself. A Wayland client
+    // cannot set its own position, so the previous approach set a full-screen
+    // width while the window stayed where it was, and it overflowed the screen
+    // by however far in it had been.
     function toggleMaximize() {
         if (settings.maximized) {
-            settings.x = settings.normalGeometryPosition.x
-            settings.y = settings.normalGeometryPosition.y
-            settings.width = settings.normalGeometrySize.width
-            settings.height = settings.normalGeometrySize.height
-            settings.maximized = false
+            settings.showNormal()
             return
         }
-
-        settings.normalGeometryPosition = Qt.point(settings.x, settings.y)
-        settings.normalGeometrySize = Qt.size(settings.width, settings.height)
-        settings.x = settings.screenX
-        settings.y = settings.screenY + settings.panelHeight
-        settings.width = settings.screenWidth
-        settings.height = Math.max(settings.minimumSurfaceHeight, settings.screenHeight - settings.panelHeight)
-        settings.maximized = true
+        settings.showMaximized()
     }
 
     function beginDrag(mouseX, mouseY) {
