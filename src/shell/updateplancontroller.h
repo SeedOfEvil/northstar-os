@@ -51,7 +51,19 @@ class UpdatePlanController final : public QObject
     Q_PROPERTY(QString abi READ abi NOTIFY stateChanged)
     Q_PROPERTY(QString generatedAt READ generatedAt NOTIFY stateChanged)
     Q_PROPERTY(QVariantList packageProvenance READ packageProvenance NOTIFY stateChanged)
+    // The revision the trust material installed on this system describes.
+    // Not necessarily the one the repository is publishing.
     Q_PROPERTY(int repositoryRevision READ repositoryRevision NOTIFY stateChanged)
+
+    // The revision the active repository actually publishes, read from its
+    // own publication record, or 0 when that cannot be read. The two
+    // disagreeing is a state a person can act on, and was previously
+    // reported only as an unverified signature.
+    Q_PROPERTY(int publishedRevision READ publishedRevision NOTIFY stateChanged)
+
+    // Why planning is blocked, said in terms of what is out of step rather
+    // than which check failed.
+    Q_PROPERTY(QString blockedReason READ blockedReason NOTIFY stateChanged)
     Q_PROPERTY(QString sourceRevision READ sourceRevision NOTIFY stateChanged)
     Q_PROPERTY(int packageCount READ packageCount NOTIFY stateChanged)
     Q_PROPERTY(int updateCount READ updateCount NOTIFY stateChanged)
@@ -65,9 +77,13 @@ class UpdatePlanController final : public QObject
     Q_PROPERTY(QString planPreview READ planPreview NOTIFY stateChanged)
 
 public:
+    // repositoryConfigDirectory names where the active pkg repository
+    // configuration lives. It is a parameter so a test can point at one it
+    // wrote, rather than at whatever this machine happens to have.
     explicit UpdatePlanController(PackageTrustController *trustController = nullptr,
                                   QString metadataPath = {},
-                                  QObject *parent = nullptr);
+                                  QObject *parent = nullptr,
+                                  QString repositoryConfigDirectory = {});
 
     bool metadataPresent() const;
     bool metadataValid() const;
@@ -91,6 +107,13 @@ public:
     int installCount() const;
     int unmanagedCount() const;
     QString metadataPath() const;
+    int publishedRevision() const;
+    QString blockedReason() const;
+
+    // Where the active pkg configuration says the repository is. Empty when
+    // it names something other than a local path, which is the only kind
+    // this can read without fetching anything.
+    static QString activeRepositoryPath(const QString &repositoryConfigDirectory = {});
     QString catalogueFile() const;
     QString catalogueStatus() const;
     QString metadataStatus() const;
@@ -109,6 +132,7 @@ signals:
 
 private:
     static QString defaultMetadataPath();
+    int readPublishedRevision() const;
     bool verifyCatalogueIntegrity(QString *errorMessage = nullptr);
     bool verifySignature(QString *errorMessage = nullptr);
     void resetPlan();
@@ -116,6 +140,10 @@ private:
 
     PackageTrustController *m_trustController = nullptr;
     QString m_metadataPath;
+    QString m_repositoryConfigDirectory;
+
+    int m_publishedRevision = 0;
+    QString m_blockedReason;
     RepositoryMetadata m_metadata;
     QString m_signatureStatus;
     QString m_metadataStatus;

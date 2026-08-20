@@ -80,10 +80,12 @@ bool hasOnlyKeys(const QJsonObject &object,
 
 UpdatePlanController::UpdatePlanController(PackageTrustController *trustController,
                                            QString metadataPath,
-                                           QObject *parent)
+                                           QObject *parent,
+                                           QString repositoryConfigDirectory)
     : QObject(parent)
     , m_trustController(trustController)
     , m_metadataPath(metadataPath.trimmed())
+    , m_repositoryConfigDirectory(repositoryConfigDirectory.trimmed())
 {
     if (m_metadataPath.isEmpty()) {
         m_metadataPath = defaultMetadataPath();
@@ -207,6 +209,81 @@ int UpdatePlanController::unmanagedCount() const
     return m_unmanagedCount;
 }
 
+int UpdatePlanController::publishedRevision() const
+{
+    return m_publishedRevision;
+}
+
+QString UpdatePlanController::blockedReason() const
+{
+    return m_blockedReason;
+}
+
+QString UpdatePlanController::activeRepositoryPath(const QString &repositoryConfigDirectory)
+{
+    const QString directory = repositoryConfigDirectory.trimmed().isEmpty()
+        ? QStringLiteral("/usr/local/etc/pkg/repos")
+        : repositoryConfigDirectory.trimmed();
+
+    QDir repositories(directory);
+    if (!repositories.exists()) {
+        return QString();
+    }
+
+    // Only a local repository can be read without fetching anything, which
+    // is the whole point: this reports on what is already on the machine.
+    static const QRegularExpression localUrl(
+        QStringLiteral(R"(url\s*:\s*"file://([^"]+)")"));
+    for (const QString &name : repositories.entryList({QStringLiteral("*.conf")}, QDir::Files)) {
+        QFile file(repositories.filePath(name));
+        if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            continue;
+        }
+        const QString contents = QString::fromUtf8(file.read(64 * 1024));
+        file.close();
+
+        if (!contents.contains(QStringLiteral("northstar"))) {
+            continue;
+        }
+        const QRegularExpressionMatch match = localUrl.match(contents);
+        if (match.hasMatch()) {
+            return QDir::cleanPath(match.captured(1));
+        }
+    }
+    return QString();
+}
+
+// The revision the repository itself claims to be, taken from the publication
+// record it ships. Read separately from the trust material so the two can be
+// compared rather than assumed equal.
+int UpdatePlanController::readPublishedRevision() const
+{
+    const QString repository = activeRepositoryPath(m_repositoryConfigDirectory);
+    if (repository.isEmpty()) {
+        return 0;
+    }
+
+    QFile record(QDir(repository).filePath(QStringLiteral("publication-record.conf")));
+    if (!record.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return 0;
+    }
+
+    const QString contents = QString::fromUtf8(record.read(64 * 1024));
+    record.close();
+
+    for (const QString &line : contents.split(QLatin1Char('\n'), Qt::SkipEmptyParts)) {
+        const QString trimmed = line.trimmed();
+        if (!trimmed.startsWith(QLatin1String("repository_revision="))) {
+            continue;
+        }
+        bool numeric = false;
+        const int revision =
+            trimmed.mid(QStringLiteral("repository_revision=").size()).trimmed().toInt(&numeric);
+        return numeric && revision > 0 ? revision : 0;
+    }
+    return 0;
+}
+
 QString UpdatePlanController::metadataPath() const
 {
     return m_metadataPath;
@@ -305,6 +382,27 @@ bool UpdatePlanController::reload()
     setBlockedPlan(m_signatureVerified
         ? QStringLiteral("update authorization is not connected")
         : QStringLiteral("the publication signature is not verified"));
+
+    m_publishedRevision = readPublishedRevision();
+    if (m_signatureVerified) {
+        m_blockedReason = QStringLiteral(
+            "Updates are ready to plan once update authorization is connected.");
+    } else if (m_publishedRevision > 0 && m_publishedRevision != m_metadata.revision) {
+        // The common case, and the one a person can do something about: the
+        // trust material on this system was installed for an older revision
+        // than the repository is now publishing, so its signature cannot
+        // match. Saying which two numbers disagree is the whole difference
+        // between an actionable message and a wall of cryptography.
+        m_blockedReason = QStringLiteral(
+            "This system trusts revision %1, but the repository publishes revision %2. "
+            "Updates stay blocked until the trust material for revision %2 is installed.")
+            .arg(m_metadata.revision)
+            .arg(m_publishedRevision);
+    } else {
+        m_blockedReason = QStringLiteral(
+            "The repository publication is not signed by a key this system trusts.");
+    }
+
     emit stateChanged();
     return true;
 }
