@@ -458,610 +458,651 @@ Window {
                 }
             }
 
-            Row {
-                spacing: 12
+            // The page is taller than the window on a small screen, and
+            // everything below the title bar is content rather than chrome.
+            // The title bar stays put so the window controls never scroll
+            // away, which is the state that made a window unrecoverable
+            // before.
+            Flickable {
+                id: pageScroll
                 width: parent.width
-
-                Rectangle {
-                    color: software.surfaceRaised
-                    height: 72
-                    radius: 8
-                    width: (parent.width - 36) / 4
-
-                    Column {
-                        anchors.centerIn: parent
-                        spacing: 4
-
-                        Text {
-                            color: software.surfaceMuted
-                            font.pixelSize: 11
-                            text: "Installed"
-                        }
-
-                        Text {
-                            color: software.surfaceForeground
-                            font.bold: true
-                            font.pixelSize: 22
-                            text: software.packageCatalog ? software.packageCatalog.installedCount : "—"
-                        }
-                    }
-                }
-
-                Rectangle {
-                    color: software.surfaceRaised
-                    height: 72
-                    radius: 8
-                    width: (parent.width - 36) / 4
-
-                    Column {
-                        anchors.centerIn: parent
-                        spacing: 4
-
-                        Text {
-                            color: software.surfaceMuted
-                            font.pixelSize: 11
-                            text: "Package manager"
-                        }
-
-                        Text {
-                            color: software.packageCatalog && software.packageCatalog.available
-                                ? "#55c58a" : "#c34f65"
-                            font.bold: true
-                            font.pixelSize: 14
-                            text: software.packageCatalog && software.packageCatalog.available
-                                ? "Available" : "Unavailable"
-                        }
-                    }
-                }
-
-                Rectangle {
-                    color: software.surfaceRaised
-                    height: 72
-                    radius: 8
-                    width: (parent.width - 36) / 4
-
-                    Column {
-                        anchors.centerIn: parent
-                        spacing: 4
-
-                        Text {
-                            color: software.surfaceMuted
-                            font.pixelSize: 11
-                            text: "Repository policy"
-                        }
-
-                        Text {
-                            color: software.packageTrust && software.packageTrust.policyValid
-                                && software.packageTrust.trustStoreValid
-                                ? "#55c58a" : "#c34f65"
-                            font.bold: true
-                            font.pixelSize: 13
-                            text: !software.packageTrust
-                                ? "Unavailable"
-                                : software.packageTrust.policyValid && software.packageTrust.trustStoreValid
-                                    ? "Ready"
-                                    : software.packageTrust.policyPresent
-                                        ? software.packageTrust.policyValid
-                                            ? "Trust store incomplete" : "Rejected"
-                                        : "Not configured"
-                        }
-                    }
-                }
-
-                Rectangle {
-                    color: software.surfaceRaised
-                    height: 72
-                    radius: 8
-                    width: (parent.width - 36) / 4
-
-                    Column {
-                        anchors.centerIn: parent
-                        spacing: 4
-
-                        Text {
-                            color: software.surfaceMuted
-                            font.pixelSize: 11
-                            text: "Publication metadata"
-                        }
-
-                        Text {
-                            color: software.updatePlan && software.updatePlan.metadataValid
-                                ? (software.updatePlan.signatureVerified ? "#70d6a6" : "#f0b45a")
-                                : "#c34f65"
-                            font.bold: true
-                            font.pixelSize: 13
-                            text: !software.updatePlan
-                                ? "Unavailable"
-                                : software.updatePlan.metadataValid
-                                    ? software.updatePlan.signatureVerified
-                                        ? "Parsed / verified"
-                                        : "Parsed / not verified"
-                                    : software.updatePlan.metadataPresent ? "Rejected" : "Not configured"
-                        }
-                    }
-                }
-            }
-
-            Rectangle {
-                color: software.surfaceRaised
-                height: visible ? 108 : 0
-                radius: 8
-                visible: !!software.applicationLauncher
-                    && software.applicationLauncher.matchingApplications.length > 0
-                width: parent.width
+                height: parent.height - titleBar.height - parent.spacing
                 clip: true
+                contentWidth: width
+                contentHeight: pageContent.implicitHeight
+                boundsBehavior: Flickable.StopAtBounds
+
+                ScrollBar.vertical: ScrollBar {
+                    policy: pageScroll.contentHeight > pageScroll.height
+                        ? ScrollBar.AlwaysOn : ScrollBar.AsNeeded
+                }
 
                 Column {
-                    anchors.fill: parent
-                    anchors.margins: 12
-                    spacing: 6
+                    id: pageContent
+                    spacing: 16
+                    width: pageScroll.width
 
-                    Text {
-                        color: software.surfaceForeground
-                        font.bold: true
-                        font.pixelSize: 13
-                        text: "Northstar application catalog"
+                    Row {
+                        spacing: 12
+                        width: parent.width
+
+                        Rectangle {
+                            color: software.surfaceRaised
+                            height: 72
+                            radius: 8
+                            width: (parent.width - 36) / 4
+
+                            Column {
+                                anchors.centerIn: parent
+                                spacing: 4
+
+                                Text {
+                                    color: software.surfaceMuted
+                                    font.pixelSize: 11
+                                    text: "Installed"
+                                }
+
+                                Text {
+                                    color: software.surfaceForeground
+                                    font.bold: true
+                                    font.pixelSize: 22
+                                    text: software.packageCatalog ? software.packageCatalog.installedCount : "—"
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            color: software.surfaceRaised
+                            height: 72
+                            radius: 8
+                            width: (parent.width - 36) / 4
+
+                            Column {
+                                anchors.centerIn: parent
+                                spacing: 4
+
+                                Text {
+                                    color: software.surfaceMuted
+                                    font.pixelSize: 11
+                                    text: "Package manager"
+                                }
+
+                                Text {
+                                    color: software.packageCatalog && software.packageCatalog.available
+                                        ? "#55c58a" : "#c34f65"
+                                    font.bold: true
+                                    font.pixelSize: 14
+                                    text: software.packageCatalog && software.packageCatalog.available
+                                        ? "Available" : "Unavailable"
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            color: software.surfaceRaised
+                            height: 72
+                            radius: 8
+                            width: (parent.width - 36) / 4
+
+                            Column {
+                                anchors.centerIn: parent
+                                spacing: 4
+
+                                Text {
+                                    color: software.surfaceMuted
+                                    font.pixelSize: 11
+                                    text: "Repository policy"
+                                }
+
+                                Text {
+                                    color: software.packageTrust && software.packageTrust.policyValid
+                                        && software.packageTrust.trustStoreValid
+                                        ? "#55c58a" : "#c34f65"
+                                    font.bold: true
+                                    font.pixelSize: 13
+                                    text: !software.packageTrust
+                                        ? "Unavailable"
+                                        : software.packageTrust.policyValid && software.packageTrust.trustStoreValid
+                                            ? "Ready"
+                                            : software.packageTrust.policyPresent
+                                                ? software.packageTrust.policyValid
+                                                    ? "Trust store incomplete" : "Rejected"
+                                                : "Not configured"
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            color: software.surfaceRaised
+                            height: 72
+                            radius: 8
+                            width: (parent.width - 36) / 4
+
+                            Column {
+                                anchors.centerIn: parent
+                                spacing: 4
+
+                                Text {
+                                    color: software.surfaceMuted
+                                    font.pixelSize: 11
+                                    text: "Publication metadata"
+                                }
+
+                                Text {
+                                    color: software.updatePlan && software.updatePlan.metadataValid
+                                        ? (software.updatePlan.signatureVerified ? "#70d6a6" : "#f0b45a")
+                                        : "#c34f65"
+                                    font.bold: true
+                                    font.pixelSize: 13
+                                    text: !software.updatePlan
+                                        ? "Unavailable"
+                                        : software.updatePlan.metadataValid
+                                            ? software.updatePlan.signatureVerified
+                                                ? "Parsed / verified"
+                                                : "Parsed / not verified"
+                                            : software.updatePlan.metadataPresent ? "Rejected" : "Not configured"
+                                }
+                            }
+                        }
                     }
 
-                    ListView {
-                        id: applicationList
-                        height: 70
-                        spacing: 8
+                    Rectangle {
+                        color: software.surfaceRaised
+                        height: visible ? 108 : 0
+                        radius: 8
+                        visible: !!software.applicationLauncher
+                            && software.applicationLauncher.matchingApplications.length > 0
                         width: parent.width
                         clip: true
-                        orientation: ListView.Horizontal
-                        model: software.applicationLauncher
-                            ? software.applicationLauncher.matchingApplications : []
 
-                        delegate: Rectangle {
-                            required property var modelData
-
-                            color: applicationMouse.containsMouse
-                                ? software.surfaceAccent : software.surfaceBackground
-                            height: 70
-                            radius: 7
-                            width: 220
-
-                            Row {
-                                anchors.fill: parent
-                                anchors.leftMargin: 10
-                                anchors.rightMargin: 10
-                                spacing: 8
-
-                                NorthstarIcon {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    height: 34
-                                    width: 34
-                                    iconName: modelData.sourceType === "bundle"
-                                        ? "welcome" : "applications"
-                                }
-
-                                Column {
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    spacing: 2
-                                    width: parent.width - 42
-
-                                    Text {
-                                        color: software.surfaceForeground
-                                        elide: Text.ElideRight
-                                        font.bold: true
-                                        font.pixelSize: 12
-                                        text: modelData.name
-                                        width: parent.width
-                                    }
-
-                                    Text {
-                                        color: software.surfaceMuted
-                                        elide: Text.ElideRight
-                                        font.pixelSize: 10
-                                        text: modelData.version
-                                            || modelData.genericName
-                                            || "Desktop application"
-                                        width: parent.width
-                                    }
-                                }
-                            }
-
-                            MouseArea {
-                                id: applicationMouse
-                                anchors.fill: parent
-                                hoverEnabled: true
-                                onClicked: software.showApplicationDetails(modelData)
-                            }
-                        }
-                    }
-                }
-            }
-
-            Rectangle {
-                id: updateSafetyCard
-                color: software.surfaceRaised
-                height: software.authorizationStatusText.indexOf("\n") >= 0
-                    || software.lastTransactionResult !== 0 ? 142 : 72
-                radius: 8
-                width: parent.width
-
-                Row {
-                    anchors.fill: parent
-                    anchors.leftMargin: 16
-                    anchors.rightMargin: 16
-                    spacing: 12
-
-                    NorthstarIcon {
-                        anchors.verticalCenter: parent.verticalCenter
-                        height: 30
-                        width: 30
-                        iconName: "settings"
-                    }
-
-                    Column {
-                        anchors.verticalCenter: parent.verticalCenter
-                        spacing: 3
-                        width: parent.width - 42
-
-                        Row {
-                            spacing: 10
+                        Column {
+                            anchors.fill: parent
+                            anchors.margins: 12
+                            spacing: 6
 
                             Text {
-                                color: software.surfaceMuted
-                                font.pixelSize: 11
-                                text: "Update safety"
-                            }
-
-                            Text {
-                                color: !software.updateAuthorization
-                                    ? software.surfaceMuted
-                                    : software.updateAuthorization.transactionBusy
-                                        ? "#f0b45a"
-                                        : software.updateAuthorization.preflightValid
-                                            && software.updateAuthorization.authorizationAvailable
-                                            ? "#55c58a" : "#c34f65"
+                                color: software.surfaceForeground
                                 font.bold: true
                                 font.pixelSize: 13
-                                text: !software.updateAuthorization
-                                    ? "Unavailable"
-                                    : software.updateAuthorization.transactionBusy
-                                        ? "Working"
-                                        : software.updateAuthorization.authorizationAvailable
-                                            && software.updateAuthorization.preflightValid
-                                            ? "Ready"
-                                            : software.updateAuthorization.preflightValid
-                                                ? "Preflight only" : "Blocked"
+                                text: "Northstar application catalog"
                             }
-                        }
 
-                        ScrollView {
-                            id: updateStatusView
-                            clip: true
-                            height: updateSafetyCard.height - 40
-                            width: parent.width
-                            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-                            ScrollBar.vertical.policy: ScrollBar.AsNeeded
+                            ListView {
+                                id: applicationList
+                                height: 70
+                                spacing: 8
+                                width: parent.width
+                                clip: true
+                                orientation: ListView.Horizontal
+                                model: software.applicationLauncher
+                                    ? software.applicationLauncher.matchingApplications : []
 
-                            Text {
-                                color: software.lastTransactionResult > 0
-                                    ? "#2f8f65"
-                                    : software.lastTransactionResult < 0
-                                        ? "#c34f65" : software.surfaceMuted
-                                font.pixelSize: 11
-                                text: software.authorizationStatusText
-                                width: updateStatusView.availableWidth
-                                wrapMode: Text.WrapAnywhere
-                            }
-                        }
-                    }
-                }
-            }
+                                delegate: Rectangle {
+                                    required property var modelData
 
-            TextField {
-                id: searchField
-                activeFocusOnPress: true
-                color: software.surfaceForeground
-                focus: true
-                font.pixelSize: 13
-                placeholderText: "Search packages and applications..."
-                placeholderTextColor: software.surfaceMuted
-                selectByMouse: true
-                width: parent.width
+                                    color: applicationMouse.containsMouse
+                                        ? software.surfaceAccent : software.surfaceBackground
+                                    height: 70
+                                    radius: 7
+                                    width: 220
 
-                TapHandler {
-                    acceptedButtons: Qt.LeftButton
-                    onTapped: software.activateSearchField()
-                }
+                                    Row {
+                                        anchors.fill: parent
+                                        anchors.leftMargin: 10
+                                        anchors.rightMargin: 10
+                                        spacing: 8
 
-                background: Rectangle {
-                    color: software.surfaceRaised
-                    border.color: searchField.activeFocus ? software.surfaceAccent : "transparent"
-                    border.width: 1
-                    radius: 7
-                }
+                                        NorthstarIcon {
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            height: 34
+                                            width: 34
+                                            iconName: modelData.sourceType === "bundle"
+                                                ? "welcome" : "applications"
+                                        }
 
-                onTextChanged: {
-                    if (software.packageCatalog && software.packageCatalog.query !== text) {
-                        software.packageCatalog.setQuery(text)
-                    }
-                    if (software.applicationLauncher
-                            && software.applicationLauncher.applicationQuery !== text) {
-                        software.applicationLauncher.setApplicationQuery(text)
-                    }
-                }
-            }
+                                        Column {
+                                            anchors.verticalCenter: parent.verticalCenter
+                                            spacing: 2
+                                            width: parent.width - 42
 
-            Row {
-                spacing: 10
-                width: parent.width
+                                            Text {
+                                                color: software.surfaceForeground
+                                                elide: Text.ElideRight
+                                                font.bold: true
+                                                font.pixelSize: 12
+                                                text: modelData.name
+                                                width: parent.width
+                                            }
 
-                NorthstarIcon {
-                    anchors.verticalCenter: parent.verticalCenter
-                    height: 24
-                    width: 24
-                    iconName: software.packageCatalog && software.packageCatalog.available
-                        ? "info" : "northstar"
-                }
+                                            Text {
+                                                color: software.surfaceMuted
+                                                elide: Text.ElideRight
+                                                font.pixelSize: 10
+                                                text: modelData.version
+                                                    || modelData.genericName
+                                                    || "Desktop application"
+                                                width: parent.width
+                                            }
+                                        }
+                                    }
 
-                Column {
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: 3
-                    width: parent.width - 34
-
-                    Text {
-                        color: software.surfaceMuted
-                        elide: Text.ElideRight
-                        font.pixelSize: 12
-                        text: software.packageCatalog
-                            ? software.packageCatalog.statusMessage : "Package inventory is unavailable."
-                        width: parent.width
-                    }
-
-                    Text {
-                        color: software.surfaceMuted
-                        elide: Text.ElideRight
-                        font.pixelSize: 11
-                        text: software.packageTrust
-                            ? software.packageTrust.trustStatus : "Signed repository policy is unavailable."
-                        width: parent.width
-                    }
-
-                    Text {
-                        color: software.surfaceMuted
-                        elide: Text.ElideRight
-                        font.pixelSize: 11
-                        text: software.packageTrust
-                            ? software.packageTrust.updatePlanStatus : "Update planning is unavailable."
-                        width: parent.width
-                    }
-
-                    Text {
-                        color: software.surfaceMuted
-                        elide: Text.ElideRight
-                        font.pixelSize: 11
-                        text: software.updatePlan
-                            ? software.updatePlan.metadataStatus : "Repository metadata is unavailable."
-                        width: parent.width
-                    }
-
-                    Text {
-                        color: software.surfaceMuted
-                        elide: Text.ElideRight
-                        font.pixelSize: 11
-                        text: software.updatePlan
-                            ? software.updatePlan.catalogueStatus : "Repository catalogue integrity is unavailable."
-                        width: parent.width
-                    }
-
-                    Text {
-                        color: software.surfaceMuted
-                        elide: Text.ElideRight
-                        font.pixelSize: 11
-                        text: software.updatePlan
-                            ? software.updatePlan.planStatus : "Update preview is unavailable."
-                        width: parent.width
-                    }
-
-                    Text {
-                        color: software.surfaceMuted
-                        elide: Text.ElideRight
-                        font.pixelSize: 11
-                        text: software.updatePlan ? software.updatePlan.planPreview : ""
-                        visible: text.length > 0
-                        width: parent.width
-                    }
-                }
-            }
-
-            Row {
-                spacing: 8
-                width: parent.width
-
-                Repeater {
-                    model: [
-                        { value: "requested", label: "Installed by you" },
-                        { value: "updatable", label: "Updates" },
-                        { value: "all", label: "Everything" }
-                    ]
-
-                    delegate: Button {
-                        required property var modelData
-
-                        checkable: true
-                        checked: software.packageCatalog
-                            && software.packageCatalog.filter === modelData.value
-                        text: modelData.value === "requested" && software.packageCatalog
-                            ? modelData.label + " (" + software.packageCatalog.requestedCount + ")"
-                            : modelData.value === "all" && software.packageCatalog
-                                ? modelData.label + " (" + software.packageCatalog.installedCount + ")"
-                                : modelData.value === "updatable" && software.packageCatalog
-                                    && software.packageCatalog.updatesKnown
-                                    ? modelData.label + " (" + software.packageCatalog.updatableCount + ")"
-                                    : modelData.label
-                        onClicked: {
-                            if (software.packageCatalog) {
-                                software.packageCatalog.filter = modelData.value
+                                    MouseArea {
+                                        id: applicationMouse
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        onClicked: software.showApplicationDetails(modelData)
+                                    }
+                                }
                             }
                         }
                     }
-                }
 
-                Button {
-                    enabled: software.packageCatalog
-                        && !software.packageCatalog.scanningUpdates
-                    text: "Check for updates"
-                    onClicked: software.packageCatalog.scanForUpdates()
-                }
-            }
-
-            Text {
-                color: software.surfaceMuted
-                font.pixelSize: 11
-                // Until the scan has run, the honest answer is that nothing
-                // is known yet rather than that everything is current.
-                text: !software.packageCatalog ? ""
-                    : software.packageCatalog.scanningUpdates
-                        ? software.packageCatalog.updateStatus
-                        : software.packageCatalog.updatesKnown
-                            ? software.packageCatalog.updateStatus
-                            : "Updates have not been checked for yet."
-                width: parent.width
-                wrapMode: Text.WordWrap
-            }
-
-            Rectangle {
-                color: software.surfaceRaised
-                radius: 8
-                width: parent.width
-                height: Math.max(180, parent.height - y - 38)
-
-                ListView {
-                    id: packageList
-                    anchors.fill: parent
-                    anchors.margins: 10
-                    clip: true
-                    model: software.packageCatalog ? software.packageCatalog.matchingPackages : []
-                    spacing: 8
-
-                    // A list of hundreds with no scrollbar gives no sense of
-                    // how far through it you are, or how much is left.
-                    ScrollBar.vertical: ScrollBar {
-                        policy: ScrollBar.AlwaysOn
-                        visible: packageList.contentHeight > packageList.height
-                    }
-
-                    // Something has to be on screen when a filter matches
-                    // nothing, or the panel reads as broken.
-                    Text {
-                        anchors.centerIn: parent
-                        color: software.surfaceMuted
-                        font.pixelSize: 12
-                        visible: packageList.count === 0
-                        width: parent.width - 40
-                        horizontalAlignment: Text.AlignHCenter
-                        wrapMode: Text.WordWrap
-                        text: !software.packageCatalog ? "No package inventory."
-                            : software.packageCatalog.query.length > 0
-                                ? "Nothing here matches that search."
-                                : software.packageCatalog.filter === "updatable"
-                                    ? (software.packageCatalog.updatesKnown
-                                        ? "Everything is up to date."
-                                        : "Check for updates to see what can be updated.")
-                                    : "No packages to show."
-                    }
-
-                    delegate: Rectangle {
-                        required property var modelData
-
-                        color: packageMouse.containsMouse ? software.surfaceAccent : software.surfaceBackground
-                        height: 64
-                        radius: 7
-                        width: packageList.width
+                    Rectangle {
+                        id: updateSafetyCard
+                        color: software.surfaceRaised
+                        height: software.authorizationStatusText.indexOf("\n") >= 0
+                            || software.lastTransactionResult !== 0 ? 142 : 72
+                        radius: 8
+                        width: parent.width
 
                         Row {
                             anchors.fill: parent
-                            anchors.leftMargin: 12
-                            anchors.rightMargin: 12
-                            spacing: 10
+                            anchors.leftMargin: 16
+                            anchors.rightMargin: 16
+                            spacing: 12
 
                             NorthstarIcon {
                                 anchors.verticalCenter: parent.verticalCenter
                                 height: 30
                                 width: 30
-                                iconName: "software"
+                                iconName: "settings"
                             }
 
                             Column {
                                 anchors.verticalCenter: parent.verticalCenter
-                                spacing: 2
-                                width: parent.width - 40
+                                spacing: 3
+                                width: parent.width - 42
 
                                 Row {
-                                    spacing: 8
-                                    width: parent.width
-
-                                    Text {
-                                        color: software.surfaceForeground
-                                        elide: Text.ElideRight
-                                        font.bold: true
-                                        font.pixelSize: 13
-                                        text: modelData.name
-                                        width: Math.min(260, parent.width * 0.45)
-                                    }
+                                    spacing: 10
 
                                     Text {
                                         color: software.surfaceMuted
-                                        elide: Text.ElideRight
                                         font.pixelSize: 11
-                                        text: modelData.updatable && modelData.availableVersion
-                                            ? modelData.version + "  \u2192  " + modelData.availableVersion
-                                            : modelData.version
-                                        width: parent.width - 280
+                                        text: "Update safety"
                                     }
 
                                     Text {
-                                        color: modelData.orphaned ? lunar.warning : software.surfaceAccent
+                                        color: !software.updateAuthorization
+                                            ? software.surfaceMuted
+                                            : software.updateAuthorization.transactionBusy
+                                                ? "#f0b45a"
+                                                : software.updateAuthorization.preflightValid
+                                                    && software.updateAuthorization.authorizationAvailable
+                                                    ? "#55c58a" : "#c34f65"
                                         font.bold: true
-                                        font.pixelSize: 10
-                                        text: modelData.orphaned ? "NO LONGER PACKAGED"
-                                            : modelData.updatable ? "UPDATE"
-                                            : modelData.automatic ? "DEPENDENCY" : ""
-                                        visible: text.length > 0
+                                        font.pixelSize: 13
+                                        text: !software.updateAuthorization
+                                            ? "Unavailable"
+                                            : software.updateAuthorization.transactionBusy
+                                                ? "Working"
+                                                : software.updateAuthorization.authorizationAvailable
+                                                    && software.updateAuthorization.preflightValid
+                                                    ? "Ready"
+                                                    : software.updateAuthorization.preflightValid
+                                                        ? "Preflight only" : "Blocked"
                                     }
                                 }
 
-                                Text {
-                                    color: software.surfaceMuted
-                                    elide: Text.ElideRight
-                                    font.pixelSize: 11
-                                    text: modelData.comment || "No package description provided."
+                                ScrollView {
+                                    id: updateStatusView
+                                    clip: true
+                                    height: updateSafetyCard.height - 40
                                     width: parent.width
+                                    ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+                                    ScrollBar.vertical.policy: ScrollBar.AsNeeded
+
+                                    Text {
+                                        color: software.lastTransactionResult > 0
+                                            ? "#2f8f65"
+                                            : software.lastTransactionResult < 0
+                                                ? "#c34f65" : software.surfaceMuted
+                                        font.pixelSize: 11
+                                        text: software.authorizationStatusText
+                                        width: updateStatusView.availableWidth
+                                        wrapMode: Text.WrapAnywhere
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    TextField {
+                        id: searchField
+                        activeFocusOnPress: true
+                        color: software.surfaceForeground
+                        focus: true
+                        font.pixelSize: 13
+                        placeholderText: "Search packages and applications..."
+                        placeholderTextColor: software.surfaceMuted
+                        selectByMouse: true
+                        width: parent.width
+
+                        TapHandler {
+                            acceptedButtons: Qt.LeftButton
+                            onTapped: software.activateSearchField()
+                        }
+
+                        background: Rectangle {
+                            color: software.surfaceRaised
+                            border.color: searchField.activeFocus ? software.surfaceAccent : "transparent"
+                            border.width: 1
+                            radius: 7
+                        }
+
+                        onTextChanged: {
+                            if (software.packageCatalog && software.packageCatalog.query !== text) {
+                                software.packageCatalog.setQuery(text)
+                            }
+                            if (software.applicationLauncher
+                                    && software.applicationLauncher.applicationQuery !== text) {
+                                software.applicationLauncher.setApplicationQuery(text)
+                            }
+                        }
+                    }
+
+                    Row {
+                        spacing: 10
+                        width: parent.width
+
+                        NorthstarIcon {
+                            anchors.verticalCenter: parent.verticalCenter
+                            height: 24
+                            width: 24
+                            iconName: software.packageCatalog && software.packageCatalog.available
+                                ? "info" : "northstar"
+                        }
+
+                        Column {
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: 3
+                            width: parent.width - 34
+
+                            Text {
+                                color: software.surfaceMuted
+                                elide: Text.ElideRight
+                                font.pixelSize: 12
+                                text: software.packageCatalog
+                                    ? software.packageCatalog.statusMessage : "Package inventory is unavailable."
+                                width: parent.width
+                            }
+
+                            Text {
+                                color: software.surfaceMuted
+                                elide: Text.ElideRight
+                                font.pixelSize: 11
+                                text: software.packageTrust
+                                    ? software.packageTrust.trustStatus : "Signed repository policy is unavailable."
+                                width: parent.width
+                            }
+
+                            Text {
+                                color: software.surfaceMuted
+                                elide: Text.ElideRight
+                                font.pixelSize: 11
+                                text: software.packageTrust
+                                    ? software.packageTrust.updatePlanStatus : "Update planning is unavailable."
+                                width: parent.width
+                            }
+
+                            Text {
+                                color: software.surfaceMuted
+                                elide: Text.ElideRight
+                                font.pixelSize: 11
+                                text: software.updatePlan
+                                    ? software.updatePlan.metadataStatus : "Repository metadata is unavailable."
+                                width: parent.width
+                            }
+
+                            Text {
+                                color: software.surfaceMuted
+                                elide: Text.ElideRight
+                                font.pixelSize: 11
+                                text: software.updatePlan
+                                    ? software.updatePlan.catalogueStatus : "Repository catalogue integrity is unavailable."
+                                width: parent.width
+                            }
+
+                            // What is out of step, said first and in full. The
+                            // check-by-check detail below is still there for anyone
+                            // who wants it, but it is not the headline.
+                            Text {
+                                color: software.surfaceForeground
+                                font.pixelSize: 12
+                                text: software.updatePlan ? software.updatePlan.blockedReason : ""
+                                visible: text.length > 0
+                                width: parent.width
+                                wrapMode: Text.WordWrap
+                            }
+
+                            Text {
+                                color: software.surfaceMuted
+                                elide: Text.ElideRight
+                                font.pixelSize: 11
+                                text: software.updatePlan
+                                    ? software.updatePlan.planStatus : "Update preview is unavailable."
+                                width: parent.width
+                            }
+
+                            Text {
+                                color: software.surfaceMuted
+                                elide: Text.ElideRight
+                                font.pixelSize: 11
+                                text: software.updatePlan ? software.updatePlan.planPreview : ""
+                                visible: text.length > 0
+                                width: parent.width
+                            }
+                        }
+                    }
+
+                    Row {
+                        spacing: 8
+                        width: parent.width
+
+                        Repeater {
+                            model: [
+                                { value: "requested", label: "Installed by you" },
+                                { value: "updatable", label: "Updates" },
+                                { value: "all", label: "Everything" }
+                            ]
+
+                            delegate: Button {
+                                required property var modelData
+
+                                checkable: true
+                                checked: software.packageCatalog
+                                    && software.packageCatalog.filter === modelData.value
+                                text: modelData.value === "requested" && software.packageCatalog
+                                    ? modelData.label + " (" + software.packageCatalog.requestedCount + ")"
+                                    : modelData.value === "all" && software.packageCatalog
+                                        ? modelData.label + " (" + software.packageCatalog.installedCount + ")"
+                                        : modelData.value === "updatable" && software.packageCatalog
+                                            && software.packageCatalog.updatesKnown
+                                            ? modelData.label + " (" + software.packageCatalog.updatableCount + ")"
+                                            : modelData.label
+                                onClicked: {
+                                    if (software.packageCatalog) {
+                                        software.packageCatalog.filter = modelData.value
+                                    }
                                 }
                             }
                         }
 
-                        MouseArea {
-                            id: packageMouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            onClicked: software.showPackageDetails(modelData)
+                        Button {
+                            enabled: software.packageCatalog
+                                && !software.packageCatalog.scanningUpdates
+                            text: "Check for updates"
+                            onClicked: software.packageCatalog.scanForUpdates()
                         }
                     }
 
                     Text {
-                        anchors.centerIn: parent
                         color: software.surfaceMuted
-                        font.pixelSize: 13
-                        text: software.packageCatalog && software.packageCatalog.query.length > 0
-                            ? "No installed packages match this search."
-                            : "Refresh to read the installed package inventory."
-                        visible: packageList.count === 0
+                        font.pixelSize: 11
+                        // Until the scan has run, the honest answer is that nothing
+                        // is known yet rather than that everything is current.
+                        text: !software.packageCatalog ? ""
+                            : software.packageCatalog.scanningUpdates
+                                ? software.packageCatalog.updateStatus
+                                : software.packageCatalog.updatesKnown
+                                    ? software.packageCatalog.updateStatus
+                                    : "Updates have not been checked for yet."
+                        width: parent.width
+                        wrapMode: Text.WordWrap
+                    }
+
+                    Rectangle {
+                        color: software.surfaceRaised
+                        radius: 8
+                        width: parent.width
+                        // A definite height: the list keeps its own scrollbar
+                    // and its own virtualisation, and the page scrolls to
+                    // reach whatever sits below it.
+                    height: Math.max(280, pageScroll.height - 200)
+
+                        ListView {
+                            id: packageList
+                            anchors.fill: parent
+                            anchors.margins: 10
+                            clip: true
+                            model: software.packageCatalog ? software.packageCatalog.matchingPackages : []
+                            spacing: 8
+
+                            // A list of hundreds with no scrollbar gives no sense of
+                            // how far through it you are, or how much is left.
+                            ScrollBar.vertical: ScrollBar {
+                                policy: ScrollBar.AlwaysOn
+                                visible: packageList.contentHeight > packageList.height
+                            }
+
+                            // Something has to be on screen when a filter matches
+                            // nothing, or the panel reads as broken.
+                            Text {
+                                anchors.centerIn: parent
+                                color: software.surfaceMuted
+                                font.pixelSize: 12
+                                visible: packageList.count === 0
+                                width: parent.width - 40
+                                horizontalAlignment: Text.AlignHCenter
+                                wrapMode: Text.WordWrap
+                                text: !software.packageCatalog ? "No package inventory."
+                                    : software.packageCatalog.query.length > 0
+                                        ? "Nothing here matches that search."
+                                        : software.packageCatalog.filter === "updatable"
+                                            ? (software.packageCatalog.updatesKnown
+                                                ? "Everything is up to date."
+                                                : "Check for updates to see what can be updated.")
+                                            : "No packages to show."
+                            }
+
+                            delegate: Rectangle {
+                                required property var modelData
+
+                                color: packageMouse.containsMouse ? software.surfaceAccent : software.surfaceBackground
+                                height: 64
+                                radius: 7
+                                width: packageList.width
+
+                                Row {
+                                    anchors.fill: parent
+                                    anchors.leftMargin: 12
+                                    anchors.rightMargin: 12
+                                    spacing: 10
+
+                                    NorthstarIcon {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        height: 30
+                                        width: 30
+                                        iconName: "software"
+                                    }
+
+                                    Column {
+                                        anchors.verticalCenter: parent.verticalCenter
+                                        spacing: 2
+                                        width: parent.width - 40
+
+                                        Row {
+                                            spacing: 8
+                                            width: parent.width
+
+                                            Text {
+                                                color: software.surfaceForeground
+                                                elide: Text.ElideRight
+                                                font.bold: true
+                                                font.pixelSize: 13
+                                                text: modelData.name
+                                                width: Math.min(260, parent.width * 0.45)
+                                            }
+
+                                            Text {
+                                                color: software.surfaceMuted
+                                                elide: Text.ElideRight
+                                                font.pixelSize: 11
+                                                text: modelData.updatable && modelData.availableVersion
+                                                    ? modelData.version + "  \u2192  " + modelData.availableVersion
+                                                    : modelData.version
+                                                width: parent.width - 280
+                                            }
+
+                                            Text {
+                                                color: modelData.orphaned ? lunar.warning : software.surfaceAccent
+                                                font.bold: true
+                                                font.pixelSize: 10
+                                                text: modelData.orphaned ? "NO LONGER PACKAGED"
+                                                    : modelData.updatable ? "UPDATE"
+                                                    : modelData.automatic ? "DEPENDENCY" : ""
+                                                visible: text.length > 0
+                                            }
+                                        }
+
+                                        Text {
+                                            color: software.surfaceMuted
+                                            elide: Text.ElideRight
+                                            font.pixelSize: 11
+                                            text: modelData.comment || "No package description provided."
+                                            width: parent.width
+                                        }
+                                    }
+                                }
+
+                                MouseArea {
+                                    id: packageMouse
+                                    anchors.fill: parent
+                                    hoverEnabled: true
+                                    onClicked: software.showPackageDetails(modelData)
+                                }
+                            }
+
+                            Text {
+                                anchors.centerIn: parent
+                                color: software.surfaceMuted
+                                font.pixelSize: 13
+                                text: software.packageCatalog && software.packageCatalog.query.length > 0
+                                    ? "No installed packages match this search."
+                                    : "Refresh to read the installed package inventory."
+                                visible: packageList.count === 0
+                            }
+                        }
+                    }
+
+                    Text {
+                        color: software.surfaceMuted
+                        font.pixelSize: 11
+                        text: "Read-only inventory and provenance-aware update preview. Update authorization, package mutation, and ZFS rollback remain protected M4 work."
+                        width: parent.width
+                        wrapMode: Text.WordWrap
                     }
                 }
-            }
-
-            Text {
-                color: software.surfaceMuted
-                font.pixelSize: 11
-                text: "Read-only inventory and provenance-aware update preview. Update authorization, package mutation, and ZFS rollback remain protected M4 work."
-                width: parent.width
-                wrapMode: Text.WordWrap
             }
         }
     }
