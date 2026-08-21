@@ -213,11 +213,14 @@ if [ -z "$operation" ]; then
 fi
 [ -n "$operation" ] || fail "$EX_DATAERR" 'plan does not identify a current permitted package action'
 
+# Keep -n as the non-mutation guard. Pairing it with -y makes pkg return
+# success after printing the dry-run instead of treating the preview as a
+# declined transaction.
 if [ "$operation" = install ]; then
-    preview=$(LC_ALL=C "$PKG" install -n -r "$repository" "$package_name" 2>&1) \
+    preview=$(LC_ALL=C "$PKG" install -n -y -r "$repository" "$package_name" 2>&1) \
         || fail "$EX_DATAERR" 'install preview could not be reproduced'
 else
-    preview=$(LC_ALL=C "$PKG" delete -n "$package_name" 2>&1) \
+    preview=$(LC_ALL=C "$PKG" delete -n -y "$package_name" 2>&1) \
         || fail "$EX_DATAERR" 'removal preview could not be reproduced'
 fi
 [ "$(sha_text "$preview")" = "$preview_hash" ] \

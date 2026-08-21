@@ -176,11 +176,14 @@ bool PackageMutationController::beginPlan(const QString &operation, const QVaria
     environment.insert(QStringLiteral("LC_ALL"), QStringLiteral("C"));
     m_previewProcess->setProcessEnvironment(environment);
     m_previewProcess->setProgram(m_packageManagerPath);
+    // -n keeps the request non-mutating; -y lets pkg finish printing that
+    // dry-run as a successful preview instead of reporting user cancellation.
     if (operation == QLatin1String("install")) {
         m_previewProcess->setArguments({QStringLiteral("install"), QStringLiteral("-n"),
-                                        QStringLiteral("-r"), repository, name});
+                                        QStringLiteral("-y"), QStringLiteral("-r"), repository, name});
     } else {
-        m_previewProcess->setArguments({QStringLiteral("delete"), QStringLiteral("-n"), name});
+        m_previewProcess->setArguments({QStringLiteral("delete"), QStringLiteral("-n"),
+                                        QStringLiteral("-y"), name});
     }
     m_previewProcess->start(QIODevice::ReadOnly);
     emit stateChanged();

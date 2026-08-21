@@ -75,7 +75,7 @@ CONFIG
         fi
         ;;
     install)
-        if [ "$2" = -n ]; then
+        if [ "$2" = -n ] && [ "$3" = -y ]; then
             printf '%s\n' 'INSTALL PREVIEW: cowsay 3.04_3 from FreeBSD-ports'
         else
             printf '%s\n' install >> "$NORTHSTAR_TEST_EVENTS"
@@ -84,7 +84,7 @@ CONFIG
         fi
         ;;
     delete)
-        if [ "$2" = -n ]; then
+        if [ "$2" = -n ] && [ "$3" = -y ]; then
             printf '%s\n' 'REMOVE PREVIEW: qterminal 2.4.0 from FreeBSD-ports'
         else
             printf '%s\n' remove >> "$NORTHSTAR_TEST_EVENTS"

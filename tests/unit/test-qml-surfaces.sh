@@ -228,6 +228,8 @@ contains src/shell/SoftwareCenterWindow.qml 'software.packageMutation.planRemove
 contains src/shell/SoftwareCenterWindow.qml 'software.packageMutation.applyPlan()'
 contains src/shell/SoftwareCenterWindow.qml 'A ZFS boot environment is created before the package database changes.'
 contains src/shell/SoftwareCenterWindow.qml 'No changes have been made yet'
+contains src/shell/packagemutationcontroller.cpp 'QStringLiteral("-n"),'
+contains src/shell/packagemutationcontroller.cpp 'QStringLiteral("-y"),'
 contains src/shell/SoftwareCenterWindow.qml 'Apply Verified Update'
 contains src/shell/SoftwareCenterWindow.qml 'Schedule Rollback'
 contains src/shell/SoftwareCenterWindow.qml 'software.updateAuthorization.applyUpdate()'
