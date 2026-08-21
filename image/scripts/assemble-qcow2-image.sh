@@ -14,6 +14,7 @@ PROJECT_ROOT=
 PROJECT_COMMIT=
 BUILDER_MARKER=/etc/northstar/disposable-image-builder.conf
 DISK_SIZE_GB=16
+COMPRESSION_THREADS=5
 PREFLIGHT=0
 DEVELOPMENT_AUTOLOGIN=0
 STAGING=
@@ -31,6 +32,7 @@ usage() {
 Usage: assemble-qcow2-image.sh --resolved-inputs DIR --artifacts DIR \
   --runtime-bundle DIR --output NEW_DIRECTORY --project-root CLEAN_CHECKOUT \
   --project-commit FULL_COMMIT [--disk-size-gb 16] \
+  [--compression-threads 5] \
   [--builder-marker FILE] [--development-autologin] [--preflight]
 
 Preflight validates every immutable input without root or disk mutation.
@@ -74,6 +76,7 @@ while [ "$#" -gt 0 ]; do
         --project-commit) PROJECT_COMMIT=${2-}; shift 2 ;;
         --builder-marker) BUILDER_MARKER=${2-}; shift 2 ;;
         --disk-size-gb) DISK_SIZE_GB=${2-}; shift 2 ;;
+        --compression-threads) COMPRESSION_THREADS=${2-}; shift 2 ;;
         --development-autologin) DEVELOPMENT_AUTOLOGIN=1; shift ;;
         --preflight) PREFLIGHT=1; shift ;;
         --help|-h) usage; exit 0 ;;
@@ -116,6 +119,9 @@ required_value() {
 printf '%s\n' "$PROJECT_COMMIT" | grep -Eq '^[0-9a-f]{40}$' || die 'project commit must be a full lowercase Git revision'
 case "$DISK_SIZE_GB" in ''|*[!0-9]*) die 'disk size must be an integer GiB value' ;; esac
 [ "$DISK_SIZE_GB" -ge 12 ] && [ "$DISK_SIZE_GB" -le 64 ] || die 'disk size must be between 12 and 64 GiB'
+case "$COMPRESSION_THREADS" in ''|*[!0-9]*) die 'compression threads must be an integer' ;; esac
+[ "$COMPRESSION_THREADS" -ge 5 ] && [ "$COMPRESSION_THREADS" -le 32 ] \
+    || die 'compression threads must be between 5 and 32'
 PROJECT_ROOT=$(CDPATH= cd -- "$PROJECT_ROOT" && pwd)
 [ "$(git -C "$PROJECT_ROOT" rev-parse HEAD)" = "$PROJECT_COMMIT" ] || die 'project checkout HEAD does not match project commit'
 [ -z "$(git -C "$PROJECT_ROOT" status --porcelain)" ] || die 'project checkout is dirty'
@@ -219,7 +225,7 @@ fi
 
 [ "$(uname -s)" = FreeBSD ] || die 'QCOW2 assembly requires FreeBSD'
 [ "$(id -u)" -eq 0 ] || die 'QCOW2 assembly must run as root on the disposable builder'
-for command_name in cat chmod chown chroot devfs env gpart ln mdconfig mount mount_msdosfs mount_nullfs newfs_msdos pkg pkg-static pw qemu-img sysrc tar truncate umount zfs zpool; do
+for command_name in cat chmod chown chroot devfs env gpart ln mdconfig mount mount_msdosfs mount_nullfs newfs_msdos pkg pkg-static pw qemu-img sysrc tar truncate umount xz zfs zpool; do
     command -v "$command_name" >/dev/null 2>&1 || die "required builder command is unavailable: $command_name"
 done
 [ -f "$BUILDER_MARKER" ] && [ ! -L "$BUILDER_MARKER" ] || die 'disposable-builder marker is missing or unsafe'
@@ -475,9 +481,13 @@ cp "$STAGING/runtime-manifest.conf" "$MOUNT_ROOT/var/db/northstar/runtime-manife
 chown root:wheel "$MOUNT_ROOT/var/db/northstar/runtime-manifest.conf"
 chmod 0444 "$MOUNT_ROOT/var/db/northstar/runtime-manifest.conf"
 installer_payload=$STAGING/northstar-rootfs-v1-$(printf '%s' "$PROJECT_COMMIT" | cut -c1-12).txz
-tar --one-file-system --numeric-owner -cJpf "$installer_payload" \
+installer_payload_tar=$STAGING/northstar-rootfs-v1-$(printf '%s' "$PROJECT_COMMIT" | cut -c1-12).tar
+tar --one-file-system --numeric-owner -cpf "$installer_payload_tar" \
     --exclude './boot/efi' --exclude './dev' --exclude './home' --exclude './tmp' \
     -C "$MOUNT_ROOT" .
+xz --threads="$COMPRESSION_THREADS" -6 --check=crc64 \
+    --stdout "$installer_payload_tar" > "$installer_payload"
+rm "$installer_payload_tar"
 installer_payload_sha256=$(file_sha256 "$installer_payload")
 installer_payload_size=$(file_size "$installer_payload")
 
@@ -516,6 +526,8 @@ printf '%s\n' \
     "installer_payload=$(basename "$installer_payload")" \
     "installer_payload_sha256=$installer_payload_sha256" \
     "installer_payload_size=$installer_payload_size" \
+    'installer_payload_compression=xz' \
+    "installer_payload_compression_threads=$COMPRESSION_THREADS" \
     "development_autologin=$DEVELOPMENT_AUTOLOGIN" \
     > "$STAGING/image-provenance.conf"
 cp "$resolved_conf" "$STAGING/resolved-image-inputs.conf"
