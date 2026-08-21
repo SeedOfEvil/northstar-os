@@ -1,6 +1,6 @@
 # M6 Intel Alpha physical session correction — 2026-08-21
 
-Status: **IMPLEMENTED LOCALLY — new RC and focused physical acceptance pending**
+Status: **IMPLEMENTED AND PACKAGED — new RC and focused physical acceptance pending**
 
 This record continues the Intel Alpha installer candidate after the first
 successful installation on physical hardware. It does not repeat or replace
@@ -64,6 +64,17 @@ The following checks pass from the Windows worktree through Git's POSIX shell:
 The broader QML surface script currently reports an unrelated pre-existing
 `DesktopBackground.qml` contract failure on this source baseline. The new
 Wayfire configuration assertions are covered by the focused selector test.
+
+Native FreeBSD packaging at commit `61b9b00` completed all 423 Ninja steps and
+passed the canonical 38/38 offscreen CTest suites. The reviewed package is
+`northstar-0.2.7-amd64.pkg`, 22,037,016 bytes, SHA-256
+`0208758979f1c7ea33b1711b249a82ffb31093538a1fc1612ff4a2bf289b6dc1`,
+with ABI `FreeBSD:15:amd64` and origin `x11/northstar`. Its inventory includes
+the native template and corrected First Boot/session files.
+
+The corresponding 240-package offline bundle passed deterministic capture
+with record digest
+`2ac63720f3d1be3cfafb088b256ff4691b5e505935c403d4d701a59fa3df5fea`.
 
 ## Remaining promotion gates
 

@@ -9,22 +9,31 @@ and makes every r82-r84 rejection a required pre-assembly or acceptance gate.
 ## Package candidate
 
 - Package source revision:
-  `7af49d6fc2a0f88c401e6be217222095d866fcea`
+  `61b9b00618cf0f0221f3c5e4b82beb7cae0ca4ce`
 - Package: `northstar-0.2.7-amd64.pkg`
 - Package SHA-256:
-  `6f2d48a511d80ea9655194e3105244da26ef971d0abcac15c2b6f18bab1001a9`
-- Package size: `22040936` bytes
+  `0208758979f1c7ea33b1711b249a82ffb31093538a1fc1612ff4a2bf289b6dc1`
+- Package size: `22037016` bytes
 - ABI and origin: `FreeBSD:15:amd64`, `x11/northstar`
 
 The package was built from a clean no-remote checkout on NSTAR-DEV01 using
 FreeBSD 15.1-RELEASE-p2, Qt 6.11.1, and Wayfire 0.10.1. The native build
-completed 423/423 steps. The canonical offscreen CTest run passed 38/38 suites
-in 18.72 seconds; QML surface, session supervisor, and installed session-entry
-gates also passed.
+completed 423/423 steps. After applying the same explicit `0.2.7` package
+version used by the earlier candidate, the canonical offscreen CTest run
+passed 38/38 suites in 18.96 seconds; QML surface, session supervisor, and
+installed session-entry gates also passed. An initial package produced with
+the source default `0.1.0` was rejected before staging and is not an RC input.
 
-The package inventory includes the guarded installer executor and the PR #115
-third-party package transaction helper, PolicyKit action, and fixed source
-configuration.
+The package inventory includes the guarded installer executor, the PR #115
+third-party package transaction helper, PolicyKit action, fixed source
+configuration, the native Wayfire template, and the corrected First Boot
+provision/session scripts.
+
+The recaptured runtime bundle contains 240 exact packages and has record digest
+`2ac63720f3d1be3cfafb088b256ff4691b5e505935c403d4d701a59fa3df5fea`.
+It adds only the verified Intel Alpha roots: `drm-66-kmod` at
+`6.6.25.1501000_8`, Kaby Lake firmware at `20250109.1501000`, AC 9560 firmware
+at `20260410`, and `xrandr` at `1.5.4`. The capture host did not load `i915kms`.
 
 ## Signed development repository r87
 
