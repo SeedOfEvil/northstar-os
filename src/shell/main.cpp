@@ -7,6 +7,7 @@
 #include "layershellsurface.h"
 #include "notificationcenter.h"
 #include "packagecatalog.h"
+#include "packagemutationcontroller.h"
 #include "packagetrustcontroller.h"
 #include "pinnedapplicationmodel.h"
 #include "powercontroller.h"
@@ -155,6 +156,7 @@ int main(int argc, char *argv[])
     NotificationCenter notificationCenter;
     QuickSettingsController quickSettingsController;
     PackageCatalog packageCatalog;
+    PackageMutationController packageMutationController(&packageCatalog);
     PackageTrustController packageTrustController;
     PinnedApplicationModel pinnedApplicationModel;
     UpdatePlanController updatePlanController(&packageTrustController);
@@ -327,6 +329,8 @@ int main(int argc, char *argv[])
         context->setContextProperty(QStringLiteral("launcher"), &applicationLauncher);
         context->setContextProperty(QStringLiteral("northstarNotificationCenter"), &notificationCenter);
         context->setContextProperty(QStringLiteral("northstarPackageCatalog"), &packageCatalog);
+        context->setContextProperty(QStringLiteral("northstarPackageMutationController"),
+                                    &packageMutationController);
         context->setContextProperty(QStringLiteral("northstarPackageTrustController"), &packageTrustController);
         context->setContextProperty(QStringLiteral("northstarUpdatePlanController"), &updatePlanController);
         context->setContextProperty(QStringLiteral("northstarUpdateAuthorizationController"),

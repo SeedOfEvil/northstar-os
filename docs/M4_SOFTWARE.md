@@ -1,5 +1,11 @@
 # M4 Software Center foundation
 
+> M7 follow-up: Software Center now also lists packages from the release-pinned
+> `FreeBSD-ports` source and can prepare install/remove transactions under
+> [ADR 0018](adr/0018-third-party-package-trust.md). The historical M4 sections
+> below describe the earlier read-only foundation and remain as milestone
+> evidence.
+
 Northstar now exposes a first-party Software surface from the system menu and
 the `Meta+U` shortcut. It reads the installed FreeBSD package inventory with
 the non-mutating command:

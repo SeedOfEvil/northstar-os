@@ -59,11 +59,18 @@ env QT_QPA_PLATFORM=offscreen make test
 make install-user NORTHSTAR_PREFIX="$HOME/.local"
 make shell-smoke
 make shell-restart-smoke
+sudo -n make package-mutation-smoke
 ```
 
 `make qml-surface-test` is a fast supplemental check for the product-critical
 Desktop, Dock, Files, Settings, Software Center, and system-menu wiring. It
 does not replace interactive noVNC acceptance or graphics-path evidence.
+
+`make package-mutation-smoke` is a root-isolated fake-tool gate. It proves that
+opaque plan replay, catalogue changes, locked removals, and changed previews are
+rejected; that a boot environment precedes install/remove; and that injected
+failure schedules rollback without changing the host package database or
+`/home`. A release still needs one disposable signed-repository and ZFS gate.
 
 Run the relevant manual acceptance flow in the VM after restarting the
 installed shell. Record the FreeBSD release, VM identity, source commit,

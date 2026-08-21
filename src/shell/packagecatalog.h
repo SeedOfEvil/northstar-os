@@ -12,6 +12,11 @@ struct InstalledPackage
     QString name;
     QString version;
     QString comment;
+    QString origin;
+    QString repository;
+    bool installed = true;
+    bool locked = false;
+    int planIndex = -1;
 
     // pkg records whether a package was asked for or arrived as a dependency
     // of something else. On this validation machine 445 of 481 installed
@@ -55,6 +60,12 @@ class PackageCatalog final : public QObject
     Q_PROPERTY(bool scanningUpdates READ scanningUpdates NOTIFY updateScanChanged)
     Q_PROPERTY(bool updatesKnown READ updatesKnown NOTIFY updateScanChanged)
     Q_PROPERTY(QString updateStatus READ updateStatus NOTIFY updateScanChanged)
+    Q_PROPERTY(bool refreshingAvailable READ refreshingAvailable NOTIFY availableCatalogChanged)
+    Q_PROPERTY(bool availableCatalogReady READ availableCatalogReady NOTIFY availableCatalogChanged)
+    Q_PROPERTY(int availableCount READ availableCount NOTIFY availableCatalogChanged)
+    Q_PROPERTY(QString availableStatus READ availableStatus NOTIFY availableCatalogChanged)
+    Q_PROPERTY(QString repositoryName READ repositoryName CONSTANT)
+    Q_PROPERTY(QString catalogueDigest READ catalogueDigest NOTIFY availableCatalogChanged)
 
 public:
     explicit PackageCatalog(QString packageManagerPath = {}, QObject *parent = nullptr);
@@ -75,6 +86,12 @@ public:
     bool scanningUpdates() const;
     bool updatesKnown() const;
     QString updateStatus() const;
+    bool refreshingAvailable() const;
+    bool availableCatalogReady() const;
+    int availableCount() const;
+    QString availableStatus() const;
+    QString repositoryName() const;
+    QString catalogueDigest() const;
 
     // The filters the surface may ask for. Anything else is refused rather
     // than silently listing everything.
@@ -82,16 +99,20 @@ public:
     static QString requestedFilter();
     static QString updatableFilter();
     static QString allFilter();
+    static QString availableFilter();
 
     Q_INVOKABLE bool refresh();
 
     // Starts the update scan. Returns whether it started; the result arrives
     // later through updateScanChanged.
     Q_INVOKABLE bool scanForUpdates();
+    Q_INVOKABLE bool refreshAvailable();
 
     static QList<InstalledPackage> parseVersionOutput(const QByteArray &output);
 
     static QList<InstalledPackage> parseQueryOutput(const QByteArray &output);
+    static QList<InstalledPackage> parseRemoteQueryOutput(const QByteArray &output,
+                                                          const QString &repository);
     static QList<InstalledPackage> filterPackages(const QList<InstalledPackage> &packages,
                                                   const QString &query);
 
@@ -107,15 +128,19 @@ signals:
     void refreshingChanged();
     void filterChanged();
     void updateScanChanged();
+    void availableCatalogChanged();
 
 private:
     static QVariantList toVariantList(const QList<InstalledPackage> &packages);
     QList<InstalledPackage> visiblePackages() const;
     void applyUpdateScan(const QByteArray &output);
+    void applyAvailableCatalog(const QByteArray &output);
+    void assignRemovalIndexes();
     void setStatusMessage(const QString &message);
 
     QString m_packageManagerPath;
     QList<InstalledPackage> m_packages;
+    QList<InstalledPackage> m_availablePackages;
     QString m_query;
     QString m_filter;
     QString m_statusMessage;
@@ -124,4 +149,8 @@ private:
     bool m_refreshing = false;
     bool m_updatesKnown = false;
     QProcess *m_updateScan = nullptr;
+    QProcess *m_availableScan = nullptr;
+    QString m_availableStatus;
+    QString m_catalogueDigest;
+    QString m_repositoryName = QStringLiteral("FreeBSD-ports");
 };

@@ -574,6 +574,7 @@ Window {
         id: softwareCenterWindow
         onVisibleChanged: if (!visible) root.restoreShellFocus()
         packageCatalog: northstarPackageCatalog
+        packageMutation: northstarPackageMutationController
         applicationLauncher: launcher
         packageTrust: northstarPackageTrustController
         updatePlan: northstarUpdatePlanController

@@ -130,6 +130,18 @@ target_link_libraries(test-packagecatalog
 
 add_test(NAME northstar-packagecatalog COMMAND test-packagecatalog)
 
+qt_add_executable(test-packagemutationcontroller
+    test-packagemutationcontroller.cpp
+)
+
+target_link_libraries(test-packagemutationcontroller
+    PRIVATE
+        northstar-shell-core
+        Qt6::Test
+)
+
+add_test(NAME northstar-packagemutationcontroller COMMAND test-packagemutationcontroller)
+
 qt_add_executable(test-packagetrustcontroller
     test-packagetrustcontroller.cpp
 )
