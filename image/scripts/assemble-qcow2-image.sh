@@ -526,8 +526,6 @@ printf '%s\n' \
     "installer_payload=$(basename "$installer_payload")" \
     "installer_payload_sha256=$installer_payload_sha256" \
     "installer_payload_size=$installer_payload_size" \
-    'installer_payload_compression=xz' \
-    "installer_payload_compression_threads=$COMPRESSION_THREADS" \
     "development_autologin=$DEVELOPMENT_AUTOLOGIN" \
     > "$STAGING/image-provenance.conf"
 cp "$resolved_conf" "$STAGING/resolved-image-inputs.conf"
