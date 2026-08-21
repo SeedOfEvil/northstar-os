@@ -11,6 +11,7 @@ class PackageMutationControllerTest final : public QObject
 private slots:
     void createsStableOpaquePlanIdentifier();
     void rejectsOutOfBoundsPlanComponents();
+    void presentsBoundedTransactionResult();
 };
 
 void PackageMutationControllerTest::createsStableOpaquePlanIdentifier()
@@ -54,6 +55,25 @@ void PackageMutationControllerTest::rejectsOutOfBoundsPlanComponents()
     QVERIFY(PackageMutationController::planIdentifier(1, 0, hash, hash).isEmpty());
     QVERIFY(PackageMutationController::planIdentifier(1787198400, -1, hash, hash).isEmpty());
     QVERIFY(PackageMutationController::planIdentifier(1787198400, 0, QByteArray(31, 'x'), hash).isEmpty());
+}
+
+void PackageMutationControllerTest::presentsBoundedTransactionResult()
+{
+    const QByteArray output(
+        "pkg progress that must not hide the result\n"
+        "PACKAGE_ACTION=remove\n"
+        "PACKAGE=cowsay\n"
+        "BOOT_ENVIRONMENT=northstar-before-package-1787273774-78dfefe0\n"
+        "ROLLBACK_AVAILABLE=yes\n");
+    const QString status = PackageMutationController::transactionSuccessStatus(output);
+
+    QVERIFY(status.startsWith(QStringLiteral("Package transaction completed successfully.\n")));
+    QVERIFY(!status.contains(QStringLiteral("pkg progress")));
+    QVERIFY(status.contains(QStringLiteral("PACKAGE_ACTION=remove")));
+    QVERIFY(status.contains(QStringLiteral(
+        "BOOT_ENVIRONMENT=northstar-before-package-1787273774-78dfefe0")));
+    QCOMPARE(PackageMutationController::transactionSuccessStatus("unstructured output"),
+             QStringLiteral("Package transaction completed successfully."));
 }
 
 QTEST_MAIN(PackageMutationControllerTest)

@@ -51,6 +51,7 @@ public:
                                   int index,
                                   const QByteArray &recordHash,
                                   const QByteArray &previewHash);
+    static QString transactionSuccessStatus(const QByteArray &output);
 
 signals:
     void stateChanged();

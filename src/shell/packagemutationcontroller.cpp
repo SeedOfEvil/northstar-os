@@ -82,15 +82,14 @@ PackageMutationController::PackageMutationController(PackageCatalog *catalog,
         if (!m_busy) {
             return;
         }
-        const QString output = QString::fromUtf8(m_transactionProcess->readAll()).trimmed();
+        const QByteArray rawOutput = m_transactionProcess->readAll().trimmed();
+        const QString output = QString::fromUtf8(rawOutput);
         const bool success = exitStatus == QProcess::NormalExit && exitCode == 0;
         m_busy = false;
         m_planReady = false;
         m_planIdentifier.clear();
         if (success) {
-            m_status = output.isEmpty()
-                ? QStringLiteral("Package transaction completed successfully.")
-                : output.left(400);
+            m_status = transactionSuccessStatus(rawOutput);
         } else if (exitStatus == QProcess::NormalExit && exitCode == 126) {
             m_status = QStringLiteral("Administrator authorization was cancelled.");
         } else {
@@ -289,6 +288,18 @@ QString PackageMutationController::planIdentifier(qint64 timestamp,
         .arg(timestamp, 10, 10, QLatin1Char('0'))
         .arg(index, 8, 10, QLatin1Char('0'))
         .arg(QString::fromLatin1(recordHash.toHex()), QString::fromLatin1(previewHash.toHex()));
+}
+
+QString PackageMutationController::transactionSuccessStatus(const QByteArray &output)
+{
+    const QByteArray marker("PACKAGE_ACTION=");
+    const qsizetype markerOffset = output.lastIndexOf(marker);
+    if (markerOffset < 0) {
+        return QStringLiteral("Package transaction completed successfully.");
+    }
+
+    const QString result = QString::fromUtf8(output.mid(markerOffset)).trimmed().left(1000);
+    return QStringLiteral("Package transaction completed successfully.\n") + result;
 }
 
 void PackageMutationController::setFailure(const QString &message)
