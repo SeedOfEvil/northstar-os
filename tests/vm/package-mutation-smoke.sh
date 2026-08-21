@@ -31,6 +31,9 @@ chmod 0600 "$TMP_DIR/policy"
 
 cat > "$TMP_DIR/pkg" <<'PKG'
 #!/bin/sh
+if [ "$1" = -o ] && [ "$2" = REPO_AUTOUPDATE=false ]; then
+    shift 2
+fi
 case "$1" in
     -vv)
         cat <<'CONFIG'

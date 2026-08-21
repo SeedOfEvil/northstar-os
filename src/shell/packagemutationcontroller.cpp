@@ -179,10 +179,14 @@ bool PackageMutationController::beginPlan(const QString &operation, const QVaria
     // -n keeps the request non-mutating; -y lets pkg finish printing that
     // dry-run as a successful preview instead of reporting user cancellation.
     if (operation == QLatin1String("install")) {
-        m_previewProcess->setArguments({QStringLiteral("install"), QStringLiteral("-n"),
+        m_previewProcess->setArguments({QStringLiteral("-o"),
+                                        QStringLiteral("REPO_AUTOUPDATE=false"),
+                                        QStringLiteral("install"), QStringLiteral("-n"),
                                         QStringLiteral("-y"), QStringLiteral("-r"), repository, name});
     } else {
-        m_previewProcess->setArguments({QStringLiteral("delete"), QStringLiteral("-n"),
+        m_previewProcess->setArguments({QStringLiteral("-o"),
+                                        QStringLiteral("REPO_AUTOUPDATE=false"),
+                                        QStringLiteral("delete"), QStringLiteral("-n"),
                                         QStringLiteral("-y"), name});
     }
     m_previewProcess->start(QIODevice::ReadOnly);

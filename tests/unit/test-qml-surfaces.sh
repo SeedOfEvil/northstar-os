@@ -230,6 +230,7 @@ contains src/shell/SoftwareCenterWindow.qml 'A ZFS boot environment is created b
 contains src/shell/SoftwareCenterWindow.qml 'No changes have been made yet'
 contains src/shell/packagemutationcontroller.cpp 'QStringLiteral("-n"),'
 contains src/shell/packagemutationcontroller.cpp 'QStringLiteral("-y"),'
+contains src/shell/packagemutationcontroller.cpp 'QStringLiteral("REPO_AUTOUPDATE=false"),'
 contains src/shell/SoftwareCenterWindow.qml 'Apply Verified Update'
 contains src/shell/SoftwareCenterWindow.qml 'Schedule Rollback'
 contains src/shell/SoftwareCenterWindow.qml 'software.updateAuthorization.applyUpdate()'

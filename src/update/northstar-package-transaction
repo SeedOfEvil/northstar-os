@@ -217,10 +217,10 @@ fi
 # success after printing the dry-run instead of treating the preview as a
 # declined transaction.
 if [ "$operation" = install ]; then
-    preview=$(LC_ALL=C "$PKG" install -n -y -r "$repository" "$package_name" 2>&1) \
+    preview=$(LC_ALL=C "$PKG" -o REPO_AUTOUPDATE=false install -n -y -r "$repository" "$package_name" 2>&1) \
         || fail "$EX_DATAERR" 'install preview could not be reproduced'
 else
-    preview=$(LC_ALL=C "$PKG" delete -n -y "$package_name" 2>&1) \
+    preview=$(LC_ALL=C "$PKG" -o REPO_AUTOUPDATE=false delete -n -y "$package_name" 2>&1) \
         || fail "$EX_DATAERR" 'removal preview could not be reproduced'
 fi
 [ "$(sha_text "$preview")" = "$preview_hash" ] \
