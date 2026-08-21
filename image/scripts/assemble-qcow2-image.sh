@@ -392,6 +392,8 @@ seatd_enable="YES"
 sddm_enable="YES"
 sshd_enable="YES"
 zfs_enable="YES"
+kld_list="i915kms"
+northstar_session_selector_enable="YES"
 EOF
 cat > "$MOUNT_ROOT/boot/loader.conf" <<'EOF'
 zfs_load="YES"
@@ -404,16 +406,40 @@ mkdir -p "$MOUNT_ROOT/usr/local/etc/sddm.conf.d"
 cp "$PROJECT_ROOT/config/sddm/northstar-proxmox.conf" \
     "$MOUNT_ROOT/usr/local/etc/sddm.conf.d/20-northstar-proxmox.conf"
 mkdir -p "$MOUNT_ROOT/usr/local/share/xsessions"
+mkdir -p "$MOUNT_ROOT/usr/local/share/wayland-sessions"
+mkdir -p "$MOUNT_ROOT/usr/local/share/northstar/image-sessions"
+mkdir -p "$MOUNT_ROOT/usr/local/share/northstar/session"
+mkdir -p "$MOUNT_ROOT/usr/local/etc/rc.d"
 mkdir -p "$MOUNT_ROOT/usr/local/libexec"
-# The package's generic fallback entry supports source-level development where
-# Wayfire normally lives below ~/.local. Production images expose only the
-# image-managed entry with explicit packaged runtime paths, preventing SDDM
-# from offering two nearly identical sessions with different launch contracts.
+# SDDM reads only the boot-generated session directories configured above.
+# Keep immutable descriptors here so the selector can publish exactly the
+# native Wayland entry or the Proxmox fallback after DRM nodes are available.
 rm -f "$MOUNT_ROOT/usr/local/share/xsessions/northstar-proxmox.desktop"
+rm -f "$MOUNT_ROOT/usr/local/share/wayland-sessions/northstar.desktop"
 cp "$PROJECT_ROOT/image/session/northstar-image-session-x11" \
     "$MOUNT_ROOT/usr/local/libexec/northstar-image-session-x11"
 chmod 0555 "$MOUNT_ROOT/usr/local/libexec/northstar-image-session-x11"
-cat > "$MOUNT_ROOT/usr/local/share/xsessions/northstar-image-proxmox.desktop" <<'EOF'
+cp "$PROJECT_ROOT/image/session/northstar-session-selector" \
+    "$MOUNT_ROOT/usr/local/libexec/northstar-session-selector"
+cp "$PROJECT_ROOT/image/session/northstar-session-selector.rc" \
+    "$MOUNT_ROOT/usr/local/etc/rc.d/northstar_session_selector"
+chmod 0555 "$MOUNT_ROOT/usr/local/libexec/northstar-session-selector" \
+    "$MOUNT_ROOT/usr/local/etc/rc.d/northstar_session_selector"
+cp "$PROJECT_ROOT/config/wayfire-native.ini" \
+    "$MOUNT_ROOT/usr/local/share/northstar/session/wayfire-native.ini"
+chmod 0444 "$MOUNT_ROOT/usr/local/share/northstar/session/wayfire-native.ini"
+cat > "$MOUNT_ROOT/usr/local/share/northstar/image-sessions/northstar.desktop" <<'EOF'
+[Desktop Entry]
+Name=Northstar
+Comment=Northstar native DRM Wayland session
+Exec=/usr/local/bin/northstar-session
+TryExec=/usr/local/bin/northstar-session
+Type=Application
+DesktopNames=Northstar
+X-Northstar-Session-Mode=native
+X-Northstar-Image-Managed=true
+EOF
+cat > "$MOUNT_ROOT/usr/local/share/northstar/image-sessions/northstar-image-proxmox.desktop" <<'EOF'
 [Desktop Entry]
 Name=Northstar (Image Proxmox X11 fallback)
 Comment=Northstar image session with SDDM authorization recovery and explicit packaged runtime paths
@@ -424,6 +450,9 @@ DesktopNames=Northstar
 X-Northstar-Compatibility=proxmox-basic-vga
 X-Northstar-Image-Managed=true
 EOF
+cp "$MOUNT_ROOT/usr/local/share/xsessions/northstar-first-boot.desktop" \
+    "$MOUNT_ROOT/usr/local/share/northstar/image-sessions/northstar-first-boot.desktop"
+chmod 0444 "$MOUNT_ROOT/usr/local/share/northstar/image-sessions/"*.desktop
 if [ ! -e "$MOUNT_ROOT/usr/local/bin/sddm-greeter" ] && \
     [ -x "$MOUNT_ROOT/usr/local/bin/sddm-greeter-qt6" ]; then
     ln -s sddm-greeter-qt6 "$MOUNT_ROOT/usr/local/bin/sddm-greeter"

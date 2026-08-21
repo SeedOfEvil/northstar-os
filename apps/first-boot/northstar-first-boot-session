@@ -63,4 +63,12 @@ fi
 export QT_QPA_PLATFORM=xcb
 export XDG_SESSION_TYPE=x11
 
+# Bare-X11 sessions have no window manager to correct a conservative initial
+# mode. Ask every connected output to use its preferred mode before Qt reads
+# Screen.width/height; retain the current mode if the optional tool fails.
+if command -v xrandr >/dev/null 2>&1; then
+    xrandr --auto >/tmp/northstar-first-boot-xrandr.log 2>&1 || \
+        printf '%s\n' 'WARNING: could not select preferred display mode' >&2
+fi
+
 exec "$WIZARD"

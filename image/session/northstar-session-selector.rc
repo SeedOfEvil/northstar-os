@@ -1,0 +1,22 @@
+#!/bin/sh
+
+# PROVIDE: northstar_session_selector
+# REQUIRE: devfs
+# BEFORE: sddm
+
+. /etc/rc.subr
+
+name=northstar_session_selector
+rcvar=northstar_session_selector_enable
+command=/usr/local/libexec/northstar-session-selector
+start_cmd=${name}_start
+stop_cmd=:
+
+northstar_session_selector_start()
+{
+    "$command"
+}
+
+load_rc_config "$name"
+: ${northstar_session_selector_enable:=YES}
+run_rc_command "$1"

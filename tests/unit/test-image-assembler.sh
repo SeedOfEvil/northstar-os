@@ -106,16 +106,16 @@ grep -F "'/var must belong to the root boot environment so package state rolls b
     printf 'FAIL: installed-image gate does not reject shared package state\n' >&2
     exit 1
 }
-grep -F 'northstar-image-proxmox.desktop' "$ASSEMBLER" >/dev/null || {
-    printf 'FAIL: image omits its explicit packaged-runtime session entry\n' >&2
+grep -F 'northstar-session-selector' "$ASSEMBLER" >/dev/null || {
+    printf 'FAIL: image omits hardware-aware session selection\n' >&2
     exit 1
 }
 grep -F 'rm -f "$MOUNT_ROOT/usr/local/share/xsessions/northstar-proxmox.desktop"' "$ASSEMBLER" >/dev/null || {
     printf 'FAIL: production image retains the ambiguous development fallback session\n' >&2
     exit 1
 }
-grep -F 'usr/local/share/xsessions/northstar-image-proxmox.desktop' "$EXECUTOR" >/dev/null || {
-    printf 'FAIL: installer does not validate the image-managed runtime session entry\n' >&2
+grep -F 'usr/local/share/northstar/image-sessions/northstar-image-proxmox.desktop' "$EXECUTOR" >/dev/null || {
+    printf 'FAIL: installer does not validate the immutable fallback session entry\n' >&2
     exit 1
 }
 grep -F 'image/session/northstar-image-session-x11' "$ASSEMBLER" >/dev/null || {
@@ -125,6 +125,21 @@ grep -F 'image/session/northstar-image-session-x11' "$ASSEMBLER" >/dev/null || {
 IMAGE_SESSION=$ROOT/image/session/northstar-image-session-x11
 grep -Fx 'xf86-input-libinput' "$ROOT/image/manifests/northstar-runtime-roots.txt" >/dev/null || {
     printf 'FAIL: image runtime roots omit the Proxmox Xorg input driver\n' >&2
+    exit 1
+}
+for intel_root in drm-66-kmod gpu-firmware-intel-kmod-kabylake wifi-firmware-iwlwifi-kmod-9000 xrandr; do
+    grep -Fx "$intel_root" "$ROOT/image/manifests/northstar-runtime-roots.txt" >/dev/null || {
+        printf 'FAIL: Intel Alpha runtime roots omit %s\n' "$intel_root" >&2
+        exit 1
+    }
+done
+grep -F 'kld_list="i915kms"' "$ASSEMBLER" >/dev/null || {
+    printf 'FAIL: image does not enable i915kms for the Intel Alpha lane\n' >&2
+    exit 1
+}
+grep -F 'SessionDir=/var/run/northstar/wayland-sessions' \
+    "$ROOT/config/sddm/northstar-proxmox.conf" >/dev/null || {
+    printf 'FAIL: SDDM does not consume hardware-selected Wayland sessions\n' >&2
     exit 1
 }
 grep -F 'NORTHSTAR_SESSION_BIN=/usr/local/bin/northstar-session' "$IMAGE_SESSION" >/dev/null || {

@@ -18,7 +18,7 @@ FAKE_ROOT=$TMP_DIR/root
 BIN=$TMP_DIR/bin
 mkdir -p "$FAKE_ROOT/usr/share/zoneinfo/America" \
     "$FAKE_ROOT/usr/share/zoneinfo/Pacific" "$FAKE_ROOT/etc" \
-    "$FAKE_ROOT/var/db" "$FAKE_ROOT/home" \
+    "$FAKE_ROOT/var/db" "$FAKE_ROOT/var/run/northstar" "$FAKE_ROOT/home" \
     "$FAKE_ROOT/usr/local/share/northstar/session" "$BIN"
 mkdir -p "$FAKE_ROOT/usr/local/share/xsessions"
 printf '%s\n' '[Desktop Entry]' \
@@ -27,6 +27,10 @@ printf 'zone\n' > "$FAKE_ROOT/usr/share/zoneinfo/America/Denver"
 printf 'zone\n' > "$FAKE_ROOT/usr/share/zoneinfo/Pacific/Auckland"
 printf '[output:WL-1]\nmode = 1280x800\n' \
     > "$FAKE_ROOT/usr/local/share/northstar/session/wayfire-nested.ini"
+printf '[core]\nplugins = ipc\n' \
+    > "$FAKE_ROOT/usr/local/share/northstar/session/wayfire-native.ini"
+printf '%s\n' 'schema_version=1' 'mode=native' \
+    > "$FAKE_ROOT/var/run/northstar/session-mode.conf"
 
 cat > "$BIN/pw" <<'EOF'
 #!/bin/sh
@@ -167,13 +171,15 @@ grep -Fx 'status=complete' "$FAKE_ROOT/var/db/northstar/first-boot.conf" >/dev/n
     || fail 'completion marker is missing'
 grep -Fx 'administrator=hector' "$FAKE_ROOT/var/db/northstar/first-boot.conf" >/dev/null \
     || fail 'completion marker has wrong administrator'
+grep -Fx 'session_mode=native' "$FAKE_ROOT/var/db/northstar/first-boot.conf" >/dev/null \
+    || fail 'completion marker has wrong session mode'
 grep -F ':lang=en_US.UTF-8:' "$FAKE_ROOT/home/hector/.login_conf" >/dev/null \
     || fail 'user locale was not recorded'
 grep -Fx 'America/Denver' "$FAKE_ROOT/var/db/zoneinfo" >/dev/null \
     || fail 'timezone was not recorded'
-cmp "$FAKE_ROOT/usr/local/share/northstar/session/wayfire-nested.ini" \
+cmp "$FAKE_ROOT/usr/local/share/northstar/session/wayfire-native.ini" \
     "$FAKE_ROOT/home/hector/.config/wayfire.ini" >/dev/null \
-    || fail 'new administrator did not receive the Northstar Wayfire configuration'
+    || fail 'native administrator inherited the fallback Wayfire configuration'
 grep -Fx 'hector ALL=(ALL:ALL) ALL' \
     "$FAKE_ROOT/usr/local/etc/sudoers.d/northstar-first-administrator" >/dev/null \
     || fail 'new administrator did not receive persistent sudo authorization'

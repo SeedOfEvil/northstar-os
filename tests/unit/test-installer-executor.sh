@@ -140,7 +140,12 @@ case "$1" in
       printf '%s\n' boot/loader.efi boot/loader.conf etc/fstab etc/rc.conf \
         var/db/northstar/runtime-manifest.conf \
         usr/local/bin/northstar-session usr/local/bin/northstar-shell \
-        usr/local/share/xsessions/northstar-image-proxmox.desktop
+        usr/local/libexec/northstar-session-selector \
+        usr/local/etc/rc.d/northstar_session_selector \
+        usr/local/share/northstar/image-sessions/northstar.desktop \
+        usr/local/share/northstar/image-sessions/northstar-image-proxmox.desktop \
+        usr/local/share/northstar/image-sessions/northstar-first-boot.desktop \
+        usr/local/share/northstar/session/wayfire-native.ini
     fi ;;
   -xpf)
     shift 2
@@ -148,17 +153,27 @@ case "$1" in
     destination=$2
     mkdir -p "$destination/boot" "$destination/etc" \
       "$destination/var/db/northstar" "$destination/usr/local/bin" \
-      "$destination/usr/local/share/xsessions"
+      "$destination/usr/local/libexec" "$destination/usr/local/etc/rc.d" \
+      "$destination/usr/local/share/northstar/image-sessions" \
+      "$destination/usr/local/share/northstar/session"
     printf '%s\n' loader > "$destination/boot/loader.efi"
     printf '%s\n' 'zfs_load="YES"' > "$destination/boot/loader.conf"
     printf '%s\n' '/dev/msdosfs/NSTAR_EFI /boot/efi msdosfs rw,noatime 0 0' > "$destination/etc/fstab"
     printf '%s\n' 'northstar-setup:*:1001:1001:Northstar Setup:/home/northstar-setup:/bin/sh' > "$destination/etc/passwd"
-    printf '%s\n' 'zfs_enable="YES"' > "$destination/etc/rc.conf"
+    printf '%s\n' 'zfs_enable="YES"' 'kld_list="i915kms"' \
+      'northstar_session_selector_enable="YES"' > "$destination/etc/rc.conf"
     cp "$NORTHSTAR_TEST_RUNTIME_MANIFEST" "$destination/var/db/northstar/runtime-manifest.conf"
     printf '%s\n' '#!/bin/sh' 'exit 0' > "$destination/usr/local/bin/northstar-session"
     printf '%s\n' '#!/bin/sh' 'exit 0' > "$destination/usr/local/bin/northstar-shell"
     chmod +x "$destination/usr/local/bin/northstar-session" "$destination/usr/local/bin/northstar-shell"
-    printf '%s\n' desktop > "$destination/usr/local/share/xsessions/northstar-image-proxmox.desktop" ;;
+    printf '%s\n' '#!/bin/sh' 'exit 0' > "$destination/usr/local/libexec/northstar-session-selector"
+    printf '%s\n' '#!/bin/sh' 'exit 0' > "$destination/usr/local/etc/rc.d/northstar_session_selector"
+    chmod +x "$destination/usr/local/libexec/northstar-session-selector" \
+      "$destination/usr/local/etc/rc.d/northstar_session_selector"
+    printf '%s\n' desktop > "$destination/usr/local/share/northstar/image-sessions/northstar.desktop"
+    printf '%s\n' desktop > "$destination/usr/local/share/northstar/image-sessions/northstar-image-proxmox.desktop"
+    printf '%s\n' desktop > "$destination/usr/local/share/northstar/image-sessions/northstar-first-boot.desktop"
+    printf '%s\n' '[core]' > "$destination/usr/local/share/northstar/session/wayfire-native.ini" ;;
   *) exit 64 ;;
 esac
 EOF

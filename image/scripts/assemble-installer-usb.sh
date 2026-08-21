@@ -296,6 +296,10 @@ export QT_QPA_PLATFORM=xcb
 export QT_QUICK_CONTROLS_STYLE=Basic
 export XDG_SESSION_TYPE=x11
 command -v xsetroot >/dev/null 2>&1 && xsetroot -solid '#07111f'
+if command -v xrandr >/dev/null 2>&1; then
+    xrandr --auto >/tmp/northstar-installer-xrandr.log 2>&1 || \
+        printf '%s\n' 'WARNING: could not select preferred display mode' >&2
+fi
 for agent in /usr/local/libexec/lxqt-policykit-agent /usr/local/bin/lxqt-policykit-agent; do
     if [ -x "$agent" ]; then
         "$agent" >/tmp/northstar-installer-policykit.log 2>&1 &
