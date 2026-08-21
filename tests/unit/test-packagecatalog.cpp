@@ -17,6 +17,7 @@ private slots:
     void filtersAcrossPackageFields();
     void repeatedRefreshNotifiesCompletion();
     void parsesRemoteCatalogueWithProvenance();
+    void sortsRemoteCatalogueByCanonicalIdentity();
 };
 
 void PackageCatalogTest::parsesAndSortsPackageQueryOutput()
@@ -44,6 +45,18 @@ void PackageCatalogTest::parsesRemoteCatalogueWithProvenance()
     QCOMPARE(packages.constFirst().comment,
              QStringLiteral("Configurable talking characters|with separators"));
     QVERIFY(!packages.constFirst().installed);
+}
+
+void PackageCatalogTest::sortsRemoteCatalogueByCanonicalIdentity()
+{
+    const QList<InstalledPackage> packages = PackageCatalog::parseRemoteQueryOutput(
+        "alpha|1.0|devel/alpha|lowercase package\n"
+        "Alpha|1.0|devel/Alpha|uppercase package\n",
+        QStringLiteral("FreeBSD-ports"));
+
+    QCOMPARE(packages.size(), 2);
+    QCOMPARE(packages.at(0).name, QStringLiteral("Alpha"));
+    QCOMPARE(packages.at(1).name, QStringLiteral("alpha"));
 }
 
 void PackageCatalogTest::ignoresMalformedAndDuplicateRows()

@@ -276,7 +276,9 @@ QList<InstalledPackage> PackageCatalog::parseRemoteQueryOutput(const QByteArray 
         seen.insert(identity);
         result.append(std::move(package));
     }
-    std::sort(result.begin(), result.end(), packageLessThan);
+    // Plan indexes and catalogue digests cross a privilege boundary. Match the
+    // runner's LC_ALL=C sort of the full name|version|origin identity exactly.
+    std::sort(result.begin(), result.end(), canonicalPackageLessThan);
     return result;
 }
 
