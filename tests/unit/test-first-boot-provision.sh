@@ -191,6 +191,9 @@ cmp "$FAKE_ROOT/usr/local/share/northstar/session/wayfire-native.ini" \
 grep -Fx 'hector ALL=(ALL:ALL) ALL' \
     "$FAKE_ROOT/usr/local/etc/sudoers.d/northstar-first-administrator" >/dev/null \
     || fail 'new administrator did not receive persistent sudo authorization'
+grep -Fx 'hector ALL=(root) NOPASSWD: /usr/local/bin/northstar-radio wifi on, /usr/local/bin/northstar-radio wifi off, /usr/local/bin/northstar-radio bluetooth on, /usr/local/bin/northstar-radio bluetooth off' \
+    "$FAKE_ROOT/usr/local/etc/sudoers.d/northstar-first-administrator" >/dev/null \
+    || fail 'new administrator did not receive exact radio-helper authorization'
 grep -Fx "chmod:0440 $FAKE_ROOT/usr/local/etc/sudoers.d/northstar-first-administrator" \
     "$TMP_DIR/events" >/dev/null \
     || fail 'first-administrator sudoers policy was not set to mode 0440'
