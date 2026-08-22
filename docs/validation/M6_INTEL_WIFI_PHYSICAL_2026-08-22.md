@@ -1,6 +1,6 @@
 # M6 Intel Wi-Fi physical follow-up - 2026-08-22
 
-Status: **PHYSICAL ASSOCIATION, DHCP, REBOOT PERSISTENCE, INSTALLED HELPER, AND DESKTOP RADIO CONTROLS PASS - remaining promotion cases are explicit below**
+Status: **PHYSICAL WIZARD, WPA2 ASSOCIATION, DHCP, REBOOT PERSISTENCE, CONNECTED-STATE UI, AUTHORIZATION FLOW, AND DESKTOP RADIO CONTROLS PASS**
 
 This follow-up starts from merged Intel Alpha PR #116 at
 c20e3159f8cbc630abbb3e7e22e647242df51430. It records only privacy-bounded
@@ -105,22 +105,51 @@ continued to own the preferred default route. The installed helper hash also
 remained unchanged. No network identifiers or lease address are included in
 this record.
 
-## Product gaps and remaining acceptance
+## Wireless selection wizard acceptance
 
-The image supplies the correct Intel firmware but does not yet turn a detected
-net.wlan.devices parent into a persistent wlan interface. First Boot also has
-no credential-safe network selection flow, and the base-system bsdconfig
-wireless behavior observed above is not an acceptable Northstar setup
-experience.
+The installed candidate adds a Northstar wireless selection wizard backed by
+a narrow PolicyKit action. Its protected helper discovers and persists the
+wlan clone, scans without logging network identifiers, accepts a selected SSID
+through a mode-0600 request containing no credential, and accepts the password
+only over standard input. A native OpenSSL-backed helper derives the WPA2 PSK;
+the plaintext password is neither placed in process arguments nor written to
+disk. The helper preserves unrelated wpa_supplicant configuration and rolls
+back a failed association.
 
-The follow-up must keep credentials out of logs, process evidence, source, and
-validation records while it addresses or documents these boundaries. Before
-promotion, complete:
+The physical workflow passed end to end. The wizard listed nearby networks,
+distinguished encryption from signal strength, accepted the administrator
+authorization, derived the credential, completed WPA2 key negotiation, and
+obtained a DHCP address. A FreeBSD dhclient service warning was correctly
+treated as advisory after the assigned address proved success. The refreshed
+list moved the active network to the top, labeled it Connected, and reported
+the active connection in the status area.
 
-1. Ethernet-disconnected Wi-Fi routing and DNS without manual repair;
-2. recovery behavior for weak signal, wrong credentials, and unavailable
-   networks without exposing the passphrase.
+ConsoleKit now registers the native SDDM session, allowing the graphical
+PolicyKit agent to authorize the protected helper. The Wi-Fi window yields
+while the administrator prompt is active and restores/focuses itself after
+approval or cancellation, so the prompt is never hidden behind the scanner.
+The user manually accepted scanning, connection, active-network reporting, and
+the foreground authorization lifecycle on the physical Intel laptop.
 
-No installer, First Boot, display/session, or USB test is reopened by this
-follow-up. Those exact R90 physical gates remain accepted and must not be
-repeated.
+DEV01 passed all focused Wi-Fi tests after the accepted candidate was built:
+
+1. northstar-wificontroller;
+2. northstar-wifi-configure-helper;
+3. northstar-wifi-derive;
+4. northstar-wifi-qml.
+
+The accepted source head is 59ddae6. All committed and reported evidence omits
+SSID, BSSID, password, derived PSK, MAC address, and lease address.
+
+## Deferred follow-up cases
+
+The user explicitly kept Ethernet connected during this acceptance and chose
+not to make Ethernet-disconnected routing/DNS a merge gate. Wrong-password,
+unavailable-network, and extended weak-signal recovery remain useful negative
+hardening cases for a separate follow-up. They do not invalidate the observed
+WPA2 authentication, DHCP assignment, reboot persistence, desktop controls,
+or completed physical wizard workflow.
+
+Bluetooth is separate follow-up scope. No installer, First Boot,
+display/session, or USB test is reopened by this Wi-Fi work; those exact R90
+physical gates remain accepted and must not be repeated.
