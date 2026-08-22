@@ -4,6 +4,7 @@ dbus
 drm-66-kmod
 firefox
 gpu-firmware-intel-kmod-kabylake
+iwmbt-firmware
 lxqt-policykit
 northstar
 pkg

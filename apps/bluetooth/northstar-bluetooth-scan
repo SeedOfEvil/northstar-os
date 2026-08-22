@@ -1,0 +1,26 @@
+#!/bin/sh
+set -eu
+EX_UNAVAILABLE=69
+HCCONTROL=${NORTHSTAR_BLUETOOTH_HCCONTROL_PATH:-/usr/sbin/hccontrol}
+NODE=${NORTHSTAR_BLUETOOTH_NODE:-ubt0hci}
+fail() { printf 'ERROR: %s\n' "$*" >&2; exit "$EX_UNAVAILABLE"; }
+hex() { LC_ALL=C od -An -tx1 | tr -d ' \n'; }
+match() { printf '%s\n' "$1" | grep -Eq "$2"; }
+
+[ "$#" -eq 0 ] || fail 'Bluetooth scanning accepts no arguments'
+[ -x "$HCCONTROL" ] || fail 'Bluetooth controller support is unavailable'
+match "$NODE" '^ubt[0-9]+hci$' || fail 'Bluetooth controller name is invalid'
+"$HCCONTROL" -n "$NODE" read_node_list >/dev/null 2>&1     || fail 'No initialized Bluetooth controller was detected'
+
+printf '%s\n' NORTHSTAR_BLUETOOTH_SCAN=1
+out=$("$HCCONTROL" -N -n "$NODE" inquiry 2>/dev/null)     || fail 'Bluetooth inquiry failed'
+printf '%s\n' "$out" | sed -n 's/^[[:space:]]*BD_ADDR: \([0-9a-fA-F:]*\)$/\1/p' |
+while IFS= read -r address; do
+    compact=$(printf '%s' "$address" | tr -d ':' | tr '[:upper:]' '[:lower:]')
+    match "$compact" '^[0-9a-f]{12}$' || continue
+    name=$("$HCCONTROL" -n "$NODE" remote_name_request "$address" 2>/dev/null |
+        sed -n 's/^[[:space:]]*Name: //p' | head -1)
+    name_hex=$(printf '%s' "$name" | hex)
+    match "$name_hex" '^([0-9a-f][0-9a-f]){0,124}$' || name_hex=
+    printf 'device=%s|%s\n' "$compact" "$name_hex"
+done

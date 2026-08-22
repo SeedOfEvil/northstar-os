@@ -359,6 +359,33 @@ void registerDesktopSettings(SettingsCatalog *catalog,
     };
     catalog->registerEntry(chooseWifi);
 
+    SettingsCatalog::Entry manageBluetooth;
+    manageBluetooth.id = QStringLiteral("network.bluetooth.manage");
+    manageBluetooth.section = QStringLiteral("network");
+    manageBluetooth.title = QStringLiteral("Manage Bluetooth devices");
+    manageBluetooth.description = QStringLiteral(
+        "Scan discoverable devices and open the foreground FreeBSD pairing wizard.");
+    manageBluetooth.keywords = QStringList{QStringLiteral("bluetooth"), QStringLiteral("pair"),
+                                           QStringLiteral("keyboard"), QStringLiteral("mouse"),
+                                           QStringLiteral("device")};
+    manageBluetooth.kind = SettingsCatalog::actionKind();
+    manageBluetooth.actionLabel = QStringLiteral("Manage Devices");
+    manageBluetooth.available = []() {
+        const QString override = qEnvironmentVariable("NORTHSTAR_BLUETOOTH_WIZARD");
+        return !override.isEmpty() ? QFileInfo::exists(override)
+            : !QStandardPaths::findExecutable(QStringLiteral("northstar-bluetooth")).isEmpty();
+    };
+    manageBluetooth.unavailableReason = []() {
+        return QStringLiteral("The Northstar Bluetooth wizard is not installed.");
+    };
+    manageBluetooth.perform = []() {
+        QString program = qEnvironmentVariable("NORTHSTAR_BLUETOOTH_WIZARD");
+        if (program.isEmpty())
+            program = QStandardPaths::findExecutable(QStringLiteral("northstar-bluetooth"));
+        return !program.isEmpty() && QProcess::startDetached(program, {});
+    };
+    catalog->registerEntry(manageBluetooth);
+
     // --- Notifications -----------------------------------------------------
 
     if (quickSettings) {
