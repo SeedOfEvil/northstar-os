@@ -43,12 +43,28 @@ wireless_interface() {
     "$IFCONFIG" -l 2>/dev/null | tr ' ' '\n' | grep -E '^wlan[0-9]+$' | head -1
 }
 
+restart_wifi_services() {
+    interface=$1
+
+    # Quick Settings allows less than a second for this helper. Reconnect in a
+    # detached subshell, with every inherited descriptor closed, so the UI can
+    # report the radio as enabled while association and DHCP finish normally.
+    (
+        "$SERVICE" wpa_supplicant restart "$interface" \
+            || "$SERVICE" wpa_supplicant start "$interface"
+        "$SERVICE" dhclient restart "$interface" \
+            || "$SERVICE" dhclient start "$interface"
+    ) </dev/null >/dev/null 2>&1 &
+}
+
 case "$1" in
     wifi)
         interface=$(wireless_interface)
         [ -n "$interface" ] || exit "$unavailable"
         if [ "$2" = on ]; then
-            exec "$IFCONFIG" "$interface" up
+            "$IFCONFIG" "$interface" up
+            restart_wifi_services "$interface"
+            exit 0
         else
             exec "$IFCONFIG" "$interface" down
         fi

@@ -43,6 +43,16 @@ run_helper() {
         sh "$HELPER" "$@"
 }
 
+wait_for_event() {
+    expected=$1
+    attempts=0
+    while ! grep -Fx "$expected" "$TMP_DIR/events" >/dev/null 2>&1; do
+        attempts=$((attempts + 1))
+        [ "$attempts" -lt 50 ] || return 1
+        sleep 0.01
+    done
+}
+
 : > "$TMP_DIR/events"
 run_helper wifi off
 grep -Fx -- '-n /usr/local/bin/northstar-radio wifi off' "$TMP_DIR/events" >/dev/null \
@@ -67,6 +77,10 @@ grep -Fx 'ifconfig:wlan7 down' "$TMP_DIR/events" >/dev/null \
 NORTHSTAR_TEST_UID=0 run_helper wifi on
 grep -Fx 'ifconfig:wlan7 up' "$TMP_DIR/events" >/dev/null \
     || fail 'root Wi-Fi on did not resolve and raise the wireless interface'
+wait_for_event 'service:wpa_supplicant restart wlan7' \
+    || fail 'root Wi-Fi on did not asynchronously restart WPA association'
+wait_for_event 'service:dhclient restart wlan7' \
+    || fail 'root Wi-Fi on did not asynchronously restart DHCP'
 
 : > "$TMP_DIR/events"
 NORTHSTAR_TEST_UID=0 run_helper bluetooth off
