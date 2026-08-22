@@ -87,7 +87,7 @@ connect() {
   wpa_restart "$iface" || { rollback; fail "$EX_UNAVAILABLE" 'the wireless service could not be restarted'; }
   n=0; while [ "$n" -lt "$ATTEMPTS" ]; do "$IFCONFIG" "$iface" 2>/dev/null | grep -qi 'status: associated' && break; "$SLEEP" 1; n=$((n+1)); done
   [ "$n" -lt "$ATTEMPTS" ] || { rollback; fail "$EX_UNAVAILABLE" 'the selected network did not accept the connection'; }
-  "$SERVICE" dhclient restart "$iface" >/dev/null 2>&1 || "$SERVICE" dhclient start "$iface" >/dev/null 2>&1 || { rollback; fail "$EX_UNAVAILABLE" 'the wireless address service could not be started'; }
+  "$SERVICE" dhclient restart "$iface" >/dev/null 2>&1 || "$SERVICE" dhclient start "$iface" >/dev/null 2>&1 || true
   n=0; while [ "$n" -lt "$ATTEMPTS" ]; do "$IFCONFIG" "$iface" 2>/dev/null | grep -Eq '^[[:space:]]*inet ' && { printf '%s\n' NORTHSTAR_WIFI_CONNECT=PASS; return; }; "$SLEEP" 1; n=$((n+1)); done
   rollback; fail "$EX_UNAVAILABLE" 'the selected network did not provide an address'
 }

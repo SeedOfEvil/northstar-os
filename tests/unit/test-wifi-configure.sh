@@ -33,6 +33,7 @@ EOF
 cat > "$TMP/bin/service" <<'EOF'
 #!/bin/sh
 printf 'service:%s\n' "$*" >> "$NORTHSTAR_TEST_EVENTS"
+[ "$1" != dhclient ] || exit "${NORTHSTAR_TEST_DHCLIENT_RC:-0}"
 EOF
 cat > "$TMP/bin/psk-derive" <<'EOF'
 #!/bin/sh
@@ -46,7 +47,7 @@ exit 0
 EOF
 chmod +x "$TMP/bin/"*
 run(){
-  env NORTHSTAR_WIFI_TEST_MODE=1 NORTHSTAR_WIFI_ROOT="$FAKE" NORTHSTAR_WIFI_IFCONFIG_PATH="$TMP/bin/ifconfig" NORTHSTAR_WIFI_SYSCTL_PATH="$TMP/bin/sysctl" NORTHSTAR_WIFI_SYSRC_PATH="$TMP/bin/sysrc" NORTHSTAR_WIFI_SERVICE_PATH="$TMP/bin/service" NORTHSTAR_WIFI_PSK_DERIVE_PATH="$TMP/bin/psk-derive" NORTHSTAR_WIFI_SLEEP_PATH="$TMP/bin/sleep" NORTHSTAR_WIFI_CONNECT_ATTEMPTS=1 NORTHSTAR_TEST_EVENTS="$TMP/events" NORTHSTAR_TEST_STATE="$TMP/state" NORTHSTAR_TEST_ASSOCIATED="${NORTHSTAR_TEST_ASSOCIATED:-yes}" sh "$HELPER" "$@"
+  env NORTHSTAR_WIFI_TEST_MODE=1 NORTHSTAR_WIFI_ROOT="$FAKE" NORTHSTAR_WIFI_IFCONFIG_PATH="$TMP/bin/ifconfig" NORTHSTAR_WIFI_SYSCTL_PATH="$TMP/bin/sysctl" NORTHSTAR_WIFI_SYSRC_PATH="$TMP/bin/sysrc" NORTHSTAR_WIFI_SERVICE_PATH="$TMP/bin/service" NORTHSTAR_WIFI_PSK_DERIVE_PATH="$TMP/bin/psk-derive" NORTHSTAR_WIFI_SLEEP_PATH="$TMP/bin/sleep" NORTHSTAR_WIFI_CONNECT_ATTEMPTS=1 NORTHSTAR_TEST_EVENTS="$TMP/events" NORTHSTAR_TEST_STATE="$TMP/state" NORTHSTAR_TEST_ASSOCIATED="${NORTHSTAR_TEST_ASSOCIATED:-yes}" NORTHSTAR_TEST_DHCLIENT_RC="${NORTHSTAR_TEST_DHCLIENT_RC:-0}" sh "$HELPER" "$@"
 }
 : > "$TMP/events"
 scan=$(run --scan)
@@ -61,6 +62,11 @@ ssid_hex=54657374204e6574
 security=secured
 EOF
 printf '%s\n' 'correct horse' | run --connect "$TMP/request" >/dev/null
+NORTHSTAR_TEST_DHCLIENT_RC=1
+export NORTHSTAR_TEST_DHCLIENT_RC
+printf '%s\n' 'correct horse' | run --connect "$TMP/request" >/dev/null || fail 'a DHCP service warning overrode an assigned address'
+NORTHSTAR_TEST_DHCLIENT_RC=0
+export NORTHSTAR_TEST_DHCLIENT_RC
 config=$FAKE/etc/wpa_supplicant.conf
 grep -Fx 'user_config=preserve' "$config" >/dev/null || fail 'unrelated configuration was not preserved'
 grep -Fx '    ssid=54657374204e6574' "$config" >/dev/null || fail 'selected SSID hex was not stored'
