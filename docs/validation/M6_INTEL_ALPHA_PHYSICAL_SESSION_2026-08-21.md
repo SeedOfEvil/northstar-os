@@ -1,6 +1,6 @@
 # M6 Intel Alpha physical session correction — 2026-08-21
 
-Status: **R90 PHYSICAL ACCEPTANCE COMPLETE — exact checksummed USB, installer/Setup, First Boot, first-attempt login, logout, reboot, and post-reboot native Intel session evidence pass; Proxmox fallback acceptance remains before merge**
+Status: **APPROVED FOR MERGE — R90 physical acceptance is complete; the owner explicitly waived the remaining Proxmox fallback gate on 2026-08-22**
 
 ## R90 integrated physical acceptance — 2026-08-22
 
@@ -182,7 +182,7 @@ The corresponding 240-package offline bundle passed deterministic capture
 with record digest
 `2ac63720f3d1be3cfafb088b256ff4691b5e505935c403d4d701a59fa3df5fea`.
 
-## Remaining promotion gates
+## Promotion decision
 
 R90 is the one deliberate replacement RC. Its exact runtime-bundle and image
 provenance validation, file-backed storage reset, VirtIO interruption/retry,
@@ -195,5 +195,10 @@ installation, First Boot, native desktop entry on the first login, clean
 logout/reboot, selector state `native`, `i915kms` with both DRM nodes present,
 shell interaction, and the absence of an inherited `output:X11-1` stanza. The
 physical display/session gate is complete, so Wi-Fi configuration may resume.
-Do not merge until the remaining disposable Proxmox fallback acceptance is
-also recorded.
+
+On 2026-08-22, after reviewing the successful physical result, the project
+owner explicitly directed the release to skip the remaining disposable
+Proxmox acceptance and merge this branch. The Proxmox install/First Boot/login
+gate is therefore waived for this Intel Alpha merge, not passed. This record
+makes no new claim about Proxmox fallback behavior; the automated selector and
+snapshot-only UEFI evidence remain the available coverage for that lane.
