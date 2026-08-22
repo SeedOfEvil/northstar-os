@@ -42,11 +42,13 @@ run_selector | grep -Fx 'NORTHSTAR_SESSION_MODE=fallback' >/dev/null \
 [ -f "$FAKE_ROOT/var/run/northstar/xsessions/northstar-first-boot.desktop" ] \
     || fail 'pending first-boot descriptor was not published'
 
-mkdir -p "$FAKE_ROOT/dev/dri"
-printf '%s\n' card > "$FAKE_ROOT/dev/dri/card0"
-printf '%s\n' render > "$FAKE_ROOT/dev/dri/renderD128"
+mkdir -p "$FAKE_ROOT/dev/dri" "$FAKE_ROOT/dev/drm"
+printf '%s\n' card > "$FAKE_ROOT/dev/drm/0"
+printf '%s\n' render > "$FAKE_ROOT/dev/drm/128"
+ln -s ../drm/0 "$FAKE_ROOT/dev/dri/card0"
+ln -s ../drm/128 "$FAKE_ROOT/dev/dri/renderD128"
 run_selector | grep -Fx 'NORTHSTAR_SESSION_MODE=native' >/dev/null \
-    || fail 'DRM-ready system did not select native Wayland'
+    || fail 'FreeBSD DRM symlinks did not select native Wayland'
 [ -f "$FAKE_ROOT/var/run/northstar/wayland-sessions/northstar.desktop" ] \
     || fail 'native descriptor was not published'
 [ ! -e "$FAKE_ROOT/var/run/northstar/xsessions/northstar-image-proxmox.desktop" ] \
@@ -54,16 +56,16 @@ run_selector | grep -Fx 'NORTHSTAR_SESSION_MODE=native' >/dev/null \
 grep -Fx 'mode=native' "$FAKE_ROOT/var/run/northstar/session-mode.conf" >/dev/null \
     || fail 'native session mode state was not recorded'
 
-rm -f "$FAKE_ROOT/dev/dri/renderD128" "$FAKE_ROOT/var/db/northstar/first-boot.pending"
+rm -f "$FAKE_ROOT/dev/drm/128" "$FAKE_ROOT/dev/dri/renderD128" \
+    "$FAKE_ROOT/var/db/northstar/first-boot.pending"
 run_selector >/dev/null
 [ ! -e "$FAKE_ROOT/var/run/northstar/xsessions/northstar-first-boot.desktop" ] \
     || fail 'sealed first-boot descriptor remained published'
 grep -Fx 'mode=fallback' "$FAKE_ROOT/var/run/northstar/session-mode.conf" >/dev/null \
     || fail 'missing render node did not return to fallback'
 
-mkdir -p "$FAKE_ROOT/dev/dri"
-printf '%s\n' card > "$FAKE_ROOT/dev/dri/card0"
-printf '%s\n' render > "$FAKE_ROOT/dev/dri/renderD128"
+printf '%s\n' render > "$FAKE_ROOT/dev/drm/128"
+ln -s ../drm/128 "$FAKE_ROOT/dev/dri/renderD128"
 printf '%s\n' 'purpose=northstar-installer-media' \
     > "$FAKE_ROOT/var/db/northstar/installer-media.conf"
 run_selector >/dev/null

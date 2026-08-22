@@ -11,6 +11,7 @@ TEST_MODE=${NORTHSTAR_SESSION_SELECTOR_TEST_MODE:-0}
 INSTALL_PATH=${NORTHSTAR_SESSION_SELECTOR_INSTALL_PATH:-/usr/bin/install}
 CP_PATH=${NORTHSTAR_SESSION_SELECTOR_CP_PATH:-/bin/cp}
 RM_PATH=${NORTHSTAR_SESSION_SELECTOR_RM_PATH:-/bin/rm}
+READLINK_PATH=${NORTHSTAR_SESSION_SELECTOR_READLINK_PATH:-/usr/bin/readlink}
 
 fail() {
     printf 'ERROR: %s\n' "$1" >&2
@@ -55,10 +56,22 @@ fi
 
 node_ready() {
     candidate=$1
+    if [ -L "$candidate" ]; then
+        link_target=$($READLINK_PATH "$candidate" 2>/dev/null) || return 1
+        case "$link_target" in
+            ../drm/*)
+                device_number=${link_target##*/}
+                case "$device_number" in
+                    ''|*[!0-9]*) return 1 ;;
+                esac
+                ;;
+            *) return 1 ;;
+        esac
+    fi
     if [ "$TEST_MODE" = 1 ]; then
-        [ -e "$candidate" ] && [ ! -L "$candidate" ]
+        [ -e "$candidate" ]
     else
-        [ -c "$candidate" ] && [ ! -L "$candidate" ]
+        [ -c "$candidate" ]
     fi
 }
 

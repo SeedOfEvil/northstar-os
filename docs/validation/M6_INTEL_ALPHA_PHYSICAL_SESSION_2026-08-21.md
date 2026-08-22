@@ -1,6 +1,56 @@
 # M6 Intel Alpha physical session correction — 2026-08-21
 
-Status: **R88 REJECTED — installer-session publication repair implemented; replacement RC and focused physical acceptance pending**
+Status: **R89 LIVE CORRECTION ACCEPTED — install, First Boot, native Intel rendering, and repaired first-login path pass; one integrated replacement RC remains pending**
+
+## R89 physical acceptance findings
+
+R89 booted from the checksummed USB, rendered the installer at the panel's
+full size, completed the destructive installation, and completed the branded
+First Boot wizard successfully. Those gates pass and must not be repeated for
+this correction.
+
+The first administrator still reached the small top-left desktop only by
+choosing the Proxmox X11 fallback. The one-time First Boot entry remained in
+SDDM after provisioning and returned immediately to the greeter when selected.
+Live evidence showed that Intel DRM was healthy and both `/dev/dri/card0` and
+`/dev/dri/renderD128` existed, but the selector recorded `mode=fallback`.
+
+FreeBSD exposes those convenience paths as root-owned links into `/dev/drm`.
+The selector followed the device type check with a blanket link rejection, so
+it rejected the real FreeBSD DRM layout that the physical gate was meant to
+recognize. The fallback then correctly loaded the nested `1280x800` template
+inside SDDM's `1920x1080` Xorg display, leaving the untouched greeter visible
+and frozen around the nested compositor.
+
+The correction accepts only the constrained `../drm/<numeric>` devfs link
+shape and still requires the resolved production node to be a character
+device. First Boot provisioning now removes its generated runtime descriptor
+and reruns the selector after protected pending state is sealed, so SDDM sees
+the settled hardware session without retaining the one-time entry. Regression
+fixtures cover the FreeBSD link layout and the post-provision refresh.
+
+The first native login then exposed FreeBSD bug 296052 in the image's
+`sddm-0.21.0.36_3`: authentication succeeded and the Wayland session started,
+but `sddm-helper` closed PAM and exited almost immediately while Wayfire
+continued as an orphan. Repeated login attempts therefore bounced to the
+greeter or revealed an already-running orphaned desktop; that behavior was
+diagnostic evidence, not acceptance.
+
+FreeBSD completed the Wayland-session repair in the ports tree after the
+quarterly package used for R89. The physical system was deliberately upgraded
+to official `sddm-0.21.0.36_6` plus its `setxkbmap-1.3.5` dependency. Temporary
+PAM and D-Bus-wrapper experiments were removed before the acceptance attempt.
+The clean first login passed: the live lineage remained
+`sddm-helper -> dbus-run-session -> northstar-session -> wayfire`, the selector
+recorded `mode=native` with `reason=drm-card-and-render-ready`, and the session
+reported `restart_count=0` with the shell running. The user confirmed that the
+full-size desktop remained open on the first attempt.
+
+The supervisor retains its guarded private runtime fallback for FreeBSD's
+known SDDM runtime paths and a one-second output-settle delay after Wayland
+socket readiness. The image assembler now rejects a runtime closure unless it
+contains the accepted official SDDM and `setxkbmap` versions, preventing the
+older quarterly package from silently returning in the replacement RC.
 
 ## R88 USB rejection
 

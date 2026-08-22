@@ -190,6 +190,8 @@ primary_northstar_path=$ARTIFACTS/$primary_northstar_filename
 package_count=0
 northstar_found=0
 compat_found=0
+sddm_fixed=0
+setxkbmap_found=0
 while IFS='|' read -r filename digest size name version origin extra; do
     [ -z "$extra" ] || die 'runtime package record has extra fields'
     printf '%s\n' "$filename" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._+~,-]*\.pkg$' || die 'runtime package filename is unsafe'
@@ -206,11 +208,17 @@ while IFS='|' read -r filename digest size name version origin extra; do
         || die "runtime package size mismatch: $filename expected=$size actual=$actual_size"
     [ "$name" != northstar ] || northstar_found=1
     [ "$name" != northstar-wayfire-nested ] || compat_found=1
+    [ "$name:$version:$origin" != 'sddm:0.21.0.36_6:x11/sddm' ] || sddm_fixed=1
+    [ "$name:$version:$origin" != 'setxkbmap:1.3.5:x11/setxkbmap' ] || setxkbmap_found=1
     package_count=$((package_count + 1))
 done < "$runtime_records"
 [ "$package_count" -eq "$expected_package_count" ] || die 'runtime package count does not match its manifest'
 [ "$northstar_found" -eq 1 ] || die 'runtime bundle omits Northstar'
 [ "$compat_found" -eq 1 ] || die 'runtime bundle omits the scfb compatibility compositor'
+[ "$sddm_fixed" -eq 1 ] \
+    || die 'runtime bundle must contain sddm-0.21.0.36_6 with the FreeBSD Wayland-session fix'
+[ "$setxkbmap_found" -eq 1 ] \
+    || die 'runtime bundle must contain the setxkbmap-1.3.5 dependency required by repaired SDDM'
 actual_package_files=0
 for package_path in "$runtime_packages"/*.pkg; do
     [ -f "$package_path" ] || continue

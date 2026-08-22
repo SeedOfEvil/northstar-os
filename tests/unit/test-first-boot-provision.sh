@@ -23,6 +23,9 @@ mkdir -p "$FAKE_ROOT/usr/share/zoneinfo/America" \
 mkdir -p "$FAKE_ROOT/usr/local/share/xsessions"
 printf '%s\n' '[Desktop Entry]' \
     > "$FAKE_ROOT/usr/local/share/xsessions/northstar-first-boot.desktop"
+mkdir -p "$FAKE_ROOT/var/run/northstar/xsessions"
+printf '%s\n' '[Desktop Entry]' \
+    > "$FAKE_ROOT/var/run/northstar/xsessions/northstar-first-boot.desktop"
 printf 'zone\n' > "$FAKE_ROOT/usr/share/zoneinfo/America/Denver"
 printf 'zone\n' > "$FAKE_ROOT/usr/share/zoneinfo/Pacific/Auckland"
 printf '[output:WL-1]\nmode = 1280x800\n' \
@@ -77,6 +80,10 @@ cat > "$BIN/cp" <<'EOF'
 #!/bin/sh
 exec /bin/cp "$@"
 EOF
+cat > "$BIN/session-selector" <<'EOF'
+#!/bin/sh
+printf '%s\n' session-selector >> "$NORTHSTAR_TEST_EVENTS"
+EOF
 chmod +x "$BIN"/*
 
 REQUEST=$TMP_DIR/request.conf
@@ -101,6 +108,7 @@ run_helper() {
         NORTHSTAR_FIRST_BOOT_CHMOD_PATH="$BIN/chmod" \
         NORTHSTAR_FIRST_BOOT_CP_PATH="$BIN/cp" \
         NORTHSTAR_FIRST_BOOT_RM_PATH=/bin/rm \
+        NORTHSTAR_FIRST_BOOT_SESSION_SELECTOR_PATH="$BIN/session-selector" \
         NORTHSTAR_TEST_FAIL_SYSRC="${NORTHSTAR_TEST_FAIL_SYSRC:-0}" \
         NORTHSTAR_TEST_EVENTS="$TMP_DIR/events" \
         sh "$HELPER" "$@"
@@ -188,6 +196,10 @@ grep -Fx "chmod:0440 $FAKE_ROOT/usr/local/etc/sudoers.d/northstar-first-administ
     || fail 'first-administrator sudoers policy was not set to mode 0440'
 [ ! -e "$FAKE_ROOT/usr/local/share/xsessions/northstar-first-boot.desktop" ] \
     || fail 'successful provisioning retained the one-time SDDM session entry'
+[ ! -e "$FAKE_ROOT/var/run/northstar/xsessions/northstar-first-boot.desktop" ] \
+    || fail 'successful provisioning retained the runtime First Boot entry'
+grep -Fx session-selector "$TMP_DIR/events" >/dev/null \
+    || fail 'successful provisioning did not refresh the hardware session list'
 
 if printf '%s\n' 'another-password' | run_helper --apply "$REQUEST" >/dev/null 2>&1; then
     fail 'one-time setup was allowed to run twice'

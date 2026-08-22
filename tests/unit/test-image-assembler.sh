@@ -182,6 +182,8 @@ mv "$TMP_DIR/resolved/artifact-records.normalized" \
 
 printf 'stale northstar package\n' > "$TMP_DIR/runtime/packages/northstar-0.1.3-amd64.pkg"
 printf 'compat package\n' > "$TMP_DIR/runtime/packages/northstar-wayfire-nested-0.10.1.746bc7e.pkg"
+printf 'repaired sddm package\n' > "$TMP_DIR/runtime/packages/sddm-0.21.0.36_6.pkg"
+printf 'setxkbmap package\n' > "$TMP_DIR/runtime/packages/setxkbmap-1.3.5.pkg"
 {
     printf '%s|%s|%s|%s|%s|%s\n' \
         northstar-0.1.3-amd64.pkg \
@@ -193,6 +195,16 @@ printf 'compat package\n' > "$TMP_DIR/runtime/packages/northstar-wayfire-nested-
         "$(digest "$TMP_DIR/runtime/packages/northstar-wayfire-nested-0.10.1.746bc7e.pkg")" \
         "$(size "$TMP_DIR/runtime/packages/northstar-wayfire-nested-0.10.1.746bc7e.pkg")" \
         northstar-wayfire-nested 0.10.1.746bc7e x11-wm/northstar-wayfire-nested
+    printf '%s|%s|%s|%s|%s|%s\n' \
+        sddm-0.21.0.36_6.pkg \
+        "$(digest "$TMP_DIR/runtime/packages/sddm-0.21.0.36_6.pkg")" \
+        "$(size "$TMP_DIR/runtime/packages/sddm-0.21.0.36_6.pkg")" \
+        sddm 0.21.0.36_6 x11/sddm
+    printf '%s|%s|%s|%s|%s|%s\n' \
+        setxkbmap-1.3.5.pkg \
+        "$(digest "$TMP_DIR/runtime/packages/setxkbmap-1.3.5.pkg")" \
+        "$(size "$TMP_DIR/runtime/packages/setxkbmap-1.3.5.pkg")" \
+        setxkbmap 1.3.5 x11/setxkbmap
 } > "$TMP_DIR/runtime/runtime-package-records"
 
 cat > "$TMP_DIR/resolved/resolved-image-inputs.conf" <<EOF
@@ -210,7 +222,7 @@ cat > "$TMP_DIR/runtime/runtime-bundle.conf" <<EOF
 schema_version=1
 freebsd_abi=FreeBSD:15:amd64
 source_date_epoch=1781274780
-package_count=2
+package_count=4
 runtime_package_records_sha256=$(digest "$TMP_DIR/runtime/runtime-package-records")
 EOF
 
@@ -218,6 +230,30 @@ EOF
     --resolved-inputs "$TMP_DIR/resolved" --artifacts "$TMP_DIR/artifacts" \
     --runtime-bundle "$TMP_DIR/runtime" --output "$TMP_DIR/output" \
     --project-root "$TMP_DIR/project" --project-commit "$PROJECT_COMMIT" >/dev/null
+
+sed 's/|sddm|0\.21\.0\.36_6|x11\/sddm$/|sddm|0.21.0.36_3|x11\/sddm/' \
+    "$TMP_DIR/runtime/runtime-package-records" \
+    > "$TMP_DIR/runtime/runtime-package-records.old-sddm"
+mv "$TMP_DIR/runtime/runtime-package-records.old-sddm" \
+    "$TMP_DIR/runtime/runtime-package-records"
+sed -E "s/^runtime_package_records_sha256=.*/runtime_package_records_sha256=$(digest "$TMP_DIR/runtime/runtime-package-records")/" \
+    "$TMP_DIR/runtime/runtime-bundle.conf" > "$TMP_DIR/runtime/runtime-bundle.conf.old-sddm"
+mv "$TMP_DIR/runtime/runtime-bundle.conf.old-sddm" "$TMP_DIR/runtime/runtime-bundle.conf"
+if "$ASSEMBLER" --preflight \
+    --resolved-inputs "$TMP_DIR/resolved" --artifacts "$TMP_DIR/artifacts" \
+    --runtime-bundle "$TMP_DIR/runtime" --output "$TMP_DIR/old-sddm" \
+    --project-root "$TMP_DIR/project" --project-commit "$PROJECT_COMMIT" >/dev/null 2>&1; then
+    printf 'FAIL: assembler preflight accepted SDDM without the FreeBSD Wayland-session fix\n' >&2
+    exit 1
+fi
+sed 's/|sddm|0\.21\.0\.36_3|x11\/sddm$/|sddm|0.21.0.36_6|x11\/sddm/' \
+    "$TMP_DIR/runtime/runtime-package-records" \
+    > "$TMP_DIR/runtime/runtime-package-records.fixed-sddm"
+mv "$TMP_DIR/runtime/runtime-package-records.fixed-sddm" \
+    "$TMP_DIR/runtime/runtime-package-records"
+sed -E "s/^runtime_package_records_sha256=.*/runtime_package_records_sha256=$(digest "$TMP_DIR/runtime/runtime-package-records")/" \
+    "$TMP_DIR/runtime/runtime-bundle.conf" > "$TMP_DIR/runtime/runtime-bundle.conf.fixed-sddm"
+mv "$TMP_DIR/runtime/runtime-bundle.conf.fixed-sddm" "$TMP_DIR/runtime/runtime-bundle.conf"
 
 printf 'tampered\n' >> "$TMP_DIR/runtime/packages/northstar-0.1.3-amd64.pkg"
 if "$ASSEMBLER" --preflight \
