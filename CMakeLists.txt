@@ -25,6 +25,7 @@ add_subdirectory(src/ui)
 add_subdirectory(apps/installer)
 add_subdirectory(apps/recovery)
 add_subdirectory(apps/first-boot)
+add_subdirectory(apps/wifi)
 add_subdirectory(apps/welcome)
 add_subdirectory(apps/text-editor)
 add_subdirectory(src/session)
@@ -59,6 +60,7 @@ set(CPACK_FREEBSD_PACKAGE_DEPS
 install(FILES packaging/polkit/org.northstar.update.policy
               packaging/polkit/org.northstar.package.policy
               packaging/polkit/org.northstar.firstboot.policy
+              packaging/polkit/org.northstar.wifi.policy
               packaging/polkit/org.northstar.installer.policy
               packaging/polkit/org.northstar.recovery.policy
     DESTINATION share/polkit-1/actions

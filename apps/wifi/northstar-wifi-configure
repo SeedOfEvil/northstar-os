@@ -1,0 +1,101 @@
+#!/bin/sh
+set -eu
+EX_USAGE=64; EX_DATAERR=65; EX_UNAVAILABLE=69; EX_NOPERM=77
+TEST_MODE=${NORTHSTAR_WIFI_TEST_MODE:-0}
+ROOT=${NORTHSTAR_WIFI_ROOT:-/}
+IFCONFIG=${NORTHSTAR_WIFI_IFCONFIG_PATH:-/sbin/ifconfig}
+SYSCTL=${NORTHSTAR_WIFI_SYSCTL_PATH:-/sbin/sysctl}
+SYSRC=${NORTHSTAR_WIFI_SYSRC_PATH:-/usr/sbin/sysrc}
+SERVICE=${NORTHSTAR_WIFI_SERVICE_PATH:-/usr/sbin/service}
+STAT=${NORTHSTAR_WIFI_STAT_PATH:-/usr/bin/stat}
+INSTALL=${NORTHSTAR_WIFI_INSTALL_PATH:-/usr/bin/install}
+PSK_DERIVE=${NORTHSTAR_WIFI_PSK_DERIVE_PATH:-/usr/local/libexec/northstar-wifi-derive}
+SLEEP=${NORTHSTAR_WIFI_SLEEP_PATH:-/bin/sleep}
+ATTEMPTS=${NORTHSTAR_WIFI_CONNECT_ATTEMPTS:-30}
+fail() { s=$1; shift; printf 'ERROR: %s\n' "$*" >&2; exit "$s"; }
+match() { printf '%s\n' "$1" | grep -Eq "$2"; }
+root_path() { case "$ROOT" in /) printf '/%s' "$1";; *) printf '%s/%s' "${ROOT%/}" "$1";; esac; }
+usage() { printf '%s\n' 'Usage: northstar-wifi-configure --scan | --connect REQUEST'; exit "$EX_USAGE"; }
+[ "$#" -ge 1 ] || usage
+case "$1" in --scan) [ "$#" -eq 1 ] || usage;; --connect) [ "$#" -eq 2 ] || usage;; *) usage;; esac
+if [ "$TEST_MODE" != 1 ]; then
+  [ "$ROOT" = / ] || fail "$EX_NOPERM" 'alternate roots are test-only'
+  [ "$(id -u)" -eq 0 ] || fail "$EX_NOPERM" 'protected Wi-Fi configuration requires root'
+fi
+printf '%s\n' NORTHSTAR_WIFI_AUTHORIZED=1
+wlan() { "$IFCONFIG" -l 2>/dev/null | tr ' ' '\n' | grep -E '^wlan[0-9]+$' | head -1; }
+prepare() {
+  iface=$(wlan)
+  parent=$("$SYSCTL" -n net.wlan.devices 2>/dev/null | awk '{print $1}' || true)
+  match "$parent" '^[A-Za-z][A-Za-z0-9]*[0-9]+$' || fail "$EX_UNAVAILABLE" 'no supported wireless adapter was detected'
+  if [ -z "$iface" ]; then iface=wlan0; "$IFCONFIG" "$iface" create wlandev "$parent" >/dev/null || fail "$EX_UNAVAILABLE" 'the wireless interface could not be created'; fi
+  match "$iface" '^wlan[0-9]+$' || fail "$EX_UNAVAILABLE" 'the wireless interface name is unsupported'
+  "$SYSRC" -R "$ROOT" "wlans_$parent=$iface" >/dev/null || fail "$EX_UNAVAILABLE" 'the wireless interface could not be persisted'
+  "$SYSRC" -R "$ROOT" "ifconfig_$iface=WPA SYNCDHCP" >/dev/null || fail "$EX_UNAVAILABLE" 'the wireless startup policy could not be persisted'
+  "$IFCONFIG" "$iface" up >/dev/null || fail "$EX_UNAVAILABLE" 'the wireless interface could not be enabled'
+  printf '%s\n' "$iface"
+}
+hex() { LC_ALL=C od -An -tx1 | tr -d ' \n'; }
+unhex() {
+  v=$1; out=
+  while [ -n "$v" ]; do p=${v%${v#??}}; v=${v#??}; n=$((0x$p)); out=$out$(printf "\\$(printf '%03o' "$n")"); done
+  printf '%s' "$out"
+}
+scan() {
+  printf '%s\n' NORTHSTAR_WIFI_SCAN=1
+  connected=$("$IFCONFIG" "$1" 2>/dev/null | sed -n 's/^[[:space:]]*ssid \(.*\) channel [0-9].*/\1/p' | head -1)
+  if [ -n "$connected" ]; then
+    connected_hex=$(printf '%s' "$connected" | hex)
+    if match "$connected_hex" '^([0-9a-f][0-9a-f]){1,32}$'; then printf 'connected=%s\n' "$connected_hex"; fi
+  fi
+  "$IFCONFIG" "$1" list scan 2>/dev/null | awk 'NR>1 { b=0; for(i=1;i<=NF;i++) if($i~/^([0-9A-Fa-f][0-9A-Fa-f]:){5}[0-9A-Fa-f][0-9A-Fa-f]$/){b=i;break} if(b<=1)next; s=$1;for(i=2;i<b;i++)s=s" "$i; q=$(b+3);sub(/:.*/,"",q);k="open";for(i=b+5;i<=NF;i++)if($i~/RSN|WPA/)k="secured";print s"\t"k"\t"q}' |
+  while IFS="$(printf '\t')" read -r s k q; do
+    h=$(printf '%s' "$s" | hex); match "$h" '^([0-9a-f][0-9a-f]){1,32}$' || continue
+    match "$q" '^-?[0-9]+$' || q=-100
+    printf 'network=%s|%s|%s\n' "$h" "$k" "$q"
+  done
+}
+request() {
+  f=$1; [ -f "$f" ] && [ ! -L "$f" ] && [ -r "$f" ] || fail "$EX_DATAERR" 'the Wi-Fi request is missing or unsafe'
+  if [ "$TEST_MODE" != 1 ]; then
+    u=${PKEXEC_UID:-}; match "$u" '^[0-9]+$' || fail "$EX_NOPERM" 'protected Wi-Fi configuration requires a PolicyKit caller'
+    [ "$("$STAT" -f %u "$f")" = "$u" ] && [ "$("$STAT" -f %Lp "$f")" = 600 ] || fail "$EX_NOPERM" 'the Wi-Fi request has unsafe ownership or mode'
+  fi
+  protocol=; ssid_hex=; security=; count=0; seen='|'
+  while IFS='=' read -r k v || [ -n "${k:-}" ]; do
+    [ -n "${k:-}" ] || fail "$EX_DATAERR" 'the Wi-Fi request contains a blank field'
+    case "$seen" in *"|$k|"*) fail "$EX_DATAERR" "the Wi-Fi request repeats field: $k";; esac; seen="${seen}${k}|"
+    case "$k" in protocol)protocol=$v;; ssid_hex)ssid_hex=$v;; security)security=$v;; passphrase|password|psk)fail "$EX_DATAERR" 'credential material is forbidden in Wi-Fi requests';; *)fail "$EX_DATAERR" "the Wi-Fi request contains an unknown field: $k";; esac
+    count=$((count+1))
+  done < "$f"
+  [ "$count" -eq 3 ] && [ "$protocol" = 1 ] || fail "$EX_DATAERR" 'the Wi-Fi request protocol is invalid'
+  match "$ssid_hex" '^([0-9a-f][0-9a-f]){1,32}$' || fail "$EX_DATAERR" 'the selected network name is invalid'
+  case "$security" in open|secured);; *)fail "$EX_DATAERR" 'the security type is unsupported';; esac
+}
+put_config() { if [ "$TEST_MODE" = 1 ]; then "$INSTALL" -m 0600 "$1" "$2"; else "$INSTALL" -o root -g wheel -m 0600 "$1" "$2"; fi; }
+wpa_restart() { "$SERVICE" wpa_supplicant restart "$1" >/dev/null 2>&1 || "$SERVICE" wpa_supplicant start "$1" >/dev/null 2>&1; }
+connect() {
+  iface=$1; request "$2"; IFS= read -r secret || secret=
+  if [ "$security" = secured ]; then
+    [ "${#secret}" -ge 8 ] && [ "${#secret}" -le 63 ] && match "$secret" '^[[:print:]]+$' || fail "$EX_DATAERR" 'the passphrase must contain 8 to 63 printable characters'
+    [ -x "$PSK_DERIVE" ] || fail "$EX_UNAVAILABLE" 'WPA passphrase support is unavailable'
+  else [ -z "$secret" ] || fail "$EX_DATAERR" 'an open network does not accept a passphrase'; fi
+  ssid=$(unhex "$ssid_hex"); config=$(root_path etc/wpa_supplicant.conf); [ -d "${config%/*}" ] || fail "$EX_UNAVAILABLE" 'the wireless configuration directory is unavailable'
+  d=$(mktemp -d "${TMPDIR:-/tmp}/northstar-wifi.XXXXXX"); base=$d/base; candidate=$d/candidate; backup=$d/backup; had=0
+  trap 'secret=; rm -rf "$d"' EXIT HUP INT TERM
+  if [ -f "$config" ] && [ ! -L "$config" ]; then had=1; cp "$config" "$backup"; awk '/^# BEGIN NORTHSTAR MANAGED WIFI$/{m=1;next}/^# END NORTHSTAR MANAGED WIFI$/{m=0;next}!m{print}' "$config" > "$base"; else : > "$base"; fi
+  cp "$base" "$candidate"
+  { printf '%s\n' '# BEGIN NORTHSTAR MANAGED WIFI' 'network={'; printf '    ssid=%s\n' "$ssid_hex"
+    if [ "$security" = secured ]; then psk=$(printf '%s\n' "$secret" | "$PSK_DERIVE" "$ssid"); secret=; match "$psk" '^[0-9a-fA-F]{64}$' || fail "$EX_UNAVAILABLE" 'the wireless credential could not be derived'; printf '    psk=%s\n' "$psk"; psk=; else secret=; printf '%s\n' '    key_mgmt=NONE'; fi
+    printf '%s\n' '    priority=100' '}' '# END NORTHSTAR MANAGED WIFI'; } >> "$candidate"
+  put_config "$candidate" "$config" || fail "$EX_UNAVAILABLE" 'the wireless configuration could not be installed'
+  rollback() { if [ "$had" -eq 1 ]; then put_config "$backup" "$config" >/dev/null 2>&1 || true; else rm -f "$config"; fi; wpa_restart "$iface" || true; }
+  wpa_restart "$iface" || { rollback; fail "$EX_UNAVAILABLE" 'the wireless service could not be restarted'; }
+  n=0; while [ "$n" -lt "$ATTEMPTS" ]; do "$IFCONFIG" "$iface" 2>/dev/null | grep -qi 'status: associated' && break; "$SLEEP" 1; n=$((n+1)); done
+  [ "$n" -lt "$ATTEMPTS" ] || { rollback; fail "$EX_UNAVAILABLE" 'the selected network did not accept the connection'; }
+  "$SERVICE" dhclient restart "$iface" >/dev/null 2>&1 || "$SERVICE" dhclient start "$iface" >/dev/null 2>&1 || true
+  n=0; while [ "$n" -lt "$ATTEMPTS" ]; do "$IFCONFIG" "$iface" 2>/dev/null | grep -Eq '^[[:space:]]*inet ' && { printf '%s\n' NORTHSTAR_WIFI_CONNECT=PASS; return; }; "$SLEEP" 1; n=$((n+1)); done
+  rollback; fail "$EX_UNAVAILABLE" 'the selected network did not provide an address'
+}
+iface=$(prepare)
+case "$1" in --scan)scan "$iface";; --connect)connect "$iface" "$2";; esac

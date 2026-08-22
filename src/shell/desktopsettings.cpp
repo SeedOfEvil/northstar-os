@@ -14,6 +14,9 @@
 
 #include <QCoreApplication>
 #include <QDateTime>
+#include <QFileInfo>
+#include <QProcess>
+#include <QStandardPaths>
 #include <QString>
 
 namespace {
@@ -329,6 +332,32 @@ void registerDesktopSettings(SettingsCatalog *catalog,
             catalog->registerEntry(bluetooth);
         }
     }
+
+    SettingsCatalog::Entry chooseWifi;
+    chooseWifi.id = QStringLiteral("network.choose");
+    chooseWifi.section = QStringLiteral("network");
+    chooseWifi.title = QStringLiteral("Choose Wi-Fi network");
+    chooseWifi.description = QStringLiteral("Scan nearby networks and connect with a protected password prompt.");
+    chooseWifi.keywords = QStringList{QStringLiteral("wifi"), QStringLiteral("wireless"),
+                                      QStringLiteral("ssid"), QStringLiteral("connect"),
+                                      QStringLiteral("network")};
+    chooseWifi.kind = SettingsCatalog::actionKind();
+    chooseWifi.actionLabel = QStringLiteral("Choose Network");
+    chooseWifi.available = []() {
+        const QString override = qEnvironmentVariable("NORTHSTAR_WIFI_WIZARD");
+        return !override.isEmpty() ? QFileInfo::exists(override)
+            : !QStandardPaths::findExecutable(QStringLiteral("northstar-wifi")).isEmpty();
+    };
+    chooseWifi.unavailableReason = []() {
+        return QStringLiteral("The Northstar Wi-Fi wizard is not installed.");
+    };
+    chooseWifi.perform = []() {
+        QString program = qEnvironmentVariable("NORTHSTAR_WIFI_WIZARD");
+        if (program.isEmpty())
+            program = QStandardPaths::findExecutable(QStringLiteral("northstar-wifi"));
+        return !program.isEmpty() && QProcess::startDetached(program, {});
+    };
+    catalog->registerEntry(chooseWifi);
 
     // --- Notifications -----------------------------------------------------
 

@@ -14,6 +14,7 @@ RUNTIME_DIR=$TMP_DIR/runtime
 SHELL_COUNT=$TMP_DIR/shell-count
 COMPOSITOR_EVENTS=$TMP_DIR/compositor-events
 DBUS_EVENTS=$TMP_DIR/dbus-events
+CONSOLEKIT_EVENTS=$TMP_DIR/consolekit-events
 AUTH_AGENT_EVENTS=$TMP_DIR/auth-agent-events
 OUTPUT=$TMP_DIR/output.txt
 ERROR_OUTPUT=$TMP_DIR/error.txt
@@ -24,6 +25,7 @@ mkdir -p "$STUB_DIR" "$LOG_DIR" "$RUNTIME_DIR"
 : > "$SHELL_COUNT"
 : > "$COMPOSITOR_EVENTS"
 : > "$AUTH_AGENT_EVENTS"
+: > "$CONSOLEKIT_EVENTS"
 chmod 0700 "$RUNTIME_DIR"
 
 cleanup() {
@@ -99,6 +101,12 @@ STUB
 
 chmod 0755 "$STUB_DIR/fake-compositor" "$STUB_DIR/fake-shell"
 
+cat > "$STUB_DIR/fake-consolekit" <<'STUB'
+#!/bin/sh
+set -eu
+printf 'invoked\n' >> "$NORTHSTAR_TEST_CONSOLEKIT_EVENTS"
+exec "$@"
+STUB
 cat > "$STUB_DIR/fake-dbus-run-session" <<'STUB'
 #!/bin/sh
 set -eu
@@ -132,12 +140,13 @@ while :; do
 done
 STUB
 
-chmod 0755 "$STUB_DIR/fake-dbus-run-session" "$STUB_DIR/hold-shell" "$STUB_DIR/fake-auth-agent"
+chmod 0755 "$STUB_DIR/fake-consolekit" "$STUB_DIR/fake-dbus-run-session" "$STUB_DIR/hold-shell" "$STUB_DIR/fake-auth-agent"
 
 sleep 30 &
 SENTINEL_PID=$!
 
 export XDG_RUNTIME_DIR=$RUNTIME_DIR
+export NORTHSTAR_SESSION_SKIP_CONSOLEKIT=1
 export NORTHSTAR_SESSION_SKIP_DBUS=1
 export NORTHSTAR_SESSION_COMPOSITOR=$STUB_DIR/fake-compositor
 export NORTHSTAR_SESSION_SHELL=$STUB_DIR/fake-shell
@@ -151,6 +160,7 @@ export NORTHSTAR_SESSION_LOCK_DIR=$TMP_DIR/lock
 export NORTHSTAR_SESSION_WAYLAND_DISPLAY=test-wayland
 export NORTHSTAR_TEST_COMPOSITOR_EVENTS=$COMPOSITOR_EVENTS
 export NORTHSTAR_TEST_DBUS_EVENTS=$DBUS_EVENTS
+export NORTHSTAR_TEST_CONSOLEKIT_EVENTS=$CONSOLEKIT_EVENTS
 export NORTHSTAR_TEST_AUTH_AGENT_EVENTS=$AUTH_AGENT_EVENTS
 export NORTHSTAR_TEST_SHELL_COUNT=$SHELL_COUNT
 export NORTHSTAR_TEST_RUNTIME_DIR=$RUNTIME_DIR
@@ -180,6 +190,17 @@ grep -F 'invoked' "$DBUS_EVENTS" >/dev/null || fail 'D-Bus runner was not invoke
 [ ! -d "$TMP_DIR/dbus-lock" ] || fail 'D-Bus session lock was not released'
 export NORTHSTAR_SESSION_SKIP_DBUS=1
 pass 'session enters exactly one D-Bus wrapper when requested'
+: > "$SHELL_COUNT"
+: > "$COMPOSITOR_EVENTS"
+: > "$CONSOLEKIT_EVENTS"
+export NORTHSTAR_SESSION_SKIP_CONSOLEKIT=0
+export NORTHSTAR_SESSION_CONSOLEKIT_RUNNER=$STUB_DIR/fake-consolekit
+export NORTHSTAR_SESSION_LOCK_DIR=$TMP_DIR/consolekit-lock
+run_expect 0 sh "$ROOT/src/session/northstar-session"
+grep -F 'invoked' "$CONSOLEKIT_EVENTS" >/dev/null || fail 'ConsoleKit runner was not invoked'
+[ ! -d "$TMP_DIR/consolekit-lock" ] || fail 'ConsoleKit session lock was not released'
+export NORTHSTAR_SESSION_SKIP_CONSOLEKIT=1
+pass 'session enters exactly one ConsoleKit wrapper when requested'
 
 : > "$SHELL_COUNT"
 : > "$COMPOSITOR_EVENTS"

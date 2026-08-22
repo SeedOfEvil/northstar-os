@@ -11,9 +11,9 @@ Northstar starts with a narrow, testable hardware lane. Hardware outside this ma
 | Disk | SATA, NVMe, virtio | Targeted |
 | Filesystem | ZFS | Required |
 | Virtual platform | QEMU/Proxmox | First validation lane |
-| Physical graphics | One tested Intel generation and one tested AMD generation | To be selected and recorded |
+| Physical graphics | Intel UHD 620 (8086:3ea0, Whiskey Lake); one AMD generation remains | Intel lane accepted in R90; AMD pending |
 | Network | Wired Ethernet | First physical lane |
-| Wi-Fi | Specific tested Intel adapters | To be selected and recorded |
+| Wi-Fi | Intel Dual Band Wireless-AC 9560 (iwm, 9000-series firmware) | Associated and DHCP-proven; persistence and desktop controls pending |
 | NVIDIA | Unsupported or experimental | Not an alpha requirement |
 | ARM64 | Out of scope | Not supported |
 | Apple hardware | Out of scope | Not supported |

@@ -2,7 +2,7 @@ SHELL := /bin/sh
 
 .DEFAULT_GOAL := help
 
-.PHONY: help check-host bootstrap configure build test alpha-readiness alpha-readiness-test alpha-matrix alpha-matrix-test platform-evidence platform-evidence-test alpha-evidence-bundle alpha-evidence-bundle-test alpha-evidence-verify welcome-app-test first-boot-provision-test image-session-selector-test installer-disk-test installer-source-test installer-engine-test installer-executor-test installer-recovery-test installer-zfs-reset-smoke installer-virtio-retry-smoke installer-builder-preflight boot-environment-recovery-test installer-media-test installer-rc-test qml-surface-test image-input-test runtime-bundle-test nested-wayfire-package-test image-assembler-test image-boot-smoke-test image-update-rollback-gate-test installed-image-update-staging-test capture-runtime-bundle prepare-image-inputs validation-deployment-audit update-helper-test update-broker-smoke transactional-update-smoke package-mutation-smoke run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package pkg-repository-smoke signed-development-repository-smoke vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
+.PHONY: help check-host bootstrap configure build test alpha-readiness alpha-readiness-test alpha-matrix alpha-matrix-test platform-evidence platform-evidence-test alpha-evidence-bundle alpha-evidence-bundle-test alpha-evidence-verify welcome-app-test first-boot-provision-test radio-helper-test image-session-selector-test installer-disk-test installer-source-test installer-engine-test installer-executor-test installer-recovery-test installer-zfs-reset-smoke installer-virtio-retry-smoke installer-builder-preflight boot-environment-recovery-test installer-media-test installer-rc-test qml-surface-test image-input-test runtime-bundle-test nested-wayfire-package-test image-assembler-test image-boot-smoke-test image-update-rollback-gate-test installed-image-update-staging-test capture-runtime-bundle prepare-image-inputs validation-deployment-audit update-helper-test update-broker-smoke transactional-update-smoke package-mutation-smoke run-shell shell-smoke shell-restart-smoke install-user install-console-autostart disable-console-autostart install-sddm-fallback disable-sddm-fallback package pkg-repository-smoke signed-development-repository-smoke vm-smoke nested-wayfire nested-wayfire-session nested-wayfire-session-supervised image diagnostics
 
 MANIFEST ?= packaging/manifests/bootstrap-packages.txt
 NORTHSTAR_USER ?=
@@ -62,6 +62,7 @@ help:
 	@printf '%s\n' '  make alpha-evidence-verify BUNDLE_VERIFY=<dir>  Verify a bundle without mutation'
 	@printf '%s\n' '  make welcome-app-test  Test the bundled Northstar Welcome launcher'
 	@printf '%s\n' '  make first-boot-provision-test  Test one-time account provisioning and secret handling'
+	@printf '%s\n' '  make radio-helper-test  Test fixed radio authorization and root mutation boundary'
 	@printf '%s\n' '  make installer-disk-test  Test read-only installer target discovery'
 	@printf '%s\n' '  make installer-source-test  Test signed installer-source verification'
 	@printf '%s\n' '  make installer-engine-test  Test protected preflight and recoverable journal staging'
@@ -126,6 +127,7 @@ test:
 	@$(MAKE) alpha-evidence-bundle-test
 	@$(MAKE) welcome-app-test
 	@$(MAKE) first-boot-provision-test
+	@$(MAKE) radio-helper-test
 	@$(MAKE) image-session-selector-test
 	@$(MAKE) installer-disk-test
 	@$(MAKE) installer-source-test
@@ -201,6 +203,9 @@ alpha-evidence-verify:
 
 first-boot-provision-test:
 	@sh tests/unit/test-first-boot-provision.sh
+
+radio-helper-test:
+	@sh tests/unit/test-radio-helper.sh
 
 image-session-selector-test:
 	@sh tests/unit/test-image-session-selector.sh

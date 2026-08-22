@@ -9,6 +9,9 @@
 set -eu
 
 PROG=${0##*/}
+INSIDE_CONSOLEKIT=${NORTHSTAR_SESSION_INSIDE_CONSOLEKIT:-0}
+SKIP_CONSOLEKIT=${NORTHSTAR_SESSION_SKIP_CONSOLEKIT:-0}
+CONSOLEKIT_RUNNER=${NORTHSTAR_SESSION_CONSOLEKIT_RUNNER:-ck-launch-session}
 INSIDE_DBUS=${NORTHSTAR_SESSION_INSIDE_DBUS:-0}
 SKIP_DBUS=${NORTHSTAR_SESSION_SKIP_DBUS:-0}
 DBUS_RUNNER=${NORTHSTAR_SESSION_DBUS_RUNNER:-dbus-run-session}
@@ -40,6 +43,8 @@ starts D-Bus unless NORTHSTAR_SESSION_SKIP_DBUS=1, starts the configured
 compositor, and supervises the configured shell.
 
 Environment:
+  NORTHSTAR_SESSION_CONSOLEKIT_RUNNER ConsoleKit wrapper (default: ck-launch-session)
+  NORTHSTAR_SESSION_SKIP_CONSOLEKIT=1 use an existing ConsoleKit session
   NORTHSTAR_SESSION_COMPOSITOR       compositor command (default: wayfire)
   NORTHSTAR_SESSION_SHELL             shell command (default: northstar-shell)
   NORTHSTAR_SESSION_AUTH_AGENT        PolicyKit agent command (default: lxqt-policykit-agent)
@@ -73,6 +78,19 @@ case "${1:-}" in
 esac
 
 [ "$(id -u)" -ne 0 ] || die 'northstar-session must run as an unprivileged user'
+
+case "$SKIP_CONSOLEKIT:$INSIDE_CONSOLEKIT" in
+    0:0)
+        consolekit_path=$(command -v "$CONSOLEKIT_RUNNER" 2>/dev/null || true)
+        [ -n "$consolekit_path" ] || die "ConsoleKit runner is unavailable: $CONSOLEKIT_RUNNER"
+        exec "$consolekit_path" env NORTHSTAR_SESSION_INSIDE_CONSOLEKIT=1 sh "$0"
+        ;;
+    0:1|1:0|1:1)
+        ;;
+    *)
+        die 'NORTHSTAR_SESSION_SKIP_CONSOLEKIT and NORTHSTAR_SESSION_INSIDE_CONSOLEKIT must be 0 or 1'
+        ;;
+esac
 
 case "$SKIP_DBUS:$INSIDE_DBUS" in
     0:0)
