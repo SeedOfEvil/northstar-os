@@ -9,7 +9,7 @@
     <description>Scan and configure wireless networks</description>
     <message>Administrator authentication is required to configure Wi-Fi</message>
     <defaults>
-      <allow_any>no</allow_any>
+      <allow_any>auth_admin_keep</allow_any>
       <allow_inactive>auth_admin</allow_inactive>
       <allow_active>auth_admin_keep</allow_active>
     </defaults>

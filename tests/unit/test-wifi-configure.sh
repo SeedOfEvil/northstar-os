@@ -2,9 +2,11 @@
 set -eu
 ROOT=$(CDPATH= cd -- "$(dirname "$0")/../.." && pwd)
 HELPER=$ROOT/apps/wifi/northstar-wifi-configure
+POLICY=$ROOT/packaging/polkit/org.northstar.wifi.policy
 TMP=$(mktemp -d "${TMPDIR:-/tmp}/northstar-wifi-test.XXXXXX")
 trap 'rm -rf "$TMP"' EXIT HUP INT TERM
 fail(){ printf 'FAIL: %s\n' "$1" >&2; exit 1; }
+grep -Fx '      <allow_any>auth_admin_keep</allow_any>' "$POLICY" >/dev/null || fail 'unclassified graphical sessions cannot request administrator authentication'
 FAKE=$TMP/root
 mkdir -p "$FAKE/etc" "$TMP/bin"
 printf '%s\n' 'user_config=preserve' '# BEGIN NORTHSTAR MANAGED WIFI' 'old-secret-material' '# END NORTHSTAR MANAGED WIFI' > "$FAKE/etc/wpa_supplicant.conf"
