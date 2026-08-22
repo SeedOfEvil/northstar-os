@@ -255,6 +255,8 @@ add_test(NAME northstar-wificontroller COMMAND test-wificontroller)
 
 add_test(NAME northstar-wifi-configure-helper
     COMMAND sh ${PROJECT_SOURCE_DIR}/tests/unit/test-wifi-configure.sh)
+add_test(NAME northstar-wifi-derive
+    COMMAND sh ${PROJECT_SOURCE_DIR}/tests/unit/test-wifi-derive.sh $<TARGET_FILE:northstar-wifi-derive>)
 add_test(NAME northstar-wifi-qml COMMAND northstar-wifi --self-test)
 add_test(NAME northstar-first-boot-qml COMMAND northstar-first-boot --self-test)
 

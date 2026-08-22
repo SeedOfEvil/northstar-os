@@ -34,10 +34,11 @@ cat > "$TMP/bin/service" <<'EOF'
 #!/bin/sh
 printf 'service:%s\n' "$*" >> "$NORTHSTAR_TEST_EVENTS"
 EOF
-cat > "$TMP/bin/wpa_passphrase" <<'EOF'
+cat > "$TMP/bin/psk-derive" <<'EOF'
 #!/bin/sh
 IFS= read -r secret
-printf 'network={\n\tssid="%s"\n\t#psk="%s"\n\tpsk=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n}\n' "$1" "$secret"
+[ "$secret" = 'correct horse' ] || [ "$secret" = 'different pass' ] || exit 65
+printf '%s\n' aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 EOF
 cat > "$TMP/bin/sleep" <<'EOF'
 #!/bin/sh
@@ -45,7 +46,7 @@ exit 0
 EOF
 chmod +x "$TMP/bin/"*
 run(){
-  env NORTHSTAR_WIFI_TEST_MODE=1 NORTHSTAR_WIFI_ROOT="$FAKE" NORTHSTAR_WIFI_IFCONFIG_PATH="$TMP/bin/ifconfig" NORTHSTAR_WIFI_SYSCTL_PATH="$TMP/bin/sysctl" NORTHSTAR_WIFI_SYSRC_PATH="$TMP/bin/sysrc" NORTHSTAR_WIFI_SERVICE_PATH="$TMP/bin/service" NORTHSTAR_WIFI_WPA_PASSPHRASE_PATH="$TMP/bin/wpa_passphrase" NORTHSTAR_WIFI_SLEEP_PATH="$TMP/bin/sleep" NORTHSTAR_WIFI_CONNECT_ATTEMPTS=1 NORTHSTAR_TEST_EVENTS="$TMP/events" NORTHSTAR_TEST_STATE="$TMP/state" NORTHSTAR_TEST_ASSOCIATED="${NORTHSTAR_TEST_ASSOCIATED:-yes}" sh "$HELPER" "$@"
+  env NORTHSTAR_WIFI_TEST_MODE=1 NORTHSTAR_WIFI_ROOT="$FAKE" NORTHSTAR_WIFI_IFCONFIG_PATH="$TMP/bin/ifconfig" NORTHSTAR_WIFI_SYSCTL_PATH="$TMP/bin/sysctl" NORTHSTAR_WIFI_SYSRC_PATH="$TMP/bin/sysrc" NORTHSTAR_WIFI_SERVICE_PATH="$TMP/bin/service" NORTHSTAR_WIFI_PSK_DERIVE_PATH="$TMP/bin/psk-derive" NORTHSTAR_WIFI_SLEEP_PATH="$TMP/bin/sleep" NORTHSTAR_WIFI_CONNECT_ATTEMPTS=1 NORTHSTAR_TEST_EVENTS="$TMP/events" NORTHSTAR_TEST_STATE="$TMP/state" NORTHSTAR_TEST_ASSOCIATED="${NORTHSTAR_TEST_ASSOCIATED:-yes}" sh "$HELPER" "$@"
 }
 : > "$TMP/events"
 scan=$(run --scan)

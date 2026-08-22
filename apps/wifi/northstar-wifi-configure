@@ -9,7 +9,7 @@ SYSRC=${NORTHSTAR_WIFI_SYSRC_PATH:-/usr/sbin/sysrc}
 SERVICE=${NORTHSTAR_WIFI_SERVICE_PATH:-/usr/sbin/service}
 STAT=${NORTHSTAR_WIFI_STAT_PATH:-/usr/bin/stat}
 INSTALL=${NORTHSTAR_WIFI_INSTALL_PATH:-/usr/bin/install}
-WPA_PASSPHRASE=${NORTHSTAR_WIFI_WPA_PASSPHRASE_PATH:-/usr/sbin/wpa_passphrase}
+PSK_DERIVE=${NORTHSTAR_WIFI_PSK_DERIVE_PATH:-/usr/local/libexec/northstar-wifi-derive}
 SLEEP=${NORTHSTAR_WIFI_SLEEP_PATH:-/bin/sleep}
 ATTEMPTS=${NORTHSTAR_WIFI_CONNECT_ATTEMPTS:-30}
 fail() { s=$1; shift; printf 'ERROR: %s\n' "$*" >&2; exit "$s"; }
@@ -72,7 +72,7 @@ connect() {
   iface=$1; request "$2"; IFS= read -r secret || secret=
   if [ "$security" = secured ]; then
     [ "${#secret}" -ge 8 ] && [ "${#secret}" -le 63 ] && match "$secret" '^[[:print:]]+$' || fail "$EX_DATAERR" 'the passphrase must contain 8 to 63 printable characters'
-    [ -x "$WPA_PASSPHRASE" ] || fail "$EX_UNAVAILABLE" 'WPA passphrase support is unavailable'
+    [ -x "$PSK_DERIVE" ] || fail "$EX_UNAVAILABLE" 'WPA passphrase support is unavailable'
   else [ -z "$secret" ] || fail "$EX_DATAERR" 'an open network does not accept a passphrase'; fi
   ssid=$(unhex "$ssid_hex"); config=$(root_path etc/wpa_supplicant.conf); [ -d "${config%/*}" ] || fail "$EX_UNAVAILABLE" 'the wireless configuration directory is unavailable'
   d=$(mktemp -d "${TMPDIR:-/tmp}/northstar-wifi.XXXXXX"); base=$d/base; candidate=$d/candidate; backup=$d/backup; had=0
@@ -80,7 +80,7 @@ connect() {
   if [ -f "$config" ] && [ ! -L "$config" ]; then had=1; cp "$config" "$backup"; awk '/^# BEGIN NORTHSTAR MANAGED WIFI$/{m=1;next}/^# END NORTHSTAR MANAGED WIFI$/{m=0;next}!m{print}' "$config" > "$base"; else : > "$base"; fi
   cp "$base" "$candidate"
   { printf '%s\n' '# BEGIN NORTHSTAR MANAGED WIFI' 'network={'; printf '    ssid=%s\n' "$ssid_hex"
-    if [ "$security" = secured ]; then psk=$(printf '%s\n' "$secret" | "$WPA_PASSPHRASE" "$ssid" | sed -n 's/^[[:space:]]*psk=\([0-9a-fA-F]\{64\}\)$/\1/p' | head -1); secret=; match "$psk" '^[0-9a-fA-F]{64}$' || fail "$EX_UNAVAILABLE" 'the wireless credential could not be derived'; printf '    psk=%s\n' "$psk"; psk=; else secret=; printf '%s\n' '    key_mgmt=NONE'; fi
+    if [ "$security" = secured ]; then psk=$(printf '%s\n' "$secret" | "$PSK_DERIVE" "$ssid"); secret=; match "$psk" '^[0-9a-fA-F]{64}$' || fail "$EX_UNAVAILABLE" 'the wireless credential could not be derived'; printf '    psk=%s\n' "$psk"; psk=; else secret=; printf '%s\n' '    key_mgmt=NONE'; fi
     printf '%s\n' '    priority=100' '}' '# END NORTHSTAR MANAGED WIFI'; } >> "$candidate"
   put_config "$candidate" "$config" || fail "$EX_UNAVAILABLE" 'the wireless configuration could not be installed'
   rollback() { if [ "$had" -eq 1 ]; then put_config "$backup" "$config" >/dev/null 2>&1 || true; else rm -f "$config"; fi; wpa_restart "$iface" || true; }
