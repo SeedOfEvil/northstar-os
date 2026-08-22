@@ -1,6 +1,27 @@
 # M6 Intel Alpha physical session correction — 2026-08-21
 
-Status: **R89 LIVE CORRECTION ACCEPTED — install, First Boot, native Intel rendering, and repaired first-login path pass; one integrated replacement RC remains pending**
+Status: **R90 PHYSICAL INSTALL ACCEPTED — exact checksummed USB, installer/Setup, First Boot, and first-attempt Intel desktop login pass; focused logout/reboot evidence remains before merge**
+
+## R90 integrated physical acceptance — 2026-08-22
+
+The single replacement candidate was assembled from project commit
+`304c8ae29c9d12b5330d1e793cdb9f856bca4b90`. Its 20 GiB raw installer image
+was streamed directly to the Kingston USB and then read back in full. Both the
+source stream and physical-device readback matched SHA-256
+`08ddc4bc854afe7774795f964f413e4ff773ea0848bffa36af17f186a00945dc`.
+
+On the physical Whiskey Lake / Intel UHD 620 laptop, the user confirmed that
+the R90 installer Setup completed successfully, the branded First Boot wizard
+completed successfully, and the newly provisioned desktop opened on the first
+login attempt. This is the first integrated-image confirmation of the repaired
+SDDM and hardware-aware session path; it replaces the earlier live-correction
+result as the installer acceptance candidate.
+
+The report closes the destructive installation, First Boot, and first-login
+gates. It does not by itself claim the remaining clean logout/reboot check or a
+post-install inspection of `mode=native`, DRM nodes, and the absence of an
+inherited `output:X11-1` stanza. Those focused checks remain required before a
+merge decision. Completed physical tests above must not be repeated.
 
 ## R89 physical acceptance findings
 
@@ -148,15 +169,15 @@ with record digest
 
 ## Remaining promotion gates
 
-Build exactly one new RC after the clean source commit is available to the
-FreeBSD builder. Before physical reuse, require exact runtime-bundle and image
+R90 is the one deliberate replacement RC. Its exact runtime-bundle and image
 provenance validation, file-backed storage reset, VirtIO interruption/retry,
-`qemu-img check`, snapshot-only UEFI boot, and a complete disposable Proxmox
-install/First Boot/login check. Proxmox must report fallback mode.
+`qemu-img check`, and snapshot-only UEFI boot gates passed before the physical
+write. A complete disposable Proxmox install/First Boot/login check remains;
+Proxmox must report fallback mode.
 
-The merge gate remains focused physical acceptance from the exact checksummed
-USB: preferred-mode installer sizing, install and First Boot, selector state
-`native`, native Wayfire login with `i915kms` and both DRM nodes present, shell
-interaction, clean logout/reboot, and no inherited `output:X11-1` stanza. Wi-Fi
-configuration resumes only after those display/session checks pass. Do not
-merge this branch before that confirmation.
+The exact checksummed USB has now passed preferred-mode installer sizing,
+installation, First Boot, and native desktop entry on the first login. The
+remaining physical merge evidence is selector state `native`, `i915kms` with
+both DRM nodes present, shell interaction, clean logout/reboot, and no inherited
+`output:X11-1` stanza. Wi-Fi configuration resumes only after those
+display/session checks pass. Do not merge this branch before that confirmation.
