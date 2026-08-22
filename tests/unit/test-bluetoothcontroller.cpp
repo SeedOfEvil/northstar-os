@@ -11,6 +11,7 @@ class BluetoothControllerTest final : public QObject
 private slots:
     void scansAndSortsDeviceState();
     void pairsWithoutWritingThePinToTheRequest();
+    void forgetsAndChangesDiscoverability();
     void restoresWindowLifecycleWhenAuthorizationIsCancelled();
 };
 
@@ -31,6 +32,7 @@ void BluetoothControllerTest::scansAndSortsDeviceState()
     QVERIFY(directory.isValid());
     const QString scanner = writeExecutable(directory, QStringLiteral("scanner"),
         "#!/bin/sh\nprintf '%s\\n' NORTHSTAR_BLUETOOTH_SCAN=1 "
+        "'discoverable=1' "
         "'device=aabbccddeeff|4d6f757365|0|0' "
         "'device=112233445566|50686f6e65|1|1'\n");
     qputenv("NORTHSTAR_BLUETOOTH_SCAN_COMMAND", scanner.toUtf8());
@@ -42,6 +44,7 @@ void BluetoothControllerTest::scansAndSortsDeviceState()
     QCOMPARE(first.value(QStringLiteral("name")).toString(), QStringLiteral("Phone"));
     QVERIFY(first.value(QStringLiteral("remembered")).toBool());
     QVERIFY(first.value(QStringLiteral("connected")).toBool());
+    QVERIFY(controller.discoverable());
     QCOMPARE(controller.statusMessage(), QStringLiteral("Connected to Phone."));
     QVERIFY(!controller.statusIsError());
     qunsetenv("NORTHSTAR_BLUETOOTH_SCAN_COMMAND");
@@ -55,6 +58,7 @@ void BluetoothControllerTest::pairsWithoutWritingThePinToTheRequest()
     const QString helper = writeExecutable(directory, QStringLiteral("auth-helper"),
         "#!/bin/sh\n"
         "printf '%s\\n' NORTHSTAR_BLUETOOTH_AUTHORIZED=1\n"
+        "[ \"$1\" = --pair ] || exit 64\n"
         "grep -Eq 'pin|password|secret|key' \"$2\" && exit 65\n"
         "IFS= read -r pin\n"
         "[ \"$pin\" = 654321 ] || exit 65\n"
@@ -80,6 +84,38 @@ void BluetoothControllerTest::pairsWithoutWritingThePinToTheRequest()
     QCOMPARE(expected.size(), 1);
     QCOMPARE(completed.size(), 1);
     QVERIFY(!controller.statusIsError());
+    qunsetenv("NORTHSTAR_BLUETOOTH_AUTH_COMMAND");
+    qunsetenv("NORTHSTAR_BLUETOOTH_TEST_EVENTS");
+}
+
+void BluetoothControllerTest::forgetsAndChangesDiscoverability()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString events = directory.filePath(QStringLiteral("events"));
+    const QString helper = writeExecutable(directory, QStringLiteral("auth-helper"),
+        "#!/bin/sh\n"
+        "printf '%s\\n' NORTHSTAR_BLUETOOTH_AUTHORIZED=1\n"
+        "case \"$1\" in\n"
+        "  --forget) grep -Fx 'address_hex=aabbccddeeff' \"$2\" >/dev/null || exit 65; "
+        "printf '%s\\n' forgot >> \"$NORTHSTAR_BLUETOOTH_TEST_EVENTS\";;\n"
+        "  --discoverable) [ \"$2\" = on ] || exit 65; "
+        "printf '%s\\n' visible >> \"$NORTHSTAR_BLUETOOTH_TEST_EVENTS\";;\n"
+        "  *) exit 64;;\n"
+        "esac\n");
+    qputenv("NORTHSTAR_BLUETOOTH_AUTH_COMMAND", helper.toUtf8());
+    qputenv("NORTHSTAR_BLUETOOTH_TEST_EVENTS", events.toUtf8());
+    BluetoothController controller;
+    QSignalSpy forgotten(&controller, &BluetoothController::forgetFinished);
+    QVERIFY(controller.forgetDevice(QStringLiteral("aabbccddeeff")));
+    QTRY_COMPARE_WITH_TIMEOUT(forgotten.size(), 1, 3000);
+    QVERIFY(forgotten.first().first().toBool());
+    QVERIFY(controller.setDiscoverable(true));
+    QTRY_VERIFY_WITH_TIMEOUT(!controller.busy(), 3000);
+    QVERIFY(controller.discoverable());
+    QFile eventFile(events);
+    QVERIFY(eventFile.open(QIODevice::ReadOnly));
+    QCOMPARE(eventFile.readAll(), QByteArray("forgot\nvisible\n"));
     qunsetenv("NORTHSTAR_BLUETOOTH_AUTH_COMMAND");
     qunsetenv("NORTHSTAR_BLUETOOTH_TEST_EVENTS");
 }

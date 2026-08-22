@@ -8,7 +8,7 @@ trap 'rm -rf "$TMP"' EXIT HUP INT TERM
 fail(){ printf 'FAIL: %s\n' "$1" >&2; exit 1; }
 
 FAKE=$TMP/root
-mkdir -p "$FAKE/etc/bluetooth" "$TMP/bin"
+mkdir -p "$FAKE/etc/bluetooth" "$FAKE/var/db" "$TMP/bin"
 printf '%s\t%s\n' 'aa:bb:cc:dd:ee:ff' 'Old_Phone' > "$FAKE/etc/bluetooth/hosts"
 cat > "$FAKE/etc/bluetooth/hcsecd.conf" <<'EOF'
 device {
@@ -16,6 +16,16 @@ device {
     name "Old Phone";
     key nokey;
     pin nopin;
+}
+EOF
+cat > "$FAKE/var/db/hcsecd.keys" <<'EOF'
+device {
+    bdaddr aa:bb:cc:dd:ee:ff;
+    key "target-key";
+}
+device {
+    bdaddr 11:22:33:44:55:66;
+    key "other-key";
 }
 EOF
 cat > "$TMP/request" <<'EOF'
@@ -38,6 +48,10 @@ cat > "$TMP/bin/hccontrol" <<'EOF'
 printf 'hccontrol=%s\n' "$*" >> "$NORTHSTAR_TEST_EVENTS"
 case "$*" in
   "-n ubt0hci create_connection aa:bb:cc:dd:ee:ff"*) exit 0;;
+  "-n ubt0hci write_scan_enable 3") exit 0;;
+  "-n ubt0hci read_connection_list") printf '%s\n' 'Remote BD_ADDR Handle' 'aa:bb:cc:dd:ee:ff 41';;
+  "-n ubt0hci disconnect 41 0x16") exit 0;;
+  "-n ubt0hci delete_stored_link_key aa:bb:cc:dd:ee:ff") exit 0;;
   *) exit 1;;
 esac
 EOF
@@ -50,9 +64,9 @@ run_helper() {
         NORTHSTAR_BLUETOOTH_SERVICE_PATH="$TMP/bin/service" \
         NORTHSTAR_BLUETOOTH_HCCONTROL_PATH="$TMP/bin/hccontrol" \
         NORTHSTAR_TEST_EVENTS="$TMP/events" \
-        sh "$HELPER" --pair "$TMP/request"
+        sh "$HELPER" "$@"
 }
-out=$(printf '%s\n' 654321 | run_helper)
+out=$(printf '%s\n' 654321 | run_helper --pair "$TMP/request")
 printf '%s\n' "$out" | grep -Fx 'NORTHSTAR_BLUETOOTH_AUTHORIZED=1' >/dev/null ||
     fail 'authorization marker missing'
 printf '%s\n' "$out" | grep -Fx 'NORTHSTAR_BLUETOOTH_PAIR_REQUEST=PASS' >/dev/null ||
@@ -76,14 +90,40 @@ printf '%s\n' 'pin=654321' >> "$TMP/bad-request"
 mv "$TMP/bad-request" "$TMP/request"
 chmod 600 "$TMP/request"
 before=$(sha256 -q "$FAKE/etc/bluetooth/hcsecd.conf")
-if printf '%s\n' 654321 | run_helper >/dev/null 2>&1; then
+if printf '%s\n' 654321 | run_helper --pair "$TMP/request" >/dev/null 2>&1; then
     fail 'credential field in request was accepted'
 fi
 [ "$(sha256 -q "$FAKE/etc/bluetooth/hcsecd.conf")" = "$before" ] ||
     fail 'invalid request changed the pairing configuration'
 
+visibility=$(run_helper --discoverable on)
+printf '%s\n' "$visibility" |
+    grep -Fx 'NORTHSTAR_BLUETOOTH_DISCOVERABLE=on' >/dev/null ||
+    fail 'discoverability was not enabled'
+grep -F 'hccontrol=-n ubt0hci write_scan_enable 3' "$TMP/events" >/dev/null ||
+    fail 'controller was not made discoverable and connectable'
+
+cat > "$TMP/request" <<'EOF'
+protocol=1
+address_hex=aabbccddeeff
+EOF
+chmod 600 "$TMP/request"
+forgot=$(run_helper --forget "$TMP/request")
+printf '%s\n' "$forgot" | grep -Fx 'NORTHSTAR_BLUETOOTH_FORGET=PASS' >/dev/null ||
+    fail 'forget marker missing'
+if grep -qi 'aa:bb:cc:dd:ee:ff' "$FAKE/etc/bluetooth/hosts" \
+    "$FAKE/etc/bluetooth/hcsecd.conf" "$FAKE/var/db/hcsecd.keys"; then
+    fail 'selected device state was not fully removed'
+fi
+grep -qi '11:22:33:44:55:66' "$FAKE/var/db/hcsecd.keys" ||
+    fail 'forget removed another device key'
+grep -F 'hccontrol=-n ubt0hci disconnect 41 0x16' "$TMP/events" >/dev/null ||
+    fail 'active selected-device connection was not disconnected'
+grep -F 'hccontrol=-n ubt0hci delete_stored_link_key aa:bb:cc:dd:ee:ff' \
+    "$TMP/events" >/dev/null || fail 'controller link key was not deleted'
+
 grep -F '/usr/local/libexec/northstar-bluetooth-configure' "$POLICY" >/dev/null ||
     fail 'PolicyKit action does not pin the Bluetooth helper'
 grep -F '<allow_active>auth_admin_keep</allow_active>' "$POLICY" >/dev/null ||
-    fail 'Bluetooth pairing does not require active administrator authorization'
-printf '%s\n' 'PASS: protected Bluetooth pairing validates requests, keeps PIN off the request and argv, and replaces remembered state'
+    fail 'Bluetooth management does not require active administrator authorization'
+printf '%s\n' 'PASS: protected Bluetooth management pairs, changes visibility, and forgets only the selected device'

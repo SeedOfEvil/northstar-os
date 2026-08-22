@@ -5,10 +5,10 @@ import Northstar.Ui 1.0
 
 ApplicationWindow {
     id: root
-    width: 780
-    height: 680
-    minimumWidth: 660
-    minimumHeight: 560
+    width: 800
+    height: 720
+    minimumWidth: 680
+    minimumHeight: 600
     visible: true
     title: "Bluetooth"
     color: lunar.background
@@ -17,6 +17,14 @@ ApplicationWindow {
     property string selectedName: ""
     property bool selectedRemembered: false
     property bool selectedConnected: false
+
+    function clearSelection() {
+        selectedAddress = ""
+        selectedName = ""
+        selectedRemembered = false
+        selectedConnected = false
+        pinField.text = ""
+    }
 
     LunarPalette { id: lunar; darkMode: northstarDarkMode }
 
@@ -29,12 +37,33 @@ ApplicationWindow {
             root.raise()
             root.requestActivate()
         }
+        function onForgetFinished(success) {
+            if (success) {
+                root.clearSelection()
+                bluetoothController.refreshDevices()
+            }
+        }
+    }
+
+    Dialog {
+        id: forgetDialog
+        anchors.centerIn: parent
+        modal: true
+        title: "Forget " + root.selectedName + "?"
+        standardButtons: Dialog.Cancel | Dialog.Ok
+        onAccepted: bluetoothController.forgetDevice(root.selectedAddress)
+
+        Label {
+            width: 420
+            text: "Northstar will remove this device's local pairing and remembered state. You must also choose Forget or Unpair on the other device."
+            wrapMode: Text.WordWrap
+        }
     }
 
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: 24
-        spacing: 14
+        spacing: 12
 
         RowLayout {
             Layout.fillWidth: true
@@ -52,9 +81,37 @@ ApplicationWindow {
             }
         }
 
+        Rectangle {
+            Layout.fillWidth: true
+            implicitHeight: visibilityLayout.implicitHeight + 24
+            radius: 12
+            color: lunar.panel
+            border.color: lunar.borderSoft
+
+            RowLayout {
+                id: visibilityLayout
+                anchors.fill: parent
+                anchors.margins: 12
+                Label {
+                    Layout.fillWidth: true
+                    text: bluetoothController.discoverable
+                        ? "This computer is discoverable and connectable as northstar-image."
+                        : "This computer is connectable but hidden from new devices."
+                    color: lunar.foreground
+                    wrapMode: Text.WordWrap
+                }
+                Button {
+                    text: bluetoothController.discoverable ? "Hide This Computer" : "Make Discoverable"
+                    enabled: !bluetoothController.busy
+                    onClicked: bluetoothController.setDiscoverable(
+                        !bluetoothController.discoverable)
+                }
+            }
+        }
+
         Label {
             Layout.fillWidth: true
-            text: "Put a device in pairing mode, then choose Refresh. Remembered devices stay listed even when they are not discoverable."
+            text: "For a phone, leave its Bluetooth settings screen open while refreshing here. To pair from the phone, first choose Make Discoverable above."
             color: lunar.muted
             wrapMode: Text.WordWrap
         }
@@ -124,7 +181,7 @@ ApplicationWindow {
                 Label {
                     anchors.centerIn: parent
                     visible: deviceList.count === 0 && !bluetoothController.busy
-                    text: "No devices listed. Choose Refresh while the device is discoverable."
+                    text: "No devices listed. Choose Refresh while the other device is discoverable."
                     color: lunar.muted
                 }
             }
@@ -169,6 +226,12 @@ ApplicationWindow {
                 wrapMode: Text.WordWrap
             }
             Button {
+                text: "Forget"
+                visible: root.selectedRemembered
+                enabled: !bluetoothController.busy
+                onClicked: forgetDialog.open()
+            }
+            Button {
                 id: pairButton
                 text: root.selectedRemembered ? "Pair Again" : "Pair"
                 visible: !root.selectedConnected
@@ -177,6 +240,13 @@ ApplicationWindow {
                 onClicked: bluetoothController.pairDevice(
                     root.selectedAddress, root.selectedName, pinField.text)
             }
+        }
+
+        Label {
+            Layout.fillWidth: true
+            text: "Current alpha profiles: discovery, pairing, connection state, and Classic HID setup. Phone audio and file transfer require separate profile services and are not claimed as connected features yet."
+            color: lunar.muted
+            wrapMode: Text.WordWrap
         }
     }
 

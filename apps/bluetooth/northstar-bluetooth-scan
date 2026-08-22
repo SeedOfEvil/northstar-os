@@ -37,6 +37,11 @@ printf '%s\n' "$connections" |
     done
 
 printf '%s\n' NORTHSTAR_BLUETOOTH_SCAN=1
+scan_state=$("$HCCONTROL" -n "$NODE" read_scan_enable 2>/dev/null || true)
+case "$scan_state" in
+    *'Inquiry Scan enabled'*) printf '%s\n' 'discoverable=1';;
+    *) printf '%s\n' 'discoverable=0';;
+esac
 sort -fu "$tmp/addresses" |
 while IFS= read -r address; do
     compact=$(printf '%s' "$address" | tr -d ':' | tr '[:upper:]' '[:lower:]')

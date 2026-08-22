@@ -6,8 +6,8 @@
   <vendor>Northstar</vendor>
   <vendor_url>https://github.com/SeedOfEvil/northstar-os</vendor_url>
   <action id="org.northstar.bluetooth.configure">
-    <description>Configure Bluetooth pairing</description>
-    <message>Administrator authentication is required to pair a Bluetooth device</message>
+    <description>Manage Bluetooth devices and visibility</description>
+    <message>Administrator authentication is required to manage Bluetooth</message>
     <defaults>
       <allow_any>no</allow_any>
       <allow_inactive>auth_admin</allow_inactive>

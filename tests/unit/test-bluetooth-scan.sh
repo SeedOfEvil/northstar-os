@@ -12,6 +12,7 @@ case "$*" in
   "-n ubt0hci read_node_list") printf '%s\n' 'Name ID Num hooks' 'ubt0hci 1 3';;
   "-N -n ubt0hci inquiry") printf '%s\n' 'Inquiry result #0' '       BD_ADDR: aa:bb:cc:dd:ee:ff' 'Inquiry complete. Status: No error [00]';;
   "-n ubt0hci read_connection_list") printf '%s\n' 'Remote BD_ADDR    Handle Type Mode Role Encrypt Pending Queue State' '11:22:33:44:55:66 41 ACL 0 MAST NONE 0 0 OPEN';;
+  "-n ubt0hci read_scan_enable") printf '%s\n' 'Scan enable: Inquiry Scan enabled. Page Scan enabled [0x3]';;
   "-n ubt0hci remote_name_request aa:bb:cc:dd:ee:ff") printf '%s\n' 'Name: Test Mouse';;
   *) exit 1;;
 esac
@@ -22,6 +23,8 @@ out=$(env NORTHSTAR_BLUETOOTH_HCCONTROL_PATH="$TMP/hccontrol" \
     NORTHSTAR_BLUETOOTH_HOSTS_PATH="$TMP/hosts" sh "$HELPER")
 printf '%s\n' "$out" | grep -Fx 'NORTHSTAR_BLUETOOTH_SCAN=1' >/dev/null ||
     fail 'scan marker missing'
+printf '%s\n' "$out" | grep -Fx 'discoverable=1' >/dev/null ||
+    fail 'discoverability state missing'
 printf '%s\n' "$out" |
     grep -Fx 'device=aabbccddeeff|54657374204d6f757365|0|0' >/dev/null ||
     fail 'discoverable device record was not encoded'
