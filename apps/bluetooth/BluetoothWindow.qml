@@ -5,22 +5,30 @@ import Northstar.Ui 1.0
 
 ApplicationWindow {
     id: root
-    width: 760
-    height: 620
-    minimumWidth: 640
-    minimumHeight: 520
+    width: 780
+    height: 680
+    minimumWidth: 660
+    minimumHeight: 560
     visible: true
     title: "Bluetooth"
     color: lunar.background
 
     property string selectedAddress: ""
     property string selectedName: ""
+    property bool selectedRemembered: false
+    property bool selectedConnected: false
 
     LunarPalette { id: lunar; darkMode: northstarDarkMode }
 
     Connections {
         target: bluetoothController
-        function onSetupWizardLaunched() { root.hide() }
+        function onSecretsCleared() { pinField.text = "" }
+        function onAuthorizationPromptExpected() { root.hide() }
+        function onAuthorizationCompleted() {
+            root.show()
+            root.raise()
+            root.requestActivate()
+        }
     }
 
     ColumnLayout {
@@ -46,7 +54,7 @@ ApplicationWindow {
 
         Label {
             Layout.fillWidth: true
-            text: "Put a keyboard, mouse, or other Classic Bluetooth device in pairing mode, then choose Refresh."
+            text: "Put a device in pairing mode, then choose Refresh. Remembered devices stay listed even when they are not discoverable."
             color: lunar.muted
             wrapMode: Text.WordWrap
         }
@@ -75,14 +83,27 @@ ApplicationWindow {
                         ? lunar.accentSoft : mouse.containsMouse ? lunar.raised : "transparent"
                     border.color: root.selectedAddress === modelData.addressHex ? lunar.accent : "transparent"
 
-                    Label {
+                    RowLayout {
                         anchors.fill: parent
                         anchors.margins: 12
-                        verticalAlignment: Text.AlignVCenter
-                        text: modelData.name
-                        color: lunar.foreground
-                        font.bold: root.selectedAddress === modelData.addressHex
-                        elide: Text.ElideRight
+                        Label {
+                            Layout.fillWidth: true
+                            text: modelData.name
+                            color: lunar.foreground
+                            font.bold: root.selectedAddress === modelData.addressHex
+                            elide: Text.ElideRight
+                        }
+                        Label {
+                            visible: modelData.connected
+                            text: "Connected"
+                            color: lunar.accent
+                            font.bold: true
+                        }
+                        Label {
+                            visible: modelData.remembered && !modelData.connected
+                            text: "Remembered"
+                            color: lunar.muted
+                        }
                     }
                     MouseArea {
                         id: mouse
@@ -92,6 +113,10 @@ ApplicationWindow {
                         onClicked: {
                             root.selectedAddress = modelData.addressHex
                             root.selectedName = modelData.name
+                            root.selectedRemembered = modelData.remembered
+                            root.selectedConnected = modelData.connected
+                            pinField.text = ""
+                            if (!modelData.connected) pinField.forceActiveFocus()
                         }
                     }
                 }
@@ -107,17 +132,32 @@ ApplicationWindow {
 
         Label {
             visible: root.selectedAddress.length > 0
-            text: "Set up " + root.selectedName
+            text: root.selectedConnected ? root.selectedName + " is connected"
+                : (root.selectedRemembered ? "Pair " + root.selectedName + " again"
+                                           : "Pair with " + root.selectedName)
             color: lunar.foreground
             font.bold: true
         }
 
         Label {
             Layout.fillWidth: true
-            visible: root.selectedAddress.length > 0
-            text: "Northstar opens FreeBSD's foreground pairing wizard. It can configure Classic Bluetooth and HID keyboards or mice. Audio setup is separate."
+            visible: root.selectedAddress.length > 0 && !root.selectedConnected
+            text: "Choose a 4 to 16 digit PIN. If the other device asks for a code, enter exactly the same PIN there."
             color: lunar.muted
             wrapMode: Text.WordWrap
+        }
+
+        TextField {
+            id: pinField
+            Layout.fillWidth: true
+            visible: root.selectedAddress.length > 0 && !root.selectedConnected
+            enabled: !bluetoothController.busy
+            echoMode: TextInput.Normal
+            inputMethodHints: Qt.ImhDigitsOnly
+            validator: RegularExpressionValidator { regularExpression: /^[0-9]{0,16}$/ }
+            placeholderText: "Pairing PIN (4 to 16 digits)"
+            maximumLength: 16
+            onAccepted: pairButton.clicked()
         }
 
         RowLayout {
@@ -129,9 +169,13 @@ ApplicationWindow {
                 wrapMode: Text.WordWrap
             }
             Button {
-                text: "Open Pairing Wizard"
+                id: pairButton
+                text: root.selectedRemembered ? "Pair Again" : "Pair"
+                visible: !root.selectedConnected
                 enabled: !bluetoothController.busy && root.selectedAddress.length > 0
-                onClicked: bluetoothController.openSetupWizard(root.selectedAddress)
+                    && pinField.text.length >= 4
+                onClicked: bluetoothController.pairDevice(
+                    root.selectedAddress, root.selectedName, pinField.text)
             }
         }
     }

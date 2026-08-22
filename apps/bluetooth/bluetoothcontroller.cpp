@@ -2,45 +2,84 @@
 
 #include <algorithm>
 
+#include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QProcess>
 #include <QRegularExpression>
 #include <QStandardPaths>
+#include <QTemporaryFile>
 
 namespace {
 const QRegularExpression AddressHexPattern(QStringLiteral("^[0-9a-f]{12}$"));
-const QRegularExpression NameHexPattern(QStringLiteral("^(?:[0-9a-f]{2}){0,124}$"));
-
-QString colonAddress(const QString &hex)
-{
-    QStringList octets;
-    for (qsizetype i = 0; i < hex.size(); i += 2) octets.append(hex.mid(i, 2));
-    return octets.join(QLatin1Char(':'));
-}
+const QRegularExpression NameHexPattern(QStringLiteral("^(?:[0-9a-f]{2}){1,124}$"));
+const QRegularExpression PinPattern(QStringLiteral("^[0-9]{4,16}$"));
 }
 
 BluetoothController::BluetoothController(QObject *parent)
     : QObject(parent)
     , m_process(new QProcess(this))
-    , m_statusMessage(QStringLiteral("Choose Refresh to find discoverable Bluetooth devices."))
+    , m_statusMessage(QStringLiteral("Choose Refresh to find discoverable or remembered Bluetooth devices."))
 {
+    connect(m_process, &QProcess::started, this, [this]() {
+        if (m_operation == Operation::Pair) {
+            m_process->write(m_pendingSecret);
+            m_process->write("\n", 1);
+            m_process->closeWriteChannel();
+            clearBytes(m_pendingSecret);
+            emit secretsCleared();
+        }
+    });
+    connect(m_process, &QProcess::readyReadStandardOutput, this, [this]() {
+        if (m_authorizationPending
+            && m_process->peek(512).contains("NORTHSTAR_BLUETOOTH_AUTHORIZED=1")) {
+            m_authorizationPending = false;
+            emit authorizationCompleted();
+        }
+    });
     connect(m_process, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
-        if (error == QProcess::FailedToStart && m_busy)
-            finish(false, QStringLiteral("The Bluetooth scanner could not be started."));
+        if (error == QProcess::FailedToStart && m_busy) {
+            clearBytes(m_pendingSecret);
+            emit secretsCleared();
+            finish(false, m_operation == Operation::Scan
+                ? QStringLiteral("The Bluetooth scanner could not be started.")
+                : QStringLiteral("The protected Bluetooth service could not be started."));
+        }
     });
     connect(m_process, qOverload<int, QProcess::ExitStatus>(&QProcess::finished), this,
             [this](int exitCode, QProcess::ExitStatus exitStatus) {
         if (!m_busy) return;
         const QByteArray output = m_process->readAllStandardOutput();
         QString error = QString::fromUtf8(m_process->readAllStandardError()).trimmed();
+        clearBytes(m_pendingSecret);
+        emit secretsCleared();
+        const Operation completed = m_operation;
         if (exitStatus == QProcess::NormalExit && exitCode == 0) {
-            parseScan(output);
-            finish(true, m_devices.isEmpty()
-                ? QStringLiteral("No discoverable Bluetooth devices were found.")
-                : QStringLiteral("Found %1 discoverable Bluetooth device(s).").arg(m_devices.size()));
+            if (completed == Operation::Scan) {
+                parseScan(output);
+                const auto connected = std::find_if(m_devices.cbegin(), m_devices.cend(),
+                    [](const QVariant &device) {
+                        return device.toMap().value(QStringLiteral("connected")).toBool();
+                    });
+                finish(true, connected != m_devices.cend()
+                    ? QStringLiteral("Connected to %1.").arg(
+                          connected->toMap().value(QStringLiteral("name")).toString())
+                    : m_devices.isEmpty()
+                        ? QStringLiteral("No discoverable or remembered Bluetooth devices were found.")
+                        : QStringLiteral("Found %1 Bluetooth device(s).").arg(m_devices.size()));
+            } else {
+                finish(true, QStringLiteral(
+                    "Pairing request sent. Enter the same PIN on the device if it asks."));
+                emit pairingFinished(true);
+            }
         } else {
-            if (error.startsWith(QStringLiteral("ERROR: "))) error.remove(0, 7);
-            finish(false, error.isEmpty() ? QStringLiteral("Bluetooth scanning failed.") : error.left(240));
+            QString message = exitStatus == QProcess::NormalExit && exitCode == 126
+                ? QStringLiteral("Administrator authorization was cancelled.")
+                : error;
+            if (message.startsWith(QStringLiteral("ERROR: "))) message.remove(0, 7);
+            if (message.isEmpty()) message = QStringLiteral("The Bluetooth operation failed.");
+            finish(false, message.left(240));
+            if (completed == Operation::Pair) emit pairingFinished(false);
         }
     });
 }
@@ -50,60 +89,93 @@ QString BluetoothController::statusMessage() const { return m_statusMessage; }
 bool BluetoothController::statusIsError() const { return m_statusIsError; }
 QVariantList BluetoothController::devices() const { return m_devices; }
 
-bool BluetoothController::refreshDevices()
+bool BluetoothController::start(Operation operation, const QStringList &arguments)
 {
     if (m_busy) return false;
-    QString program = qEnvironmentVariable("NORTHSTAR_BLUETOOTH_SCAN_COMMAND");
-    if (program.isEmpty())
-        program = QStringLiteral("/usr/local/libexec/northstar-bluetooth-scan");
-    if (!QFileInfo::exists(program)) {
-        finish(false, QStringLiteral("The Northstar Bluetooth scanner is not installed."));
-        return false;
+    QString program;
+    QStringList processArguments;
+    if (operation == Operation::Scan) {
+        program = qEnvironmentVariable("NORTHSTAR_BLUETOOTH_SCAN_COMMAND");
+        if (program.isEmpty())
+            program = QStringLiteral("/usr/local/libexec/northstar-bluetooth-scan");
+        if (!QFileInfo::exists(program)) {
+            finish(false, QStringLiteral("The Northstar Bluetooth scanner is not installed."));
+            return false;
+        }
+    } else {
+        program = qEnvironmentVariable("NORTHSTAR_BLUETOOTH_AUTH_COMMAND");
+        if (program.isEmpty()) {
+            program = QStandardPaths::findExecutable(QStringLiteral("pkexec"));
+            processArguments << QStringLiteral("--disable-internal-agent")
+                             << QStringLiteral("/usr/local/libexec/northstar-bluetooth-configure");
+        }
+        if (program.isEmpty()) {
+            finish(false, QStringLiteral("Administrator authorization is unavailable."));
+            return false;
+        }
     }
+    processArguments << arguments;
+    m_operation = operation;
     m_busy = true;
     m_statusIsError = false;
-    m_statusMessage = QStringLiteral("Scanning for discoverable Bluetooth devices...");
+    m_statusMessage = operation == Operation::Scan
+        ? QStringLiteral("Scanning for Bluetooth devices...")
+        : QStringLiteral("Preparing the protected pairing request...");
     emit stateChanged();
+    if (operation == Operation::Pair) {
+        m_authorizationPending = true;
+        emit authorizationPromptExpected();
+    }
     m_process->setProgram(program);
-    m_process->setArguments({});
+    m_process->setArguments(processArguments);
     m_process->start();
     return true;
 }
 
-bool BluetoothController::openSetupWizard(const QString &addressHex)
+bool BluetoothController::refreshDevices()
+{
+    return start(Operation::Scan, {});
+}
+
+bool BluetoothController::pairDevice(const QString &addressHex,
+                                     const QString &name,
+                                     const QString &pin)
 {
     if (m_busy || !AddressHexPattern.match(addressHex).hasMatch()) {
         finish(false, QStringLiteral("Choose a valid scanned Bluetooth device."));
         return false;
     }
-
-    QString program = qEnvironmentVariable("NORTHSTAR_BLUETOOTH_SETUP_COMMAND");
-    QStringList arguments;
-    if (!program.isEmpty()) {
-        arguments << addressHex;
-    } else {
-        program = QStandardPaths::findExecutable(QStringLiteral("qterminal"));
-        const QString sudo = QStandardPaths::findExecutable(QStringLiteral("sudo"));
-        if (program.isEmpty() || sudo.isEmpty()) {
-            finish(false, QStringLiteral("The foreground Bluetooth pairing wizard is unavailable."));
-            return false;
-        }
-        arguments << QStringLiteral("-e") << sudo
-                  << QStringLiteral("/usr/sbin/bluetooth-config")
-                  << QStringLiteral("scan")
-                  << QStringLiteral("-d") << colonAddress(addressHex)
-                  << QStringLiteral("-n") << QStringLiteral("ubt0hci");
-    }
-
-    if (!QProcess::startDetached(program, arguments)) {
-        finish(false, QStringLiteral("The Bluetooth pairing wizard could not be opened."));
+    const QByteArray nameBytes = name.toUtf8();
+    const QString nameHex = QString::fromLatin1(nameBytes.toHex());
+    if (nameBytes.isEmpty() || !NameHexPattern.match(nameHex).hasMatch()) {
+        finish(false, QStringLiteral("The selected Bluetooth device name is invalid."));
         return false;
     }
-    m_statusIsError = false;
-    m_statusMessage = QStringLiteral("Pairing wizard opened in Terminal.");
-    emit stateChanged();
-    emit setupWizardLaunched();
-    return true;
+    if (!PinPattern.match(pin).hasMatch()) {
+        finish(false, QStringLiteral("Choose a PIN containing 4 to 16 digits."));
+        return false;
+    }
+
+    const QString runtime = QStandardPaths::writableLocation(QStandardPaths::RuntimeLocation);
+    const QString root = runtime.isEmpty() ? QDir::tempPath() : runtime;
+    m_request = new QTemporaryFile(root + QStringLiteral("/northstar-bluetooth-XXXXXX.conf"), this);
+    m_request->setAutoRemove(true);
+    if (!m_request->open() || !m_request->setPermissions(QFile::ReadOwner | QFile::WriteOwner)) {
+        m_request->deleteLater();
+        m_request = nullptr;
+        finish(false, QStringLiteral("The protected Bluetooth request could not be created."));
+        return false;
+    }
+    const QByteArray request = QStringLiteral("protocol=1\naddress_hex=%1\nname_hex=%2\n")
+        .arg(addressHex, nameHex).toUtf8();
+    if (m_request->write(request) != request.size() || !m_request->flush()) {
+        m_request->deleteLater();
+        m_request = nullptr;
+        finish(false, QStringLiteral("The protected Bluetooth request could not be written."));
+        return false;
+    }
+    m_pendingSecret = pin.toUtf8();
+    return start(Operation::Pair, {QStringLiteral("--pair"), m_request->fileName()});
 }
 
 void BluetoothController::parseScan(const QByteArray &output)
@@ -112,19 +184,31 @@ void BluetoothController::parseScan(const QByteArray &output)
     for (const QByteArray &line : output.split('\n')) {
         if (!line.startsWith("device=")) continue;
         const QList<QByteArray> fields = line.mid(7).split('|');
-        if (fields.size() != 2) continue;
+        if (fields.size() != 4) continue;
         const QString addressHex = QString::fromLatin1(fields.at(0));
         const QString nameHex = QString::fromLatin1(fields.at(1));
         if (!AddressHexPattern.match(addressHex).hasMatch()
-            || !NameHexPattern.match(nameHex).hasMatch()) continue;
+            || !NameHexPattern.match(nameHex).hasMatch()
+            || (fields.at(2) != "0" && fields.at(2) != "1")
+            || (fields.at(3) != "0" && fields.at(3) != "1")) continue;
         QString name = QString::fromUtf8(QByteArray::fromHex(fields.at(1)));
         if (name.trimmed().isEmpty()) name = QStringLiteral("Unnamed Bluetooth device");
         parsed.append(QVariantMap{{QStringLiteral("name"), name},
-                                  {QStringLiteral("addressHex"), addressHex}});
+                                  {QStringLiteral("addressHex"), addressHex},
+                                  {QStringLiteral("remembered"), fields.at(2) == "1"},
+                                  {QStringLiteral("connected"), fields.at(3) == "1"}});
     }
     std::sort(parsed.begin(), parsed.end(), [](const QVariant &a, const QVariant &b) {
-        return a.toMap().value(QStringLiteral("name")).toString().localeAwareCompare(
-            b.toMap().value(QStringLiteral("name")).toString()) < 0;
+        const QVariantMap left = a.toMap();
+        const QVariantMap right = b.toMap();
+        if (left.value(QStringLiteral("connected")).toBool()
+            != right.value(QStringLiteral("connected")).toBool())
+            return left.value(QStringLiteral("connected")).toBool();
+        if (left.value(QStringLiteral("remembered")).toBool()
+            != right.value(QStringLiteral("remembered")).toBool())
+            return left.value(QStringLiteral("remembered")).toBool();
+        return left.value(QStringLiteral("name")).toString().localeAwareCompare(
+            right.value(QStringLiteral("name")).toString()) < 0;
     });
     m_devices = parsed;
     emit devicesChanged();
@@ -132,8 +216,23 @@ void BluetoothController::parseScan(const QByteArray &output)
 
 void BluetoothController::finish(bool success, const QString &message)
 {
+    if (m_authorizationPending) {
+        m_authorizationPending = false;
+        emit authorizationCompleted();
+    }
     m_busy = false;
     m_statusIsError = !success;
     m_statusMessage = message;
+    m_operation = Operation::None;
+    if (m_request) {
+        m_request->deleteLater();
+        m_request = nullptr;
+    }
     emit stateChanged();
+}
+
+void BluetoothController::clearBytes(QByteArray &bytes)
+{
+    bytes.fill('\0');
+    bytes.clear();
 }

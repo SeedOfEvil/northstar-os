@@ -258,6 +258,8 @@ target_link_libraries(test-bluetoothcontroller PRIVATE northstar-bluetooth-core 
 add_test(NAME northstar-bluetoothcontroller COMMAND test-bluetoothcontroller)
 add_test(NAME northstar-bluetooth-scan
     COMMAND sh ${PROJECT_SOURCE_DIR}/tests/unit/test-bluetooth-scan.sh)
+add_test(NAME northstar-bluetooth-configure
+    COMMAND sh ${PROJECT_SOURCE_DIR}/tests/unit/test-bluetooth-configure.sh)
 add_test(NAME northstar-bluetooth-qml COMMAND northstar-bluetooth --self-test)
 
 add_test(NAME northstar-wifi-configure-helper

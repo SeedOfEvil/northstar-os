@@ -60,6 +60,7 @@ set(CPACK_FREEBSD_PACKAGE_DEPS
 
 install(FILES packaging/polkit/org.northstar.update.policy
               packaging/polkit/org.northstar.package.policy
+              packaging/polkit/org.northstar.bluetooth.policy
               packaging/polkit/org.northstar.firstboot.policy
               packaging/polkit/org.northstar.wifi.policy
               packaging/polkit/org.northstar.installer.policy

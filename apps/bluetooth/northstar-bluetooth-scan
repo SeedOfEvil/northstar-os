@@ -2,6 +2,7 @@
 set -eu
 EX_UNAVAILABLE=69
 HCCONTROL=${NORTHSTAR_BLUETOOTH_HCCONTROL_PATH:-/usr/sbin/hccontrol}
+HOSTS=${NORTHSTAR_BLUETOOTH_HOSTS_PATH:-/etc/bluetooth/hosts}
 NODE=${NORTHSTAR_BLUETOOTH_NODE:-ubt0hci}
 fail() { printf 'ERROR: %s\n' "$*" >&2; exit "$EX_UNAVAILABLE"; }
 hex() { LC_ALL=C od -An -tx1 | tr -d ' \n'; }
@@ -10,17 +11,54 @@ match() { printf '%s\n' "$1" | grep -Eq "$2"; }
 [ "$#" -eq 0 ] || fail 'Bluetooth scanning accepts no arguments'
 [ -x "$HCCONTROL" ] || fail 'Bluetooth controller support is unavailable'
 match "$NODE" '^ubt[0-9]+hci$' || fail 'Bluetooth controller name is invalid'
-"$HCCONTROL" -n "$NODE" read_node_list >/dev/null 2>&1     || fail 'No initialized Bluetooth controller was detected'
+"$HCCONTROL" -n "$NODE" read_node_list >/dev/null 2>&1 ||
+    fail 'No initialized Bluetooth controller was detected'
+
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/northstar-bluetooth-scan.XXXXXX")
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
+: > "$tmp/addresses"
+: > "$tmp/connections"
+
+out=$("$HCCONTROL" -N -n "$NODE" inquiry 2>/dev/null || true)
+printf '%s\n' "$out" |
+    sed -n 's/^[[:space:]]*BD_ADDR: \([0-9a-fA-F:]*\)$/\1/p' >> "$tmp/addresses"
+
+if [ -r "$HOSTS" ]; then
+    awk 'NF && $1 !~ /^#/ { print $1 }' "$HOSTS" >> "$tmp/addresses"
+fi
+
+connections=$("$HCCONTROL" -n "$NODE" read_connection_list 2>/dev/null || true)
+printf '%s\n' "$connections" |
+    awk '$1 ~ /^([0-9a-fA-F][0-9a-fA-F]:){5}[0-9a-fA-F][0-9a-fA-F]$/ { print $1 }' |
+    while IFS= read -r address; do
+        compact=$(printf '%s' "$address" | tr -d ':' | tr '[:upper:]' '[:lower:]')
+        printf '%s\n' "$compact" >> "$tmp/connections"
+        printf '%s\n' "$address" >> "$tmp/addresses"
+    done
 
 printf '%s\n' NORTHSTAR_BLUETOOTH_SCAN=1
-out=$("$HCCONTROL" -N -n "$NODE" inquiry 2>/dev/null)     || fail 'Bluetooth inquiry failed'
-printf '%s\n' "$out" | sed -n 's/^[[:space:]]*BD_ADDR: \([0-9a-fA-F:]*\)$/\1/p' |
+sort -fu "$tmp/addresses" |
 while IFS= read -r address; do
     compact=$(printf '%s' "$address" | tr -d ':' | tr '[:upper:]' '[:lower:]')
     match "$compact" '^[0-9a-f]{12}$' || continue
-    name=$("$HCCONTROL" -n "$NODE" remote_name_request "$address" 2>/dev/null |
+    colon=$(printf '%s' "$compact" | sed 's/../&:/g;s/:$//')
+    remembered=0
+    alias=
+    if [ -r "$HOSTS" ]; then
+        alias=$(awk -v target="$colon" '
+            tolower($1) == tolower(target) {
+                $1=""; sub(/^[[:space:]]+/, ""); print; exit
+            }' "$HOSTS")
+        [ -z "$alias" ] || remembered=1
+    fi
+    name=$("$HCCONTROL" -n "$NODE" remote_name_request "$colon" 2>/dev/null |
         sed -n 's/^[[:space:]]*Name: //p' | head -1)
+    [ -n "$name" ] || name=$alias
+    [ -n "$name" ] || name='Unnamed Bluetooth device'
     name_hex=$(printf '%s' "$name" | hex)
-    match "$name_hex" '^([0-9a-f][0-9a-f]){0,124}$' || name_hex=
-    printf 'device=%s|%s\n' "$compact" "$name_hex"
+    match "$name_hex" '^([0-9a-f][0-9a-f]){1,124}$' ||
+        name_hex=556e6e616d656420426c7565746f6f746820646576696365
+    connected=0
+    grep -Fx "$compact" "$tmp/connections" >/dev/null 2>&1 && connected=1
+    printf 'device=%s|%s|%s|%s\n' "$compact" "$name_hex" "$remembered" "$connected"
 done

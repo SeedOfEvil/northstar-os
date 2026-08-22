@@ -13,4 +13,7 @@ target_link_libraries(northstar-bluetooth PRIVATE
     northstar-bluetooth-core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::QuickControls2 northstar-ui)
 
 install(TARGETS northstar-bluetooth RUNTIME DESTINATION bin)
-install(PROGRAMS northstar-bluetooth-scan DESTINATION libexec)
+install(PROGRAMS
+    northstar-bluetooth-scan
+    northstar-bluetooth-configure
+    DESTINATION libexec)

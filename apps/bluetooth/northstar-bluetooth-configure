@@ -1,0 +1,177 @@
+#!/bin/sh
+set -eu
+EX_USAGE=64
+EX_DATAERR=65
+EX_UNAVAILABLE=69
+EX_NOPERM=77
+TEST_MODE=${NORTHSTAR_BLUETOOTH_TEST_MODE:-0}
+ROOT=${NORTHSTAR_BLUETOOTH_ROOT:-/}
+NODE=${NORTHSTAR_BLUETOOTH_NODE:-ubt0hci}
+HCCONTROL=${NORTHSTAR_BLUETOOTH_HCCONTROL_PATH:-/usr/sbin/hccontrol}
+SYSRC=${NORTHSTAR_BLUETOOTH_SYSRC_PATH:-/usr/sbin/sysrc}
+SERVICE=${NORTHSTAR_BLUETOOTH_SERVICE_PATH:-/usr/sbin/service}
+STAT=${NORTHSTAR_BLUETOOTH_STAT_PATH:-/usr/bin/stat}
+INSTALL=${NORTHSTAR_BLUETOOTH_INSTALL_PATH:-/usr/bin/install}
+fail() { status=$1; shift; printf 'ERROR: %s\n' "$*" >&2; exit "$status"; }
+match() { printf '%s\n' "$1" | grep -Eq "$2"; }
+root_path() { case "$ROOT" in /) printf '/%s' "$1";; *) printf '%s/%s' "${ROOT%/}" "$1";; esac; }
+usage() { printf '%s\n' 'Usage: northstar-bluetooth-configure --pair REQUEST'; exit "$EX_USAGE"; }
+unhex() {
+    value=$1
+    output=
+    while [ -n "$value" ]; do
+        pair=${value%${value#??}}
+        value=${value#??}
+        number=$((0x$pair))
+        output=$output$(printf "\\$(printf '%03o' "$number")")
+    done
+    printf '%s' "$output"
+}
+put_file() {
+    mode=$1
+    source=$2
+    target=$3
+    if [ "$TEST_MODE" = 1 ]; then
+        "$INSTALL" -m "$mode" "$source" "$target"
+    else
+        "$INSTALL" -o root -g wheel -m "$mode" "$source" "$target"
+    fi
+}
+
+[ "$#" -eq 2 ] && [ "$1" = --pair ] || usage
+if [ "$TEST_MODE" != 1 ]; then
+    [ "$ROOT" = / ] || fail "$EX_NOPERM" 'alternate roots are test-only'
+    [ "$(id -u)" -eq 0 ] || fail "$EX_NOPERM" 'protected Bluetooth configuration requires root'
+fi
+match "$NODE" '^ubt[0-9]+hci$' || fail "$EX_DATAERR" 'Bluetooth controller name is invalid'
+request=$2
+[ -f "$request" ] && [ ! -L "$request" ] && [ -r "$request" ] ||
+    fail "$EX_DATAERR" 'the Bluetooth request is missing or unsafe'
+if [ "$TEST_MODE" != 1 ]; then
+    caller=${PKEXEC_UID:-}
+    match "$caller" '^[0-9]+$' ||
+        fail "$EX_NOPERM" 'protected Bluetooth configuration requires a PolicyKit caller'
+    [ "$("$STAT" -f %u "$request")" = "$caller" ] &&
+        [ "$("$STAT" -f %Lp "$request")" = 600 ] ||
+        fail "$EX_NOPERM" 'the Bluetooth request has unsafe ownership or mode'
+fi
+
+protocol=
+address_hex=
+name_hex=
+count=0
+seen='|'
+while IFS='=' read -r key value || [ -n "${key:-}" ]; do
+    [ -n "${key:-}" ] || fail "$EX_DATAERR" 'the Bluetooth request contains a blank field'
+    case "$seen" in *"|$key|"*) fail "$EX_DATAERR" "the Bluetooth request repeats field: $key";; esac
+    seen="$seen$key|"
+    case "$key" in
+        protocol) protocol=$value;;
+        address_hex) address_hex=$value;;
+        name_hex) name_hex=$value;;
+        pin|password|secret|key) fail "$EX_DATAERR" 'credential material is forbidden in Bluetooth requests';;
+        *) fail "$EX_DATAERR" "the Bluetooth request contains an unknown field: $key";;
+    esac
+    count=$((count + 1))
+done < "$request"
+[ "$count" -eq 3 ] && [ "$protocol" = 1 ] ||
+    fail "$EX_DATAERR" 'the Bluetooth request protocol is invalid'
+match "$address_hex" '^[0-9a-f]{12}$' ||
+    fail "$EX_DATAERR" 'the selected Bluetooth address is invalid'
+match "$name_hex" '^([0-9a-f][0-9a-f]){1,124}$' ||
+    fail "$EX_DATAERR" 'the selected Bluetooth name is invalid'
+
+IFS= read -r pin || pin=
+match "$pin" '^[0-9]{4,16}$' ||
+    fail "$EX_DATAERR" 'the pairing PIN must contain 4 to 16 digits'
+printf '%s\n' NORTHSTAR_BLUETOOTH_AUTHORIZED=1
+
+address=$(printf '%s' "$address_hex" | sed 's/../&:/g;s/:$//')
+friendly=$(unhex "$name_hex" | LC_ALL=C tr -c '[:alnum:] .,_-' '_' | cut -c1-80)
+[ -n "$friendly" ] || friendly='Bluetooth device'
+alias=$(printf '%s' "$friendly" | tr ' ' '_' | cut -c1-80)
+hosts=$(root_path etc/bluetooth/hosts)
+config=$(root_path etc/bluetooth/hcsecd.conf)
+[ -d "${hosts%/*}" ] && [ -f "$config" ] && [ ! -L "$config" ] ||
+    fail "$EX_UNAVAILABLE" 'the Bluetooth configuration is unavailable'
+
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/northstar-bluetooth.XXXXXX")
+trap 'pin=; rm -rf "$tmp"' EXIT HUP INT TERM
+hosts_backup=$tmp/hosts.backup
+config_backup=$tmp/hcsecd.backup
+hosts_candidate=$tmp/hosts.candidate
+config_candidate=$tmp/hcsecd.candidate
+had_hosts=0
+if [ -f "$hosts" ] && [ ! -L "$hosts" ]; then
+    had_hosts=1
+    cp "$hosts" "$hosts_backup"
+    awk -v target="$address" 'tolower($1) != tolower(target) { print }' \
+        "$hosts" > "$hosts_candidate"
+else
+    : > "$hosts_candidate"
+fi
+printf '%s\t%s\n' "$address" "$alias" >> "$hosts_candidate"
+cp "$config" "$config_backup"
+awk -v target="$address" '
+function flush() {
+    lower=tolower(block)
+    pattern="bdaddr[[:space:]]+" tolower(target) "[[:space:]]*;"
+    if (lower !~ pattern) printf "%s", block
+    block=""
+    in_device=0
+}
+{
+    if (!in_device && $0 ~ /^[[:space:]]*device[[:space:]]*\{/) {
+        in_device=1
+        block=$0 ORS
+        next
+    }
+    if (in_device) {
+        block=block $0 ORS
+        if ($0 ~ /^[[:space:]]*\}[[:space:]]*$/) flush()
+        next
+    }
+    print
+}
+END { if (in_device) printf "%s", block }
+' "$config" > "$config_candidate"
+{
+    printf '\n# Managed by Northstar Bluetooth\n'
+    printf 'device {\n'
+    printf '\tbdaddr\t%s;\n' "$address"
+    printf '\tname\t"%s";\n' "$friendly"
+    printf '\tkey\tnokey;\n'
+    printf '\tpin\t"%s";\n' "$pin"
+    printf '}\n'
+} >> "$config_candidate"
+pin=
+
+rollback() {
+    put_file 0600 "$config_backup" "$config" >/dev/null 2>&1 || true
+    if [ "$had_hosts" -eq 1 ]; then
+        put_file 0644 "$hosts_backup" "$hosts" >/dev/null 2>&1 || true
+    else
+        rm -f "$hosts"
+    fi
+    "$SERVICE" hcsecd onerestart >/dev/null 2>&1 || true
+}
+put_file 0644 "$hosts_candidate" "$hosts" ||
+    fail "$EX_UNAVAILABLE" 'the Bluetooth hosts file could not be installed'
+put_file 0600 "$config_candidate" "$config" || {
+    rollback
+    fail "$EX_UNAVAILABLE" 'the Bluetooth pairing configuration could not be installed'
+}
+"$SYSRC" -R "$ROOT" hcsecd_enable=YES >/dev/null || {
+    rollback
+    fail "$EX_UNAVAILABLE" 'the Bluetooth pairing service could not be enabled'
+}
+"$SERVICE" hcsecd onerestart >/dev/null 2>&1 || {
+    rollback
+    fail "$EX_UNAVAILABLE" 'the Bluetooth pairing service could not be restarted'
+}
+"$HCCONTROL" -n "$NODE" create_connection "$address" >/dev/null 2>&1 ||
+"$HCCONTROL" -n "$NODE" create_connection "$address" 0xcc18 1 0 0 1 >/dev/null 2>&1 || {
+    rollback
+    fail "$EX_UNAVAILABLE" 'the selected device did not accept a Bluetooth connection'
+}
+printf '%s\n' NORTHSTAR_BLUETOOTH_PAIR_REQUEST=PASS

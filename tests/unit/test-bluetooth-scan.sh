@@ -11,15 +11,25 @@ cat > "$TMP/hccontrol" <<'EOF'
 case "$*" in
   "-n ubt0hci read_node_list") printf '%s\n' 'Name ID Num hooks' 'ubt0hci 1 3';;
   "-N -n ubt0hci inquiry") printf '%s\n' 'Inquiry result #0' '       BD_ADDR: aa:bb:cc:dd:ee:ff' 'Inquiry complete. Status: No error [00]';;
-  "-n ubt0hci remote_name_request aa:bb:cc:dd:ee:ff") printf '%s\n' 'BD_ADDR: aa:bb:cc:dd:ee:ff' 'Name: Test Keyboard';;
+  "-n ubt0hci read_connection_list") printf '%s\n' 'Remote BD_ADDR    Handle Type Mode Role Encrypt Pending Queue State' '11:22:33:44:55:66 41 ACL 0 MAST NONE 0 0 OPEN';;
+  "-n ubt0hci remote_name_request aa:bb:cc:dd:ee:ff") printf '%s\n' 'Name: Test Mouse';;
   *) exit 1;;
 esac
 EOF
 chmod +x "$TMP/hccontrol"
-out=$(env NORTHSTAR_BLUETOOTH_HCCONTROL_PATH="$TMP/hccontrol" sh "$HELPER")
-printf '%s\n' "$out" | grep -Fx 'NORTHSTAR_BLUETOOTH_SCAN=1' >/dev/null || fail 'scan marker missing'
-printf '%s\n' "$out" | grep -Fx 'device=aabbccddeeff|54657374204b6579626f617264' >/dev/null || fail 'device record was not encoded'
-if env NORTHSTAR_BLUETOOTH_HCCONTROL_PATH="$TMP/hccontrol" NORTHSTAR_BLUETOOTH_NODE='bad;node' sh "$HELPER" >/dev/null 2>&1; then
+printf '%s\t%s\n' '11:22:33:44:55:66' 'Test_Phone' > "$TMP/hosts"
+out=$(env NORTHSTAR_BLUETOOTH_HCCONTROL_PATH="$TMP/hccontrol" \
+    NORTHSTAR_BLUETOOTH_HOSTS_PATH="$TMP/hosts" sh "$HELPER")
+printf '%s\n' "$out" | grep -Fx 'NORTHSTAR_BLUETOOTH_SCAN=1' >/dev/null ||
+    fail 'scan marker missing'
+printf '%s\n' "$out" |
+    grep -Fx 'device=aabbccddeeff|54657374204d6f757365|0|0' >/dev/null ||
+    fail 'discoverable device record was not encoded'
+printf '%s\n' "$out" |
+    grep -Fx 'device=112233445566|546573745f50686f6e65|1|1' >/dev/null ||
+    fail 'remembered connected device state was not encoded'
+if env NORTHSTAR_BLUETOOTH_HCCONTROL_PATH="$TMP/hccontrol" \
+    NORTHSTAR_BLUETOOTH_NODE='bad;node' sh "$HELPER" >/dev/null 2>&1; then
     fail 'invalid controller name was accepted'
 fi
-printf '%s\n' 'PASS: Bluetooth scanner validates the controller and encodes device records'
+printf '%s\n' 'PASS: Bluetooth scanner reports discoverable, remembered, and connected device state'
