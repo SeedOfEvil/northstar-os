@@ -106,16 +106,16 @@ grep -F "'/var must belong to the root boot environment so package state rolls b
     printf 'FAIL: installed-image gate does not reject shared package state\n' >&2
     exit 1
 }
-grep -F 'northstar-image-proxmox.desktop' "$ASSEMBLER" >/dev/null || {
-    printf 'FAIL: image omits its explicit packaged-runtime session entry\n' >&2
+grep -F 'northstar-session-selector' "$ASSEMBLER" >/dev/null || {
+    printf 'FAIL: image omits hardware-aware session selection\n' >&2
     exit 1
 }
 grep -F 'rm -f "$MOUNT_ROOT/usr/local/share/xsessions/northstar-proxmox.desktop"' "$ASSEMBLER" >/dev/null || {
     printf 'FAIL: production image retains the ambiguous development fallback session\n' >&2
     exit 1
 }
-grep -F 'usr/local/share/xsessions/northstar-image-proxmox.desktop' "$EXECUTOR" >/dev/null || {
-    printf 'FAIL: installer does not validate the image-managed runtime session entry\n' >&2
+grep -F 'usr/local/share/northstar/image-sessions/northstar-image-proxmox.desktop' "$EXECUTOR" >/dev/null || {
+    printf 'FAIL: installer does not validate the immutable fallback session entry\n' >&2
     exit 1
 }
 grep -F 'image/session/northstar-image-session-x11' "$ASSEMBLER" >/dev/null || {
@@ -125,6 +125,21 @@ grep -F 'image/session/northstar-image-session-x11' "$ASSEMBLER" >/dev/null || {
 IMAGE_SESSION=$ROOT/image/session/northstar-image-session-x11
 grep -Fx 'xf86-input-libinput' "$ROOT/image/manifests/northstar-runtime-roots.txt" >/dev/null || {
     printf 'FAIL: image runtime roots omit the Proxmox Xorg input driver\n' >&2
+    exit 1
+}
+for intel_root in drm-66-kmod gpu-firmware-intel-kmod-kabylake wifi-firmware-iwlwifi-kmod-9000 xrandr; do
+    grep -Fx "$intel_root" "$ROOT/image/manifests/northstar-runtime-roots.txt" >/dev/null || {
+        printf 'FAIL: Intel Alpha runtime roots omit %s\n' "$intel_root" >&2
+        exit 1
+    }
+done
+grep -F 'kld_list="i915kms"' "$ASSEMBLER" >/dev/null || {
+    printf 'FAIL: image does not enable i915kms for the Intel Alpha lane\n' >&2
+    exit 1
+}
+grep -F 'SessionDir=/var/run/northstar/wayland-sessions' \
+    "$ROOT/config/sddm/northstar-proxmox.conf" >/dev/null || {
+    printf 'FAIL: SDDM does not consume hardware-selected Wayland sessions\n' >&2
     exit 1
 }
 grep -F 'NORTHSTAR_SESSION_BIN=/usr/local/bin/northstar-session' "$IMAGE_SESSION" >/dev/null || {
@@ -167,6 +182,8 @@ mv "$TMP_DIR/resolved/artifact-records.normalized" \
 
 printf 'stale northstar package\n' > "$TMP_DIR/runtime/packages/northstar-0.1.3-amd64.pkg"
 printf 'compat package\n' > "$TMP_DIR/runtime/packages/northstar-wayfire-nested-0.10.1.746bc7e.pkg"
+printf 'repaired sddm package\n' > "$TMP_DIR/runtime/packages/sddm-0.21.0.36_6.pkg"
+printf 'setxkbmap package\n' > "$TMP_DIR/runtime/packages/setxkbmap-1.3.5.pkg"
 {
     printf '%s|%s|%s|%s|%s|%s\n' \
         northstar-0.1.3-amd64.pkg \
@@ -178,6 +195,16 @@ printf 'compat package\n' > "$TMP_DIR/runtime/packages/northstar-wayfire-nested-
         "$(digest "$TMP_DIR/runtime/packages/northstar-wayfire-nested-0.10.1.746bc7e.pkg")" \
         "$(size "$TMP_DIR/runtime/packages/northstar-wayfire-nested-0.10.1.746bc7e.pkg")" \
         northstar-wayfire-nested 0.10.1.746bc7e x11-wm/northstar-wayfire-nested
+    printf '%s|%s|%s|%s|%s|%s\n' \
+        sddm-0.21.0.36_6.pkg \
+        "$(digest "$TMP_DIR/runtime/packages/sddm-0.21.0.36_6.pkg")" \
+        "$(size "$TMP_DIR/runtime/packages/sddm-0.21.0.36_6.pkg")" \
+        sddm 0.21.0.36_6 x11/sddm
+    printf '%s|%s|%s|%s|%s|%s\n' \
+        setxkbmap-1.3.5.pkg \
+        "$(digest "$TMP_DIR/runtime/packages/setxkbmap-1.3.5.pkg")" \
+        "$(size "$TMP_DIR/runtime/packages/setxkbmap-1.3.5.pkg")" \
+        setxkbmap 1.3.5 x11/setxkbmap
 } > "$TMP_DIR/runtime/runtime-package-records"
 
 cat > "$TMP_DIR/resolved/resolved-image-inputs.conf" <<EOF
@@ -195,7 +222,7 @@ cat > "$TMP_DIR/runtime/runtime-bundle.conf" <<EOF
 schema_version=1
 freebsd_abi=FreeBSD:15:amd64
 source_date_epoch=1781274780
-package_count=2
+package_count=4
 runtime_package_records_sha256=$(digest "$TMP_DIR/runtime/runtime-package-records")
 EOF
 
@@ -203,6 +230,30 @@ EOF
     --resolved-inputs "$TMP_DIR/resolved" --artifacts "$TMP_DIR/artifacts" \
     --runtime-bundle "$TMP_DIR/runtime" --output "$TMP_DIR/output" \
     --project-root "$TMP_DIR/project" --project-commit "$PROJECT_COMMIT" >/dev/null
+
+sed 's/|sddm|0\.21\.0\.36_6|x11\/sddm$/|sddm|0.21.0.36_3|x11\/sddm/' \
+    "$TMP_DIR/runtime/runtime-package-records" \
+    > "$TMP_DIR/runtime/runtime-package-records.old-sddm"
+mv "$TMP_DIR/runtime/runtime-package-records.old-sddm" \
+    "$TMP_DIR/runtime/runtime-package-records"
+sed -E "s/^runtime_package_records_sha256=.*/runtime_package_records_sha256=$(digest "$TMP_DIR/runtime/runtime-package-records")/" \
+    "$TMP_DIR/runtime/runtime-bundle.conf" > "$TMP_DIR/runtime/runtime-bundle.conf.old-sddm"
+mv "$TMP_DIR/runtime/runtime-bundle.conf.old-sddm" "$TMP_DIR/runtime/runtime-bundle.conf"
+if "$ASSEMBLER" --preflight \
+    --resolved-inputs "$TMP_DIR/resolved" --artifacts "$TMP_DIR/artifacts" \
+    --runtime-bundle "$TMP_DIR/runtime" --output "$TMP_DIR/old-sddm" \
+    --project-root "$TMP_DIR/project" --project-commit "$PROJECT_COMMIT" >/dev/null 2>&1; then
+    printf 'FAIL: assembler preflight accepted SDDM without the FreeBSD Wayland-session fix\n' >&2
+    exit 1
+fi
+sed 's/|sddm|0\.21\.0\.36_3|x11\/sddm$/|sddm|0.21.0.36_6|x11\/sddm/' \
+    "$TMP_DIR/runtime/runtime-package-records" \
+    > "$TMP_DIR/runtime/runtime-package-records.fixed-sddm"
+mv "$TMP_DIR/runtime/runtime-package-records.fixed-sddm" \
+    "$TMP_DIR/runtime/runtime-package-records"
+sed -E "s/^runtime_package_records_sha256=.*/runtime_package_records_sha256=$(digest "$TMP_DIR/runtime/runtime-package-records")/" \
+    "$TMP_DIR/runtime/runtime-bundle.conf" > "$TMP_DIR/runtime/runtime-bundle.conf.fixed-sddm"
+mv "$TMP_DIR/runtime/runtime-bundle.conf.fixed-sddm" "$TMP_DIR/runtime/runtime-bundle.conf"
 
 printf 'tampered\n' >> "$TMP_DIR/runtime/packages/northstar-0.1.3-amd64.pkg"
 if "$ASSEMBLER" --preflight \

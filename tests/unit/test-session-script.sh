@@ -144,6 +144,8 @@ export NORTHSTAR_SESSION_SHELL=$STUB_DIR/fake-shell
 export NORTHSTAR_SESSION_AUTH_AGENT=$STUB_DIR/fake-auth-agent
 export NORTHSTAR_SESSION_MAX_SHELL_RESTARTS=2
 export NORTHSTAR_SESSION_RESTART_DELAY=0
+export NORTHSTAR_SESSION_READY_DELAY=0
+export NORTHSTAR_SESSION_EARLY_EXIT_WINDOW=0
 export NORTHSTAR_SESSION_LOG_DIR=$LOG_DIR
 export NORTHSTAR_SESSION_LOCK_DIR=$TMP_DIR/lock
 export NORTHSTAR_SESSION_WAYLAND_DISPLAY=test-wayland
@@ -181,8 +183,97 @@ pass 'session enters exactly one D-Bus wrapper when requested'
 
 : > "$SHELL_COUNT"
 : > "$COMPOSITOR_EVENTS"
+SDDM_TMP=$TMP_DIR/sddm-tmp
+mkdir -p "$SDDM_TMP"
+XDG_RUNTIME_DIR=/var/run/xdg/test-user
+TMPDIR=$SDDM_TMP
+export XDG_RUNTIME_DIR TMPDIR
+NORTHSTAR_TEST_RUNTIME_DIR=$SDDM_TMP/northstar-runtime-$(id -u)
+export NORTHSTAR_TEST_RUNTIME_DIR
+export NORTHSTAR_SESSION_LOCK_DIR=$TMP_DIR/sddm-runtime-lock
+run_expect 0 sh "$ROOT/src/session/northstar-session"
+[ -d "$NORTHSTAR_TEST_RUNTIME_DIR" ] \
+    || fail 'SDDM runtime path was not replaced with a private directory'
+if find "$NORTHSTAR_TEST_RUNTIME_DIR" -maxdepth 1 \
+    -name '.northstar-write-probe.*' -print | grep -q .; then
+    fail 'runtime writability probe was retained'
+fi
+XDG_RUNTIME_DIR=$RUNTIME_DIR
+TMPDIR=$TMP_DIR
+NORTHSTAR_TEST_RUNTIME_DIR=$RUNTIME_DIR
+export XDG_RUNTIME_DIR TMPDIR NORTHSTAR_TEST_RUNTIME_DIR
+pass 'session replaces the unusable FreeBSD SDDM runtime path'
+
+: > "$SHELL_COUNT"
+: > "$COMPOSITOR_EVENTS"
+XDG_RUNTIME_DIR=/var/run/user/$(id -u)
+TMPDIR=$SDDM_TMP
+export XDG_RUNTIME_DIR TMPDIR
+NORTHSTAR_TEST_RUNTIME_DIR=$SDDM_TMP/northstar-runtime-$(id -u)
+export NORTHSTAR_TEST_RUNTIME_DIR
+export NORTHSTAR_SESSION_LOCK_DIR=$TMP_DIR/consolekit-runtime-lock
+run_expect 0 sh "$ROOT/src/session/northstar-session"
+[ -d "$NORTHSTAR_TEST_RUNTIME_DIR" ] \
+    || fail 'ConsoleKit runtime path was not replaced with a private directory'
+XDG_RUNTIME_DIR=$RUNTIME_DIR
+TMPDIR=$TMP_DIR
+NORTHSTAR_TEST_RUNTIME_DIR=$RUNTIME_DIR
+export XDG_RUNTIME_DIR TMPDIR NORTHSTAR_TEST_RUNTIME_DIR
+pass 'session replaces the unusable FreeBSD ConsoleKit runtime path'
+
+cat > "$STUB_DIR/early-clean-shell" <<'STUB'
+#!/bin/sh
+set -eu
+count=$(cat "$NORTHSTAR_TEST_SHELL_COUNT")
+count=$((count + 1))
+printf '%s\n' "$count" > "$NORTHSTAR_TEST_SHELL_COUNT"
+if [ "$count" -eq 1 ]; then
+    exit 0
+fi
+stop() {
+    exit 0
+}
+trap stop INT TERM HUP
+while :; do
+    sleep 1
+done
+STUB
+chmod 0755 "$STUB_DIR/early-clean-shell"
+
+: > "$SHELL_COUNT"
+: > "$COMPOSITOR_EVENTS"
+export NORTHSTAR_SESSION_SHELL=$STUB_DIR/early-clean-shell
+export NORTHSTAR_SESSION_EARLY_EXIT_WINDOW=10
+export NORTHSTAR_SESSION_MAX_SHELL_RESTARTS=2
+export NORTHSTAR_SESSION_LOCK_DIR=$TMP_DIR/early-clean-lock
+export NORTHSTAR_SESSION_LOG_DIR=$TMP_DIR/early-clean-logs
+sh "$ROOT/src/session/northstar-session" > "$TMP_DIR/early-clean-output.txt" 2>&1 &
+SESSION_PID=$!
+waited=0
+while ! grep -Fx '2' "$SHELL_COUNT" >/dev/null 2>&1 && [ "$waited" -lt 5 ]; do
+    sleep 1
+    waited=$((waited + 1))
+done
+grep -Fx '2' "$SHELL_COUNT" >/dev/null 2>&1 \
+    || fail 'early clean shell exit was not restarted'
+grep -F 'Shell exited cleanly after' "$TMP_DIR/early-clean-logs/session.log" >/dev/null \
+    || fail 'early clean shell restart was not recorded'
+kill -TERM "$SESSION_PID"
+if wait "$SESSION_PID"; then
+    :
+else
+    :
+fi
+SESSION_PID=
+export NORTHSTAR_SESSION_EARLY_EXIT_WINDOW=0
+pass 'session recovers from an early clean shell exit during output setup'
+
+: > "$SHELL_COUNT"
+: > "$COMPOSITOR_EVENTS"
 export NORTHSTAR_TEST_SHELL_ALWAYS_FAIL=1
+export NORTHSTAR_SESSION_SHELL=$STUB_DIR/fake-shell
 export NORTHSTAR_SESSION_MAX_SHELL_RESTARTS=1
+export NORTHSTAR_SESSION_LOG_DIR=$LOG_DIR
 export NORTHSTAR_SESSION_LOCK_DIR=$TMP_DIR/limit-lock
 run_expect 7 sh "$ROOT/src/session/northstar-session"
 [ "$(cat "$SHELL_COUNT")" = 2 ] || fail 'restart limit did not bound shell attempts'

@@ -269,6 +269,7 @@ awk '$2 == "/boot/efi" { found=1 } END { exit found ? 0 : 1 }' "$fstab" >/dev/nu
     && die 'installer media must disable inherited EFI automount'
 mkdir -p "$MOUNT_ROOT/usr/local/share/northstar/installer" "$MOUNT_ROOT/var/run/northstar-installer/source" \
     "$MOUNT_ROOT/etc/northstar" "$MOUNT_ROOT/usr/local/share/xsessions" \
+    "$MOUNT_ROOT/usr/local/share/northstar/image-sessions" \
     "$MOUNT_ROOT/usr/local/etc/sddm.conf.d" "$MOUNT_ROOT/usr/local/etc/polkit-1/rules.d"
 cp "$trust_key" "$MOUNT_ROOT/usr/local/share/northstar/installer/source-signing.pem"
 chown root:wheel "$MOUNT_ROOT/usr/local/share/northstar/installer/source-signing.pem"
@@ -296,6 +297,10 @@ export QT_QPA_PLATFORM=xcb
 export QT_QUICK_CONTROLS_STYLE=Basic
 export XDG_SESSION_TYPE=x11
 command -v xsetroot >/dev/null 2>&1 && xsetroot -solid '#07111f'
+if command -v xrandr >/dev/null 2>&1; then
+    xrandr --auto >/tmp/northstar-installer-xrandr.log 2>&1 || \
+        printf '%s\n' 'WARNING: could not select preferred display mode' >&2
+fi
 for agent in /usr/local/libexec/lxqt-policykit-agent /usr/local/bin/lxqt-policykit-agent; do
     if [ -x "$agent" ]; then
         "$agent" >/tmp/northstar-installer-policykit.log 2>&1 &
@@ -305,7 +310,7 @@ done
 exec /usr/local/libexec/northstar-installer
 EOF
 chmod 0555 "$MOUNT_ROOT/usr/local/bin/northstar-installer-session"
-cat > "$MOUNT_ROOT/usr/local/share/xsessions/northstar-installer.desktop" <<'EOF'
+cat > "$MOUNT_ROOT/usr/local/share/northstar/image-sessions/northstar-installer.desktop" <<'EOF'
 [Desktop Entry]
 Name=Northstar Installer
 Comment=Install Northstar from verified read-only media
@@ -331,7 +336,7 @@ polkit.addRule(function(action, subject) {
     }
 });
 EOF
-chmod 0444 "$MOUNT_ROOT/usr/local/share/xsessions/northstar-installer.desktop" \
+chmod 0444 "$MOUNT_ROOT/usr/local/share/northstar/image-sessions/northstar-installer.desktop" \
     "$MOUNT_ROOT/usr/local/etc/sddm.conf.d/40-northstar-installer-media.conf" \
     "$MOUNT_ROOT/usr/local/etc/polkit-1/rules.d/49-northstar-installer-media.rules"
 printf '%s\n' 'northstar-installer' > "$MOUNT_ROOT/etc/hostname"

@@ -1,7 +1,9 @@
 # Runtime roots for the first Northstar development QCOW2 image.
 # Dependencies are captured recursively from the accepted FreeBSD VM.
 dbus
+drm-66-kmod
 firefox
+gpu-firmware-intel-kmod-kabylake
 lxqt-policykit
 northstar
 pkg
@@ -12,9 +14,11 @@ sddm
 seatd
 sudo
 wayfire
+wifi-firmware-iwlwifi-kmod-9000
 xf86-input-libinput
 xf86-video-scfb
 xorg-server
 xauth
+xrandr
 xterm
 xwayland

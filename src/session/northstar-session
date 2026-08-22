@@ -19,6 +19,8 @@ SKIP_AUTH_AGENT=${NORTHSTAR_SESSION_SKIP_AUTH_AGENT:-0}
 MAX_SHELL_RESTARTS=${NORTHSTAR_SESSION_MAX_SHELL_RESTARTS:-3}
 RESTART_DELAY=${NORTHSTAR_SESSION_RESTART_DELAY:-1}
 READY_TIMEOUT=${NORTHSTAR_SESSION_READY_TIMEOUT:-10}
+READY_DELAY=${NORTHSTAR_SESSION_READY_DELAY:-1}
+EARLY_EXIT_WINDOW=${NORTHSTAR_SESSION_EARLY_EXIT_WINDOW:-10}
 SHELL_PID=
 COMPOSITOR_PID=
 AUTH_AGENT_PID=
@@ -44,6 +46,8 @@ Environment:
   NORTHSTAR_SESSION_SKIP_AUTH_AGENT=1 do not start a graphical PolicyKit agent
   NORTHSTAR_SESSION_MAX_SHELL_RESTARTS  crash restart limit (default: 3)
   NORTHSTAR_SESSION_READY_TIMEOUT     compositor socket wait in seconds (default: 10)
+  NORTHSTAR_SESSION_READY_DELAY       output settle delay after socket readiness (default: 1)
+  NORTHSTAR_SESSION_EARLY_EXIT_WINDOW restart clean shell exits inside this many seconds (default: 10)
   NORTHSTAR_SESSION_WAYLAND_DISPLAY   optional socket name override
   NORTHSTAR_SESSION_LOG_DIR           state/log directory
   NORTHSTAR_SESSION_LOCK_DIR          per-user lock directory
@@ -92,17 +96,51 @@ esac
 case "$READY_TIMEOUT" in
     ''|*[!0-9]*) die 'NORTHSTAR_SESSION_READY_TIMEOUT must be a non-negative integer' ;;
 esac
+case "$READY_DELAY" in
+    ''|*[!0-9]*) die 'NORTHSTAR_SESSION_READY_DELAY must be a non-negative integer' ;;
+esac
+case "$EARLY_EXIT_WINDOW" in
+    ''|*[!0-9]*) die 'NORTHSTAR_SESSION_EARLY_EXIT_WINDOW must be a non-negative integer' ;;
+esac
 case "$SKIP_AUTH_AGENT" in
     0|1) ;;
     *) die 'NORTHSTAR_SESSION_SKIP_AUTH_AGENT must be 0 or 1' ;;
 esac
 
-if [ -z "${XDG_RUNTIME_DIR:-}" ]; then
-    XDG_RUNTIME_DIR=${TMPDIR:-/tmp}/northstar-runtime-$(id -u)
-    mkdir -p "$XDG_RUNTIME_DIR"
-    chmod 0700 "$XDG_RUNTIME_DIR"
-    export XDG_RUNTIME_DIR
+# FreeBSD SDDM supplies /var/run/xdg/<user>, but wlroots cannot create its
+# wayland-N.lock files there after the PAM-managed handoff. Use Northstar's
+# private per-UID runtime directory for that known path and whenever no runtime
+# directory was supplied. Existing caller-provided directories remain valid.
+case "${XDG_RUNTIME_DIR:-}" in
+    ''|/var/run/xdg/*|/var/run/user/*)
+        XDG_RUNTIME_DIR=${TMPDIR:-/tmp}/northstar-runtime-$(id -u)
+        ;;
+esac
+case "$XDG_RUNTIME_DIR" in
+    /*) ;;
+    *) die 'XDG_RUNTIME_DIR must be an absolute path' ;;
+esac
+if [ -L "$XDG_RUNTIME_DIR" ]; then
+    die "XDG_RUNTIME_DIR must not be a symbolic link: $XDG_RUNTIME_DIR"
 fi
+if [ -e "$XDG_RUNTIME_DIR" ]; then
+    [ -d "$XDG_RUNTIME_DIR" ] \
+        || die "XDG_RUNTIME_DIR is not a directory: $XDG_RUNTIME_DIR"
+else
+    runtime_umask=$(umask)
+    umask 077
+    mkdir "$XDG_RUNTIME_DIR" \
+        || die "could not create XDG_RUNTIME_DIR: $XDG_RUNTIME_DIR"
+    umask "$runtime_umask"
+fi
+chmod 0700 "$XDG_RUNTIME_DIR" \
+    || die "could not secure XDG_RUNTIME_DIR: $XDG_RUNTIME_DIR"
+runtime_probe=$XDG_RUNTIME_DIR/.northstar-write-probe.$$
+if ! (umask 077 && : > "$runtime_probe"); then
+    die "XDG_RUNTIME_DIR is not writable: $XDG_RUNTIME_DIR"
+fi
+rm -f "$runtime_probe"
+export XDG_RUNTIME_DIR
 
 export XDG_CURRENT_DESKTOP=${XDG_CURRENT_DESKTOP:-Northstar}
 export XDG_SESSION_DESKTOP=${XDG_SESSION_DESKTOP:-Northstar}
@@ -331,6 +369,14 @@ fi
 write_status 'starting' 'compositor-started'
 log_message 'Compositor started; waiting for its Wayland socket'
 wait_for_wayland
+if [ "$READY_DELAY" -gt 0 ]; then
+    sleep "$READY_DELAY"
+    if ! kill -0 "$COMPOSITOR_PID" 2>/dev/null; then
+        FINAL_STATE=failed
+        FINAL_EVENT=compositor-exited-during-ready-delay
+        die 'compositor exited while waiting for outputs to settle'
+    fi
+fi
 write_status 'running' 'wayland-ready'
 log_message "Wayland socket ready: $WAYLAND_SOCKET (WAYLAND_DISPLAY=$WAYLAND_DISPLAY)"
 
@@ -363,6 +409,7 @@ while [ "$SHUTDOWN_REQUESTED" -eq 0 ]; do
     fi
 
     write_status 'running' 'shell-starting'
+    shell_started_at=$(date +%s)
     "$shell_path" >> "$SHELL_LOG" 2>&1 &
     SHELL_PID=$!
     write_status 'running' 'shell-started'
@@ -372,6 +419,8 @@ while [ "$SHUTDOWN_REQUESTED" -eq 0 ]; do
         shell_status=$?
     fi
     SHELL_PID=
+    shell_stopped_at=$(date +%s)
+    shell_runtime=$((shell_stopped_at - shell_started_at))
 
     if [ "$SHUTDOWN_REQUESTED" -ne 0 ]; then
         write_status 'stopping' 'end-session-requested'
@@ -387,7 +436,8 @@ while [ "$SHUTDOWN_REQUESTED" -eq 0 ]; do
         break
     fi
 
-    if [ "$shell_status" -eq 0 ]; then
+    if [ "$shell_status" -eq 0 ] \
+        && { [ "$EARLY_EXIT_WINDOW" -eq 0 ] || [ "$shell_runtime" -ge "$EARLY_EXIT_WINDOW" ]; }; then
         write_status 'stopping' 'shell-exited-normally'
         log_message 'Shell exited normally; ending the session'
         FINAL_STATE=stopped
@@ -405,8 +455,13 @@ while [ "$SHUTDOWN_REQUESTED" -eq 0 ]; do
     fi
 
     restart_count=$((restart_count + 1))
-    write_status 'restarting' 'shell-crashed'
-    log_message "Shell exited with status $shell_status; restart $restart_count/$MAX_SHELL_RESTARTS"
+    if [ "$shell_status" -eq 0 ]; then
+        write_status 'restarting' 'shell-exited-early'
+        log_message "Shell exited cleanly after ${shell_runtime}s during output setup; restart $restart_count/$MAX_SHELL_RESTARTS"
+    else
+        write_status 'restarting' 'shell-crashed'
+        log_message "Shell exited with status $shell_status; restart $restart_count/$MAX_SHELL_RESTARTS"
+    fi
     if [ "$RESTART_DELAY" -gt 0 ]; then
         sleep "$RESTART_DELAY"
     fi

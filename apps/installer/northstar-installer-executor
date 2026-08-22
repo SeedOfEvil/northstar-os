@@ -867,7 +867,12 @@ actual_runtime_manifest=$($SHA256 -q "$runtime_manifest" | tr '[:upper:]' '[:low
     || fail "$EX_DATAERR" 'installed runtime manifest digest does not match trusted media'
 for required_path in boot/loader.efi boot/loader.conf dev etc/fstab etc/passwd etc/rc.conf \
     usr/local/bin/northstar-session usr/local/bin/northstar-shell \
-    usr/local/share/xsessions/northstar-image-proxmox.desktop; do
+    usr/local/libexec/northstar-session-selector \
+    usr/local/etc/rc.d/northstar_session_selector \
+    usr/local/share/northstar/image-sessions/northstar.desktop \
+    usr/local/share/northstar/image-sessions/northstar-image-proxmox.desktop \
+    usr/local/share/northstar/image-sessions/northstar-first-boot.desktop \
+    usr/local/share/northstar/session/wayfire-native.ini; do
     [ -e "$mount_root/$required_path" ] && [ ! -L "$mount_root/$required_path" ] \
         || fail "$EX_DATAERR" "installed payload omits required path: $required_path"
 done
@@ -877,8 +882,14 @@ grep -Eq '^/dev/msdosfs/NSTAR_EFI[[:space:]]+/boot/efi[[:space:]]+msdosfs[[:spac
     "$mount_root/etc/fstab" || fail "$EX_DATAERR" 'installed payload does not mount the labeled EFI system partition'
 grep -Eq '^zfs_enable="?YES"?$' "$mount_root/etc/rc.conf" \
     || fail "$EX_DATAERR" 'installed payload does not enable ZFS services'
+grep -Eq '^kld_list="?i915kms"?$' "$mount_root/etc/rc.conf" \
+    || fail "$EX_DATAERR" 'installed payload does not enable the Intel DRM driver'
+grep -Eq '^northstar_session_selector_enable="?YES"?$' "$mount_root/etc/rc.conf" \
+    || fail "$EX_DATAERR" 'installed payload does not enable hardware-aware session selection'
 [ -x "$mount_root/usr/local/bin/northstar-session" ] \
     && [ -x "$mount_root/usr/local/bin/northstar-shell" ] \
+    && [ -x "$mount_root/usr/local/libexec/northstar-session-selector" ] \
+    && [ -x "$mount_root/usr/local/etc/rc.d/northstar_session_selector" ] \
     || fail "$EX_DATAERR" 'installed Northstar session executables are not executable'
 phase_done payload-verified
 

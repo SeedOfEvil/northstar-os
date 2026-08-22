@@ -147,6 +147,7 @@ contains image/scripts/assemble-installer-usb.sh 'installer media must disable i
 contains image/scripts/assemble-installer-usb.sh 'source QCOW2 changed during media assembly'
 contains image/scripts/assemble-installer-usb.sh 'host_disk_write=unsupported'
 contains image/scripts/assemble-installer-usb.sh 'subject.user == "northstar-installer"'
+contains image/scripts/assemble-installer-usb.sh 'usr/local/share/northstar/image-sessions/northstar-installer.desktop'
 contains image/scripts/assemble-installer-usb.sh 'installed_target_marker=excluded-from-payload'
 contains image/scripts/assemble-qcow2-image.sh 'runtime-manifest.conf'
 contains image/scripts/assemble-qcow2-image.sh 'northstar-rootfs-v1-$(printf '\''%s'\'' "$PROJECT_COMMIT" | cut -c1-12).txz'

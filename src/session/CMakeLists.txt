@@ -34,6 +34,7 @@ install(FILES
 )
 
 install(FILES
+    ${PROJECT_SOURCE_DIR}/config/wayfire-native.ini
     ${PROJECT_SOURCE_DIR}/config/wayfire-nested.ini
     DESTINATION share/northstar/session
 )

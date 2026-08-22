@@ -14,6 +14,7 @@ PROJECT_ROOT=
 PROJECT_COMMIT=
 BUILDER_MARKER=/etc/northstar/disposable-image-builder.conf
 DISK_SIZE_GB=16
+COMPRESSION_THREADS=5
 PREFLIGHT=0
 DEVELOPMENT_AUTOLOGIN=0
 STAGING=
@@ -31,6 +32,7 @@ usage() {
 Usage: assemble-qcow2-image.sh --resolved-inputs DIR --artifacts DIR \
   --runtime-bundle DIR --output NEW_DIRECTORY --project-root CLEAN_CHECKOUT \
   --project-commit FULL_COMMIT [--disk-size-gb 16] \
+  [--compression-threads 5] \
   [--builder-marker FILE] [--development-autologin] [--preflight]
 
 Preflight validates every immutable input without root or disk mutation.
@@ -74,6 +76,7 @@ while [ "$#" -gt 0 ]; do
         --project-commit) PROJECT_COMMIT=${2-}; shift 2 ;;
         --builder-marker) BUILDER_MARKER=${2-}; shift 2 ;;
         --disk-size-gb) DISK_SIZE_GB=${2-}; shift 2 ;;
+        --compression-threads) COMPRESSION_THREADS=${2-}; shift 2 ;;
         --development-autologin) DEVELOPMENT_AUTOLOGIN=1; shift ;;
         --preflight) PREFLIGHT=1; shift ;;
         --help|-h) usage; exit 0 ;;
@@ -116,6 +119,9 @@ required_value() {
 printf '%s\n' "$PROJECT_COMMIT" | grep -Eq '^[0-9a-f]{40}$' || die 'project commit must be a full lowercase Git revision'
 case "$DISK_SIZE_GB" in ''|*[!0-9]*) die 'disk size must be an integer GiB value' ;; esac
 [ "$DISK_SIZE_GB" -ge 12 ] && [ "$DISK_SIZE_GB" -le 64 ] || die 'disk size must be between 12 and 64 GiB'
+case "$COMPRESSION_THREADS" in ''|*[!0-9]*) die 'compression threads must be an integer' ;; esac
+[ "$COMPRESSION_THREADS" -ge 5 ] && [ "$COMPRESSION_THREADS" -le 32 ] \
+    || die 'compression threads must be between 5 and 32'
 PROJECT_ROOT=$(CDPATH= cd -- "$PROJECT_ROOT" && pwd)
 [ "$(git -C "$PROJECT_ROOT" rev-parse HEAD)" = "$PROJECT_COMMIT" ] || die 'project checkout HEAD does not match project commit'
 [ -z "$(git -C "$PROJECT_ROOT" status --porcelain)" ] || die 'project checkout is dirty'
@@ -184,6 +190,8 @@ primary_northstar_path=$ARTIFACTS/$primary_northstar_filename
 package_count=0
 northstar_found=0
 compat_found=0
+sddm_fixed=0
+setxkbmap_found=0
 while IFS='|' read -r filename digest size name version origin extra; do
     [ -z "$extra" ] || die 'runtime package record has extra fields'
     printf '%s\n' "$filename" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._+~,-]*\.pkg$' || die 'runtime package filename is unsafe'
@@ -200,11 +208,17 @@ while IFS='|' read -r filename digest size name version origin extra; do
         || die "runtime package size mismatch: $filename expected=$size actual=$actual_size"
     [ "$name" != northstar ] || northstar_found=1
     [ "$name" != northstar-wayfire-nested ] || compat_found=1
+    [ "$name:$version:$origin" != 'sddm:0.21.0.36_6:x11/sddm' ] || sddm_fixed=1
+    [ "$name:$version:$origin" != 'setxkbmap:1.3.5:x11/setxkbmap' ] || setxkbmap_found=1
     package_count=$((package_count + 1))
 done < "$runtime_records"
 [ "$package_count" -eq "$expected_package_count" ] || die 'runtime package count does not match its manifest'
 [ "$northstar_found" -eq 1 ] || die 'runtime bundle omits Northstar'
 [ "$compat_found" -eq 1 ] || die 'runtime bundle omits the scfb compatibility compositor'
+[ "$sddm_fixed" -eq 1 ] \
+    || die 'runtime bundle must contain sddm-0.21.0.36_6 with the FreeBSD Wayland-session fix'
+[ "$setxkbmap_found" -eq 1 ] \
+    || die 'runtime bundle must contain the setxkbmap-1.3.5 dependency required by repaired SDDM'
 actual_package_files=0
 for package_path in "$runtime_packages"/*.pkg; do
     [ -f "$package_path" ] || continue
@@ -219,7 +233,7 @@ fi
 
 [ "$(uname -s)" = FreeBSD ] || die 'QCOW2 assembly requires FreeBSD'
 [ "$(id -u)" -eq 0 ] || die 'QCOW2 assembly must run as root on the disposable builder'
-for command_name in cat chmod chown chroot devfs env gpart ln mdconfig mount mount_msdosfs mount_nullfs newfs_msdos pkg pkg-static pw qemu-img sysrc tar truncate umount zfs zpool; do
+for command_name in cat chmod chown chroot devfs env gpart ln mdconfig mount mount_msdosfs mount_nullfs newfs_msdos pkg pkg-static pw qemu-img sysrc tar truncate umount xz zfs zpool; do
     command -v "$command_name" >/dev/null 2>&1 || die "required builder command is unavailable: $command_name"
 done
 [ -f "$BUILDER_MARKER" ] && [ ! -L "$BUILDER_MARKER" ] || die 'disposable-builder marker is missing or unsafe'
@@ -386,6 +400,8 @@ seatd_enable="YES"
 sddm_enable="YES"
 sshd_enable="YES"
 zfs_enable="YES"
+kld_list="i915kms"
+northstar_session_selector_enable="YES"
 EOF
 cat > "$MOUNT_ROOT/boot/loader.conf" <<'EOF'
 zfs_load="YES"
@@ -398,16 +414,40 @@ mkdir -p "$MOUNT_ROOT/usr/local/etc/sddm.conf.d"
 cp "$PROJECT_ROOT/config/sddm/northstar-proxmox.conf" \
     "$MOUNT_ROOT/usr/local/etc/sddm.conf.d/20-northstar-proxmox.conf"
 mkdir -p "$MOUNT_ROOT/usr/local/share/xsessions"
+mkdir -p "$MOUNT_ROOT/usr/local/share/wayland-sessions"
+mkdir -p "$MOUNT_ROOT/usr/local/share/northstar/image-sessions"
+mkdir -p "$MOUNT_ROOT/usr/local/share/northstar/session"
+mkdir -p "$MOUNT_ROOT/usr/local/etc/rc.d"
 mkdir -p "$MOUNT_ROOT/usr/local/libexec"
-# The package's generic fallback entry supports source-level development where
-# Wayfire normally lives below ~/.local. Production images expose only the
-# image-managed entry with explicit packaged runtime paths, preventing SDDM
-# from offering two nearly identical sessions with different launch contracts.
+# SDDM reads only the boot-generated session directories configured above.
+# Keep immutable descriptors here so the selector can publish exactly the
+# native Wayland entry or the Proxmox fallback after DRM nodes are available.
 rm -f "$MOUNT_ROOT/usr/local/share/xsessions/northstar-proxmox.desktop"
+rm -f "$MOUNT_ROOT/usr/local/share/wayland-sessions/northstar.desktop"
 cp "$PROJECT_ROOT/image/session/northstar-image-session-x11" \
     "$MOUNT_ROOT/usr/local/libexec/northstar-image-session-x11"
 chmod 0555 "$MOUNT_ROOT/usr/local/libexec/northstar-image-session-x11"
-cat > "$MOUNT_ROOT/usr/local/share/xsessions/northstar-image-proxmox.desktop" <<'EOF'
+cp "$PROJECT_ROOT/image/session/northstar-session-selector" \
+    "$MOUNT_ROOT/usr/local/libexec/northstar-session-selector"
+cp "$PROJECT_ROOT/image/session/northstar-session-selector.rc" \
+    "$MOUNT_ROOT/usr/local/etc/rc.d/northstar_session_selector"
+chmod 0555 "$MOUNT_ROOT/usr/local/libexec/northstar-session-selector" \
+    "$MOUNT_ROOT/usr/local/etc/rc.d/northstar_session_selector"
+cp "$PROJECT_ROOT/config/wayfire-native.ini" \
+    "$MOUNT_ROOT/usr/local/share/northstar/session/wayfire-native.ini"
+chmod 0444 "$MOUNT_ROOT/usr/local/share/northstar/session/wayfire-native.ini"
+cat > "$MOUNT_ROOT/usr/local/share/northstar/image-sessions/northstar.desktop" <<'EOF'
+[Desktop Entry]
+Name=Northstar
+Comment=Northstar native DRM Wayland session
+Exec=/usr/local/bin/northstar-session
+TryExec=/usr/local/bin/northstar-session
+Type=Application
+DesktopNames=Northstar
+X-Northstar-Session-Mode=native
+X-Northstar-Image-Managed=true
+EOF
+cat > "$MOUNT_ROOT/usr/local/share/northstar/image-sessions/northstar-image-proxmox.desktop" <<'EOF'
 [Desktop Entry]
 Name=Northstar (Image Proxmox X11 fallback)
 Comment=Northstar image session with SDDM authorization recovery and explicit packaged runtime paths
@@ -418,6 +458,9 @@ DesktopNames=Northstar
 X-Northstar-Compatibility=proxmox-basic-vga
 X-Northstar-Image-Managed=true
 EOF
+cp "$MOUNT_ROOT/usr/local/share/xsessions/northstar-first-boot.desktop" \
+    "$MOUNT_ROOT/usr/local/share/northstar/image-sessions/northstar-first-boot.desktop"
+chmod 0444 "$MOUNT_ROOT/usr/local/share/northstar/image-sessions/"*.desktop
 if [ ! -e "$MOUNT_ROOT/usr/local/bin/sddm-greeter" ] && \
     [ -x "$MOUNT_ROOT/usr/local/bin/sddm-greeter-qt6" ]; then
     ln -s sddm-greeter-qt6 "$MOUNT_ROOT/usr/local/bin/sddm-greeter"
@@ -475,9 +518,13 @@ cp "$STAGING/runtime-manifest.conf" "$MOUNT_ROOT/var/db/northstar/runtime-manife
 chown root:wheel "$MOUNT_ROOT/var/db/northstar/runtime-manifest.conf"
 chmod 0444 "$MOUNT_ROOT/var/db/northstar/runtime-manifest.conf"
 installer_payload=$STAGING/northstar-rootfs-v1-$(printf '%s' "$PROJECT_COMMIT" | cut -c1-12).txz
-tar --one-file-system --numeric-owner -cJpf "$installer_payload" \
+installer_payload_tar=$STAGING/northstar-rootfs-v1-$(printf '%s' "$PROJECT_COMMIT" | cut -c1-12).tar
+tar --one-file-system --numeric-owner -cpf "$installer_payload_tar" \
     --exclude './boot/efi' --exclude './dev' --exclude './home' --exclude './tmp' \
     -C "$MOUNT_ROOT" .
+xz --threads="$COMPRESSION_THREADS" -6 --check=crc64 \
+    --stdout "$installer_payload_tar" > "$installer_payload"
+rm "$installer_payload_tar"
 installer_payload_sha256=$(file_sha256 "$installer_payload")
 installer_payload_size=$(file_size "$installer_payload")
 

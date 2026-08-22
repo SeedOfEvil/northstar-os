@@ -1,13 +1,13 @@
-# Accepted Northstar development-channel source lock.
-# Values match the PR 87 corrected package source for repository revision 83.
+# Northstar M6 Intel Alpha RC development-channel source lock.
+# Values match package 0.2.7 and signed repository revision 87.
 
 FREEBSD_RELEASE=15.1-RELEASE
 FREEBSD_ARCH=amd64
 
 PORTS_BRANCH=2026Q3
-PORTS_COMMIT=4b25b85e24de5b0b987376e95fc49f30dd1d00aa
+PORTS_COMMIT=e2df2f3b1ae51e64ea850e458fd33eb0d7c292ba
 
 QT_PACKAGE_VERSION=6.11.1
 WAYFIRE_PACKAGE_VERSION=0.10.1
 
-PROJECT_COMMIT=b728271af4112c8b484c7b414cb52b629651923f
+PROJECT_COMMIT=61b9b00618cf0f0221f3c5e4b82beb7cae0ca4ce

@@ -18,15 +18,22 @@ FAKE_ROOT=$TMP_DIR/root
 BIN=$TMP_DIR/bin
 mkdir -p "$FAKE_ROOT/usr/share/zoneinfo/America" \
     "$FAKE_ROOT/usr/share/zoneinfo/Pacific" "$FAKE_ROOT/etc" \
-    "$FAKE_ROOT/var/db" "$FAKE_ROOT/home" \
+    "$FAKE_ROOT/var/db" "$FAKE_ROOT/var/run/northstar" "$FAKE_ROOT/home" \
     "$FAKE_ROOT/usr/local/share/northstar/session" "$BIN"
 mkdir -p "$FAKE_ROOT/usr/local/share/xsessions"
 printf '%s\n' '[Desktop Entry]' \
     > "$FAKE_ROOT/usr/local/share/xsessions/northstar-first-boot.desktop"
+mkdir -p "$FAKE_ROOT/var/run/northstar/xsessions"
+printf '%s\n' '[Desktop Entry]' \
+    > "$FAKE_ROOT/var/run/northstar/xsessions/northstar-first-boot.desktop"
 printf 'zone\n' > "$FAKE_ROOT/usr/share/zoneinfo/America/Denver"
 printf 'zone\n' > "$FAKE_ROOT/usr/share/zoneinfo/Pacific/Auckland"
 printf '[output:WL-1]\nmode = 1280x800\n' \
     > "$FAKE_ROOT/usr/local/share/northstar/session/wayfire-nested.ini"
+printf '[core]\nplugins = ipc\n' \
+    > "$FAKE_ROOT/usr/local/share/northstar/session/wayfire-native.ini"
+printf '%s\n' 'schema_version=1' 'mode=native' \
+    > "$FAKE_ROOT/var/run/northstar/session-mode.conf"
 
 cat > "$BIN/pw" <<'EOF'
 #!/bin/sh
@@ -73,6 +80,10 @@ cat > "$BIN/cp" <<'EOF'
 #!/bin/sh
 exec /bin/cp "$@"
 EOF
+cat > "$BIN/session-selector" <<'EOF'
+#!/bin/sh
+printf '%s\n' session-selector >> "$NORTHSTAR_TEST_EVENTS"
+EOF
 chmod +x "$BIN"/*
 
 REQUEST=$TMP_DIR/request.conf
@@ -97,6 +108,7 @@ run_helper() {
         NORTHSTAR_FIRST_BOOT_CHMOD_PATH="$BIN/chmod" \
         NORTHSTAR_FIRST_BOOT_CP_PATH="$BIN/cp" \
         NORTHSTAR_FIRST_BOOT_RM_PATH=/bin/rm \
+        NORTHSTAR_FIRST_BOOT_SESSION_SELECTOR_PATH="$BIN/session-selector" \
         NORTHSTAR_TEST_FAIL_SYSRC="${NORTHSTAR_TEST_FAIL_SYSRC:-0}" \
         NORTHSTAR_TEST_EVENTS="$TMP_DIR/events" \
         sh "$HELPER" "$@"
@@ -167,13 +179,15 @@ grep -Fx 'status=complete' "$FAKE_ROOT/var/db/northstar/first-boot.conf" >/dev/n
     || fail 'completion marker is missing'
 grep -Fx 'administrator=hector' "$FAKE_ROOT/var/db/northstar/first-boot.conf" >/dev/null \
     || fail 'completion marker has wrong administrator'
+grep -Fx 'session_mode=native' "$FAKE_ROOT/var/db/northstar/first-boot.conf" >/dev/null \
+    || fail 'completion marker has wrong session mode'
 grep -F ':lang=en_US.UTF-8:' "$FAKE_ROOT/home/hector/.login_conf" >/dev/null \
     || fail 'user locale was not recorded'
 grep -Fx 'America/Denver' "$FAKE_ROOT/var/db/zoneinfo" >/dev/null \
     || fail 'timezone was not recorded'
-cmp "$FAKE_ROOT/usr/local/share/northstar/session/wayfire-nested.ini" \
+cmp "$FAKE_ROOT/usr/local/share/northstar/session/wayfire-native.ini" \
     "$FAKE_ROOT/home/hector/.config/wayfire.ini" >/dev/null \
-    || fail 'new administrator did not receive the Northstar Wayfire configuration'
+    || fail 'native administrator inherited the fallback Wayfire configuration'
 grep -Fx 'hector ALL=(ALL:ALL) ALL' \
     "$FAKE_ROOT/usr/local/etc/sudoers.d/northstar-first-administrator" >/dev/null \
     || fail 'new administrator did not receive persistent sudo authorization'
@@ -182,6 +196,10 @@ grep -Fx "chmod:0440 $FAKE_ROOT/usr/local/etc/sudoers.d/northstar-first-administ
     || fail 'first-administrator sudoers policy was not set to mode 0440'
 [ ! -e "$FAKE_ROOT/usr/local/share/xsessions/northstar-first-boot.desktop" ] \
     || fail 'successful provisioning retained the one-time SDDM session entry'
+[ ! -e "$FAKE_ROOT/var/run/northstar/xsessions/northstar-first-boot.desktop" ] \
+    || fail 'successful provisioning retained the runtime First Boot entry'
+grep -Fx session-selector "$TMP_DIR/events" >/dev/null \
+    || fail 'successful provisioning did not refresh the hardware session list'
 
 if printf '%s\n' 'another-password' | run_helper --apply "$REQUEST" >/dev/null 2>&1; then
     fail 'one-time setup was allowed to run twice'

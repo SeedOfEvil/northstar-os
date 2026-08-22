@@ -22,12 +22,16 @@ CHMOD_PATH=${NORTHSTAR_FIRST_BOOT_CHMOD_PATH:-/bin/chmod}
 CP_PATH=${NORTHSTAR_FIRST_BOOT_CP_PATH:-/bin/cp}
 RM_PATH=${NORTHSTAR_FIRST_BOOT_RM_PATH:-/bin/rm}
 ID_PATH=${NORTHSTAR_FIRST_BOOT_ID_PATH:-/usr/bin/id}
+SESSION_SELECTOR_PATH=${NORTHSTAR_FIRST_BOOT_SESSION_SELECTOR_PATH:-/usr/local/libexec/northstar-session-selector}
 MARKER_REL=var/db/northstar/first-boot.conf
 PENDING_REL=var/db/northstar/first-boot.pending
 AUTOLOGIN_REL=usr/local/etc/sddm.conf.d/30-northstar-first-boot-autologin.conf
 FIRST_BOOT_SESSION_REL=usr/local/share/xsessions/northstar-first-boot.desktop
+RUNTIME_FIRST_BOOT_SESSION_REL=var/run/northstar/xsessions/northstar-first-boot.desktop
 SETUP_USER=${NORTHSTAR_FIRST_BOOT_SETUP_USER:-northstar-setup}
-WAYFIRE_TEMPLATE_REL=usr/local/share/northstar/session/wayfire-nested.ini
+NATIVE_WAYFIRE_TEMPLATE_REL=usr/local/share/northstar/session/wayfire-native.ini
+FALLBACK_WAYFIRE_TEMPLATE_REL=usr/local/share/northstar/session/wayfire-nested.ini
+SESSION_MODE_REL=var/run/northstar/session-mode.conf
 SUDOERS_DIR_REL=usr/local/etc/sudoers.d
 SUDOERS_REL=$SUDOERS_DIR_REL/northstar-first-administrator
 
@@ -158,6 +162,7 @@ fi
 [ -x "$CHMOD_PATH" ] || fail "$EX_UNAVAILABLE" 'chmod is unavailable'
 [ -x "$CP_PATH" ] || fail "$EX_UNAVAILABLE" 'cp is unavailable'
 [ -x "$RM_PATH" ] || fail "$EX_UNAVAILABLE" 'rm is unavailable'
+[ -x "$SESSION_SELECTOR_PATH" ] || fail "$EX_UNAVAILABLE" 'session selector is unavailable'
 
 marker=$(root_path "$MARKER_REL")
 pending=$(root_path "$PENDING_REL")
@@ -228,7 +233,20 @@ printf 'me:\\\n\t:charset=UTF-8:\\\n\t:lang=%s:\n' "$locale" > "$login_conf"
 $CHOWN_PATH "$username:$username" "$login_conf"
 $CHMOD_PATH 0600 "$login_conf"
 
-wayfire_template=$(root_path "$WAYFIRE_TEMPLATE_REL")
+session_mode_file=$(root_path "$SESSION_MODE_REL")
+session_mode=fallback
+if [ -f "$session_mode_file" ] && [ ! -L "$session_mode_file" ]; then
+    detected_mode=$(sed -n 's/^mode=//p' "$session_mode_file")
+    case "$detected_mode" in
+        native|fallback) session_mode=$detected_mode ;;
+        *) fail "$EX_UNAVAILABLE" 'Northstar session mode is invalid' ;;
+    esac
+fi
+if [ "$session_mode" = native ]; then
+    wayfire_template=$(root_path "$NATIVE_WAYFIRE_TEMPLATE_REL")
+else
+    wayfire_template=$(root_path "$FALLBACK_WAYFIRE_TEMPLATE_REL")
+fi
 [ -f "$wayfire_template" ] && [ ! -L "$wayfire_template" ] \
     || fail "$EX_UNAVAILABLE" 'Northstar session configuration is unavailable'
 $CP_PATH "$wayfire_template" "$home/.config/wayfire.ini"
@@ -267,6 +285,7 @@ umask 077
     printf 'locale=%s\n' "$locale"
     printf 'timezone=%s\n' "$timezone"
     printf 'keyboard=%s\n' "$keyboard"
+    printf 'session_mode=%s\n' "$session_mode"
     printf '%s\n' 'status=complete'
 } > "$marker"
 $CHOWN_PATH root:wheel "$marker"
@@ -277,6 +296,15 @@ $RM_PATH -f "$pending"
 # the only production X11 fallback presented to the new administrator.
 if ! $RM_PATH -f "$(root_path "$FIRST_BOOT_SESSION_REL")"; then
     printf '%s\n' 'WARNING: the sealed first-boot session entry could not be removed' >&2
+fi
+if ! $RM_PATH -f "$(root_path "$RUNTIME_FIRST_BOOT_SESSION_REL")"; then
+    printf '%s\n' 'WARNING: the runtime first-boot session entry could not be removed' >&2
+fi
+# Refresh the generated SDDM directories after protected pending state is
+# removed. This keeps sealed First Boot out of the greeter and publishes the
+# hardware session from the now-settled DRM device tree.
+if ! "$SESSION_SELECTOR_PATH" >/dev/null; then
+    printf '%s\n' 'WARNING: the hardware session list could not be refreshed' >&2
 fi
 
 created=0

@@ -1,0 +1,130 @@
+#!/bin/sh
+
+# Publish exactly one production SDDM session for the hardware available at
+# this boot. Native Wayfire is selected only when both DRM primary and render
+# nodes exist; machines without DRM retain the explicit X11/pixman fallback.
+
+set -eu
+
+ROOT=${NORTHSTAR_SESSION_SELECTOR_ROOT:-/}
+TEST_MODE=${NORTHSTAR_SESSION_SELECTOR_TEST_MODE:-0}
+INSTALL_PATH=${NORTHSTAR_SESSION_SELECTOR_INSTALL_PATH:-/usr/bin/install}
+CP_PATH=${NORTHSTAR_SESSION_SELECTOR_CP_PATH:-/bin/cp}
+RM_PATH=${NORTHSTAR_SESSION_SELECTOR_RM_PATH:-/bin/rm}
+READLINK_PATH=${NORTHSTAR_SESSION_SELECTOR_READLINK_PATH:-/usr/bin/readlink}
+
+fail() {
+    printf 'ERROR: %s\n' "$1" >&2
+    exit 1
+}
+
+root_path() {
+    case "$ROOT" in
+        /) printf '/%s' "$1" ;;
+        *) printf '%s/%s' "${ROOT%/}" "$1" ;;
+    esac
+}
+
+[ "$TEST_MODE" = 1 ] || [ "$(id -u)" -eq 0 ] \
+    || fail 'session selection requires root'
+
+source_dir=$(root_path usr/local/share/northstar/image-sessions)
+x11_dir=$(root_path var/run/northstar/xsessions)
+wayland_dir=$(root_path var/run/northstar/wayland-sessions)
+state_dir=$(root_path var/run/northstar)
+native_source=$source_dir/northstar.desktop
+fallback_source=$source_dir/northstar-image-proxmox.desktop
+first_boot_source=$source_dir/northstar-first-boot.desktop
+installer_source=$source_dir/northstar-installer.desktop
+
+for required in "$native_source" "$fallback_source"; do
+    [ -f "$required" ] && [ ! -L "$required" ] \
+        || fail "session descriptor is missing or unsafe: $required"
+done
+
+if [ "$TEST_MODE" = 1 ]; then
+    mkdir -p "$state_dir" "$x11_dir" "$wayland_dir"
+    chmod 0755 "$state_dir" "$x11_dir" "$wayland_dir"
+else
+    "$INSTALL_PATH" -d -o root -g wheel -m 0755 "$state_dir" "$x11_dir" "$wayland_dir"
+fi
+"$RM_PATH" -f \
+    "$x11_dir/northstar-image-proxmox.desktop" \
+    "$x11_dir/northstar-first-boot.desktop" \
+    "$x11_dir/northstar-installer.desktop" \
+    "$wayland_dir/northstar.desktop"
+
+node_ready() {
+    candidate=$1
+    if [ -L "$candidate" ]; then
+        link_target=$($READLINK_PATH "$candidate" 2>/dev/null) || return 1
+        case "$link_target" in
+            ../drm/*)
+                device_number=${link_target##*/}
+                case "$device_number" in
+                    ''|*[!0-9]*) return 1 ;;
+                esac
+                ;;
+            *) return 1 ;;
+        esac
+    fi
+    if [ "$TEST_MODE" = 1 ]; then
+        [ -e "$candidate" ]
+    else
+        [ -c "$candidate" ]
+    fi
+}
+
+card_ready=0
+for candidate in "$(root_path dev/dri)"/card[0-9]*; do
+    if node_ready "$candidate"; then card_ready=1; break; fi
+done
+render_ready=0
+for candidate in "$(root_path dev/dri)"/renderD[0-9]*; do
+    if node_ready "$candidate"; then render_ready=1; break; fi
+done
+
+if [ "$card_ready" -eq 1 ] && [ "$render_ready" -eq 1 ]; then
+    mode=native
+    reason=drm-card-and-render-ready
+else
+    mode=fallback
+    reason=drm-card-or-render-unavailable
+fi
+
+installer_marker=$(root_path var/db/northstar/installer-media.conf)
+if [ -f "$installer_marker" ] && [ ! -L "$installer_marker" ]; then
+    [ -f "$installer_source" ] && [ ! -L "$installer_source" ] \
+        || fail 'installer session descriptor is missing or unsafe'
+    "$CP_PATH" "$installer_source" "$x11_dir/northstar-installer.desktop"
+    chmod 0444 "$x11_dir/northstar-installer.desktop"
+else
+    if [ "$mode" = native ]; then
+        "$CP_PATH" "$native_source" "$wayland_dir/northstar.desktop"
+        chmod 0444 "$wayland_dir/northstar.desktop"
+    else
+        "$CP_PATH" "$fallback_source" "$x11_dir/northstar-image-proxmox.desktop"
+        chmod 0444 "$x11_dir/northstar-image-proxmox.desktop"
+    fi
+
+    pending=$(root_path var/db/northstar/first-boot.pending)
+    if [ -f "$pending" ] && [ ! -L "$pending" ]; then
+        [ -f "$first_boot_source" ] && [ ! -L "$first_boot_source" ] \
+            || fail 'first-boot session descriptor is missing or unsafe'
+        "$CP_PATH" "$first_boot_source" "$x11_dir/northstar-first-boot.desktop"
+        chmod 0444 "$x11_dir/northstar-first-boot.desktop"
+    fi
+fi
+
+state_tmp=$state_dir/session-mode.conf.$$
+umask 022
+{
+    printf '%s\n' 'schema_version=1'
+    printf 'mode=%s\n' "$mode"
+    printf 'reason=%s\n' "$reason"
+} > "$state_tmp"
+chmod 0444 "$state_tmp"
+mv -f "$state_tmp" "$state_dir/session-mode.conf"
+
+printf 'NORTHSTAR_SESSION_MODE=%s\n' "$mode"
+printf 'NORTHSTAR_SESSION_REASON=%s\n' "$reason"
