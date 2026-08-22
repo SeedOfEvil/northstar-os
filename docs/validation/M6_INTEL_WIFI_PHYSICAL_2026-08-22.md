@@ -1,6 +1,6 @@
 # M6 Intel Wi-Fi physical follow-up - 2026-08-22
 
-Status: **PHYSICAL ASSOCIATION AND DHCP PASS - desktop detection passes; exact radio-control authorization fix is locally tested and physical toggle acceptance remains pending**
+Status: **PHYSICAL ASSOCIATION, DHCP, AND INSTALLED HELPER OFF/ON PASS - manual desktop click acceptance remains pending**
 
 This follow-up starts from merged Intel Alpha PR #116 at
 c20e3159f8cbc630abbb3e7e22e647242df51430. It records only privacy-bounded
@@ -75,6 +75,23 @@ it does not authorize raw ifconfig, service, arbitrary helper arguments, or
 general passwordless sudo. Isolated boundary and First Boot provisioning tests
 cover the fixed-word validation, pre-sudo refusal, root mutation path, absent
 hardware status, exact generated policy, ownership mode, and rollback behavior.
+
+## Installed helper lifecycle acceptance
+
+Commit 09a9d66 was installed as the root-owned production helper with SHA256
+32a7659cf55c9e71c64b20ca1756eae05b26da8a95fc22354a6f0199127c00d5.
+The exact unprivileged fixed-word boundary returned from Wi-Fi off in 0.05
+seconds and Wi-Fi on in 0.20 seconds, both below the desktop controller's 0.8
+second command timeout. Off removed carrier while leaving Ethernet and its
+default route intact. On raised the interface immediately, restarted WPA and
+DHCP asynchronously, and restored association plus the existing DHCP lease in
+two seconds. No credential, SSID, BSSID, MAC address, or lease address was
+captured in the committed evidence.
+
+This proves the installed privilege boundary and radio lifecycle on the
+physical Intel adapter. A manual click through each desktop surface remains
+the focused UI acceptance gate.
+
 ## Product gaps and remaining acceptance
 
 The image supplies the correct Intel firmware but does not yet turn a detected
@@ -88,11 +105,9 @@ validation records while it addresses or documents these boundaries. Before
 promotion, complete:
 
 1. reboot persistence: wlan0 is recreated, associates, and receives DHCP;
-2. dual-interface behavior with Ethernet still connected and preferred;
+2. manual Quick Settings and Settings clicks through the accepted helper;
 3. Ethernet-disconnected Wi-Fi routing and DNS without manual repair;
-4. Quick Settings and Settings status for the real associated adapter;
-5. Wi-Fi off/on through the installed fixed-argument privilege boundary; and
-6. recovery behavior for weak signal, wrong credentials, and unavailable
+4. recovery behavior for weak signal, wrong credentials, and unavailable
    networks without exposing the passphrase.
 
 No installer, First Boot, display/session, or USB test is reopened by this
