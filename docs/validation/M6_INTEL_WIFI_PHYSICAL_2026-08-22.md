@@ -1,6 +1,6 @@
 # M6 Intel Wi-Fi physical follow-up - 2026-08-22
 
-Status: **PHYSICAL ASSOCIATION, DHCP, INSTALLED HELPER, AND DESKTOP RADIO CONTROLS PASS - remaining promotion cases are explicit below**
+Status: **PHYSICAL ASSOCIATION, DHCP, REBOOT PERSISTENCE, INSTALLED HELPER, AND DESKTOP RADIO CONTROLS PASS - remaining promotion cases are explicit below**
 
 This follow-up starts from merged Intel Alpha PR #116 at
 c20e3159f8cbc630abbb3e7e22e647242df51430. It records only privacy-bounded
@@ -95,6 +95,16 @@ advanced Settings check box. A final read-only check confirmed wlan0 was up
 and associated, with Ethernet still providing the preferred default route.
 This closes the focused desktop-control acceptance gate on both surfaces.
 
+## Reboot persistence acceptance
+
+After a user-initiated reboot, a read-only check confirmed iwm0 remained the
+kernel wireless parent, wlans_iwm0 recreated wlan0, and ifconfig_wlan0 retained
+WPA SYNCDHCP. The interface returned up and associated with an IPv4 DHCP lease;
+wpa_supplicant and the wlan0 dhclient processes were running. Ethernet
+continued to own the preferred default route. The installed helper hash also
+remained unchanged. No network identifiers or lease address are included in
+this record.
+
 ## Product gaps and remaining acceptance
 
 The image supplies the correct Intel firmware but does not yet turn a detected
@@ -107,9 +117,8 @@ The follow-up must keep credentials out of logs, process evidence, source, and
 validation records while it addresses or documents these boundaries. Before
 promotion, complete:
 
-1. reboot persistence: wlan0 is recreated, associates, and receives DHCP;
-2. Ethernet-disconnected Wi-Fi routing and DNS without manual repair;
-3. recovery behavior for weak signal, wrong credentials, and unavailable
+1. Ethernet-disconnected Wi-Fi routing and DNS without manual repair;
+2. recovery behavior for weak signal, wrong credentials, and unavailable
    networks without exposing the passphrase.
 
 No installer, First Boot, display/session, or USB test is reopened by this
