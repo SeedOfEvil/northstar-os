@@ -34,6 +34,8 @@ signals:
     void networksChanged();
     void secretsCleared();
     void connectionFinished(bool success);
+    void authorizationPromptExpected();
+    void authorizationCompleted();
 
 private:
     enum class Operation { None, Scan, Connect };
@@ -49,6 +51,7 @@ private:
     QVariantList m_networks;
     Operation m_operation = Operation::None;
     bool m_busy = false;
+    bool m_authorizationPending = false;
     bool m_statusIsError = false;
     QString m_statusMessage;
 };

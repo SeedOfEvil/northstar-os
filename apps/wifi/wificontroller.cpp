@@ -28,6 +28,13 @@ WifiController::WifiController(QObject *parent)
             emit secretsCleared();
         }
     });
+    connect(m_process, &QProcess::readyReadStandardOutput, this, [this]() {
+        if (m_authorizationPending
+            && m_process->peek(512).contains("NORTHSTAR_WIFI_AUTHORIZED=1")) {
+            m_authorizationPending = false;
+            emit authorizationCompleted();
+        }
+    });
     connect(m_process, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
         if (error == QProcess::FailedToStart && m_busy) {
             clearBytes(m_pendingSecret);
@@ -99,6 +106,8 @@ bool WifiController::start(Operation operation, const QStringList &arguments)
     emit stateChanged();
     m_process->setProgram(program);
     m_process->setArguments(processArguments);
+    m_authorizationPending = true;
+    emit authorizationPromptExpected();
     m_process->start();
     return true;
 }
@@ -197,6 +206,10 @@ void WifiController::parseScan(const QByteArray &output)
 
 void WifiController::finish(bool success, const QString &message)
 {
+    if (m_authorizationPending) {
+        m_authorizationPending = false;
+        emit authorizationCompleted();
+    }
     m_busy = false;
     m_statusIsError = !success;
     m_statusMessage = message;

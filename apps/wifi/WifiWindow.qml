@@ -22,6 +22,12 @@ ApplicationWindow {
     Connections {
         target: wifiController
         function onSecretsCleared() { passwordField.text = "" }
+        function onAuthorizationPromptExpected() { root.hide() }
+        function onAuthorizationCompleted() {
+            root.show()
+            root.raise()
+            root.requestActivate()
+        }
         function onConnectionFinished(success) {
             if (success) wifiController.refreshNetworks()
         }

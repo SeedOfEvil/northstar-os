@@ -22,6 +22,7 @@ if [ "$TEST_MODE" != 1 ]; then
   [ "$ROOT" = / ] || fail "$EX_NOPERM" 'alternate roots are test-only'
   [ "$(id -u)" -eq 0 ] || fail "$EX_NOPERM" 'protected Wi-Fi configuration requires root'
 fi
+printf '%s\n' NORTHSTAR_WIFI_AUTHORIZED=1
 wlan() { "$IFCONFIG" -l 2>/dev/null | tr ' ' '\n' | grep -E '^wlan[0-9]+$' | head -1; }
 prepare() {
   iface=$(wlan)
