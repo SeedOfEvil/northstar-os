@@ -1,6 +1,6 @@
 # M6 Intel Alpha physical session correction — 2026-08-21
 
-Status: **R90 PHYSICAL INSTALL ACCEPTED — exact checksummed USB, installer/Setup, First Boot, and first-attempt Intel desktop login pass; focused logout/reboot evidence remains before merge**
+Status: **R90 PHYSICAL ACCEPTANCE COMPLETE — exact checksummed USB, installer/Setup, First Boot, first-attempt login, logout, reboot, and post-reboot native Intel session evidence pass; Proxmox fallback acceptance remains before merge**
 
 ## R90 integrated physical acceptance — 2026-08-22
 
@@ -17,11 +17,26 @@ login attempt. This is the first integrated-image confirmation of the repaired
 SDDM and hardware-aware session path; it replaces the earlier live-correction
 result as the installer acceptance candidate.
 
-The report closes the destructive installation, First Boot, and first-login
-gates. It does not by itself claim the remaining clean logout/reboot check or a
-post-install inspection of `mode=native`, DRM nodes, and the absence of an
-inherited `output:X11-1` stanza. Those focused checks remain required before a
-merge decision. Completed physical tests above must not be repeated.
+The report closed the destructive installation, First Boot, and first-login
+gates. The user subsequently confirmed that logout/login and a full reboot/login
+also returned to a stable desktop on the first attempt.
+
+Read-only SSH inspection after that reboot recorded:
+
+- selector `mode=native` with `reason=drm-card-and-render-ready`;
+- loaded `i915kms.ko` and `drm.ko`, with `/dev/dri/card0 -> ../drm/0` and
+  `/dev/dri/renderD128 -> ../drm/128`;
+- `sddm-0.21.0.36_6` and `setxkbmap-1.3.5` from the integrated runtime;
+- administrator membership in `video`;
+- no `[output:X11-1]` or `mode = 1280x800` inheritance in the administrator's
+  Wayfire configuration;
+- live `sddm-helper -> dbus-run-session -> northstar-session -> wayfire`
+  lineage; and
+- one Wayfire process with supervisor state `running`, shell present, and
+  `restart_count=0`.
+
+These observations complete the focused physical display/session merge gate.
+Completed physical tests above must not be repeated.
 
 ## R89 physical acceptance findings
 
@@ -175,9 +190,10 @@ provenance validation, file-backed storage reset, VirtIO interruption/retry,
 write. A complete disposable Proxmox install/First Boot/login check remains;
 Proxmox must report fallback mode.
 
-The exact checksummed USB has now passed preferred-mode installer sizing,
-installation, First Boot, and native desktop entry on the first login. The
-remaining physical merge evidence is selector state `native`, `i915kms` with
-both DRM nodes present, shell interaction, clean logout/reboot, and no inherited
-`output:X11-1` stanza. Wi-Fi configuration resumes only after those
-display/session checks pass. Do not merge this branch before that confirmation.
+The exact checksummed USB has passed preferred-mode installer sizing,
+installation, First Boot, native desktop entry on the first login, clean
+logout/reboot, selector state `native`, `i915kms` with both DRM nodes present,
+shell interaction, and the absence of an inherited `output:X11-1` stanza. The
+physical display/session gate is complete, so Wi-Fi configuration may resume.
+Do not merge until the remaining disposable Proxmox fallback acceptance is
+also recorded.
