@@ -244,7 +244,7 @@ ApplicationWindow {
 
         Label {
             Layout.fillWidth: true
-            text: "Current alpha profiles: discovery, pairing, connection state, and Classic HID setup. Phone audio and file transfer require separate profile services and are not claimed as connected features yet."
+            text: "Current alpha baseline: discovery, pairing setup, remembered state, and live baseband connection state. HID, phone audio, and file transfer require separate profile services and are not claimed yet."
             color: lunar.muted
             wrapMode: Text.WordWrap
         }
