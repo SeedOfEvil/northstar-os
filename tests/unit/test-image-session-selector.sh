@@ -17,6 +17,12 @@ cp "$ROOT/config/session/northstar-proxmox.desktop" \
     "$SOURCE/northstar-image-proxmox.desktop"
 cp "$ROOT/apps/first-boot/northstar-first-boot.desktop" \
     "$SOURCE/northstar-first-boot.desktop"
+cat > "$SOURCE/northstar-installer.desktop" <<'EOF'
+[Desktop Entry]
+Name=Northstar Installer
+Exec=/usr/local/bin/northstar-installer-session
+Type=XSession
+EOF
 printf '%s\n' 'status=pending' > "$FAKE_ROOT/var/db/northstar/first-boot.pending"
 
 run_selector() {
@@ -54,6 +60,23 @@ run_selector >/dev/null
     || fail 'sealed first-boot descriptor remained published'
 grep -Fx 'mode=fallback' "$FAKE_ROOT/var/run/northstar/session-mode.conf" >/dev/null \
     || fail 'missing render node did not return to fallback'
+
+mkdir -p "$FAKE_ROOT/dev/dri"
+printf '%s\n' card > "$FAKE_ROOT/dev/dri/card0"
+printf '%s\n' render > "$FAKE_ROOT/dev/dri/renderD128"
+printf '%s\n' 'purpose=northstar-installer-media' \
+    > "$FAKE_ROOT/var/db/northstar/installer-media.conf"
+run_selector >/dev/null
+[ -f "$FAKE_ROOT/var/run/northstar/xsessions/northstar-installer.desktop" ] \
+    || fail 'installer media session was not published'
+[ ! -e "$FAKE_ROOT/var/run/northstar/wayland-sessions/northstar.desktop" ] \
+    || fail 'native desktop session was exposed on installer media'
+[ ! -e "$FAKE_ROOT/var/run/northstar/xsessions/northstar-image-proxmox.desktop" ] \
+    || fail 'fallback desktop session was exposed on installer media'
+[ ! -e "$FAKE_ROOT/var/run/northstar/xsessions/northstar-first-boot.desktop" ] \
+    || fail 'first-boot session was exposed on installer media'
+grep -Fx 'mode=native' "$FAKE_ROOT/var/run/northstar/session-mode.conf" >/dev/null \
+    || fail 'installer media did not retain native hardware state'
 
 if grep -Eq '^\[output:' "$ROOT/config/wayfire-native.ini"; then
     fail 'native Wayfire configuration hardcodes an output'

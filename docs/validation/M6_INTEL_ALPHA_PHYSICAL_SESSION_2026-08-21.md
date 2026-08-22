@@ -1,6 +1,26 @@
 # M6 Intel Alpha physical session correction — 2026-08-21
 
-Status: **IMPLEMENTED AND PACKAGED — new RC and focused physical acceptance pending**
+Status: **R88 REJECTED — installer-session publication repair implemented; replacement RC and focused physical acceptance pending**
+
+## R88 USB rejection
+
+R88 passed raw-device checksum verification and booted its UEFI loader, kernel,
+and live ZFS root on the physical laptop. Its SSH host key differed from the
+installed system, independently confirming that firmware selected the USB even
+though the resulting screen resembled a normal Northstar boot.
+
+The media did not open the installer because the hardware-aware selector makes
+SDDM read only boot-generated session directories, while the USB assembler
+still placed `northstar-installer.desktop` in the former static X11 directory.
+The selector now recognizes the protected installer-media marker and publishes
+only the installer X11 session into SDDM's generated directory. Normal images
+continue to publish either native Wayland or the Proxmox X11 fallback, plus
+First Boot only while its pending marker exists. A focused regression fixture
+covers the installer override on DRM-capable hardware.
+
+R88 must not be used for installation. Its successfully checksummed USB write
+and boot proof remain valid evidence for media transport and UEFI boot only;
+they are not installer acceptance.
 
 This record continues the Intel Alpha installer candidate after the first
 successful installation on physical hardware. It does not repeat or replace

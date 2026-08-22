@@ -34,6 +34,7 @@ state_dir=$(root_path var/run/northstar)
 native_source=$source_dir/northstar.desktop
 fallback_source=$source_dir/northstar-image-proxmox.desktop
 first_boot_source=$source_dir/northstar-first-boot.desktop
+installer_source=$source_dir/northstar-installer.desktop
 
 for required in "$native_source" "$fallback_source"; do
     [ -f "$required" ] && [ ! -L "$required" ] \
@@ -49,6 +50,7 @@ fi
 "$RM_PATH" -f \
     "$x11_dir/northstar-image-proxmox.desktop" \
     "$x11_dir/northstar-first-boot.desktop" \
+    "$x11_dir/northstar-installer.desktop" \
     "$wayland_dir/northstar.desktop"
 
 node_ready() {
@@ -72,21 +74,33 @@ done
 if [ "$card_ready" -eq 1 ] && [ "$render_ready" -eq 1 ]; then
     mode=native
     reason=drm-card-and-render-ready
-    "$CP_PATH" "$native_source" "$wayland_dir/northstar.desktop"
-    chmod 0444 "$wayland_dir/northstar.desktop"
 else
     mode=fallback
     reason=drm-card-or-render-unavailable
-    "$CP_PATH" "$fallback_source" "$x11_dir/northstar-image-proxmox.desktop"
-    chmod 0444 "$x11_dir/northstar-image-proxmox.desktop"
 fi
 
-pending=$(root_path var/db/northstar/first-boot.pending)
-if [ -f "$pending" ] && [ ! -L "$pending" ]; then
-    [ -f "$first_boot_source" ] && [ ! -L "$first_boot_source" ] \
-        || fail 'first-boot session descriptor is missing or unsafe'
-    "$CP_PATH" "$first_boot_source" "$x11_dir/northstar-first-boot.desktop"
-    chmod 0444 "$x11_dir/northstar-first-boot.desktop"
+installer_marker=$(root_path var/db/northstar/installer-media.conf)
+if [ -f "$installer_marker" ] && [ ! -L "$installer_marker" ]; then
+    [ -f "$installer_source" ] && [ ! -L "$installer_source" ] \
+        || fail 'installer session descriptor is missing or unsafe'
+    "$CP_PATH" "$installer_source" "$x11_dir/northstar-installer.desktop"
+    chmod 0444 "$x11_dir/northstar-installer.desktop"
+else
+    if [ "$mode" = native ]; then
+        "$CP_PATH" "$native_source" "$wayland_dir/northstar.desktop"
+        chmod 0444 "$wayland_dir/northstar.desktop"
+    else
+        "$CP_PATH" "$fallback_source" "$x11_dir/northstar-image-proxmox.desktop"
+        chmod 0444 "$x11_dir/northstar-image-proxmox.desktop"
+    fi
+
+    pending=$(root_path var/db/northstar/first-boot.pending)
+    if [ -f "$pending" ] && [ ! -L "$pending" ]; then
+        [ -f "$first_boot_source" ] && [ ! -L "$first_boot_source" ] \
+            || fail 'first-boot session descriptor is missing or unsafe'
+        "$CP_PATH" "$first_boot_source" "$x11_dir/northstar-first-boot.desktop"
+        chmod 0444 "$x11_dir/northstar-first-boot.desktop"
+    fi
 fi
 
 state_tmp=$state_dir/session-mode.conf.$$
