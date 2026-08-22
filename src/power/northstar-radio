@@ -7,15 +7,17 @@
 # resolves the interface itself, so no caller-supplied string ever reaches
 # ifconfig, service, or sudo.
 #
-# The current development VM authorizes sudo non-interactively. Production
-# installs should replace this with a root-owned helper and a narrow policy
-# allowing only these exact actions.
+# The installed root-owned helper re-enters itself through sudo only after the
+# two fixed words have been validated. First Boot authorizes only the four
+# exact installed-helper invocations, never raw ifconfig or service commands.
 
 set -eu
 
-SUDO=/usr/local/bin/sudo
-IFCONFIG=/sbin/ifconfig
-SERVICE=/usr/sbin/service
+SUDO=${NORTHSTAR_RADIO_SUDO_PATH:-/usr/local/bin/sudo}
+IFCONFIG=${NORTHSTAR_RADIO_IFCONFIG_PATH:-/sbin/ifconfig}
+SERVICE=${NORTHSTAR_RADIO_SERVICE_PATH:-/usr/sbin/service}
+ID=${NORTHSTAR_RADIO_ID_PATH:-/usr/bin/id}
+SELF=${NORTHSTAR_RADIO_SELF_PATH:-/usr/local/bin/northstar-radio}
 
 usage_error=64
 unavailable=69
@@ -27,6 +29,15 @@ case "$2" in
     *) exit "$usage_error" ;;
 esac
 
+case "$1" in
+    wifi|bluetooth) ;;
+    *) exit "$usage_error" ;;
+esac
+
+if [ "$("$ID" -u)" -ne 0 ]; then
+    exec "$SUDO" -n "$SELF" "$1" "$2"
+fi
+
 # The first wireless interface the kernel reports. Never an argument.
 wireless_interface() {
     "$IFCONFIG" -l 2>/dev/null | tr ' ' '\n' | grep -E '^wlan[0-9]+$' | head -1
@@ -37,21 +48,18 @@ case "$1" in
         interface=$(wireless_interface)
         [ -n "$interface" ] || exit "$unavailable"
         if [ "$2" = on ]; then
-            exec "$SUDO" -n "$IFCONFIG" "$interface" up
+            exec "$IFCONFIG" "$interface" up
         else
-            exec "$SUDO" -n "$IFCONFIG" "$interface" down
+            exec "$IFCONFIG" "$interface" down
         fi
         ;;
     bluetooth)
         # The stack is started and stopped as a whole; there is no per-device
         # enable that survives a controller reset.
         if [ "$2" = on ]; then
-            exec "$SUDO" -n "$SERVICE" bluetooth start
+            exec "$SERVICE" bluetooth start
         else
-            exec "$SUDO" -n "$SERVICE" bluetooth stop
+            exec "$SERVICE" bluetooth stop
         fi
-        ;;
-    *)
-        exit "$usage_error"
         ;;
 esac

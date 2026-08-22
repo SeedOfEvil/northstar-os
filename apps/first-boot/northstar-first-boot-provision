@@ -258,6 +258,7 @@ $INSTALL_PATH -d -o root -g wheel -m 0750 "$sudoers_dir"
 sudoers=$(root_path "$SUDOERS_REL")
 umask 077
 printf '%s ALL=(ALL:ALL) ALL\n' "$username" > "$sudoers"
+printf '%s ALL=(root) NOPASSWD: /usr/local/bin/northstar-radio wifi on, /usr/local/bin/northstar-radio wifi off, /usr/local/bin/northstar-radio bluetooth on, /usr/local/bin/northstar-radio bluetooth off\n' "$username" >> "$sudoers"
 $CHOWN_PATH root:wheel "$sudoers"
 $CHMOD_PATH 0440 "$sudoers"
 sudoers_created=1

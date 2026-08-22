@@ -1,6 +1,6 @@
 # M6 Intel Wi-Fi physical follow-up - 2026-08-22
 
-Status: **PHYSICAL ASSOCIATION AND DHCP PASS - persistence, dual-interface routing, and desktop-control acceptance pending**
+Status: **PHYSICAL ASSOCIATION AND DHCP PASS - desktop detection passes; exact radio-control authorization fix is locally tested and physical toggle acceptance remains pending**
 
 This follow-up starts from merged Intel Alpha PR #116 at
 c20e3159f8cbc630abbb3e7e22e647242df51430. It records only privacy-bounded
@@ -55,6 +55,26 @@ the active SSH/control path. The successful wireless DHCP exchange and direct
 LAN reachability prove the Wi-Fi data path independently of the wired default
 route.
 
+## Desktop control evidence and refusal
+
+With both Ethernet and Wi-Fi active, Quick Settings reported the redacted
+network as connected and Settings exposed Wi-Fi as an available checked
+control. This closes real-hardware detection, the FreeBSD associated-status
+interpretation, and agreement between the two surfaces.
+
+Clicking either control was refused. Read-only inspection showed that the
+root-owned installed northstar-radio helper ran sudo -n for raw ifconfig, while
+the production administrator had only password-required general sudo. The
+failure is therefore the previously documented unfinished production privilege
+boundary, not a radio, association, or controller-state failure.
+
+The follow-up changes the fixed helper to validate wifi|bluetooth plus on|off
+before re-entering the exact root-owned installed helper through sudo. First
+Boot adds NOPASSWD authorization for only the four exact helper invocations;
+it does not authorize raw ifconfig, service, arbitrary helper arguments, or
+general passwordless sudo. Isolated boundary and First Boot provisioning tests
+cover the fixed-word validation, pre-sudo refusal, root mutation path, absent
+hardware status, exact generated policy, ownership mode, and rollback behavior.
 ## Product gaps and remaining acceptance
 
 The image supplies the correct Intel firmware but does not yet turn a detected
