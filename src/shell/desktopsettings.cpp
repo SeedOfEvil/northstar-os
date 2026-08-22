@@ -336,7 +336,7 @@ void registerDesktopSettings(SettingsCatalog *catalog,
     SettingsCatalog::Entry chooseWifi;
     chooseWifi.id = QStringLiteral("network.choose");
     chooseWifi.section = QStringLiteral("network");
-    chooseWifi.title = QStringLiteral("Choose wireless network");
+    chooseWifi.title = QStringLiteral("Choose Wi-Fi network");
     chooseWifi.description = QStringLiteral("Scan nearby networks and connect with a protected password prompt.");
     chooseWifi.keywords = QStringList{QStringLiteral("wifi"), QStringLiteral("wireless"),
                                       QStringLiteral("ssid"), QStringLiteral("connect"),
