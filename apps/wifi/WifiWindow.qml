@@ -89,6 +89,12 @@ ApplicationWindow {
                             elide: Text.ElideRight
                         }
                         Label {
+                            visible: modelData.connected
+                            text: "Connected"
+                            color: lunar.accent
+                            font.bold: true
+                        }
+                        Label {
                             text: modelData.secured ? "Secured" : "Open"
                             color: lunar.muted
                         }

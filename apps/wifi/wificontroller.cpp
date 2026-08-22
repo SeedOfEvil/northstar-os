@@ -46,9 +46,14 @@ WifiController::WifiController(QObject *parent)
         if (exitStatus == QProcess::NormalExit && exitCode == 0) {
             if (completed == Operation::Scan) {
                 parseScan(output);
-                finish(true, m_networks.isEmpty()
-                    ? QStringLiteral("No visible wireless networks were found.")
-                    : QStringLiteral("Found %1 wireless network(s).").arg(m_networks.size()));
+                const auto connected = std::find_if(m_networks.cbegin(), m_networks.cend(),
+                    [](const QVariant &network) {
+                        return network.toMap().value(QStringLiteral("connected")).toBool();
+                    });
+                finish(true, connected != m_networks.cend()
+                    ? QStringLiteral("Connected to %1.").arg(connected->toMap().value(QStringLiteral("ssid")).toString())
+                    : m_networks.isEmpty() ? QStringLiteral("No visible wireless networks were found.")
+                                           : QStringLiteral("Found %1 wireless network(s).").arg(m_networks.size()));
             } else {
                 finish(true, QStringLiteral("Connected. Wi-Fi is ready to use."));
                 emit connectionFinished(true);
@@ -151,6 +156,13 @@ void WifiController::parseScan(const QByteArray &output)
     QVariantList parsed;
     QHash<QString, QVariantMap> strongest;
     const QList<QByteArray> lines = output.split('\n');
+    QString connectedHex;
+    for (const QByteArray &line : lines) {
+        if (line.startsWith("connected=")) {
+            const QString candidate = QString::fromLatin1(line.mid(10));
+            if (SsidHexPattern.match(candidate).hasMatch()) connectedHex = candidate;
+        }
+    }
     for (const QByteArray &line : lines) {
         if (!line.startsWith("network=")) continue;
         const QList<QByteArray> fields = line.mid(8).split('|');
@@ -167,12 +179,15 @@ void WifiController::parseScan(const QByteArray &output)
                                {QStringLiteral("ssidHex"), hex},
                                {QStringLiteral("security"), security},
                                {QStringLiteral("secured"), security == QStringLiteral("secured")},
+                               {QStringLiteral("connected"), hex == connectedHex},
                                {QStringLiteral("signal"), signal}};
         if (!strongest.contains(hex) || strongest.value(hex).value(QStringLiteral("signal")).toInt() < signal)
             strongest.insert(hex, item);
     }
     QList<QVariantMap> items = strongest.values();
     std::sort(items.begin(), items.end(), [](const QVariantMap &a, const QVariantMap &b) {
+        if (a.value(QStringLiteral("connected")).toBool() != b.value(QStringLiteral("connected")).toBool())
+            return a.value(QStringLiteral("connected")).toBool();
         return a.value(QStringLiteral("signal")).toInt() > b.value(QStringLiteral("signal")).toInt();
     });
     for (const QVariantMap &item : items) parsed.append(item);

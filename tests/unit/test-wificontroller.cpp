@@ -21,7 +21,7 @@ static QString writeHelper(QTemporaryDir &directory)
     file.write(
         "#!/bin/sh\n"
         "case \"$1\" in\n"
-        "  --scan) printf '%s\\n' NORTHSTAR_WIFI_SCAN=1 "
+        "  --scan) printf '%s\\n' NORTHSTAR_WIFI_SCAN=1 'connected=54657374204e6574' "
         "'network=43616665|open|-75' "
         "'network=54657374204e6574|secured|-60' "
         "'network=54657374204e6574|secured|-42';;\n"
@@ -47,6 +47,8 @@ void WifiControllerTest::scansAndSortsNetworks()
     QCOMPARE(controller.networks().first().toMap().value(QStringLiteral("ssid")).toString(),
              QStringLiteral("Test Net"));
     QCOMPARE(controller.networks().first().toMap().value(QStringLiteral("signal")).toInt(), -42);
+    QVERIFY(controller.networks().first().toMap().value(QStringLiteral("connected")).toBool());
+    QCOMPARE(controller.statusMessage(), QStringLiteral("Connected to Test Net."));
     QVERIFY(!controller.statusIsError());
     qunsetenv("NORTHSTAR_WIFI_AUTH_COMMAND");
 }

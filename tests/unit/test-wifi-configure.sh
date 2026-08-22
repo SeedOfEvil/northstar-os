@@ -27,7 +27,7 @@ if [ "$#" -ge 3 ] && [ "$2" = list ] && [ "$3" = scan ]; then
   printf '%s\n' 'SSID/MESH ID    BSSID              CHAN RATE    S:N     INT CAPS' 'Test Net        aa:bb:cc:dd:ee:ff    1   54M -42:-95 100 RSN' 'Cafe            11:22:33:44:55:66    6   54M -70:-95 100'
   exit
 fi
-if [ "$#" -eq 1 ] && [ "$NORTHSTAR_TEST_ASSOCIATED" = yes ]; then printf '%s\n' 'wlan0: flags=8843<UP,RUNNING>' '    inet 192.0.2.10 netmask 0xffffff00' '    status: associated'; exit; fi
+if [ "$#" -eq 1 ] && [ "$NORTHSTAR_TEST_ASSOCIATED" = yes ]; then printf '%s\n' 'wlan0: flags=8843<UP,RUNNING>' '    ssid Test Net channel 1 (2412 MHz 11g)' '    inet 192.0.2.10 netmask 0xffffff00' '    status: associated'; exit; fi
 printf 'ifconfig:%s\n' "$*" >> "$NORTHSTAR_TEST_EVENTS"
 EOF
 cat > "$TMP/bin/service" <<'EOF'
@@ -52,6 +52,7 @@ run(){
 : > "$TMP/events"
 scan=$(run --scan)
 printf '%s\n' "$scan" | grep -Fx 'NORTHSTAR_WIFI_SCAN=1' >/dev/null || fail 'scan protocol marker missing'
+printf '%s\n' "$scan" | grep -Fx 'connected=54657374204e6574' >/dev/null || fail 'connected network marker missing'
 printf '%s\n' "$scan" | grep -Fx 'network=54657374204e6574|secured|-42' >/dev/null || fail 'secured network was not safely encoded'
 printf '%s\n' "$scan" | grep -Fx 'network=43616665|open|-70' >/dev/null || fail 'open network was not safely encoded'
 grep -F 'wlans_iwm0=wlan0' "$TMP/events" >/dev/null || fail 'wireless clone was not persisted'
