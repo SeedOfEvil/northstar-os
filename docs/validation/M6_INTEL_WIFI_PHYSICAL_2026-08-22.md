@@ -1,6 +1,6 @@
 # M6 Intel Wi-Fi physical follow-up - 2026-08-22
 
-Status: **PHYSICAL ASSOCIATION, DHCP, AND INSTALLED HELPER OFF/ON PASS - manual desktop click acceptance remains pending**
+Status: **PHYSICAL ASSOCIATION, DHCP, INSTALLED HELPER, AND DESKTOP RADIO CONTROLS PASS - remaining promotion cases are explicit below**
 
 This follow-up starts from merged Intel Alpha PR #116 at
 c20e3159f8cbc630abbb3e7e22e647242df51430. It records only privacy-bounded
@@ -89,8 +89,11 @@ two seconds. No credential, SSID, BSSID, MAC address, or lease address was
 captured in the committed evidence.
 
 This proves the installed privilege boundary and radio lifecycle on the
-physical Intel adapter. A manual click through each desktop surface remains
-the focused UI acceptance gate.
+physical Intel adapter. The user then manually toggled Wi-Fi down and back up
+from Quick Settings without the prior refusal, and enabled it from the
+advanced Settings check box. A final read-only check confirmed wlan0 was up
+and associated, with Ethernet still providing the preferred default route.
+This closes the focused desktop-control acceptance gate on both surfaces.
 
 ## Product gaps and remaining acceptance
 
@@ -105,9 +108,8 @@ validation records while it addresses or documents these boundaries. Before
 promotion, complete:
 
 1. reboot persistence: wlan0 is recreated, associates, and receives DHCP;
-2. manual Quick Settings and Settings clicks through the accepted helper;
-3. Ethernet-disconnected Wi-Fi routing and DNS without manual repair;
-4. recovery behavior for weak signal, wrong credentials, and unavailable
+2. Ethernet-disconnected Wi-Fi routing and DNS without manual repair;
+3. recovery behavior for weak signal, wrong credentials, and unavailable
    networks without exposing the passphrase.
 
 No installer, First Boot, display/session, or USB test is reopened by this
