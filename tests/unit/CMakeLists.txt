@@ -249,6 +249,13 @@ target_link_libraries(test-firstbootcontroller
 )
 
 add_test(NAME northstar-firstbootcontroller COMMAND test-firstbootcontroller)
+qt_add_executable(test-wificontroller test-wificontroller.cpp)
+target_link_libraries(test-wificontroller PRIVATE northstar-wifi-core Qt6::Test)
+add_test(NAME northstar-wificontroller COMMAND test-wificontroller)
+
+add_test(NAME northstar-wifi-configure-helper
+    COMMAND sh ${PROJECT_SOURCE_DIR}/tests/unit/test-wifi-configure.sh)
+add_test(NAME northstar-wifi-qml COMMAND northstar-wifi --self-test)
 add_test(NAME northstar-first-boot-qml COMMAND northstar-first-boot --self-test)
 
 qt_add_executable(test-installercontroller test-installercontroller.cpp)
@@ -382,6 +389,8 @@ set_tests_properties(
     northstar-previewcontroller
     northstar-quicksettingscontroller
     northstar-firstbootcontroller
+    northstar-wifi-qml
+    northstar-wificontroller
     northstar-first-boot-qml
     northstar-installercontroller
     northstar-installerrecoverycontroller
