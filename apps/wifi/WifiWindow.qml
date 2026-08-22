@@ -93,7 +93,8 @@ ApplicationWindow {
                             color: lunar.muted
                         }
                         Label {
-                            text: modelData.signal >= -55 ? "Strong" : modelData.signal >= -72 ? "Good" : "Weak"
+                            text: modelData.signal >= -55 ? "Signal: strong"
+                                : modelData.signal >= -72 ? "Signal: good" : "Signal: weak"
                             color: lunar.muted
                         }
                     }

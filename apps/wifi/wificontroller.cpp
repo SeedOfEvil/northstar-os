@@ -77,7 +77,8 @@ bool WifiController::start(Operation operation, const QStringList &arguments)
     QStringList processArguments;
     if (program.isEmpty()) {
         program = QStandardPaths::findExecutable(QStringLiteral("pkexec"));
-        processArguments << QStringLiteral("/usr/local/libexec/northstar-wifi-configure");
+        processArguments << QStringLiteral("--disable-internal-agent")
+                         << QStringLiteral("/usr/local/libexec/northstar-wifi-configure");
     }
     if (program.isEmpty()) {
         finish(false, QStringLiteral("Administrator authorization is unavailable."));
