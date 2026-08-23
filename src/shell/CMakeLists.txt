@@ -67,6 +67,7 @@ qt_add_qml_module(northstar-shell
         NorthstarWindowRecovery.qml
         SettingsEntryControl.qml
         SettingsWindow.qml
+        DisplayModeConfirmationWindow.qml
         WallpaperPicker.qml
 )
 

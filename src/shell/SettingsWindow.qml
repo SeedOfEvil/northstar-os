@@ -56,7 +56,7 @@ Window {
     minimumWidth: settings.minimumSurfaceWidth
     minimumHeight: settings.minimumSurfaceHeight
     width: Math.min(960, Math.max(minimumSurfaceWidth, screenWidth - (desktopMargin * 2)))
-    height: Math.min(screenHeight - panelHeight - desktopMargin, Math.max(minimumSurfaceHeight, 560))
+    height: Math.min(screenHeight - panelHeight - desktopMargin, Math.max(minimumSurfaceHeight, 720))
     x: screenX + Math.max(desktopMargin, (screenWidth - width) / 2)
     y: screenY + panelHeight + desktopMargin
 
@@ -340,24 +340,32 @@ Window {
 
             // --- Status --------------------------------------------------------
 
-            Text {
-                id: statusLine
+            Rectangle {
+                id: statusArea
                 anchors.bottom: parent.bottom
                 anchors.left: parent.left
                 anchors.right: parent.right
-                color: settings.hasCatalog && settings.settingsCatalog.statusIsError
-                    ? lunar.danger : settings.surfaceMuted
-                elide: Text.ElideRight
-                font.pixelSize: 12
-                height: 20
-                text: settings.hasCatalog ? settings.settingsCatalog.statusMessage : ""
-                verticalAlignment: Text.AlignVCenter
+                color: statusLine.text.length > 0 ? lunar.raised : "transparent"
+                height: statusLine.text.length > 0 ? statusLine.implicitHeight + 12 : 20
+                radius: lunar.radiusSmall
+
+                Text {
+                    id: statusLine
+                    anchors.fill: parent
+                    anchors.margins: statusLine.text.length > 0 ? 6 : 0
+                    color: settings.hasCatalog && settings.settingsCatalog.statusIsError
+                        ? lunar.danger : settings.surfaceMuted
+                    font.pixelSize: 12
+                    text: settings.hasCatalog ? settings.settingsCatalog.statusMessage : ""
+                    verticalAlignment: Text.AlignVCenter
+                    wrapMode: Text.WordWrap
+                }
             }
 
             // --- Sections and results -------------------------------------------
 
             Row {
-                anchors.bottom: statusLine.top
+                anchors.bottom: statusArea.top
                 anchors.bottomMargin: 8
                 anchors.left: parent.left
                 anchors.right: parent.right
@@ -375,54 +383,60 @@ Window {
                     radius: lunar.radiusLarge
                     width: 196
 
-                    Column {
+                    ListView {
+                        id: sectionList
                         anchors.fill: parent
                         anchors.margins: 10
+                        boundsBehavior: Flickable.StopAtBounds
+                        clip: true
+                        model: settings.hasCatalog ? settings.settingsCatalog.sections : []
                         spacing: 4
 
-                        Repeater {
-                            model: settings.hasCatalog ? settings.settingsCatalog.sections : []
+                        ScrollBar.vertical: ScrollBar {
+                            id: sectionScrollBar
+                            active: sectionList.contentHeight > sectionList.height
+                            policy: ScrollBar.AsNeeded
+                        }
 
-                            delegate: Rectangle {
-                                required property var modelData
+                        delegate: Rectangle {
+                            required property var modelData
 
+                            color: !settings.searching && settings.selectedSection === modelData.id
+                                ? lunar.accentSoft
+                                : sectionMouse.containsMouse ? lunar.raisedHover : "transparent"
+                            height: 40
+                            radius: lunar.radiusSmall
+                            width: sectionList.width - sectionScrollBar.width - 6
+
+                            Text {
+                                anchors.left: parent.left
+                                anchors.leftMargin: 12
+                                anchors.right: sectionCount.left
+                                anchors.rightMargin: 6
+                                anchors.verticalCenter: parent.verticalCenter
                                 color: !settings.searching && settings.selectedSection === modelData.id
-                                    ? lunar.accentSoft
-                                    : sectionMouse.containsMouse ? lunar.raisedHover : "transparent"
-                                height: 40
-                                radius: lunar.radiusSmall
-                                width: parent.width
+                                    ? settings.surfaceForeground : settings.surfaceMuted
+                                elide: Text.ElideRight
+                                font.bold: !settings.searching && settings.selectedSection === modelData.id
+                                font.pixelSize: 13
+                                text: modelData.label
+                            }
 
-                                Text {
-                                    anchors.left: parent.left
-                                    anchors.leftMargin: 12
-                                    anchors.right: sectionCount.left
-                                    anchors.rightMargin: 6
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    color: !settings.searching && settings.selectedSection === modelData.id
-                                        ? settings.surfaceForeground : settings.surfaceMuted
-                                    elide: Text.ElideRight
-                                    font.bold: !settings.searching && settings.selectedSection === modelData.id
-                                    font.pixelSize: 13
-                                    text: modelData.label
-                                }
+                            Text {
+                                id: sectionCount
+                                anchors.right: parent.right
+                                anchors.rightMargin: 10
+                                anchors.verticalCenter: parent.verticalCenter
+                                color: settings.surfaceMuted
+                                font.pixelSize: 11
+                                text: modelData.count
+                            }
 
-                                Text {
-                                    id: sectionCount
-                                    anchors.right: parent.right
-                                    anchors.rightMargin: 10
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    color: settings.surfaceMuted
-                                    font.pixelSize: 11
-                                    text: modelData.count
-                                }
-
-                                MouseArea {
-                                    id: sectionMouse
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    onClicked: settings.selectSection(modelData.id)
-                                }
+                            MouseArea {
+                                id: sectionMouse
+                                anchors.fill: parent
+                                hoverEnabled: true
+                                onClicked: settings.selectSection(modelData.id)
                             }
                         }
                     }

@@ -675,4 +675,15 @@ Window {
         targetScreen: targetScreen
         panelHeight: root.height
     }
+
+    // Display output changes can rebuild every shell surface and reset the
+    // Settings list position. Keep the safety confirmation in its own window;
+    // the controller survives the rebuild, so the prompt returns with the
+    // remaining countdown instead of leaving Keep/Revert off-screen.
+    DisplayModeConfirmationWindow {
+        controller: northstarQuickSettingsController
+        state: shellState
+        targetScreen: targetScreen
+        panelHeight: root.height
+    }
 }
