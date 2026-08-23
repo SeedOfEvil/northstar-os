@@ -40,6 +40,14 @@ kernel build. It is not accepted into an image merely because it compiles;
 Android inbound transfer, outbound transfer, reboot loading, and rollback to
 the stock module remain physical gates.
 
+The image input lock pins the accepted module to FreeBSD source revision
+`96841ea08dcf95628a104c68f31d9a7856de4da0`, kernel ABI `1501000`, SHA-256
+`7e0794b0f430c77a58ce7a700c04750e217a10c3774820a2dde0d64fdc126ca8`, and
+size 214184 bytes. Assembly first verifies the release kernel's stock module
+digest, preserves it as `/boot/kernel/ng_btsocket.ko.northstar-stock`, installs
+the accepted module mode 0444, and regenerates linker hints. Both module
+digests are recorded in the installed runtime manifest and image provenance.
+
 ## Automated gates
 
 The focused controller test uses an isolated fake OBEX executable to prove the
@@ -61,3 +69,22 @@ Before merge on the accepted Intel laptop:
 
 This document records the gate; it does not claim acceptance until those steps
 are completed on physical hardware.
+
+## Physical acceptance evidence (2026-08-22)
+
+The Intel Alpha laptop passed the profile gate with the pinned patched module:
+
+- the existing Android bond remained paired across reboot;
+- Android sent `image-1787451574077.jpg` into Downloads as the desktop user
+  (221480 bytes; SHA-256
+  `7a29bee0db1241b591bca27cafd704b22ac831cbe53cab08f60e55ac0ba95d17`);
+- Northstar sent a file to the Android phone and the phone reported success;
+- Stop removed the exact receiver and both OBEX records and restored the prior
+  device class;
+- restarting Receive Files produced one receiver, one RFCOMM channel-30
+  listener, and one OPUSH/FTP service pair; and
+- reboot loaded the accepted module while retaining the exact stock rollback
+  copy.
+
+This accepts the module/profile behavior on the physical laptop. It does not
+yet accept a newly assembled installer image; that remains the PR merge gate.

@@ -21,6 +21,8 @@ git -C "$PROJECT_ROOT" commit -qm fixture
 PROJECT_COMMIT=$(git -C "$PROJECT_ROOT" rev-parse HEAD)
 printf 'base fixture\n' > "$ARTIFACTS/base.txz"
 printf 'kernel fixture\n' > "$ARTIFACTS/kernel.txz"
+printf 'rfcomm module fixture\n' \
+    > "$ARTIFACTS/ng_btsocket-rfcomm-listener-upcall-15.1-amd64.ko"
 printf 'northstar fixture\n' > "$ARTIFACTS/northstar-0.1.4-amd64.pkg"
 
 digest() {
@@ -42,6 +44,8 @@ ROOT_FILESYSTEM=ZFS
 FREEBSD_RELEASE=15.1-RELEASE
 FREEBSD_ARCH=amd64
 FREEBSD_ABI=FreeBSD:15:amd64
+FREEBSD_KERNEL_ABI=1501000
+FREEBSD_SOURCE_REVISION=96841ea08dcf95628a104c68f31d9a7856de4da0
 SOURCE_DATE_EPOCH=1781274780
 RELEASE_BASE_URL=https://download.freebsd.org/releases/amd64/amd64/15.1-RELEASE
 RELEASE_MANIFEST=MANIFEST
@@ -52,6 +56,10 @@ BASE_SIZE=$(size "$ARTIFACTS/base.txz")
 KERNEL_ARTIFACT=kernel.txz
 KERNEL_SHA256=$(digest "$ARTIFACTS/kernel.txz")
 KERNEL_SIZE=$(size "$ARTIFACTS/kernel.txz")
+RFCOMM_MODULE_ARTIFACT=ng_btsocket-rfcomm-listener-upcall-15.1-amd64.ko
+RFCOMM_MODULE_SHA256=$(digest "$ARTIFACTS/ng_btsocket-rfcomm-listener-upcall-15.1-amd64.ko")
+RFCOMM_MODULE_SIZE=$(size "$ARTIFACTS/ng_btsocket-rfcomm-listener-upcall-15.1-amd64.ko")
+RFCOMM_STOCK_MODULE_SHA256=fac9f29d5f6b40f113817d26258fddb823ee290bde10086b1acea81abc809dac
 NORTHSTAR_PACKAGE=northstar-0.1.4-amd64.pkg
 NORTHSTAR_PACKAGE_VERSION=0.1.4
 NORTHSTAR_PACKAGE_SHA256=$(digest "$ARTIFACTS/northstar-0.1.4-amd64.pkg")
@@ -73,7 +81,7 @@ write_lock
 grep -F 'target_format=qcow2' "$TMP_DIR/prepared/resolved-image-inputs.conf" >/dev/null
 grep -F "project_commit=$PROJECT_COMMIT" \
     "$TMP_DIR/prepared/resolved-image-inputs.conf" >/dev/null
-[ "$(wc -l < "$TMP_DIR/prepared/artifact-records" | tr -d ' ')" -eq 3 ]
+[ "$(wc -l < "$TMP_DIR/prepared/artifact-records" | tr -d ' ')" -eq 4 ]
 
 if "$PREPARE" --lock "$LOCK" --artifacts "$ARTIFACTS" \
     --output "$TMP_DIR/prepared" \

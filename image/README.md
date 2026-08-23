@@ -8,14 +8,17 @@ committed to Git.
 
 M5 begins with a non-privileged, non-mutating input gate. The strict lock in
 [`image/manifests/northstar-15.1-amd64-qcow2.lock`](manifests/northstar-15.1-amd64-qcow2.lock)
-pins the official FreeBSD base and kernel release sets and the manually
-accepted Northstar package/repository provenance. Validate it with:
+pins the official FreeBSD base and kernel release sets, the physically accepted
+FreeBSD 15.1 RFCOMM listener correction, and the manually accepted Northstar
+package/repository provenance. The RFCOMM artifact is bound to its exact
+FreeBSD source revision, patched digest, size, and stock-module rollback
+digest. Validate the complete lock with:
 
 ```sh
 make image-input-test
 ```
 
-After staging the three named artifacts beneath an ignored directory, prepare
+After staging the four named artifacts beneath an ignored directory, prepare
 an immutable resolved-input record with:
 
 ```sh

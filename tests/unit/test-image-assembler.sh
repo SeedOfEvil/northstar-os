@@ -141,6 +141,19 @@ grep -F 'sdpd_enable="YES"' "$ASSEMBLER" >/dev/null || {
     printf 'FAIL: image does not enable Bluetooth service discovery for profiles\n' >&2
     exit 1
 }
+for required_rfcomm_line in \
+    'stock Bluetooth socket module differs from the locked rollback identity' \
+    'ng_btsocket.ko.northstar-stock' \
+    'installed RFCOMM module differs from the accepted physical artifact' \
+    'chroot "$MOUNT_ROOT" /usr/sbin/kldxref /boot/kernel' \
+    'rfcomm_module_sha256=$rfcomm_module_sha256' \
+    'rfcomm_stock_module_sha256=$rfcomm_stock_module_sha256'; do
+    grep -F "$required_rfcomm_line" "$ASSEMBLER" >/dev/null || {
+        printf 'FAIL: image omits RFCOMM module integration guard: %s\n' \
+            "$required_rfcomm_line" >&2
+        exit 1
+    }
+done
 grep -F 'kld_list="i915kms"' "$ASSEMBLER" >/dev/null || {
     printf 'FAIL: image does not enable i915kms for the Intel Alpha lane\n' >&2
     exit 1
@@ -177,8 +190,11 @@ digest() {
 }
 size() { wc -c < "$1" | tr -d ' '; }
 
-printf 'NORTHSTAR_PACKAGE=northstar-0.1.4-amd64.pkg\n' > "$TMP_DIR/resolved/input.lock"
-for name in base.txz kernel.txz northstar-0.1.4-amd64.pkg; do
+cat > "$TMP_DIR/resolved/input.lock" <<'EOF'
+NORTHSTAR_PACKAGE=northstar-0.1.4-amd64.pkg
+RFCOMM_MODULE_ARTIFACT=ng_btsocket-rfcomm-listener-upcall-15.1-amd64.ko
+EOF
+for name in base.txz kernel.txz ng_btsocket-rfcomm-listener-upcall-15.1-amd64.ko northstar-0.1.4-amd64.pkg; do
     printf 'artifact %s\n' "$name" > "$TMP_DIR/artifacts/$name"
     printf '%s|%s|%s\n' "$name" "$(digest "$TMP_DIR/artifacts/$name")" \
         "$(size "$TMP_DIR/artifacts/$name")"
@@ -224,6 +240,9 @@ input_lock_sha256=$(digest "$TMP_DIR/resolved/input.lock")
 artifact_records_sha256=$(digest "$TMP_DIR/resolved/artifact-records")
 freebsd_release=15.1-RELEASE
 freebsd_arch=amd64
+freebsd_kernel_abi=1501000
+rfcomm_module_sha256=$(digest "$TMP_DIR/artifacts/ng_btsocket-rfcomm-listener-upcall-15.1-amd64.ko")
+rfcomm_stock_module_sha256=fac9f29d5f6b40f113817d26258fddb823ee290bde10086b1acea81abc809dac
 northstar_package_version=0.1.4
 EOF
 cat > "$TMP_DIR/runtime/runtime-bundle.conf" <<EOF

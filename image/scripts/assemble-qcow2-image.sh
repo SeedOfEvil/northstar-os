@@ -139,6 +139,8 @@ done
 [ "$(file_sha256 "$artifact_records")" = "$(required_value "$resolved_conf" artifact_records_sha256)" ] || die 'artifact-record digest mismatch'
 [ "$(required_value "$resolved_conf" freebsd_release)" = 15.1-RELEASE ] || die 'unsupported FreeBSD release'
 [ "$(required_value "$resolved_conf" freebsd_arch)" = amd64 ] || die 'unsupported FreeBSD architecture'
+[ "$(required_value "$resolved_conf" freebsd_kernel_abi)" = 1501000 ] \
+    || die 'RFCOMM module targets an unsupported kernel ABI'
 
 artifact_count=0
 while IFS='|' read -r filename digest size extra; do
@@ -154,7 +156,7 @@ while IFS='|' read -r filename digest size extra; do
         || die "artifact size mismatch: $filename expected=$size actual=$actual_size"
     artifact_count=$((artifact_count + 1))
 done < "$artifact_records"
-[ "$artifact_count" -eq 3 ] || die 'resolved image must contain exactly three primary artifacts'
+[ "$artifact_count" -eq 4 ] || die 'resolved image must contain exactly four primary artifacts'
 
 runtime_conf=$RUNTIME/runtime-bundle.conf
 runtime_records=$RUNTIME/runtime-package-records
@@ -186,6 +188,16 @@ primary_northstar_digest=$(awk -F'|' -v filename="$primary_northstar_filename" \
 primary_northstar_size=$(awk -F'|' -v filename="$primary_northstar_filename" \
     '$1 == filename { print $3; exit }' "$artifact_records")
 primary_northstar_path=$ARTIFACTS/$primary_northstar_filename
+rfcomm_module_filename=$(required_value "$input_lock" RFCOMM_MODULE_ARTIFACT)
+rfcomm_module_record_count=$(awk -F'|' -v filename="$rfcomm_module_filename" \
+    '$1 == filename { count++ } END { print count + 0 }' "$artifact_records")
+[ "$rfcomm_module_record_count" -eq 1 ] \
+    || die 'locked RFCOMM module must appear exactly once in artifact records'
+rfcomm_module_path=$ARTIFACTS/$rfcomm_module_filename
+rfcomm_module_sha256=$(required_value "$resolved_conf" rfcomm_module_sha256)
+rfcomm_stock_module_sha256=$(required_value "$resolved_conf" rfcomm_stock_module_sha256)
+[ "$(file_sha256 "$rfcomm_module_path")" = "$rfcomm_module_sha256" ] \
+    || die 'locked RFCOMM module differs from resolved inputs'
 
 package_count=0
 northstar_found=0
@@ -289,6 +301,17 @@ kernel_name=$(awk -F'|' '$1 == "kernel.txz" { print $1 }' "$artifact_records")
 [ "$base_name" = base.txz ] && [ "$kernel_name" = kernel.txz ] || die 'resolved release sets are incomplete'
 tar -xpf "$ARTIFACTS/$base_name" -C "$MOUNT_ROOT"
 tar -xpf "$ARTIFACTS/$kernel_name" -C "$MOUNT_ROOT"
+stock_rfcomm_module=$MOUNT_ROOT/boot/kernel/ng_btsocket.ko
+[ -f "$stock_rfcomm_module" ] && [ ! -L "$stock_rfcomm_module" ] \
+    || die 'release kernel omits the stock Bluetooth socket module'
+[ "$(file_sha256 "$stock_rfcomm_module")" = "$rfcomm_stock_module_sha256" ] \
+    || die 'stock Bluetooth socket module differs from the locked rollback identity'
+cp -p "$stock_rfcomm_module" "$stock_rfcomm_module.northstar-stock"
+cp "$rfcomm_module_path" "$stock_rfcomm_module"
+chown root:wheel "$stock_rfcomm_module" "$stock_rfcomm_module.northstar-stock"
+chmod 0444 "$stock_rfcomm_module" "$stock_rfcomm_module.northstar-stock"
+[ "$(file_sha256 "$stock_rfcomm_module")" = "$rfcomm_module_sha256" ] \
+    || die 'installed RFCOMM module differs from the accepted physical artifact'
 mkdir -p "$MOUNT_ROOT/boot/efi" "$MOUNT_ROOT/boot/zfs" "$MOUNT_ROOT/dev"
 mount_msdosfs "/dev/${MD_DEVICE}p1" "$MOUNT_ROOT/boot/efi"
 EFI_MOUNTED=1
@@ -298,6 +321,7 @@ zpool set cachefile="$MOUNT_ROOT/boot/zfs/zpool.cache" "$POOL"
 devfs -m "$MOUNT_ROOT/dev" rule applyset 0 >/dev/null 2>&1 || true
 mount -t devfs devfs "$MOUNT_ROOT/dev"
 DEVFS_MOUNTED=1
+chroot "$MOUNT_ROOT" /usr/sbin/kldxref /boot/kernel
 
 package_mount=$MOUNT_ROOT/.northstar-packages
 primary_package_dir=$MOUNT_ROOT/.northstar-primary
@@ -511,9 +535,13 @@ printf '%s\n' \
     'product=Northstar' \
     'freebsd_release=15.1-RELEASE' \
     'architecture=amd64' \
+    'freebsd_kernel_abi=1501000' \
     "project_commit=$PROJECT_COMMIT" \
     "runtime_package_records_sha256=$runtime_records_sha256" \
     "runtime_package_count=$package_count" \
+    "rfcomm_module_sha256=$rfcomm_module_sha256" \
+    "rfcomm_stock_module_sha256=$rfcomm_stock_module_sha256" \
+    'rfcomm_stock_module=/boot/kernel/ng_btsocket.ko.northstar-stock' \
     > "$STAGING/runtime-manifest.conf"
 cp "$STAGING/runtime-manifest.conf" "$MOUNT_ROOT/var/db/northstar/runtime-manifest.conf"
 chown root:wheel "$MOUNT_ROOT/var/db/northstar/runtime-manifest.conf"
@@ -554,6 +582,7 @@ printf '%s\n' \
     'firmware=UEFI' \
     'partition_table=GPT' \
     'root_filesystem=ZFS' \
+    'freebsd_kernel_abi=1501000' \
     "zpool=$POOL" \
     "project_commit=$PROJECT_COMMIT" \
     "builder_id=$builder_id" \
@@ -561,6 +590,8 @@ printf '%s\n' \
     "resolved_inputs_sha256=$resolved_sha256" \
     "runtime_package_records_sha256=$runtime_records_sha256" \
     "runtime_package_count=$package_count" \
+    "rfcomm_module_sha256=$rfcomm_module_sha256" \
+    "rfcomm_stock_module_sha256=$rfcomm_stock_module_sha256" \
     "installer_payload=$(basename "$installer_payload")" \
     "installer_payload_sha256=$installer_payload_sha256" \
     "installer_payload_size=$installer_payload_size" \
