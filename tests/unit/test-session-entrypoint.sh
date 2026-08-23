@@ -70,6 +70,9 @@ fi
 [ -f "$PREFIX/share/northstar/icons/northstar-icons.png" ] || fail 'Northstar shell icon sheet was not installed'
 [ -f "$PREFIX/share/northstar/audio/northstar-test-tone-s16le-stereo-48k.raw" ] \
     || fail 'Northstar audio test tone was not installed'
+[ -x "$PREFIX/bin/northstar-power" ] || fail 'Northstar power boundary was not installed'
+[ -f "$PREFIX/share/polkit-1/actions/org.northstar.power.policy" ] \
+    || fail 'Northstar power PolicyKit action was not installed'
 
 if grep -Eiq '(^|[[:space:]])(sudo|su|doas|pkexec|shutdown|reboot)([[:space:]]|$)' "$PREFIX/bin/northstar-session" "$desktop"; then
     fail 'session entry point contains an unapproved privileged lifecycle command'

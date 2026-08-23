@@ -83,11 +83,12 @@ development fallback without claiming to perform a session logout.
 
 The system menu also exposes confirmed `Restart FreeBSD` and `Shut Down
 FreeBSD` actions. They call the fixed-argument user-local
-`northstar-power` boundary, which is authorized by the current development
-VM's non-interactive sudo policy. The shell never constructs or executes an
-arbitrary privileged command. Production packaging must replace that wrapper
-with a root-owned helper and a narrow authorization rule for only the restart
-and shutdown operations.
+`northstar-power` boundary. The root-owned installed helper validates one of
+the two exact actions before re-entering itself through PolicyKit. Active local
+sessions may use those standard desktop power actions; inactive sessions
+require administrator authentication. The shell never constructs or executes
+an arbitrary privileged command, and no caller-provided option reaches
+`shutdown(8)`.
 
 Settings > Session also exposes a confirmed **Restart Northstar Shell** action
 when the shell can prove that it is the exact supervised child recorded in the
