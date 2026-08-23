@@ -32,7 +32,8 @@ Window {
     title: "Northstar Quick Settings"
 
     width: 354
-    height: 456
+    height: Math.min(contentColumn.implicitHeight + 32,
+                     screenHeight - panelHeight - 20)
     x: screenX + screenWidth - width - 18
     y: screenY + panelHeight + 8
 
@@ -79,7 +80,10 @@ Window {
         }
 
         Column {
-            anchors.fill: parent
+            id: contentColumn
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
             anchors.margins: 16
             spacing: 12
 
@@ -300,14 +304,17 @@ Window {
 
             Rectangle {
                 color: quickSettings.surfaceRaised
-                height: 82
+                height: mixerControls.implicitHeight + 20
                 radius: lunar.radiusMedium
                 border.color: lunar.borderSoft
                 border.width: 1
                 width: parent.width
 
                 Column {
-                    anchors.fill: parent
+                    id: mixerControls
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
                     anchors.leftMargin: 14
                     anchors.rightMargin: 14
                     anchors.topMargin: 10
