@@ -90,7 +90,8 @@ void QuickSettingsControllerTest::reportsConfirmedCapabilities()
 {
     QTemporaryDir directory;
     QVERIFY(directory.isValid());
-    const auto provider = [](const QString &program, const QStringList &arguments) {
+    QStringList mixerCalls;
+    const auto provider = [&mixerCalls](const QString &program, const QStringList &arguments) {
         if (program == QStringLiteral("/sbin/ifconfig")
             && arguments == QStringList{QStringLiteral("-l")}) {
             return result(0, QStringLiteral("lo0 em0 wlan0"));
@@ -105,6 +106,7 @@ void QuickSettingsControllerTest::reportsConfirmedCapabilities()
             return result(0, QStringLiteral("Node list"));
         }
         if (program == QStringLiteral("/usr/sbin/mixer")) {
+            mixerCalls.append(arguments.join(QLatin1Char(' ')));
             return result(0, QStringLiteral("vol.volume=0.65:0.65"));
         }
         if (program == QStringLiteral("/sbin/sysctl")) {
@@ -121,6 +123,7 @@ void QuickSettingsControllerTest::reportsConfirmedCapabilities()
     QVERIFY(controller.bluetoothAvailable());
     QVERIFY(controller.soundAvailable());
     QCOMPARE(controller.volume(), 65);
+    QCOMPARE(mixerCalls, QStringList{QStringLiteral("vol")});
     QVERIFY(controller.displayAvailable());
     QCOMPARE(controller.displayBrightness(), 72);
     QVERIFY(!controller.nightLightAvailable());
@@ -131,10 +134,12 @@ void QuickSettingsControllerTest::confirmsMixerMutations()
     QTemporaryDir directory;
     QVERIFY(directory.isValid());
     int mixerVolume = 30;
-    const auto provider = [&mixerVolume](const QString &program, const QStringList &arguments) {
+    QStringList mixerCalls;
+    const auto provider = [&mixerVolume, &mixerCalls](const QString &program, const QStringList &arguments) {
         if (program == QStringLiteral("/usr/sbin/mixer")) {
-            if (arguments.size() == 2 && arguments.at(1).startsWith(QStringLiteral("vol.volume="))) {
-                mixerVolume = qRound(arguments.at(1).section(QLatin1Char('='), 1).toDouble() * 100.0);
+            mixerCalls.append(arguments.join(QLatin1Char(' ')));
+            if (arguments.size() == 1 && arguments.constFirst().startsWith(QStringLiteral("vol.volume="))) {
+                mixerVolume = qRound(arguments.constFirst().section(QLatin1Char('='), 1).toDouble() * 100.0);
                 return result(0);
             }
             return result(0, QStringLiteral("vol.volume=%1").arg(mixerVolume / 100.0, 0, 'f', 2));
@@ -148,6 +153,10 @@ void QuickSettingsControllerTest::confirmsMixerMutations()
     QVERIFY(controller.setVolume(74));
     QCOMPARE(controller.volume(), 74);
     QVERIFY(controller.statusMessage().contains(QStringLiteral("confirmed")));
+    QCOMPARE(mixerCalls,
+             QStringList({QStringLiteral("vol"),
+                          QStringLiteral("vol.volume=0.74"),
+                          QStringLiteral("vol")}));
 }
 
 void QuickSettingsControllerTest::rejectsUnconfirmedMixerMutations()

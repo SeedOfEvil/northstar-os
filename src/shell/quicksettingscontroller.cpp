@@ -181,7 +181,7 @@ bool QuickSettingsController::setVolume(int volume)
     const QString mixerValue = QStringLiteral("vol.volume=%1")
                                    .arg(QString::number(requestedVolume / 100.0, 'f', 2));
     const QuickSettingsCommandResult mutation = m_commandProvider(
-        QStringLiteral("/usr/sbin/mixer"), {QStringLiteral("-s"), mixerValue});
+        QStringLiteral("/usr/sbin/mixer"), {mixerValue});
     if (!commandSucceeded(mutation)) {
         setStatusMessage(QStringLiteral("FreeBSD mixer rejected the volume change."));
         refreshSound();
@@ -338,7 +338,7 @@ void QuickSettingsController::refreshBluetooth()
 void QuickSettingsController::refreshSound()
 {
     const QuickSettingsCommandResult result = m_commandProvider(
-        QStringLiteral("/usr/sbin/mixer"), {QStringLiteral("-s"), QStringLiteral("vol")});
+        QStringLiteral("/usr/sbin/mixer"), {QStringLiteral("vol")});
     const int parsedVolume = commandSucceeded(result) ? parseMixerVolume(result.standardOutput) : -1;
     m_soundAvailable = parsedVolume >= 0;
     if (!m_soundAvailable) {
