@@ -19,20 +19,22 @@ esac
 EOF
 chmod +x "$TMP/hccontrol"
 printf '%s\t%s\n' '11:22:33:44:55:66' 'Test_Phone' > "$TMP/hosts"
+printf '%s\n' '11:22:33:44:55:66' > "$TMP/paired"
 out=$(env NORTHSTAR_BLUETOOTH_HCCONTROL_PATH="$TMP/hccontrol" \
-    NORTHSTAR_BLUETOOTH_HOSTS_PATH="$TMP/hosts" sh "$HELPER")
+    NORTHSTAR_BLUETOOTH_HOSTS_PATH="$TMP/hosts" \
+    NORTHSTAR_BLUETOOTH_PAIRED_PATH="$TMP/paired" sh "$HELPER")
 printf '%s\n' "$out" | grep -Fx 'NORTHSTAR_BLUETOOTH_SCAN=1' >/dev/null ||
     fail 'scan marker missing'
 printf '%s\n' "$out" | grep -Fx 'discoverable=1' >/dev/null ||
     fail 'discoverability state missing'
 printf '%s\n' "$out" |
-    grep -Fx 'device=aabbccddeeff|54657374204d6f757365|0|0' >/dev/null ||
+    grep -Fx 'device=aabbccddeeff|54657374204d6f757365|0|0|0' >/dev/null ||
     fail 'discoverable device record was not encoded'
 printf '%s\n' "$out" |
-    grep -Fx 'device=112233445566|546573745f50686f6e65|1|1' >/dev/null ||
+    grep -Fx 'device=112233445566|546573745f50686f6e65|1|1|1' >/dev/null ||
     fail 'remembered connected device state was not encoded'
 if env NORTHSTAR_BLUETOOTH_HCCONTROL_PATH="$TMP/hccontrol" \
     NORTHSTAR_BLUETOOTH_NODE='bad;node' sh "$HELPER" >/dev/null 2>&1; then
     fail 'invalid controller name was accepted'
 fi
-printf '%s\n' 'PASS: Bluetooth scanner reports discoverable, remembered, and connected device state'
+printf '%s\n' 'PASS: Bluetooth scanner reports remembered, paired, and connected device state'

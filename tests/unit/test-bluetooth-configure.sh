@@ -8,7 +8,7 @@ trap 'rm -rf "$TMP"' EXIT HUP INT TERM
 fail(){ printf 'FAIL: %s\n' "$1" >&2; exit 1; }
 
 FAKE=$TMP/root
-mkdir -p "$FAKE/etc/bluetooth" "$FAKE/var/db" "$TMP/bin"
+mkdir -p "$FAKE/etc/bluetooth" "$FAKE/var/db/northstar" "$TMP/bin"
 printf '%s\t%s\n' 'aa:bb:cc:dd:ee:ff' 'Old_Phone' > "$FAKE/etc/bluetooth/hosts"
 cat > "$FAKE/etc/bluetooth/hcsecd.conf" <<'EOF'
 device {
@@ -28,6 +28,8 @@ device {
     key "other-key";
 }
 EOF
+printf '%s\n' 'aa:bb:cc:dd:ee:ff' '11:22:33:44:55:66' > \
+    "$FAKE/var/db/northstar/bluetooth-paired"
 cat > "$TMP/request" <<'EOF'
 protocol=1
 address_hex=aabbccddeeff
@@ -47,7 +49,6 @@ cat > "$TMP/bin/hccontrol" <<'EOF'
 #!/bin/sh
 printf 'hccontrol=%s\n' "$*" >> "$NORTHSTAR_TEST_EVENTS"
 case "$*" in
-  "-n ubt0hci create_connection aa:bb:cc:dd:ee:ff"*) exit 0;;
   "-n ubt0hci write_scan_enable 3") exit 0;;
   "-n ubt0hci read_connection_list") printf '%s\n' 'Remote BD_ADDR Handle' 'aa:bb:cc:dd:ee:ff 41';;
   "-n ubt0hci disconnect 41 0x16") exit 0;;
@@ -55,7 +56,16 @@ case "$*" in
   *) exit 1;;
 esac
 EOF
-chmod +x "$TMP/bin/sysrc" "$TMP/bin/service" "$TMP/bin/hccontrol"
+cat > "$TMP/bin/northstar-bluetooth-ssp" <<'EOF'
+#!/bin/sh
+[ "$1" = ubt0hci ] && [ "$2" = aa:bb:cc:dd:ee:ff ] || exit 65
+printf '%s\n' NORTHSTAR_BLUETOOTH_CONFIRM=654321
+IFS= read -r decision
+[ "$decision" = accept ] || exit 125
+printf '%s\n' NORTHSTAR_BLUETOOTH_PAIRED=CONFIRMED
+EOF
+chmod +x "$TMP/bin/sysrc" "$TMP/bin/service" "$TMP/bin/hccontrol" \
+    "$TMP/bin/northstar-bluetooth-ssp"
 
 run_helper() {
     env NORTHSTAR_BLUETOOTH_TEST_MODE=1 \
@@ -63,24 +73,27 @@ run_helper() {
         NORTHSTAR_BLUETOOTH_SYSRC_PATH="$TMP/bin/sysrc" \
         NORTHSTAR_BLUETOOTH_SERVICE_PATH="$TMP/bin/service" \
         NORTHSTAR_BLUETOOTH_HCCONTROL_PATH="$TMP/bin/hccontrol" \
+        NORTHSTAR_BLUETOOTH_SSP_PATH="$TMP/bin/northstar-bluetooth-ssp" \
         NORTHSTAR_TEST_EVENTS="$TMP/events" \
         sh "$HELPER" "$@"
 }
-out=$(printf '%s\n' 654321 | run_helper --pair "$TMP/request")
+out=$(printf '%s\n' accept | run_helper --pair "$TMP/request")
 printf '%s\n' "$out" | grep -Fx 'NORTHSTAR_BLUETOOTH_AUTHORIZED=1' >/dev/null ||
     fail 'authorization marker missing'
-printf '%s\n' "$out" | grep -Fx 'NORTHSTAR_BLUETOOTH_PAIR_REQUEST=PASS' >/dev/null ||
+printf '%s\n' "$out" | grep -Fx 'NORTHSTAR_BLUETOOTH_CONFIRM=654321' >/dev/null ||
+    fail 'numeric confirmation marker missing'
+printf '%s\n' "$out" | grep -Fx 'NORTHSTAR_BLUETOOTH_PAIR=PASS' >/dev/null ||
     fail 'pairing marker missing'
 grep -Fx 'aa:bb:cc:dd:ee:ff	Test_Phone' "$FAKE/etc/bluetooth/hosts" >/dev/null ||
     fail 'remembered host was not replaced'
 [ "$(grep -ci 'bdaddr[[:space:]]*aa:bb:cc:dd:ee:ff' "$FAKE/etc/bluetooth/hcsecd.conf")" -eq 1 ] ||
     fail 'pairing configuration was duplicated'
-grep -F 'pin	"654321";' "$FAKE/etc/bluetooth/hcsecd.conf" >/dev/null ||
-    fail 'pairing PIN was not installed'
+grep -F 'pin	nopin;' "$FAKE/etc/bluetooth/hcsecd.conf" >/dev/null ||
+    fail 'legacy PIN authentication was not disabled for SSP'
 grep -F 'service=hcsecd onerestart' "$TMP/events" >/dev/null ||
     fail 'hcsecd was not restarted'
-grep -F 'hccontrol=-n ubt0hci create_connection aa:bb:cc:dd:ee:ff' "$TMP/events" >/dev/null ||
-    fail 'pairing connection was not initiated'
+grep -Fx 'aa:bb:cc:dd:ee:ff' "$FAKE/var/db/northstar/bluetooth-paired" >/dev/null ||
+    fail 'persisted paired state was not recorded'
 if grep -Eiq 'pin|password|secret|key' "$TMP/request"; then
     fail 'credential material was written to the request'
 fi
@@ -90,7 +103,7 @@ printf '%s\n' 'pin=654321' >> "$TMP/bad-request"
 mv "$TMP/bad-request" "$TMP/request"
 chmod 600 "$TMP/request"
 before=$(sha256 -q "$FAKE/etc/bluetooth/hcsecd.conf")
-if printf '%s\n' 654321 | run_helper --pair "$TMP/request" >/dev/null 2>&1; then
+if printf '%s\n' accept | run_helper --pair "$TMP/request" >/dev/null 2>&1; then
     fail 'credential field in request was accepted'
 fi
 [ "$(sha256 -q "$FAKE/etc/bluetooth/hcsecd.conf")" = "$before" ] ||
@@ -112,11 +125,14 @@ forgot=$(run_helper --forget "$TMP/request")
 printf '%s\n' "$forgot" | grep -Fx 'NORTHSTAR_BLUETOOTH_FORGET=PASS' >/dev/null ||
     fail 'forget marker missing'
 if grep -qi 'aa:bb:cc:dd:ee:ff' "$FAKE/etc/bluetooth/hosts" \
-    "$FAKE/etc/bluetooth/hcsecd.conf" "$FAKE/var/db/hcsecd.keys"; then
+    "$FAKE/etc/bluetooth/hcsecd.conf" "$FAKE/var/db/hcsecd.keys" \
+    "$FAKE/var/db/northstar/bluetooth-paired"; then
     fail 'selected device state was not fully removed'
 fi
 grep -qi '11:22:33:44:55:66' "$FAKE/var/db/hcsecd.keys" ||
     fail 'forget removed another device key'
+grep -qi '11:22:33:44:55:66' "$FAKE/var/db/northstar/bluetooth-paired" ||
+    fail 'forget removed another paired-state entry'
 grep -F 'hccontrol=-n ubt0hci disconnect 41 0x16' "$TMP/events" >/dev/null ||
     fail 'active selected-device connection was not disconnected'
 grep -F 'hccontrol=-n ubt0hci delete_stored_link_key aa:bb:cc:dd:ee:ff' \

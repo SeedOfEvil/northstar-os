@@ -12,6 +12,12 @@ qt_add_qml_module(northstar-bluetooth
 target_link_libraries(northstar-bluetooth PRIVATE
     northstar-bluetooth-core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::QuickControls2 northstar-ui)
 
+if(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
+    add_executable(northstar-bluetooth-ssp northstar-bluetooth-ssp.cpp)
+    target_link_libraries(northstar-bluetooth-ssp PRIVATE bluetooth)
+    install(TARGETS northstar-bluetooth-ssp RUNTIME DESTINATION libexec)
+endif()
+
 install(TARGETS northstar-bluetooth RUNTIME DESTINATION bin)
 install(PROGRAMS
     northstar-bluetooth-scan

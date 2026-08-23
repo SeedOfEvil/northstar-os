@@ -10,7 +10,7 @@ class BluetoothControllerTest final : public QObject
     Q_OBJECT
 private slots:
     void scansAndSortsDeviceState();
-    void pairsWithoutWritingThePinToTheRequest();
+    void confirmsSecureSimplePairingWithoutWritingSecrets();
     void forgetsAndChangesDiscoverability();
     void restoresWindowLifecycleWhenAuthorizationIsCancelled();
 };
@@ -33,8 +33,8 @@ void BluetoothControllerTest::scansAndSortsDeviceState()
     const QString scanner = writeExecutable(directory, QStringLiteral("scanner"),
         "#!/bin/sh\nprintf '%s\\n' NORTHSTAR_BLUETOOTH_SCAN=1 "
         "'discoverable=1' "
-        "'device=aabbccddeeff|4d6f757365|0|0' "
-        "'device=112233445566|50686f6e65|1|1'\n");
+        "'device=aabbccddeeff|4d6f757365|0|0|0' "
+        "'device=112233445566|50686f6e65|1|1|1'\n");
     qputenv("NORTHSTAR_BLUETOOTH_SCAN_COMMAND", scanner.toUtf8());
     BluetoothController controller;
     QVERIFY(controller.refreshDevices());
@@ -43,6 +43,7 @@ void BluetoothControllerTest::scansAndSortsDeviceState()
     const QVariantMap first = controller.devices().first().toMap();
     QCOMPARE(first.value(QStringLiteral("name")).toString(), QStringLiteral("Phone"));
     QVERIFY(first.value(QStringLiteral("remembered")).toBool());
+    QVERIFY(first.value(QStringLiteral("paired")).toBool());
     QVERIFY(first.value(QStringLiteral("connected")).toBool());
     QVERIFY(controller.discoverable());
     QCOMPARE(controller.statusMessage(), QStringLiteral("Connected to Phone."));
@@ -50,7 +51,7 @@ void BluetoothControllerTest::scansAndSortsDeviceState()
     qunsetenv("NORTHSTAR_BLUETOOTH_SCAN_COMMAND");
 }
 
-void BluetoothControllerTest::pairsWithoutWritingThePinToTheRequest()
+void BluetoothControllerTest::confirmsSecureSimplePairingWithoutWritingSecrets()
 {
     QTemporaryDir directory;
     QVERIFY(directory.isValid());
@@ -60,27 +61,27 @@ void BluetoothControllerTest::pairsWithoutWritingThePinToTheRequest()
         "printf '%s\\n' NORTHSTAR_BLUETOOTH_AUTHORIZED=1\n"
         "[ \"$1\" = --pair ] || exit 64\n"
         "grep -Eq 'pin|password|secret|key' \"$2\" && exit 65\n"
-        "IFS= read -r pin\n"
-        "[ \"$pin\" = 654321 ] || exit 65\n"
         "grep -Fx 'address_hex=aabbccddeeff' \"$2\" >/dev/null || exit 65\n"
+        "printf '%s\\n' NORTHSTAR_BLUETOOTH_CONFIRM=654321\n"
+        "IFS= read -r decision\n"
+        "[ \"$decision\" = accept ] || exit 125\n"
         "printf '%s\\n' paired > \"$NORTHSTAR_BLUETOOTH_TEST_EVENTS\"\n");
     qputenv("NORTHSTAR_BLUETOOTH_AUTH_COMMAND", helper.toUtf8());
     qputenv("NORTHSTAR_BLUETOOTH_TEST_EVENTS", events.toUtf8());
     BluetoothController controller;
-    QSignalSpy cleared(&controller, &BluetoothController::secretsCleared);
     QSignalSpy expected(&controller, &BluetoothController::authorizationPromptExpected);
     QSignalSpy completed(&controller, &BluetoothController::authorizationCompleted);
+    QSignalSpy confirmation(&controller, &BluetoothController::pairingConfirmationRequested);
     QSignalSpy finished(&controller, &BluetoothController::pairingFinished);
-    QVERIFY(!controller.pairDevice(QStringLiteral("aabbccddeeff"),
-                                   QStringLiteral("Phone"),
-                                   QStringLiteral("12")));
-    QVERIFY(controller.pairDevice(QStringLiteral("aabbccddeeff"),
-                                  QStringLiteral("Phone"),
-                                  QStringLiteral("654321")));
+    QVERIFY(!controller.pairDevice(QStringLiteral("invalid"), QStringLiteral("Phone")));
+    QVERIFY(controller.pairDevice(QStringLiteral("aabbccddeeff"), QStringLiteral("Phone")));
+    QTRY_COMPARE_WITH_TIMEOUT(confirmation.size(), 1, 3000);
+    QVERIFY(controller.awaitingConfirmation());
+    QCOMPARE(controller.confirmationCode(), QStringLiteral("654321"));
+    QVERIFY(controller.respondToPairing(true));
     QTRY_COMPARE_WITH_TIMEOUT(finished.size(), 1, 3000);
     QVERIFY(finished.first().first().toBool());
     QVERIFY(QFile::exists(events));
-    QVERIFY(cleared.size() >= 1);
     QCOMPARE(expected.size(), 1);
     QCOMPARE(completed.size(), 1);
     QVERIFY(!controller.statusIsError());
@@ -130,9 +131,7 @@ void BluetoothControllerTest::restoresWindowLifecycleWhenAuthorizationIsCancelle
     BluetoothController controller;
     QSignalSpy expected(&controller, &BluetoothController::authorizationPromptExpected);
     QSignalSpy completed(&controller, &BluetoothController::authorizationCompleted);
-    QVERIFY(controller.pairDevice(QStringLiteral("aabbccddeeff"),
-                                  QStringLiteral("Phone"),
-                                  QStringLiteral("654321")));
+    QVERIFY(controller.pairDevice(QStringLiteral("aabbccddeeff"), QStringLiteral("Phone")));
     QTRY_VERIFY_WITH_TIMEOUT(!controller.busy(), 3000);
     QCOMPARE(expected.size(), 1);
     QCOMPARE(completed.size(), 1);

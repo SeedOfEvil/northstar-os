@@ -13,7 +13,7 @@
 namespace {
 const QRegularExpression AddressHexPattern(QStringLiteral("^[0-9a-f]{12}$"));
 const QRegularExpression NameHexPattern(QStringLiteral("^(?:[0-9a-f]{2}){1,124}$"));
-const QRegularExpression PinPattern(QStringLiteral("^[0-9]{4,16}$"));
+const QRegularExpression ConfirmationPattern(QStringLiteral("^[0-9]{6}$"));
 }
 
 BluetoothController::BluetoothController(QObject *parent)
@@ -21,26 +21,12 @@ BluetoothController::BluetoothController(QObject *parent)
     , m_process(new QProcess(this))
     , m_statusMessage(QStringLiteral("Choose Refresh to find discoverable or remembered Bluetooth devices."))
 {
-    connect(m_process, &QProcess::started, this, [this]() {
-        if (m_operation == Operation::Pair) {
-            m_process->write(m_pendingSecret);
-            m_process->write("\n", 1);
-            m_process->closeWriteChannel();
-            clearBytes(m_pendingSecret);
-            emit secretsCleared();
-        }
-    });
     connect(m_process, &QProcess::readyReadStandardOutput, this, [this]() {
-        if (m_authorizationPending
-            && m_process->peek(512).contains("NORTHSTAR_BLUETOOTH_AUTHORIZED=1")) {
-            m_authorizationPending = false;
-            emit authorizationCompleted();
-        }
+        m_standardOutput.append(m_process->readAllStandardOutput());
+        if (m_operation != Operation::Scan) processOutput();
     });
     connect(m_process, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
         if (error == QProcess::FailedToStart && m_busy) {
-            clearBytes(m_pendingSecret);
-            emit secretsCleared();
             finish(false, m_operation == Operation::Scan
                 ? QStringLiteral("The Bluetooth scanner could not be started.")
                 : QStringLiteral("The protected Bluetooth service could not be started."));
@@ -49,11 +35,13 @@ BluetoothController::BluetoothController(QObject *parent)
     connect(m_process, qOverload<int, QProcess::ExitStatus>(&QProcess::finished), this,
             [this](int exitCode, QProcess::ExitStatus exitStatus) {
         if (!m_busy) return;
-        const QByteArray output = m_process->readAllStandardOutput();
-        QString error = QString::fromUtf8(m_process->readAllStandardError()).trimmed();
-        clearBytes(m_pendingSecret);
-        emit secretsCleared();
         const Operation completed = m_operation;
+        m_standardOutput.append(m_process->readAllStandardOutput());
+        QByteArray output;
+        if (completed == Operation::Scan) output = m_standardOutput;
+        else processOutput(true);
+        m_standardOutput.clear();
+        QString error = QString::fromUtf8(m_process->readAllStandardError()).trimmed();
         if (exitStatus == QProcess::NormalExit && exitCode == 0) {
             if (completed == Operation::Scan) {
                 parseScan(output);
@@ -68,8 +56,7 @@ BluetoothController::BluetoothController(QObject *parent)
                         ? QStringLiteral("No discoverable or remembered Bluetooth devices were found.")
                         : QStringLiteral("Found %1 Bluetooth device(s).").arg(m_devices.size()));
             } else if (completed == Operation::Pair) {
-                finish(true, QStringLiteral(
-                    "Pairing request sent. Enter the same PIN on the device if it asks."));
+                finish(true, QStringLiteral("Paired with %1.").arg(m_pairingName));
                 emit pairingFinished(true);
             } else if (completed == Operation::Forget) {
                 finish(true, QStringLiteral(
@@ -96,6 +83,8 @@ BluetoothController::BluetoothController(QObject *parent)
 
 bool BluetoothController::busy() const { return m_busy; }
 bool BluetoothController::discoverable() const { return m_discoverable; }
+bool BluetoothController::awaitingConfirmation() const { return m_awaitingConfirmation; }
+QString BluetoothController::confirmationCode() const { return m_confirmationCode; }
 QString BluetoothController::statusMessage() const { return m_statusMessage; }
 bool BluetoothController::statusIsError() const { return m_statusIsError; }
 QVariantList BluetoothController::devices() const { return m_devices; }
@@ -127,6 +116,7 @@ bool BluetoothController::start(Operation operation, const QStringList &argument
     }
     processArguments << arguments;
     m_operation = operation;
+    m_standardOutput.clear();
     m_busy = true;
     m_statusIsError = false;
     switch (operation) {
@@ -182,9 +172,7 @@ bool BluetoothController::refreshDevices()
     return start(Operation::Scan, {});
 }
 
-bool BluetoothController::pairDevice(const QString &addressHex,
-                                     const QString &name,
-                                     const QString &pin)
+bool BluetoothController::pairDevice(const QString &addressHex, const QString &name)
 {
     if (m_busy || !AddressHexPattern.match(addressHex).hasMatch()) {
         finish(false, QStringLiteral("Choose a valid scanned Bluetooth device."));
@@ -196,15 +184,26 @@ bool BluetoothController::pairDevice(const QString &addressHex,
         finish(false, QStringLiteral("The selected Bluetooth device name is invalid."));
         return false;
     }
-    if (!PinPattern.match(pin).hasMatch()) {
-        finish(false, QStringLiteral("Choose a PIN containing 4 to 16 digits."));
-        return false;
-    }
     const QByteArray request = QStringLiteral("protocol=1\naddress_hex=%1\nname_hex=%2\n")
         .arg(addressHex, nameHex).toUtf8();
     if (!createRequest(request)) return false;
-    m_pendingSecret = pin.toUtf8();
+    m_pairingName = name;
     return start(Operation::Pair, {QStringLiteral("--pair"), m_request->fileName()});
+}
+
+bool BluetoothController::respondToPairing(bool accepted)
+{
+    if (!m_busy || m_operation != Operation::Pair || !m_awaitingConfirmation)
+        return false;
+    m_process->write(accepted ? "accept\n" : "reject\n");
+    m_process->closeWriteChannel();
+    m_awaitingConfirmation = false;
+    m_confirmationCode.clear();
+    m_statusMessage = accepted
+        ? QStringLiteral("Confirm the same number on the other device...")
+        : QStringLiteral("Rejecting the Bluetooth pairing request...");
+    emit stateChanged();
+    return true;
 }
 
 bool BluetoothController::forgetDevice(const QString &addressHex)
@@ -236,19 +235,21 @@ void BluetoothController::parseScan(const QByteArray &output)
         if (line == "discoverable=1") discoverable = true;
         if (!line.startsWith("device=")) continue;
         const QList<QByteArray> fields = line.mid(7).split('|');
-        if (fields.size() != 4) continue;
+        if (fields.size() != 5) continue;
         const QString addressHex = QString::fromLatin1(fields.at(0));
         const QString nameHex = QString::fromLatin1(fields.at(1));
         if (!AddressHexPattern.match(addressHex).hasMatch()
             || !NameHexPattern.match(nameHex).hasMatch()
             || (fields.at(2) != "0" && fields.at(2) != "1")
-            || (fields.at(3) != "0" && fields.at(3) != "1")) continue;
+            || (fields.at(3) != "0" && fields.at(3) != "1")
+            || (fields.at(4) != "0" && fields.at(4) != "1")) continue;
         QString name = QString::fromUtf8(QByteArray::fromHex(fields.at(1)));
         if (name.trimmed().isEmpty()) name = QStringLiteral("Unnamed Bluetooth device");
         parsed.append(QVariantMap{{QStringLiteral("name"), name},
                                   {QStringLiteral("addressHex"), addressHex},
                                   {QStringLiteral("remembered"), fields.at(2) == "1"},
-                                  {QStringLiteral("connected"), fields.at(3) == "1"}});
+                                  {QStringLiteral("paired"), fields.at(3) == "1"},
+                                  {QStringLiteral("connected"), fields.at(4) == "1"}});
     }
     std::sort(parsed.begin(), parsed.end(), [](const QVariant &a, const QVariant &b) {
         const QVariantMap left = a.toMap();
@@ -256,6 +257,9 @@ void BluetoothController::parseScan(const QByteArray &output)
         if (left.value(QStringLiteral("connected")).toBool()
             != right.value(QStringLiteral("connected")).toBool())
             return left.value(QStringLiteral("connected")).toBool();
+        if (left.value(QStringLiteral("paired")).toBool()
+            != right.value(QStringLiteral("paired")).toBool())
+            return left.value(QStringLiteral("paired")).toBool();
         if (left.value(QStringLiteral("remembered")).toBool()
             != right.value(QStringLiteral("remembered")).toBool())
             return left.value(QStringLiteral("remembered")).toBool();
@@ -276,6 +280,8 @@ void BluetoothController::finish(bool success, const QString &message)
     m_busy = false;
     m_statusIsError = !success;
     m_statusMessage = message;
+    m_awaitingConfirmation = false;
+    m_confirmationCode.clear();
     m_operation = Operation::None;
     if (m_request) {
         m_request->deleteLater();
@@ -284,8 +290,27 @@ void BluetoothController::finish(bool success, const QString &message)
     emit stateChanged();
 }
 
-void BluetoothController::clearBytes(QByteArray &bytes)
+void BluetoothController::processOutput(bool flushRemainder)
 {
-    bytes.fill('\0');
-    bytes.clear();
+    for (;;) {
+        const qsizetype newline = m_standardOutput.indexOf('\n');
+        if (newline < 0 && !flushRemainder) return;
+        if (newline < 0 && m_standardOutput.isEmpty()) return;
+        const QByteArray line = newline < 0
+            ? m_standardOutput : m_standardOutput.left(newline);
+        m_standardOutput.remove(0, newline < 0 ? m_standardOutput.size() : newline + 1);
+        if (line == "NORTHSTAR_BLUETOOTH_AUTHORIZED=1" && m_authorizationPending) {
+            m_authorizationPending = false;
+            emit authorizationCompleted();
+        } else if (line.startsWith("NORTHSTAR_BLUETOOTH_CONFIRM=")) {
+            const QString code = QString::fromLatin1(line.mid(28));
+            if (ConfirmationPattern.match(code).hasMatch()) {
+                m_confirmationCode = code;
+                m_awaitingConfirmation = true;
+                m_statusMessage = QStringLiteral("Confirm that %1 appears on both devices.").arg(code);
+                emit stateChanged();
+                emit pairingConfirmationRequested();
+            }
+        }
+    }
 }

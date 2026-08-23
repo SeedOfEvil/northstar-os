@@ -261,6 +261,9 @@ add_test(NAME northstar-bluetooth-scan
 add_test(NAME northstar-bluetooth-configure
     COMMAND sh ${PROJECT_SOURCE_DIR}/tests/unit/test-bluetooth-configure.sh)
 add_test(NAME northstar-bluetooth-qml COMMAND northstar-bluetooth --self-test)
+if(TARGET northstar-bluetooth-ssp)
+    add_test(NAME northstar-bluetooth-ssp COMMAND northstar-bluetooth-ssp --self-test)
+endif()
 
 add_test(NAME northstar-wifi-configure-helper
     COMMAND sh ${PROJECT_SOURCE_DIR}/tests/unit/test-wifi-configure.sh)

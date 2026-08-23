@@ -16,31 +16,77 @@ ApplicationWindow {
     property string selectedAddress: ""
     property string selectedName: ""
     property bool selectedRemembered: false
+    property bool selectedPaired: false
     property bool selectedConnected: false
 
     function clearSelection() {
         selectedAddress = ""
         selectedName = ""
         selectedRemembered = false
+        selectedPaired = false
         selectedConnected = false
-        pinField.text = ""
     }
 
     LunarPalette { id: lunar; darkMode: northstarDarkMode }
 
     Connections {
         target: bluetoothController
-        function onSecretsCleared() { pinField.text = "" }
         function onAuthorizationPromptExpected() { root.hide() }
         function onAuthorizationCompleted() {
             root.show()
             root.raise()
             root.requestActivate()
         }
+        function onPairingConfirmationRequested() {
+            root.show()
+            root.raise()
+            root.requestActivate()
+            confirmationDialog.open()
+        }
+        function onPairingFinished(success) {
+            confirmationDialog.close()
+            if (success) {
+                root.clearSelection()
+                bluetoothController.refreshDevices()
+            }
+        }
         function onForgetFinished(success) {
             if (success) {
                 root.clearSelection()
                 bluetoothController.refreshDevices()
+            }
+        }
+    }
+
+    Dialog {
+        id: confirmationDialog
+        anchors.centerIn: parent
+        modal: true
+        closePolicy: Popup.NoAutoClose
+        title: "Confirm Bluetooth pairing"
+        standardButtons: Dialog.Cancel | Dialog.Ok
+        onAccepted: bluetoothController.respondToPairing(true)
+        onRejected: bluetoothController.respondToPairing(false)
+
+        ColumnLayout {
+            width: 440
+            spacing: 12
+            Label {
+                Layout.fillWidth: true
+                text: "Does this number also appear on " + root.selectedName + "?"
+                wrapMode: Text.WordWrap
+            }
+            Label {
+                Layout.alignment: Qt.AlignHCenter
+                text: bluetoothController.confirmationCode
+                font.bold: true
+                font.pixelSize: 38
+                font.letterSpacing: 4
+            }
+            Label {
+                Layout.fillWidth: true
+                text: "Choose OK only when both devices show exactly the same number. Otherwise choose Cancel."
+                wrapMode: Text.WordWrap
             }
         }
     }
@@ -111,7 +157,7 @@ ApplicationWindow {
 
         Label {
             Layout.fillWidth: true
-            text: "For a phone, leave its Bluetooth settings screen open while refreshing here. To pair from the phone, first choose Make Discoverable above."
+            text: "For a phone, leave its Bluetooth settings screen open while refreshing here. Northstar will show the same six-digit confirmation number as the phone."
             color: lunar.muted
             wrapMode: Text.WordWrap
         }
@@ -157,7 +203,14 @@ ApplicationWindow {
                             font.bold: true
                         }
                         Label {
-                            visible: modelData.remembered && !modelData.connected
+                            visible: modelData.paired && !modelData.connected
+                            text: "Paired"
+                            color: lunar.accent
+                            font.bold: true
+                        }
+                        Label {
+                            visible: modelData.remembered && !modelData.paired
+                                && !modelData.connected
                             text: "Remembered"
                             color: lunar.muted
                         }
@@ -171,9 +224,8 @@ ApplicationWindow {
                             root.selectedAddress = modelData.addressHex
                             root.selectedName = modelData.name
                             root.selectedRemembered = modelData.remembered
+                            root.selectedPaired = modelData.paired
                             root.selectedConnected = modelData.connected
-                            pinField.text = ""
-                            if (!modelData.connected) pinField.forceActiveFocus()
                         }
                     }
                 }
@@ -190,8 +242,9 @@ ApplicationWindow {
         Label {
             visible: root.selectedAddress.length > 0
             text: root.selectedConnected ? root.selectedName + " is connected"
-                : (root.selectedRemembered ? "Pair " + root.selectedName + " again"
-                                           : "Pair with " + root.selectedName)
+                : (root.selectedPaired ? root.selectedName + " is paired"
+                    : (root.selectedRemembered ? "Finish pairing " + root.selectedName
+                                               : "Pair with " + root.selectedName))
             color: lunar.foreground
             font.bold: true
         }
@@ -199,22 +252,10 @@ ApplicationWindow {
         Label {
             Layout.fillWidth: true
             visible: root.selectedAddress.length > 0 && !root.selectedConnected
-            text: "Choose a 4 to 16 digit PIN. If the other device asks for a code, enter exactly the same PIN there."
+                && !root.selectedPaired
+            text: "Choose Pair, approve administrator access, then confirm the six-digit number shown on both devices."
             color: lunar.muted
             wrapMode: Text.WordWrap
-        }
-
-        TextField {
-            id: pinField
-            Layout.fillWidth: true
-            visible: root.selectedAddress.length > 0 && !root.selectedConnected
-            enabled: !bluetoothController.busy
-            echoMode: TextInput.Normal
-            inputMethodHints: Qt.ImhDigitsOnly
-            validator: RegularExpressionValidator { regularExpression: /^[0-9]{0,16}$/ }
-            placeholderText: "Pairing PIN (4 to 16 digits)"
-            maximumLength: 16
-            onAccepted: pairButton.clicked()
         }
 
         RowLayout {
@@ -227,24 +268,23 @@ ApplicationWindow {
             }
             Button {
                 text: "Forget"
-                visible: root.selectedRemembered
+                visible: root.selectedRemembered || root.selectedPaired
                 enabled: !bluetoothController.busy
                 onClicked: forgetDialog.open()
             }
             Button {
                 id: pairButton
-                text: root.selectedRemembered ? "Pair Again" : "Pair"
-                visible: !root.selectedConnected
+                text: "Pair"
+                visible: !root.selectedConnected && !root.selectedPaired
                 enabled: !bluetoothController.busy && root.selectedAddress.length > 0
-                    && pinField.text.length >= 4
                 onClicked: bluetoothController.pairDevice(
-                    root.selectedAddress, root.selectedName, pinField.text)
+                    root.selectedAddress, root.selectedName)
             }
         }
 
         Label {
             Layout.fillWidth: true
-            text: "Current alpha baseline: discovery, pairing setup, remembered state, and live baseband connection state. HID, phone audio, and file transfer require separate profile services and are not claimed yet."
+            text: "Current alpha baseline: discovery, modern numeric-confirmation pairing, remembered state, persisted paired state, and live baseband connection state. HID, phone audio, and file transfer require separate profile services and are not claimed yet."
             color: lunar.muted
             wrapMode: Text.WordWrap
         }

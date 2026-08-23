@@ -10,6 +10,7 @@ NODE=${NORTHSTAR_BLUETOOTH_NODE:-ubt0hci}
 HCCONTROL=${NORTHSTAR_BLUETOOTH_HCCONTROL_PATH:-/usr/sbin/hccontrol}
 SYSRC=${NORTHSTAR_BLUETOOTH_SYSRC_PATH:-/usr/sbin/sysrc}
 SERVICE=${NORTHSTAR_BLUETOOTH_SERVICE_PATH:-/usr/sbin/service}
+SSP_AGENT=${NORTHSTAR_BLUETOOTH_SSP_PATH:-/usr/local/libexec/northstar-bluetooth-ssp}
 STAT=${NORTHSTAR_BLUETOOTH_STAT_PATH:-/usr/bin/stat}
 INSTALL=${NORTHSTAR_BLUETOOTH_INSTALL_PATH:-/usr/bin/install}
 fail() { status=$1; shift; printf 'ERROR: %s\n' "$*" >&2; exit "$status"; }
@@ -153,6 +154,7 @@ address=$(printf '%s' "$address_hex" | sed 's/../&:/g;s/:$//')
 hosts=$(root_path etc/bluetooth/hosts)
 config=$(root_path etc/bluetooth/hcsecd.conf)
 keys=$(root_path var/db/hcsecd.keys)
+paired=$(root_path var/db/northstar/bluetooth-paired)
 [ -d "${hosts%/*}" ] && [ -f "$config" ] && [ ! -L "$config" ] ||
     fail "$EX_UNAVAILABLE" 'the Bluetooth configuration is unavailable'
 
@@ -161,21 +163,25 @@ if [ "$operation" = pair ]; then
         fail "$EX_DATAERR" 'the Bluetooth pairing request has the wrong number of fields'
     match "$name_hex" '^([0-9a-f][0-9a-f]){1,124}$' ||
         fail "$EX_DATAERR" 'the selected Bluetooth name is invalid'
-    IFS= read -r pin || pin=
-    match "$pin" '^[0-9]{4,16}$' ||
-        fail "$EX_DATAERR" 'the pairing PIN must contain 4 to 16 digits'
+    [ -x "$SSP_AGENT" ] ||
+        fail "$EX_UNAVAILABLE" 'the Secure Simple Pairing agent is unavailable'
     printf '%s\n' NORTHSTAR_BLUETOOTH_AUTHORIZED=1
 
     friendly=$(unhex "$name_hex" | LC_ALL=C tr -c '[:alnum:] .,_-' '_' | cut -c1-80)
     [ -n "$friendly" ] || friendly='Bluetooth device'
     alias=$(printf '%s' "$friendly" | tr ' ' '_' | cut -c1-80)
     tmp=$(mktemp -d "${TMPDIR:-/tmp}/northstar-bluetooth.XXXXXX")
-    trap 'pin=; rm -rf "$tmp"' EXIT HUP INT TERM
+    trap 'rm -rf "$tmp"' EXIT HUP INT TERM
     hosts_backup=$tmp/hosts.backup
     config_backup=$tmp/hcsecd.backup
+    keys_backup=$tmp/keys.backup
+    paired_backup=$tmp/paired.backup
     hosts_candidate=$tmp/hosts.candidate
     config_candidate=$tmp/hcsecd.candidate
+    paired_candidate=$tmp/paired.candidate
     had_hosts=0
+    had_keys=0
+    had_paired=0
     if [ -f "$hosts" ] && [ ! -L "$hosts" ]; then
         had_hosts=1
         cp "$hosts" "$hosts_backup"
@@ -186,6 +192,14 @@ if [ "$operation" = pair ]; then
     fi
     printf '%s\t%s\n' "$address" "$alias" >> "$hosts_candidate"
     cp "$config" "$config_backup"
+    if [ -f "$keys" ] && [ ! -L "$keys" ]; then
+        had_keys=1
+        cp "$keys" "$keys_backup"
+    fi
+    if [ -f "$paired" ] && [ ! -L "$paired" ]; then
+        had_paired=1
+        cp "$paired" "$paired_backup"
+    fi
     filter_device "$config" "$address" "$config_candidate"
     {
         printf '\n# Managed by Northstar Bluetooth\n'
@@ -193,19 +207,29 @@ if [ "$operation" = pair ]; then
         printf '\tbdaddr\t%s;\n' "$address"
         printf '\tname\t"%s";\n' "$friendly"
         printf '\tkey\tnokey;\n'
-        printf '\tpin\t"%s";\n' "$pin"
+        printf '\tpin\tnopin;\n'
         printf '}\n'
     } >> "$config_candidate"
-    pin=
 
     rollback_pair() {
+        "$SERVICE" hcsecd onestop >/dev/null 2>&1 || true
         put_file 0600 "$config_backup" "$config" >/dev/null 2>&1 || true
         if [ "$had_hosts" -eq 1 ]; then
             put_file 0644 "$hosts_backup" "$hosts" >/dev/null 2>&1 || true
         else
             rm -f "$hosts"
         fi
-        "$SERVICE" hcsecd onerestart >/dev/null 2>&1 || true
+        if [ "$had_keys" -eq 1 ]; then
+            put_file 0600 "$keys_backup" "$keys" >/dev/null 2>&1 || true
+        else
+            rm -f "$keys"
+        fi
+        if [ "$had_paired" -eq 1 ]; then
+            put_file 0644 "$paired_backup" "$paired" >/dev/null 2>&1 || true
+        else
+            rm -f "$paired"
+        fi
+        "$SERVICE" hcsecd onestart >/dev/null 2>&1 || true
     }
     put_file 0644 "$hosts_candidate" "$hosts" ||
         fail "$EX_UNAVAILABLE" 'the Bluetooth hosts file could not be installed'
@@ -221,13 +245,31 @@ if [ "$operation" = pair ]; then
         rollback_pair
         fail "$EX_UNAVAILABLE" 'the Bluetooth pairing service could not be restarted'
     }
-    "$HCCONTROL" -n "$NODE" create_connection "$address" >/dev/null 2>&1 ||
-    "$HCCONTROL" -n "$NODE" create_connection "$address" 0xcc18 1 0 0 1 \
-        >/dev/null 2>&1 || {
+    if ! "$SSP_AGENT" "$NODE" "$address"; then
         rollback_pair
-        fail "$EX_UNAVAILABLE" 'the selected device did not accept a Bluetooth connection'
+        fail "$EX_UNAVAILABLE" 'Secure Simple Pairing did not complete'
+    fi
+    "$SERVICE" hcsecd onerestart >/dev/null 2>&1 || {
+        rollback_pair
+        fail "$EX_UNAVAILABLE" 'the Bluetooth link key could not be persisted'
     }
-    printf '%s\n' NORTHSTAR_BLUETOOTH_PAIR_REQUEST=PASS
+    grep -qi "bdaddr[[:space:]]*$address" "$keys" 2>/dev/null || {
+        rollback_pair
+        fail "$EX_UNAVAILABLE" 'the device did not provide a persistent Bluetooth link key'
+    }
+    mkdir -p "${paired%/*}"
+    if [ "$had_paired" -eq 1 ]; then
+        awk -v target="$address" 'tolower($1) != tolower(target) { print }' \
+            "$paired_backup" > "$paired_candidate"
+    else
+        : > "$paired_candidate"
+    fi
+    printf '%s\n' "$address" >> "$paired_candidate"
+    put_file 0644 "$paired_candidate" "$paired" || {
+        rollback_pair
+        fail "$EX_UNAVAILABLE" 'the paired-device state could not be recorded'
+    }
+    printf '%s\n' NORTHSTAR_BLUETOOTH_PAIR=PASS
     exit 0
 fi
 
@@ -239,11 +281,14 @@ trap 'rm -rf "$tmp"' EXIT HUP INT TERM
 hosts_backup=$tmp/hosts.backup
 config_backup=$tmp/hcsecd.backup
 keys_backup=$tmp/keys.backup
+paired_backup=$tmp/paired.backup
 hosts_candidate=$tmp/hosts.candidate
 config_candidate=$tmp/hcsecd.candidate
 keys_candidate=$tmp/keys.candidate
+paired_candidate=$tmp/paired.candidate
 had_hosts=0
 had_keys=0
+had_paired=0
 "$SERVICE" hcsecd onestop >/dev/null 2>&1 || true
 cp "$config" "$config_backup"
 filter_device "$config" "$address" "$config_candidate"
@@ -260,6 +305,12 @@ if [ -f "$keys" ] && [ ! -L "$keys" ]; then
     cp "$keys" "$keys_backup"
     filter_device "$keys" "$address" "$keys_candidate"
 fi
+if [ -f "$paired" ] && [ ! -L "$paired" ]; then
+    had_paired=1
+    cp "$paired" "$paired_backup"
+    awk -v target="$address" 'tolower($1) != tolower(target) { print }' \
+        "$paired" > "$paired_candidate"
+fi
 
 rollback_forget() {
     put_file 0600 "$config_backup" "$config" >/dev/null 2>&1 || true
@@ -270,6 +321,9 @@ rollback_forget() {
     fi
     if [ "$had_keys" -eq 1 ]; then
         put_file 0600 "$keys_backup" "$keys" >/dev/null 2>&1 || true
+    fi
+    if [ "$had_paired" -eq 1 ]; then
+        put_file 0644 "$paired_backup" "$paired" >/dev/null 2>&1 || true
     fi
     "$SERVICE" hcsecd onestart >/dev/null 2>&1 || true
 }
@@ -285,6 +339,12 @@ if [ "$had_keys" -eq 1 ]; then
     put_file 0600 "$keys_candidate" "$keys" || {
         rollback_forget
         fail "$EX_UNAVAILABLE" 'the Bluetooth link-key cache could not be updated'
+    }
+fi
+if [ "$had_paired" -eq 1 ]; then
+    put_file 0644 "$paired_candidate" "$paired" || {
+        rollback_forget
+        fail "$EX_UNAVAILABLE" 'the paired-device state could not be updated'
     }
 fi
 handle=$("$HCCONTROL" -n "$NODE" read_connection_list 2>/dev/null |
