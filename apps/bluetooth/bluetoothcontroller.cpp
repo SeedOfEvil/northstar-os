@@ -21,6 +21,7 @@ BluetoothController::BluetoothController(QObject *parent)
     : QObject(parent)
     , m_process(new QProcess(this))
     , m_transferServer(new QProcess(this))
+    , m_transferStopper(new QProcess(this))
     , m_statusMessage(QStringLiteral("Choose Refresh to find discoverable or remembered Bluetooth devices."))
 {
     connect(m_transferServer, &QProcess::readyReadStandardOutput, this, [this]() {
@@ -60,6 +61,22 @@ BluetoothController::BluetoothController(QObject *parent)
             m_statusMessage = QStringLiteral("Bluetooth file receiving stopped unexpectedly.");
         }
         emit stateChanged();
+    });
+    connect(m_transferStopper, qOverload<int, QProcess::ExitStatus>(&QProcess::finished), this,
+            [this](int exitCode, QProcess::ExitStatus exitStatus) {
+        if (m_transferAuthorizationPending) {
+            m_transferAuthorizationPending = false;
+            emit authorizationCompleted();
+        }
+        if (exitStatus != QProcess::NormalExit || exitCode != 0) {
+            QString error = QString::fromUtf8(m_transferStopper->readAllStandardError()).trimmed();
+            if (error.startsWith(QStringLiteral("ERROR: "))) error.remove(0, 7);
+            m_statusIsError = true;
+            m_statusMessage = error.isEmpty()
+                ? QStringLiteral("Bluetooth file receiving could not be stopped.")
+                : error.left(240);
+            emit stateChanged();
+        }
     });
     connect(m_process, &QProcess::readyReadStandardOutput, this, [this]() {
         m_standardOutput.append(m_process->readAllStandardOutput());
@@ -300,9 +317,29 @@ bool BluetoothController::setReceivingFiles(bool enabled)
         return false;
     }
     if (!enabled) {
-        if (m_transferServer->state() == QProcess::NotRunning) return false;
+        if (m_transferServer->state() == QProcess::NotRunning
+            || m_transferStopper->state() != QProcess::NotRunning) return false;
         m_transferServer->setProperty("northstarRequestedStop", true);
-        m_transferServer->terminate();
+        QString program = qEnvironmentVariable("NORTHSTAR_BLUETOOTH_OBEX_RECEIVE_COMMAND");
+        QStringList arguments;
+        if (program.isEmpty()) {
+            program = QStandardPaths::findExecutable(QStringLiteral("pkexec"));
+            if (program.isEmpty()) {
+                finish(false, QStringLiteral("Administrator authorization is unavailable."));
+                return false;
+            }
+            arguments << QStringLiteral("--disable-internal-agent")
+                      << QStringLiteral("/usr/local/libexec/northstar-bluetooth-receive");
+        }
+        arguments << QStringLiteral("--stop");
+        m_transferStopper->setProgram(program);
+        m_transferStopper->setArguments(arguments);
+        m_transferAuthorizationPending = true;
+        m_statusIsError = false;
+        m_statusMessage = QStringLiteral("Stopping Bluetooth file receiving...");
+        emit authorizationPromptExpected();
+        emit stateChanged();
+        m_transferStopper->start();
         return true;
     }
     if (m_transferServer->state() != QProcess::NotRunning) return false;
@@ -317,6 +354,7 @@ bool BluetoothController::setReceivingFiles(bool enabled)
         arguments << QStringLiteral("--disable-internal-agent")
                   << QStringLiteral("/usr/local/libexec/northstar-bluetooth-receive");
     }
+    arguments << QStringLiteral("--start");
     m_transferServer->setProgram(program);
     m_transferServer->setArguments(arguments);
     m_transferAuthorizationPending = true;

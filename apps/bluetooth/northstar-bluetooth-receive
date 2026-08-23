@@ -5,12 +5,19 @@ EX_NOPERM=77
 TEST_MODE=${NORTHSTAR_BLUETOOTH_TEST_MODE:-0}
 ROOT=${NORTHSTAR_BLUETOOTH_ROOT:-/}
 OBEXAPP=${NORTHSTAR_BLUETOOTH_OBEX_PATH:-/usr/local/bin/obexapp}
+HCCONTROL=${NORTHSTAR_BLUETOOTH_HCCONTROL_PATH:-/usr/sbin/hccontrol}
 STAT=${NORTHSTAR_BLUETOOTH_STAT_PATH:-/usr/bin/stat}
 INSTALL=${NORTHSTAR_BLUETOOTH_INSTALL_PATH:-/usr/bin/install}
+RUNTIME_ROOT=${NORTHSTAR_BLUETOOTH_RUNTIME_ROOT:-/var/run}
+HCI_NODE=${NORTHSTAR_BLUETOOTH_HCI_NODE:-ubt0hci}
 fail() { status=$1; shift; printf 'ERROR: %s\n' "$*" >&2; exit "$status"; }
 match() { printf '%s\n' "$1" | grep -Eq "$2"; }
 
-[ "$#" -eq 0 ] || fail 64 'Bluetooth receiving accepts no arguments'
+[ "$#" -eq 1 ] || fail 64 'Bluetooth receiving requires --start or --stop'
+case "$1" in
+    --start|--stop) operation=$1;;
+    *) fail 64 'Bluetooth receiving requires --start or --stop';;
+esac
 [ -x "$OBEXAPP" ] || fail "$EX_UNAVAILABLE" 'Bluetooth file transfer is not installed'
 
 if [ "$TEST_MODE" = 1 ]; then
@@ -28,6 +35,21 @@ else
     username=$(id -nu "$caller" 2>/dev/null || true)
     group=$(id -g "$caller" 2>/dev/null || true)
     home=$(getent passwd "$caller" | awk -F: 'NR == 1 { print $6 }')
+fi
+
+state=$RUNTIME_ROOT/northstar-bluetooth-receive-$caller
+pidfile=$state/server.pid
+classfile=$state/class-of-device
+
+if [ "$operation" = --stop ]; then
+    [ -d "$state" ] || fail "$EX_UNAVAILABLE" 'Bluetooth file receiving is not running'
+    [ ! -L "$state" ] && [ -f "$pidfile" ] && [ ! -L "$pidfile" ] ||
+        fail "$EX_NOPERM" 'Bluetooth file-receiving state is unsafe'
+    pid=$(sed -n '1p' "$pidfile")
+    match "$pid" '^[1-9][0-9]*$' || fail "$EX_NOPERM" 'Bluetooth file-receiving state is invalid'
+    kill -TERM "$pid" 2>/dev/null || fail "$EX_UNAVAILABLE" 'Bluetooth file receiving is not running'
+    printf '%s\n' NORTHSTAR_BLUETOOTH_STOP_REQUESTED=1
+    exit 0
 fi
 
 match "$username" '^[A-Za-z_][A-Za-z0-9_-]{0,31}$' ||
@@ -64,5 +86,41 @@ fi
 [ "$TEST_MODE" = 1 ] || [ "$("$STAT" -f %u "$downloads")" = "$caller" ] ||
     fail "$EX_NOPERM" 'the Downloads folder has unsafe ownership'
 
+if ! mkdir -m 0700 "$state" 2>/dev/null; then
+    if [ -f "$pidfile" ]; then
+        pid=$(sed -n '1p' "$pidfile")
+        if match "$pid" '^[1-9][0-9]*$' && kill -0 "$pid" 2>/dev/null; then
+            fail "$EX_UNAVAILABLE" 'Bluetooth file receiving is already running'
+        fi
+    fi
+    rm -rf "$state"
+    mkdir -m 0700 "$state" || fail "$EX_UNAVAILABLE" 'Bluetooth receiving state could not be prepared'
+fi
+
+previous_class=$($HCCONTROL -n "$HCI_NODE" read_class_of_device 2>/dev/null |
+    awk 'match($0, /[[:xdigit:]]{2}:[[:xdigit:]]{2}:[[:xdigit:]]{2}/) { print substr($0, RSTART, RLENGTH); exit }')
+match "$previous_class" '^[[:xdigit:]]{2}:[[:xdigit:]]{2}:[[:xdigit:]]{2}$' || {
+    rm -rf "$state"
+    fail "$EX_UNAVAILABLE" 'the Bluetooth device class could not be read'
+}
+printf '%s\n' "$previous_class" > "$classfile"
+$HCCONTROL -n "$HCI_NODE" write_class_of_device 0c:01:10 >/dev/null || {
+    rm -rf "$state"
+    fail "$EX_UNAVAILABLE" 'the Bluetooth Object Transfer class could not be enabled'
+}
+
+server=
+cleanup() {
+    trap - EXIT HUP INT TERM
+    [ -z "$server" ] || kill -TERM "$server" 2>/dev/null || true
+    [ -z "$server" ] || wait "$server" 2>/dev/null || true
+    "$HCCONTROL" -n "$HCI_NODE" write_class_of_device "$previous_class" >/dev/null 2>&1 || true
+    rm -rf "$state"
+}
+trap cleanup EXIT HUP INT TERM
+
 printf '%s\n' NORTHSTAR_BLUETOOTH_AUTHORIZED=1
-exec "$OBEXAPP" -s -d -S -u "$username" -r "$downloads"
+"$OBEXAPP" -s -d -S -u "$username" -r "$downloads" &
+server=$!
+printf '%s\n' "$server" > "$pidfile"
+wait "$server"

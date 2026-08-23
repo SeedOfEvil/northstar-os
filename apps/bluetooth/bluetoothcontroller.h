@@ -62,6 +62,7 @@ private:
 
     QProcess *m_process = nullptr;
     QProcess *m_transferServer = nullptr;
+    QProcess *m_transferStopper = nullptr;
     QTemporaryFile *m_request = nullptr;
     QByteArray m_standardOutput;
     QVariantList m_devices;

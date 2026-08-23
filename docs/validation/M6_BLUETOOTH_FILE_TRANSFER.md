@@ -16,6 +16,9 @@ need different physical acceptance devices.
   root-EUID process to register an SDP service. The helper derives the desktop
   identity from `PKEXEC_UID`; no username or path is accepted from the GUI.
   `obexapp` then chroots to Downloads and drops to the signed-in user.
+- The protected helper owns a single per-user receiver PID, advertises the
+  standards-defined Laptop + Object Transfer device class while receiving, and
+  restores the prior class when protected Stop terminates that exact server.
 - Sending passes a validated paired address and a readable, non-symlink local
   file to `obexapp` through `QProcess` argument boundaries. No shell command is
   constructed.
@@ -34,7 +37,8 @@ assembler test requires both the `obexapp` runtime root and `sdpd_enable=YES`.
 Before merge on the accepted Intel laptop:
 
 1. the existing Android bond still appears as Paired;
-2. Receive Files starts and stops without administrator authorization;
+2. Receive Files starts and stops through the expected administrator prompt,
+   and repeated starts publish only one OPUSH/FTP service pair;
 3. Android can share a small non-sensitive file into the user's Downloads
    directory, with its name and content preserved;
 4. Send File can push a small non-sensitive file to the paired Android device;
