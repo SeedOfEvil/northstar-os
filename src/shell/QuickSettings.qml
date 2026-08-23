@@ -347,11 +347,16 @@ Window {
 
                     Slider {
                         id: displaySlider
-                        enabled: quickSettings.controller && quickSettings.controller.displayAvailable
-                        from: 0
+                        enabled: quickSettings.controller && quickSettings.controller.displayWritable
+                        from: 1
                         to: 100
                         value: quickSettings.controller ? quickSettings.controller.displayBrightness : 0
+                        live: false
                         width: parent.width
+                        onPressedChanged: {
+                            if (!pressed && quickSettings.controller)
+                                quickSettings.controller.setDisplayBrightness(Math.round(value))
+                        }
                     }
 
                     Item {

@@ -24,6 +24,7 @@ private slots:
     void confirmsMixerBalanceMutations();
     void confirmsSoundOutputMutations();
     void confirmsTestSound();
+    void confirmsBrightnessMutations();
     void rejectsUnconfirmedMixerMutations();
     void persistsDoNotDisturb();
 
@@ -140,8 +141,44 @@ void QuickSettingsControllerTest::reportsConfirmedCapabilities()
              QStringLiteral("Internal Speakers"));
     QCOMPARE(mixerCalls, QStringList({QStringLiteral("-a"), QStringLiteral("vol")}));
     QVERIFY(controller.displayAvailable());
+    QVERIFY(!controller.displayWritable());
     QCOMPARE(controller.displayBrightness(), 72);
     QVERIFY(!controller.nightLightAvailable());
+}
+
+void QuickSettingsControllerTest::confirmsBrightnessMutations()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    int brightness = 100;
+    QStringList calls;
+    const auto provider = [&brightness, &calls](const QString &program,
+                                                const QStringList &arguments) {
+        if (program == QStringLiteral("/usr/bin/backlight")) {
+            calls.append(arguments.join(QLatin1Char(' ')));
+            if (arguments == QStringList{QStringLiteral("-q")}) {
+                return result(0, QString::number(brightness));
+            }
+            bool ok = false;
+            const int requested = arguments.value(0).toInt(&ok);
+            if (ok) {
+                brightness = requested;
+                return result(0);
+            }
+        }
+        return result(1);
+    };
+
+    QuickSettingsController controller(
+        nullptr, directory.filePath(QStringLiteral("preferences.ini")), provider);
+    QVERIFY(controller.displayAvailable());
+    QVERIFY(controller.displayWritable());
+    QCOMPARE(controller.displayBrightness(), 100);
+    QVERIFY(controller.setDisplayBrightness(42));
+    QCOMPARE(controller.displayBrightness(), 42);
+    QVERIFY(controller.statusMessage().contains(QStringLiteral("confirmed")));
+    QCOMPARE(calls, QStringList({QStringLiteral("-q"), QStringLiteral("42"),
+                                 QStringLiteral("-q")}));
 }
 
 void QuickSettingsControllerTest::confirmsMixerMutations()

@@ -35,6 +35,7 @@ class QuickSettingsController final : public QObject
     Q_PROPERTY(bool testSoundAvailable READ testSoundAvailable NOTIFY capabilitiesChanged)
     Q_PROPERTY(QString soundStatus READ soundStatus NOTIFY capabilitiesChanged)
     Q_PROPERTY(bool displayAvailable READ displayAvailable NOTIFY capabilitiesChanged)
+    Q_PROPERTY(bool displayWritable READ displayWritable NOTIFY capabilitiesChanged)
     Q_PROPERTY(int displayBrightness READ displayBrightness NOTIFY capabilitiesChanged)
     Q_PROPERTY(QString displayStatus READ displayStatus NOTIFY capabilitiesChanged)
     Q_PROPERTY(bool nightLightAvailable READ nightLightAvailable NOTIFY capabilitiesChanged)
@@ -78,6 +79,7 @@ public:
     bool testSoundAvailable() const;
     QString soundStatus() const;
     bool displayAvailable() const;
+    bool displayWritable() const;
     int displayBrightness() const;
     QString displayStatus() const;
     bool nightLightAvailable() const;
@@ -94,6 +96,7 @@ public:
     Q_INVOKABLE bool setBalance(int balance);
     Q_INVOKABLE bool setSoundOutput(int unit);
     Q_INVOKABLE bool testSound();
+    Q_INVOKABLE bool setDisplayBrightness(int brightness);
     Q_INVOKABLE void toggleDoNotDisturb();
 
 public slots:
@@ -139,6 +142,7 @@ private:
     int m_soundOutput = -1;
     QString m_soundStatus = QStringLiteral("No mixer device available");
     bool m_displayAvailable = false;
+    bool m_displayWritable = false;
     int m_displayBrightness = 0;
     QString m_displayStatus = QStringLiteral("Brightness control unavailable");
     bool m_nightLightAvailable = false;
