@@ -5,6 +5,7 @@
 #include <QObject>
 #include <QString>
 #include <QStringList>
+#include <QVariantList>
 
 struct QuickSettingsCommandResult
 {
@@ -27,6 +28,11 @@ class QuickSettingsController final : public QObject
     Q_PROPERTY(bool bluetoothWritable READ bluetoothWritable NOTIFY capabilitiesChanged)
     Q_PROPERTY(bool soundAvailable READ soundAvailable NOTIFY capabilitiesChanged)
     Q_PROPERTY(int volume READ volume NOTIFY capabilitiesChanged)
+    Q_PROPERTY(bool muted READ muted NOTIFY capabilitiesChanged)
+    Q_PROPERTY(int balance READ balance NOTIFY capabilitiesChanged)
+    Q_PROPERTY(QVariantList soundOutputs READ soundOutputs NOTIFY capabilitiesChanged)
+    Q_PROPERTY(int soundOutput READ soundOutput NOTIFY capabilitiesChanged)
+    Q_PROPERTY(bool testSoundAvailable READ testSoundAvailable NOTIFY capabilitiesChanged)
     Q_PROPERTY(QString soundStatus READ soundStatus NOTIFY capabilitiesChanged)
     Q_PROPERTY(bool displayAvailable READ displayAvailable NOTIFY capabilitiesChanged)
     Q_PROPERTY(int displayBrightness READ displayBrightness NOTIFY capabilitiesChanged)
@@ -65,6 +71,11 @@ public:
     bool bluetoothWritable() const;
     bool soundAvailable() const;
     int volume() const;
+    bool muted() const;
+    int balance() const;
+    QVariantList soundOutputs() const;
+    int soundOutput() const;
+    bool testSoundAvailable() const;
     QString soundStatus() const;
     bool displayAvailable() const;
     int displayBrightness() const;
@@ -79,6 +90,10 @@ public:
     Q_INVOKABLE bool setWifiEnabled(bool enabled);
     Q_INVOKABLE bool setBluetoothEnabled(bool enabled);
     Q_INVOKABLE bool setVolume(int volume);
+    Q_INVOKABLE bool setMuted(bool muted);
+    Q_INVOKABLE bool setBalance(int balance);
+    Q_INVOKABLE bool setSoundOutput(int unit);
+    Q_INVOKABLE bool testSound();
     Q_INVOKABLE void toggleDoNotDisturb();
 
 public slots:
@@ -93,6 +108,7 @@ private:
     static QuickSettingsCommandResult runCommand(const QString &program,
                                                   const QStringList &arguments);
     static QString defaultSettingsPath();
+    static QString testTonePath();
 
     // Where the privileged boundary lives. Empty when it is not installed,
     // which is what makes a radio read-only rather than silently broken.
@@ -101,6 +117,7 @@ private:
     void refreshWifi();
     void refreshBluetooth();
     void refreshSound();
+    void refreshSoundOutputs();
     void refreshDisplay();
     void setStatusMessage(const QString &message);
 
@@ -116,6 +133,10 @@ private:
     QString m_bluetoothStatus = QStringLiteral("No Bluetooth adapter detected");
     bool m_soundAvailable = false;
     int m_volume = 0;
+    bool m_muted = false;
+    int m_balance = 0;
+    QVariantList m_soundOutputs;
+    int m_soundOutput = -1;
     QString m_soundStatus = QStringLiteral("No mixer device available");
     bool m_displayAvailable = false;
     int m_displayBrightness = 0;

@@ -32,7 +32,8 @@ Window {
     title: "Northstar Quick Settings"
 
     width: 354
-    height: 456
+    height: Math.min(contentColumn.implicitHeight + 32,
+                     screenHeight - panelHeight - 20)
     x: screenX + screenWidth - width - 18
     y: screenY + panelHeight + 8
 
@@ -79,7 +80,10 @@ Window {
         }
 
         Column {
-            anchors.fill: parent
+            id: contentColumn
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
             anchors.margins: 16
             spacing: 12
 
@@ -300,14 +304,17 @@ Window {
 
             Rectangle {
                 color: quickSettings.surfaceRaised
-                height: 82
+                height: mixerControls.implicitHeight + 20
                 radius: lunar.radiusMedium
                 border.color: lunar.borderSoft
                 border.width: 1
                 width: parent.width
 
                 Column {
-                    anchors.fill: parent
+                    id: mixerControls
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
                     anchors.leftMargin: 14
                     anchors.rightMargin: 14
                     anchors.topMargin: 10
@@ -372,17 +379,59 @@ Window {
                         }
                     }
 
-                    Slider {
-                        id: soundSlider
-                        enabled: quickSettings.controller && quickSettings.controller.soundAvailable
-                        from: 0
-                        to: 100
-                        value: quickSettings.controller ? quickSettings.controller.volume : 0
-                        live: false
+                    Row {
+                        spacing: 8
                         width: parent.width
-                        onPressedChanged: {
-                            if (!pressed && quickSettings.controller)
-                                quickSettings.controller.setVolume(Math.round(value))
+
+                        Button {
+                            id: muteButton
+                            enabled: quickSettings.controller && quickSettings.controller.soundAvailable
+                            text: quickSettings.controller && quickSettings.controller.muted
+                                ? "Unmute" : "Mute"
+                            width: 76
+                            onClicked: {
+                                if (quickSettings.controller)
+                                    quickSettings.controller.setMuted(!quickSettings.controller.muted)
+                            }
+                        }
+
+                        Slider {
+                            id: soundSlider
+                            enabled: quickSettings.controller && quickSettings.controller.soundAvailable
+                            from: 0
+                            to: 100
+                            value: quickSettings.controller ? quickSettings.controller.volume : 0
+                            live: false
+                            width: parent.width - muteButton.width - parent.spacing
+                            onPressedChanged: {
+                                if (!pressed && quickSettings.controller)
+                                    quickSettings.controller.setVolume(Math.round(value))
+                            }
+                        }
+                    }
+
+                    ComboBox {
+                        id: outputChooser
+                        enabled: quickSettings.controller
+                            && quickSettings.controller.soundOutputs.length > 1
+                        model: quickSettings.controller
+                            ? quickSettings.controller.soundOutputs : []
+                        textRole: "label"
+                        valueRole: "unit"
+                        width: parent.width
+
+                        function syncToOutput() {
+                            currentIndex = indexOfValue(quickSettings.controller
+                                ? quickSettings.controller.soundOutput : -1)
+                        }
+
+                        Component.onCompleted: syncToOutput()
+                        onModelChanged: syncToOutput()
+                        onActivated: {
+                            if (!quickSettings.controller
+                                || !quickSettings.controller.setSoundOutput(valueAt(currentIndex))) {
+                                syncToOutput()
+                            }
                         }
                     }
                 }

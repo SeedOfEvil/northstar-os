@@ -455,6 +455,12 @@ Window {
                         model: settings.hasCatalog ? settings.settingsCatalog.entries : []
                         spacing: 10
 
+                        ScrollBar.vertical: ScrollBar {
+                            id: entryScrollBar
+                            active: entryList.contentHeight > entryList.height
+                            policy: ScrollBar.AsNeeded
+                        }
+
                         delegate: Rectangle {
                             required property var modelData
 
@@ -463,7 +469,7 @@ Window {
                             color: settings.surfaceBackground
                             height: entryBody.implicitHeight + 26
                             radius: lunar.radiusMedium
-                            width: entryList.width
+                            width: entryList.width - entryScrollBar.width - 6
 
                             Row {
                                 anchors.fill: parent

@@ -6,25 +6,45 @@
 #include <QRegularExpression>
 #include <QSettings>
 #include <QStandardPaths>
+#include <QtMath>
 
+#include <algorithm>
 #include <utility>
 
 namespace {
 
 constexpr int CommandTimeoutMilliseconds = 800;
+constexpr int MinimumAudibleMixerVolume = 60;
 
 bool commandSucceeded(const QuickSettingsCommandResult &result)
 {
     return result.started && result.exitCode == 0;
 }
 
-int parseMixerVolume(const QString &output)
+struct MixerVolumes
+{
+    int left = -1;
+    int right = -1;
+};
+
+int mixerPercentage(const QString &value)
+{
+    bool ok = false;
+    const double rawVolume = value.toDouble(&ok);
+    if (!ok) {
+        return -1;
+    }
+    const double percentage = rawVolume <= 1.0 ? rawVolume * 100.0 : rawVolume;
+    return qBound(0, qRound(percentage), 100);
+}
+
+MixerVolumes parseMixerVolumes(const QString &output)
 {
     static const QRegularExpression decimalExpression(
-        QStringLiteral(R"(vol(?:\.volume)?\s*=\s*([0-9]+(?:\.[0-9]+)?))"),
+        QStringLiteral(R"(vol(?:\.volume)?\s*=\s*([0-9]+(?:\.[0-9]+)?)(?::([0-9]+(?:\.[0-9]+)?))?)"),
         QRegularExpression::CaseInsensitiveOption);
     static const QRegularExpression legacyExpression(
-        QStringLiteral(R"(vol\s+([0-9]+(?:\.[0-9]+)?))"),
+        QStringLiteral(R"(vol\s+([0-9]+(?:\.[0-9]+)?)(?::([0-9]+(?:\.[0-9]+)?))?)"),
         QRegularExpression::CaseInsensitiveOption);
 
     QRegularExpressionMatch match = decimalExpression.match(output);
@@ -32,16 +52,98 @@ int parseMixerVolume(const QString &output)
         match = legacyExpression.match(output);
     }
     if (!match.hasMatch()) {
-        return -1;
+        return {};
     }
 
-    bool ok = false;
-    const double rawVolume = match.captured(1).toDouble(&ok);
-    if (!ok) {
-        return -1;
+    const int left = mixerPercentage(match.captured(1));
+    const int right = match.captured(2).isEmpty()
+        ? left : mixerPercentage(match.captured(2));
+    return {left, right};
+}
+
+int perceptualVolumeForMixer(int mixerVolume)
+{
+    if (mixerVolume <= 0) {
+        return 0;
     }
-    const double percentage = rawVolume <= 1.0 ? rawVolume * 100.0 : rawVolume;
-    return qBound(0, qRound(percentage), 100);
+
+    // The accepted ALC236 laptop is effectively silent through most of the
+    // lower hardware range: raw 63% is barely audible and raw 86% sounds near
+    // 40%. Compress that usable 60-100 range into the desktop's 1-100 scale,
+    // while keeping a true zero available for silence.
+    const double normalized = qBound(0, mixerVolume - MinimumAudibleMixerVolume,
+                                     100 - MinimumAudibleMixerVolume)
+        / double(100 - MinimumAudibleMixerVolume);
+    return qBound(0, qRound(normalized * normalized * 100.0), 100);
+}
+
+int mixerVolumeForPerceptual(int perceptualVolume)
+{
+    if (perceptualVolume <= 0) {
+        return 0;
+    }
+
+    const double normalized = qBound(0, perceptualVolume, 100) / 100.0;
+    const int mixerVolume = MinimumAudibleMixerVolume
+        + qRound(qSqrt(normalized) * (100 - MinimumAudibleMixerVolume));
+    return qBound(MinimumAudibleMixerVolume, mixerVolume, 100);
+}
+
+int balanceForChannels(int left, int right)
+{
+    const int maximum = qMax(left, right);
+    if (maximum <= 0 || left == right) {
+        return 0;
+    }
+    return left > right
+        ? -qRound((left - right) * 100.0 / left)
+        : qRound((right - left) * 100.0 / right);
+}
+
+QPair<int, int> channelsForVolumeAndBalance(int volume, int balance)
+{
+    const int boundedVolume = qBound(0, volume, 100);
+    const int boundedBalance = qBound(-100, balance, 100);
+    if (boundedBalance < 0) {
+        return {boundedVolume,
+                qRound(boundedVolume * (100 + boundedBalance) / 100.0)};
+    }
+    return {qRound(boundedVolume * (100 - boundedBalance) / 100.0),
+            boundedVolume};
+}
+
+QString stereoMixerValue(int volume, int balance)
+{
+    const QPair<int, int> channels = channelsForVolumeAndBalance(volume, balance);
+    const int left = mixerVolumeForPerceptual(channels.first);
+    const int right = mixerVolumeForPerceptual(channels.second);
+    return QStringLiteral("vol.volume=%1:%2")
+        .arg(QString::number(left / 100.0, 'f', 2),
+             QString::number(right / 100.0, 'f', 2));
+}
+
+bool parseMixerMuted(const QString &output)
+{
+    static const QRegularExpression muteExpression(
+        QStringLiteral(R"(vol\.mute\s*=\s*on)"),
+        QRegularExpression::CaseInsensitiveOption);
+    return muteExpression.match(output).hasMatch();
+}
+
+QString soundOutputLabel(const QString &description)
+{
+    if (description.contains(QStringLiteral("Internal Analog"), Qt::CaseInsensitive)) {
+        return QStringLiteral("Internal Speakers");
+    }
+    if (description.contains(QStringLiteral("Headphones"), Qt::CaseInsensitive)) {
+        return QStringLiteral("Headphones");
+    }
+    if (description.contains(QStringLiteral("HDMI"), Qt::CaseInsensitive)
+        || description.contains(QStringLiteral("DisplayPort"), Qt::CaseInsensitive)
+        || description.contains(QStringLiteral("DP "), Qt::CaseInsensitive)) {
+        return QStringLiteral("HDMI / DisplayPort");
+    }
+    return description.trimmed();
 }
 
 } // namespace
@@ -70,6 +172,11 @@ bool QuickSettingsController::bluetoothEnabled() const { return m_bluetoothEnabl
 QString QuickSettingsController::bluetoothStatus() const { return m_bluetoothStatus; }
 bool QuickSettingsController::soundAvailable() const { return m_soundAvailable; }
 int QuickSettingsController::volume() const { return m_volume; }
+bool QuickSettingsController::muted() const { return m_muted; }
+int QuickSettingsController::balance() const { return m_balance; }
+QVariantList QuickSettingsController::soundOutputs() const { return m_soundOutputs; }
+int QuickSettingsController::soundOutput() const { return m_soundOutput; }
+bool QuickSettingsController::testSoundAvailable() const { return !testTonePath().isEmpty(); }
 QString QuickSettingsController::soundStatus() const { return m_soundStatus; }
 bool QuickSettingsController::displayAvailable() const { return m_displayAvailable; }
 int QuickSettingsController::displayBrightness() const { return m_displayBrightness; }
@@ -178,10 +285,9 @@ bool QuickSettingsController::setVolume(int volume)
     }
 
     const int requestedVolume = qBound(0, volume, 100);
-    const QString mixerValue = QStringLiteral("vol.volume=%1")
-                                   .arg(QString::number(requestedVolume / 100.0, 'f', 2));
+    const QString mixerValue = stereoMixerValue(requestedVolume, m_balance);
     const QuickSettingsCommandResult mutation = m_commandProvider(
-        QStringLiteral("/usr/sbin/mixer"), {QStringLiteral("-s"), mixerValue});
+        QStringLiteral("/usr/sbin/mixer"), {mixerValue});
     if (!commandSucceeded(mutation)) {
         setStatusMessage(QStringLiteral("FreeBSD mixer rejected the volume change."));
         refreshSound();
@@ -196,6 +302,131 @@ bool QuickSettingsController::setVolume(int volume)
         return false;
     }
     setStatusMessage(QStringLiteral("Volume confirmed at %1%.").arg(m_volume));
+    return true;
+}
+
+bool QuickSettingsController::setBalance(int balance)
+{
+    if (!m_soundAvailable) {
+        setStatusMessage(QStringLiteral("Balance is unavailable because FreeBSD reported no mixer device."));
+        return false;
+    }
+
+    const int requestedBalance = qBound(-100, balance, 100);
+    const QuickSettingsCommandResult mutation = m_commandProvider(
+        QStringLiteral("/usr/sbin/mixer"),
+        {stereoMixerValue(m_volume, requestedBalance)});
+    if (!commandSucceeded(mutation)) {
+        setStatusMessage(QStringLiteral("FreeBSD mixer rejected the balance change."));
+        refreshSound();
+        emit capabilitiesChanged();
+        return false;
+    }
+
+    refreshSound();
+    emit capabilitiesChanged();
+    if (!m_soundAvailable || qAbs(m_balance - requestedBalance) > 4) {
+        setStatusMessage(QStringLiteral("Mixer did not confirm the requested balance."));
+        return false;
+    }
+    setStatusMessage(m_balance == 0
+        ? QStringLiteral("Output centered.")
+        : QStringLiteral("Balance confirmed at %1.").arg(m_balance));
+    return true;
+}
+
+bool QuickSettingsController::setMuted(bool muted)
+{
+    if (!m_soundAvailable) {
+        setStatusMessage(QStringLiteral("Mute is unavailable because FreeBSD reported no mixer device."));
+        return false;
+    }
+
+    const QString mixerValue = muted ? QStringLiteral("vol.mute=on")
+                                     : QStringLiteral("vol.mute=off");
+    const QuickSettingsCommandResult mutation = m_commandProvider(
+        QStringLiteral("/usr/sbin/mixer"), {mixerValue});
+    if (!commandSucceeded(mutation)) {
+        setStatusMessage(QStringLiteral("FreeBSD mixer rejected the mute change."));
+        refreshSound();
+        emit capabilitiesChanged();
+        return false;
+    }
+
+    refreshSound();
+    emit capabilitiesChanged();
+    if (!m_soundAvailable || m_muted != muted) {
+        setStatusMessage(QStringLiteral("Mixer did not confirm the requested mute state."));
+        return false;
+    }
+    setStatusMessage(muted ? QStringLiteral("Output muted.")
+                           : QStringLiteral("Output unmuted."));
+    return true;
+}
+
+bool QuickSettingsController::setSoundOutput(int unit)
+{
+    const bool offered = std::any_of(m_soundOutputs.cbegin(), m_soundOutputs.cend(),
+                                     [unit](const QVariant &output) {
+        return output.toMap().value(QStringLiteral("unit")).toInt() == unit;
+    });
+    if (!offered) {
+        setStatusMessage(QStringLiteral("That audio output is not available."));
+        return false;
+    }
+
+    const QuickSettingsCommandResult mutation = m_commandProvider(
+        QStringLiteral("/usr/sbin/mixer"),
+        {QStringLiteral("-d"), QString::number(unit)});
+    if (!commandSucceeded(mutation)) {
+        setStatusMessage(QStringLiteral("FreeBSD mixer rejected the output change."));
+        refreshSound();
+        emit capabilitiesChanged();
+        return false;
+    }
+
+    refreshSound();
+    emit capabilitiesChanged();
+    if (m_soundOutput != unit) {
+        setStatusMessage(QStringLiteral("Mixer did not confirm the requested audio output."));
+        return false;
+    }
+
+    const auto selected = std::find_if(m_soundOutputs.cbegin(), m_soundOutputs.cend(),
+                                       [unit](const QVariant &output) {
+        return output.toMap().value(QStringLiteral("unit")).toInt() == unit;
+    });
+    const QString label = selected == m_soundOutputs.cend()
+        ? QStringLiteral("audio output")
+        : selected->toMap().value(QStringLiteral("label")).toString();
+    setStatusMessage(QStringLiteral("Audio output changed to %1.").arg(label));
+    return true;
+}
+
+bool QuickSettingsController::testSound()
+{
+    if (!m_soundAvailable) {
+        setStatusMessage(QStringLiteral("Test sound is unavailable because FreeBSD reported no mixer device."));
+        return false;
+    }
+
+    const QString tonePath = testTonePath();
+    if (tonePath.isEmpty()) {
+        setStatusMessage(QStringLiteral("The Northstar test tone is not installed."));
+        return false;
+    }
+
+    const QuickSettingsCommandResult result = m_commandProvider(
+        QStringLiteral("/bin/dd"),
+        {QStringLiteral("if=%1").arg(tonePath),
+         QStringLiteral("of=/dev/dsp"),
+         QStringLiteral("bs=192000"),
+         QStringLiteral("count=1")});
+    if (!commandSucceeded(result)) {
+        setStatusMessage(QStringLiteral("The selected output could not play the test sound."));
+        return false;
+    }
+    setStatusMessage(QStringLiteral("Test sound played on the selected output."));
     return true;
 }
 
@@ -236,7 +467,9 @@ QuickSettingsCommandResult QuickSettingsController::runCommand(
         result.standardError = process.errorString();
         return result;
     }
-    if (!process.waitForFinished(CommandTimeoutMilliseconds)) {
+    const int finishTimeout = program == QStringLiteral("/bin/dd")
+        ? 1800 : CommandTimeoutMilliseconds;
+    if (!process.waitForFinished(finishTimeout)) {
         process.kill();
         process.waitForFinished(CommandTimeoutMilliseconds);
         result.standardError = QStringLiteral("Capability probe timed out.");
@@ -255,6 +488,25 @@ QString QuickSettingsController::defaultSettingsPath()
         configDirectory = QDir::home().filePath(QStringLiteral(".config/northstar"));
     }
     return QDir(configDirectory).filePath(QStringLiteral("preferences.ini"));
+}
+
+QString QuickSettingsController::testTonePath()
+{
+    if (qEnvironmentVariableIsSet("NORTHSTAR_TEST_TONE_PATH")) {
+        const QString configured = qEnvironmentVariable("NORTHSTAR_TEST_TONE_PATH");
+        return QFileInfo(configured).isReadable() ? configured : QString();
+    }
+
+    const QString relativePath = QStringLiteral(
+        "northstar/audio/northstar-test-tone-s16le-stereo-48k.raw");
+    for (const QString &dataRoot
+         : QStandardPaths::standardLocations(QStandardPaths::GenericDataLocation)) {
+        const QString candidate = QDir(dataRoot).filePath(relativePath);
+        if (QFileInfo(candidate).isReadable()) {
+            return candidate;
+        }
+    }
+    return {};
 }
 
 void QuickSettingsController::refreshWifi()
@@ -337,17 +589,73 @@ void QuickSettingsController::refreshBluetooth()
 
 void QuickSettingsController::refreshSound()
 {
+    refreshSoundOutputs();
     const QuickSettingsCommandResult result = m_commandProvider(
-        QStringLiteral("/usr/sbin/mixer"), {QStringLiteral("-s"), QStringLiteral("vol")});
-    const int parsedVolume = commandSucceeded(result) ? parseMixerVolume(result.standardOutput) : -1;
-    m_soundAvailable = parsedVolume >= 0;
+        QStringLiteral("/usr/sbin/mixer"), {QStringLiteral("vol")});
+    const MixerVolumes mixerVolumes = commandSucceeded(result)
+        ? parseMixerVolumes(result.standardOutput) : MixerVolumes{};
+    m_soundAvailable = mixerVolumes.left >= 0 && mixerVolumes.right >= 0;
     if (!m_soundAvailable) {
         m_volume = 0;
+        m_muted = false;
+        m_balance = 0;
         m_soundStatus = QStringLiteral("No mixer device available");
         return;
     }
-    m_volume = parsedVolume;
-    m_soundStatus = QStringLiteral("FreeBSD mixer - %1%").arg(parsedVolume);
+    const int left = perceptualVolumeForMixer(mixerVolumes.left);
+    const int right = perceptualVolumeForMixer(mixerVolumes.right);
+    m_volume = qMax(left, right);
+    m_balance = balanceForChannels(left, right);
+    m_muted = parseMixerMuted(result.standardOutput);
+    QString activeOutput;
+    for (const QVariant &output : std::as_const(m_soundOutputs)) {
+        const QVariantMap map = output.toMap();
+        if (map.value(QStringLiteral("unit")).toInt() == m_soundOutput) {
+            activeOutput = map.value(QStringLiteral("label")).toString();
+            break;
+        }
+    }
+    const QString level = m_muted ? QStringLiteral("Muted")
+                                  : QStringLiteral("%1%").arg(m_volume);
+    m_soundStatus = activeOutput.isEmpty()
+        ? level
+        : QStringLiteral("%1 - %2").arg(activeOutput, level);
+}
+
+void QuickSettingsController::refreshSoundOutputs()
+{
+    m_soundOutputs.clear();
+    m_soundOutput = -1;
+
+    const QuickSettingsCommandResult result = m_commandProvider(
+        QStringLiteral("/usr/sbin/mixer"), {QStringLiteral("-a")});
+    if (!commandSucceeded(result)) {
+        return;
+    }
+
+    static const QRegularExpression headerExpression(
+        QStringLiteral(R"(^pcm([0-9]+):mixer:\s*<([^>]+)>)"),
+        QRegularExpression::CaseInsensitiveOption);
+    const QStringList lines = result.standardOutput.split(QLatin1Char('\n'));
+    for (const QString &line : lines) {
+        const QRegularExpressionMatch match = headerExpression.match(line.trimmed());
+        if (!match.hasMatch()) {
+            continue;
+        }
+
+        const int unit = match.captured(1).toInt();
+        const QString description = match.captured(2).trimmed();
+        const bool current = line.contains(QStringLiteral("(default)"), Qt::CaseInsensitive);
+        QVariantMap output;
+        output.insert(QStringLiteral("unit"), unit);
+        output.insert(QStringLiteral("label"), soundOutputLabel(description));
+        output.insert(QStringLiteral("description"), description);
+        output.insert(QStringLiteral("current"), current);
+        m_soundOutputs.append(output);
+        if (current) {
+            m_soundOutput = unit;
+        }
+    }
 }
 
 void QuickSettingsController::refreshDisplay()

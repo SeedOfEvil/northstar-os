@@ -20,6 +20,10 @@ class QuickSettingsControllerTest final : public QObject
 private slots:
     void reportsConfirmedCapabilities();
     void confirmsMixerMutations();
+    void confirmsMixerMuteMutations();
+    void confirmsMixerBalanceMutations();
+    void confirmsSoundOutputMutations();
+    void confirmsTestSound();
     void rejectsUnconfirmedMixerMutations();
     void persistsDoNotDisturb();
 
@@ -90,7 +94,8 @@ void QuickSettingsControllerTest::reportsConfirmedCapabilities()
 {
     QTemporaryDir directory;
     QVERIFY(directory.isValid());
-    const auto provider = [](const QString &program, const QStringList &arguments) {
+    QStringList mixerCalls;
+    const auto provider = [&mixerCalls](const QString &program, const QStringList &arguments) {
         if (program == QStringLiteral("/sbin/ifconfig")
             && arguments == QStringList{QStringLiteral("-l")}) {
             return result(0, QStringLiteral("lo0 em0 wlan0"));
@@ -105,7 +110,14 @@ void QuickSettingsControllerTest::reportsConfirmedCapabilities()
             return result(0, QStringLiteral("Node list"));
         }
         if (program == QStringLiteral("/usr/sbin/mixer")) {
-            return result(0, QStringLiteral("vol.volume=0.65:0.65"));
+            mixerCalls.append(arguments.join(QLatin1Char(' ')));
+            if (arguments == QStringList{QStringLiteral("-a")}) {
+                return result(0, QStringLiteral(
+                    "pcm0:mixer: <Realtek ALC236 (Internal Analog)> on hdaa0 (play/rec) (default)\n"
+                    "pcm1:mixer: <Realtek ALC236 (Front Analog Headphones)> on hdaa0 (play)\n"
+                    "pcm2:mixer: <Intel Kaby Lake (HDMI/DP 8ch)> on hdaa1 (play)"));
+            }
+            return result(0, QStringLiteral("vol.volume=0.65:0.65\nvol.mute=off"));
         }
         if (program == QStringLiteral("/sbin/sysctl")) {
             return result(0, QStringLiteral("72"));
@@ -120,7 +132,13 @@ void QuickSettingsControllerTest::reportsConfirmedCapabilities()
     QCOMPARE(controller.wifiStatus(), QStringLiteral("Connected to NorthstarLab"));
     QVERIFY(controller.bluetoothAvailable());
     QVERIFY(controller.soundAvailable());
-    QCOMPARE(controller.volume(), 65);
+    QCOMPARE(controller.volume(), 2);
+    QVERIFY(!controller.muted());
+    QCOMPARE(controller.soundOutputs().size(), 3);
+    QCOMPARE(controller.soundOutput(), 0);
+    QCOMPARE(controller.soundOutputs().at(0).toMap().value(QStringLiteral("label")).toString(),
+             QStringLiteral("Internal Speakers"));
+    QCOMPARE(mixerCalls, QStringList({QStringLiteral("-a"), QStringLiteral("vol")}));
     QVERIFY(controller.displayAvailable());
     QCOMPARE(controller.displayBrightness(), 72);
     QVERIFY(!controller.nightLightAvailable());
@@ -130,14 +148,24 @@ void QuickSettingsControllerTest::confirmsMixerMutations()
 {
     QTemporaryDir directory;
     QVERIFY(directory.isValid());
-    int mixerVolume = 30;
-    const auto provider = [&mixerVolume](const QString &program, const QStringList &arguments) {
+    int mixerLeft = 30;
+    int mixerRight = 30;
+    QStringList mixerCalls;
+    const auto provider = [&mixerLeft, &mixerRight, &mixerCalls](const QString &program,
+                                                                const QStringList &arguments) {
         if (program == QStringLiteral("/usr/sbin/mixer")) {
-            if (arguments.size() == 2 && arguments.at(1).startsWith(QStringLiteral("vol.volume="))) {
-                mixerVolume = qRound(arguments.at(1).section(QLatin1Char('='), 1).toDouble() * 100.0);
+            mixerCalls.append(arguments.join(QLatin1Char(' ')));
+            if (arguments.size() == 1 && arguments.constFirst().startsWith(QStringLiteral("vol.volume="))) {
+                const QStringList channels = arguments.constFirst()
+                    .section(QLatin1Char('='), 1).split(QLatin1Char(':'));
+                mixerLeft = qRound(channels.value(0).toDouble() * 100.0);
+                mixerRight = qRound(channels.value(1, channels.value(0)).toDouble() * 100.0);
                 return result(0);
             }
-            return result(0, QStringLiteral("vol.volume=%1").arg(mixerVolume / 100.0, 0, 'f', 2));
+            return result(0, QStringLiteral("vol.volume=%1\nvol.mute=off")
+                                 .arg(QStringLiteral("%1:%2")
+                                     .arg(mixerLeft / 100.0, 0, 'f', 2)
+                                     .arg(mixerRight / 100.0, 0, 'f', 2)));
         }
         return result(1);
     };
@@ -146,8 +174,160 @@ void QuickSettingsControllerTest::confirmsMixerMutations()
         nullptr, directory.filePath(QStringLiteral("preferences.ini")), provider);
     QVERIFY(controller.soundAvailable());
     QVERIFY(controller.setVolume(74));
-    QCOMPARE(controller.volume(), 74);
+    QCOMPARE(controller.volume(), 72);
     QVERIFY(controller.statusMessage().contains(QStringLiteral("confirmed")));
+    QCOMPARE(mixerCalls,
+             QStringList({QStringLiteral("-a"),
+                          QStringLiteral("vol"),
+                          QStringLiteral("vol.volume=0.94:0.94"),
+                          QStringLiteral("-a"),
+                          QStringLiteral("vol")}));
+}
+
+void QuickSettingsControllerTest::confirmsMixerBalanceMutations()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    int mixerLeft = 100;
+    int mixerRight = 100;
+    QStringList mixerCalls;
+    const auto provider = [&mixerLeft, &mixerRight, &mixerCalls](const QString &program,
+                                                                const QStringList &arguments) {
+        if (program != QStringLiteral("/usr/sbin/mixer")) {
+            return result(1);
+        }
+        mixerCalls.append(arguments.join(QLatin1Char(' ')));
+        if (arguments.size() == 1 && arguments.constFirst().startsWith(QStringLiteral("vol.volume="))) {
+            const QStringList channels = arguments.constFirst()
+                .section(QLatin1Char('='), 1).split(QLatin1Char(':'));
+            mixerLeft = qRound(channels.value(0).toDouble() * 100.0);
+            mixerRight = qRound(channels.value(1).toDouble() * 100.0);
+            return result(0);
+        }
+        return result(0, QStringLiteral("vol.volume=%1:%2\nvol.mute=off")
+                             .arg(mixerLeft / 100.0, 0, 'f', 2)
+                             .arg(mixerRight / 100.0, 0, 'f', 2));
+    };
+
+    QuickSettingsController controller(
+        nullptr, directory.filePath(QStringLiteral("preferences.ini")), provider);
+    QCOMPARE(controller.balance(), 0);
+    QVERIFY(controller.setBalance(-50));
+    QVERIFY(controller.balance() < -45);
+    QVERIFY(controller.balance() > -55);
+    QVERIFY(mixerCalls.contains(QStringLiteral("vol.volume=1.00:0.88")));
+}
+
+void QuickSettingsControllerTest::confirmsMixerMuteMutations()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    bool muted = false;
+    QStringList mixerCalls;
+    const auto provider = [&muted, &mixerCalls](const QString &program, const QStringList &arguments) {
+        if (program != QStringLiteral("/usr/sbin/mixer")) {
+            return result(1);
+        }
+        mixerCalls.append(arguments.join(QLatin1Char(' ')));
+        if (arguments == QStringList{QStringLiteral("vol.mute=on")}) {
+            muted = true;
+            return result(0);
+        }
+        if (arguments == QStringList{QStringLiteral("vol.mute=off")}) {
+            muted = false;
+            return result(0);
+        }
+        return result(0, QStringLiteral("vol.volume=0.80:0.80\nvol.mute=%1")
+                             .arg(muted ? QStringLiteral("on") : QStringLiteral("off")));
+    };
+
+    QuickSettingsController controller(
+        nullptr, directory.filePath(QStringLiteral("preferences.ini")), provider);
+    QVERIFY(!controller.muted());
+    QVERIFY(controller.setMuted(true));
+    QVERIFY(controller.muted());
+    QVERIFY(controller.setMuted(false));
+    QVERIFY(!controller.muted());
+    QCOMPARE(mixerCalls,
+             QStringList({QStringLiteral("-a"),
+                          QStringLiteral("vol"),
+                          QStringLiteral("vol.mute=on"),
+                          QStringLiteral("-a"),
+                          QStringLiteral("vol"),
+                          QStringLiteral("vol.mute=off"),
+                          QStringLiteral("-a"),
+                          QStringLiteral("vol")}));
+}
+
+void QuickSettingsControllerTest::confirmsSoundOutputMutations()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    int currentOutput = 0;
+    QStringList mixerCalls;
+    const auto provider = [&currentOutput, &mixerCalls](const QString &program,
+                                                        const QStringList &arguments) {
+        if (program != QStringLiteral("/usr/sbin/mixer")) {
+            return result(1);
+        }
+        mixerCalls.append(arguments.join(QLatin1Char(' ')));
+        if (arguments.size() == 2 && arguments.constFirst() == QStringLiteral("-d")) {
+            currentOutput = arguments.constLast().toInt();
+            return result(0);
+        }
+        if (arguments == QStringList{QStringLiteral("-a")}) {
+            return result(0, QStringLiteral(
+                "pcm0:mixer: <Realtek ALC236 (Internal Analog)>%1\n"
+                "pcm1:mixer: <Realtek ALC236 (Front Analog Headphones)>%2\n"
+                "pcm2:mixer: <Intel Kaby Lake (HDMI/DP 8ch)>%3")
+                    .arg(currentOutput == 0 ? QStringLiteral(" (default)") : QString(),
+                         currentOutput == 1 ? QStringLiteral(" (default)") : QString(),
+                         currentOutput == 2 ? QStringLiteral(" (default)") : QString()));
+        }
+        return result(0, QStringLiteral("vol.volume=1.00:1.00\nvol.mute=off"));
+    };
+
+    QuickSettingsController controller(
+        nullptr, directory.filePath(QStringLiteral("preferences.ini")), provider);
+    QCOMPARE(controller.soundOutput(), 0);
+    QVERIFY(controller.setSoundOutput(1));
+    QCOMPARE(controller.soundOutput(), 1);
+    QVERIFY(controller.statusMessage().contains(QStringLiteral("Headphones")));
+    QVERIFY(!controller.setSoundOutput(9));
+    QVERIFY(controller.statusMessage().contains(QStringLiteral("not available")));
+    QVERIFY(mixerCalls.contains(QStringLiteral("-d 1")));
+}
+
+void QuickSettingsControllerTest::confirmsTestSound()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString tonePath = directory.filePath(QStringLiteral("test-tone.raw"));
+    QFile tone(tonePath);
+    QVERIFY(tone.open(QIODevice::WriteOnly));
+    tone.write("tone");
+    tone.close();
+    qputenv("NORTHSTAR_TEST_TONE_PATH", tonePath.toUtf8());
+    QStringList calls;
+    const auto provider = [&calls](const QString &program, const QStringList &arguments) {
+        calls.append(program + QLatin1Char(' ') + arguments.join(QLatin1Char(' ')));
+        if (program == QStringLiteral("/usr/sbin/mixer")) {
+            return result(0, QStringLiteral("vol.volume=1.00:1.00\nvol.mute=off"));
+        }
+        if (program == QStringLiteral("/bin/dd")) {
+            return result(0);
+        }
+        return result(1);
+    };
+
+    QuickSettingsController controller(
+        nullptr, directory.filePath(QStringLiteral("preferences.ini")), provider);
+    QVERIFY(controller.testSoundAvailable());
+    QVERIFY(controller.testSound());
+    QVERIFY(calls.contains(QStringLiteral("/bin/dd if=%1 of=/dev/dsp bs=192000 count=1")
+                               .arg(tonePath)));
+    QVERIFY(controller.statusMessage().contains(QStringLiteral("played")));
+    qunsetenv("NORTHSTAR_TEST_TONE_PATH");
 }
 
 void QuickSettingsControllerTest::rejectsUnconfirmedMixerMutations()
@@ -164,7 +344,7 @@ void QuickSettingsControllerTest::rejectsUnconfirmedMixerMutations()
     QuickSettingsController controller(
         nullptr, directory.filePath(QStringLiteral("preferences.ini")), provider);
     QVERIFY(!controller.setVolume(80));
-    QCOMPARE(controller.volume(), 25);
+    QCOMPARE(controller.volume(), 0);
     QVERIFY(controller.statusMessage().contains(QStringLiteral("did not confirm")));
 }
 
