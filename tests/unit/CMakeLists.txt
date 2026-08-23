@@ -253,6 +253,18 @@ qt_add_executable(test-wificontroller test-wificontroller.cpp)
 target_link_libraries(test-wificontroller PRIVATE northstar-wifi-core Qt6::Test)
 add_test(NAME northstar-wificontroller COMMAND test-wificontroller)
 
+qt_add_executable(test-bluetoothcontroller test-bluetoothcontroller.cpp)
+target_link_libraries(test-bluetoothcontroller PRIVATE northstar-bluetooth-core Qt6::Test)
+add_test(NAME northstar-bluetoothcontroller COMMAND test-bluetoothcontroller)
+add_test(NAME northstar-bluetooth-scan
+    COMMAND sh ${PROJECT_SOURCE_DIR}/tests/unit/test-bluetooth-scan.sh)
+add_test(NAME northstar-bluetooth-configure
+    COMMAND sh ${PROJECT_SOURCE_DIR}/tests/unit/test-bluetooth-configure.sh)
+add_test(NAME northstar-bluetooth-qml COMMAND northstar-bluetooth --self-test)
+if(TARGET northstar-bluetooth-ssp)
+    add_test(NAME northstar-bluetooth-ssp COMMAND northstar-bluetooth-ssp --self-test)
+endif()
+
 add_test(NAME northstar-wifi-configure-helper
     COMMAND sh ${PROJECT_SOURCE_DIR}/tests/unit/test-wifi-configure.sh)
 add_test(NAME northstar-wifi-derive
@@ -393,6 +405,8 @@ set_tests_properties(
     northstar-firstbootcontroller
     northstar-wifi-qml
     northstar-wificontroller
+    northstar-bluetoothcontroller
+    northstar-bluetooth-qml
     northstar-first-boot-qml
     northstar-installercontroller
     northstar-installerrecoverycontroller

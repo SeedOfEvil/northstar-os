@@ -34,6 +34,7 @@ private slots:
     void reportsMissingSoundAsUnavailableWithTheMixerReason();
     void reportsMissingWirelessHardwareHonestly();
     void offersRadioTogglesWhereControlIsInstalled();
+    void registersBluetoothWizardAction();
     void declaresTheDesktopBackgroundAgainstTheWallpaperController();
     void offersNoFitUntilAPictureIsChosen();
     void declaresTheClockAgainstTheZoneinfoDatabase();
@@ -111,6 +112,8 @@ void DesktopSettingsTest::cleanup()
 {
     qunsetenv("NORTHSTAR_RADIO_HELPER");
     qunsetenv("NORTHSTAR_CLOCK_HELPER");
+    qunsetenv("NORTHSTAR_BLUETOOTH_WIZARD");
+    qunsetenv("NORTHSTAR_BLUETOOTH_TEST_EVENTS");
     delete m_directory;
     m_directory = nullptr;
 }
@@ -490,6 +493,27 @@ void DesktopSettingsTest::offersRadioTogglesWhereControlIsInstalled()
     QVERIFY(!bluetooth.value(QStringLiteral("available")).toBool());
 }
 
+void DesktopSettingsTest::registersBluetoothWizardAction()
+{
+    const QString events = m_directory->filePath(QStringLiteral("bluetooth-events"));
+    const QString wizardPath = m_directory->filePath(QStringLiteral("northstar-bluetooth"));
+    QFile stub(wizardPath);
+    QVERIFY(stub.open(QIODevice::WriteOnly));
+    stub.write("#!/bin/sh\nprintf '%s\\n' launched > \"$NORTHSTAR_BLUETOOTH_TEST_EVENTS\"\n");
+    stub.close();
+    QVERIFY(QFile::setPermissions(wizardPath,
+                                  QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner));
+    qputenv("NORTHSTAR_BLUETOOTH_WIZARD", wizardPath.toUtf8());
+    qputenv("NORTHSTAR_BLUETOOTH_TEST_EVENTS", events.toUtf8());
+
+    Desktop desktop(m_directory->path());
+    const QVariantMap action = desktop.catalog.entryFor(QStringLiteral("network.bluetooth.manage"));
+    QCOMPARE(action.value(QStringLiteral("kind")).toString(), SettingsCatalog::actionKind());
+    QCOMPARE(action.value(QStringLiteral("actionLabel")).toString(), QStringLiteral("Manage Devices"));
+    QVERIFY(action.value(QStringLiteral("available")).toBool());
+    QVERIFY(desktop.catalog.invoke(QStringLiteral("network.bluetooth.manage")));
+    QTRY_VERIFY_WITH_TIMEOUT(QFile::exists(events), 3000);
+}
 void DesktopSettingsTest::reportsMissingWirelessHardwareHonestly()
 {
     Desktop desktop(m_directory->path());

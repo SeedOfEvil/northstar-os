@@ -127,7 +127,7 @@ grep -Fx 'xf86-input-libinput' "$ROOT/image/manifests/northstar-runtime-roots.tx
     printf 'FAIL: image runtime roots omit the Proxmox Xorg input driver\n' >&2
     exit 1
 }
-for intel_root in drm-66-kmod gpu-firmware-intel-kmod-kabylake wifi-firmware-iwlwifi-kmod-9000 xrandr; do
+for intel_root in drm-66-kmod gpu-firmware-intel-kmod-kabylake iwmbt-firmware wifi-firmware-iwlwifi-kmod-9000 xrandr; do
     grep -Fx "$intel_root" "$ROOT/image/manifests/northstar-runtime-roots.txt" >/dev/null || {
         printf 'FAIL: Intel Alpha runtime roots omit %s\n' "$intel_root" >&2
         exit 1
