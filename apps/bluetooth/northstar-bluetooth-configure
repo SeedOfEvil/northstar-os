@@ -178,6 +178,7 @@ if [ "$operation" = pair ]; then
     paired_backup=$tmp/paired.backup
     hosts_candidate=$tmp/hosts.candidate
     config_candidate=$tmp/hcsecd.candidate
+    keys_candidate=$tmp/keys.candidate
     paired_candidate=$tmp/paired.candidate
     had_hosts=0
     had_keys=0
@@ -195,6 +196,7 @@ if [ "$operation" = pair ]; then
     if [ -f "$keys" ] && [ ! -L "$keys" ]; then
         had_keys=1
         cp "$keys" "$keys_backup"
+        filter_device "$keys" "$address" "$keys_candidate"
     fi
     if [ -f "$paired" ] && [ ! -L "$paired" ]; then
         had_paired=1
@@ -237,6 +239,14 @@ if [ "$operation" = pair ]; then
         rollback_pair
         fail "$EX_UNAVAILABLE" 'the Bluetooth pairing configuration could not be installed'
     }
+    if [ "$had_keys" -eq 1 ]; then
+        put_file 0600 "$keys_candidate" "$keys" || {
+            rollback_pair
+            fail "$EX_UNAVAILABLE" 'the stale Bluetooth link key could not be removed'
+        }
+    fi
+    "$HCCONTROL" -n "$NODE" delete_stored_link_key "$address" \
+        >/dev/null 2>&1 || true
     "$SYSRC" -R "$ROOT" hcsecd_enable=YES >/dev/null || {
         rollback_pair
         fail "$EX_UNAVAILABLE" 'the Bluetooth pairing service could not be enabled'

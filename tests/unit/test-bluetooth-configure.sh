@@ -59,9 +59,19 @@ EOF
 cat > "$TMP/bin/northstar-bluetooth-ssp" <<'EOF'
 #!/bin/sh
 [ "$1" = ubt0hci ] && [ "$2" = aa:bb:cc:dd:ee:ff ] || exit 65
+if grep -qi 'aa:bb:cc:dd:ee:ff' "$NORTHSTAR_BLUETOOTH_ROOT/var/db/hcsecd.keys"; then
+    printf '%s\n' 'ERROR: stale target link key reached the SSP agent' >&2
+    exit 65
+fi
 printf '%s\n' NORTHSTAR_BLUETOOTH_CONFIRM=654321
 IFS= read -r decision
 [ "$decision" = accept ] || exit 125
+cat >> "$NORTHSTAR_BLUETOOTH_ROOT/var/db/hcsecd.keys" <<'KEYEOF'
+device {
+    bdaddr aa:bb:cc:dd:ee:ff;
+    key "fresh-target-key";
+}
+KEYEOF
 printf '%s\n' NORTHSTAR_BLUETOOTH_PAIRED=CONFIRMED
 EOF
 chmod +x "$TMP/bin/sysrc" "$TMP/bin/service" "$TMP/bin/hccontrol" \
@@ -92,6 +102,10 @@ grep -F 'pin	nopin;' "$FAKE/etc/bluetooth/hcsecd.conf" >/dev/null ||
     fail 'legacy PIN authentication was not disabled for SSP'
 grep -F 'service=hcsecd onerestart' "$TMP/events" >/dev/null ||
     fail 'hcsecd was not restarted'
+grep -F 'hccontrol=-n ubt0hci delete_stored_link_key aa:bb:cc:dd:ee:ff' \
+    "$TMP/events" >/dev/null || fail 'stale controller link key was not deleted'
+grep -F 'fresh-target-key' "$FAKE/var/db/hcsecd.keys" >/dev/null ||
+    fail 'fresh SSP link key was not persisted'
 grep -Fx 'aa:bb:cc:dd:ee:ff' "$FAKE/var/db/northstar/bluetooth-paired" >/dev/null ||
     fail 'persisted paired state was not recorded'
 if grep -Eiq 'pin|password|secret|key' "$TMP/request"; then

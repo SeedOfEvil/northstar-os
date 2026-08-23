@@ -297,7 +297,9 @@ int main(int argc, char **argv)
 
     struct bt_devfilter filter{};
     bt_devfilter_pkt_set(&filter, NG_HCI_EVENT_PKT);
+    bt_devfilter_evt_set(&filter, NG_HCI_EVENT_COMMAND_STATUS);
     bt_devfilter_evt_set(&filter, NG_HCI_EVENT_CON_COMPL);
+    bt_devfilter_evt_set(&filter, NG_HCI_EVENT_AUTH_COMPL);
     bt_devfilter_evt_set(&filter, NG_HCI_EVENT_IO_CAPABILITY_REQUEST);
     bt_devfilter_evt_set(&filter, NG_HCI_EVENT_USER_CONFIRMATION_REQUEST);
     bt_devfilter_evt_set(&filter, NG_HCI_EVENT_SIMPLE_PAIRING_COMPLETE);
@@ -322,6 +324,9 @@ int main(int argc, char **argv)
 
     unsigned char buffer[NG_HCI_EVENT_PKT_SIZE + sizeof(ng_hci_event_pkt_t)]{};
     bool confirmationAnswered = false;
+    bool pairingComplete = false;
+    bool authenticationComplete = false;
+    uint16_t targetHandle = 0xffff;
     for (;;) {
         const ssize_t count = bt_devrecv(socket, buffer, sizeof(buffer), PairingTimeoutSeconds);
         if (count < static_cast<ssize_t>(sizeof(ng_hci_event_pkt_t))) {
@@ -334,12 +339,81 @@ int main(int argc, char **argv)
             continue;
         const unsigned char *payload = buffer + sizeof(*event);
 
+        if (event->event == NG_HCI_EVENT_COMMAND_STATUS
+            && event->length >= sizeof(ng_hci_command_status_ep)) {
+            const auto *status =
+                reinterpret_cast<const ng_hci_command_status_ep *>(payload);
+            const uint16_t opcode = le16toh(status->opcode);
+            std::printf("NORTHSTAR_BLUETOOTH_HCI_COMMAND_STATUS=0x%04x:0x%02x\n",
+                        opcode, status->status);
+            std::fflush(stdout);
+            if (opcode == NG_HCI_OPCODE(NG_HCI_OGF_LINK_CONTROL,
+                                        NG_HCI_OCF_CREATE_CON)
+                && status->status != 0) {
+                bt_devclose(socket);
+                return fail(ExitUnavailable,
+                            "the Bluetooth connection command was rejected");
+            }
+            if (opcode == NG_HCI_OPCODE(NG_HCI_OGF_LINK_CONTROL,
+                                        NG_HCI_OCF_AUTH_REQ)
+                && status->status != 0) {
+                bt_devclose(socket);
+                return fail(ExitUnavailable,
+                            "the Bluetooth authentication command was rejected");
+            }
+            continue;
+        }
+
         if (event->event == NG_HCI_EVENT_CON_COMPL
             && event->length >= sizeof(ng_hci_con_compl_ep)) {
             const auto *complete = reinterpret_cast<const ng_hci_con_compl_ep *>(payload);
+            if (sameAddress(complete->bdaddr, target)) {
+                std::printf("NORTHSTAR_BLUETOOTH_HCI_CONNECTION_STATUS=0x%02x\n",
+                            complete->status);
+                std::fflush(stdout);
+            }
             if (sameAddress(complete->bdaddr, target) && complete->status != 0) {
                 bt_devclose(socket);
                 return fail(ExitUnavailable, "the selected device rejected the Bluetooth connection");
+            }
+            if (sameAddress(complete->bdaddr, target)) {
+                targetHandle = complete->con_handle;
+                ng_hci_auth_req_cp authenticationRequest{};
+                authenticationRequest.con_handle = complete->con_handle;
+                if (!sendCommand(socket,
+                        NG_HCI_OPCODE(NG_HCI_OGF_LINK_CONTROL,
+                                      NG_HCI_OCF_AUTH_REQ),
+                        &authenticationRequest, sizeof(authenticationRequest))) {
+                    bt_devclose(socket);
+                    return fail(ExitUnavailable,
+                                "Bluetooth authentication could not be requested");
+                }
+            }
+            continue;
+        }
+
+        if (event->event == NG_HCI_EVENT_AUTH_COMPL
+            && event->length >= sizeof(ng_hci_auth_compl_ep)) {
+            const auto *complete =
+                reinterpret_cast<const ng_hci_auth_compl_ep *>(payload);
+            if (complete->con_handle != targetHandle)
+                continue;
+            std::printf("NORTHSTAR_BLUETOOTH_HCI_AUTHENTICATION_STATUS=0x%02x\n",
+                        complete->status);
+            std::fflush(stdout);
+            if (complete->status != 0) {
+                bt_devclose(socket);
+                return fail(ExitUnavailable,
+                            "Bluetooth authentication did not complete");
+            }
+            authenticationComplete = true;
+            if (pairingComplete) {
+                std::puts(confirmationAnswered
+                    ? "NORTHSTAR_BLUETOOTH_PAIRED=CONFIRMED"
+                    : "NORTHSTAR_BLUETOOTH_PAIRED=JUST_WORKS");
+                std::fflush(stdout);
+                bt_devclose(socket);
+                return 0;
             }
             continue;
         }
@@ -349,6 +423,8 @@ int main(int argc, char **argv)
             const auto *request = reinterpret_cast<const ng_hci_io_capability_request_ep *>(payload);
             if (!sameAddress(request->bdaddr, target))
                 continue;
+            std::puts("NORTHSTAR_BLUETOOTH_HCI_IO_CAPABILITY_REQUEST=1");
+            std::fflush(stdout);
             ng_hci_io_capability_request_reply_cp reply{};
             reply.bdaddr = target;
             reply.io_capability = IoCapabilityDisplayYesNo;
@@ -402,16 +478,23 @@ int main(int argc, char **argv)
                 reinterpret_cast<const ng_hci_simple_pairing_complete_ep *>(payload);
             if (!sameAddress(complete->bdaddr, target))
                 continue;
+            std::printf("NORTHSTAR_BLUETOOTH_HCI_PAIRING_STATUS=0x%02x\n",
+                        complete->status);
+            std::fflush(stdout);
             if (complete->status != 0) {
                 bt_devclose(socket);
                 return fail(ExitUnavailable, "Secure Simple Pairing did not complete");
             }
-            std::puts(confirmationAnswered
-                ? "NORTHSTAR_BLUETOOTH_PAIRED=CONFIRMED"
-                : "NORTHSTAR_BLUETOOTH_PAIRED=JUST_WORKS");
-            std::fflush(stdout);
-            bt_devclose(socket);
-            return 0;
+            pairingComplete = true;
+            if (authenticationComplete) {
+                std::puts(confirmationAnswered
+                    ? "NORTHSTAR_BLUETOOTH_PAIRED=CONFIRMED"
+                    : "NORTHSTAR_BLUETOOTH_PAIRED=JUST_WORKS");
+                std::fflush(stdout);
+                bt_devclose(socket);
+                return 0;
+            }
+            continue;
         }
     }
 }
