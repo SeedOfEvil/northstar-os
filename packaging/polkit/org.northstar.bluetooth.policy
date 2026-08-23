@@ -16,4 +16,15 @@
     <annotate key="org.freedesktop.policykit.exec.path">/usr/local/libexec/northstar-bluetooth-configure</annotate>
     <annotate key="org.freedesktop.policykit.exec.allow_gui">true</annotate>
   </action>
+  <action id="org.northstar.bluetooth.receive">
+    <description>Receive Bluetooth files into Downloads</description>
+    <message>Administrator authentication is required to publish Bluetooth file receiving</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/local/libexec/northstar-bluetooth-receive</annotate>
+    <annotate key="org.freedesktop.policykit.exec.allow_gui">true</annotate>
+  </action>
 </policyconfig>

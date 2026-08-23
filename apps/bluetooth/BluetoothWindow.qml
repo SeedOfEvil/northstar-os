@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Dialogs
 import QtQuick.Layouts
 import Northstar.Ui 1.0
 
@@ -89,6 +90,14 @@ ApplicationWindow {
                 wrapMode: Text.WordWrap
             }
         }
+    }
+
+    FileDialog {
+        id: sendFileDialog
+        title: "Send a file to " + root.selectedName
+        fileMode: FileDialog.OpenFile
+        onAccepted: bluetoothController.sendFile(
+            root.selectedAddress, selectedFile.toString())
     }
 
     Dialog {
@@ -260,6 +269,31 @@ ApplicationWindow {
 
         RowLayout {
             Layout.fillWidth: true
+            visible: bluetoothController.fileTransferAvailable
+            Label {
+                Layout.fillWidth: true
+                text: bluetoothController.receivingFiles
+                    ? "Receiving Bluetooth files into Downloads"
+                    : "Bluetooth file transfer"
+                color: lunar.foreground
+                font.bold: true
+            }
+            Button {
+                text: bluetoothController.receivingFiles
+                    ? "Stop Receiving" : "Receive Files"
+                onClicked: bluetoothController.setReceivingFiles(
+                    !bluetoothController.receivingFiles)
+            }
+            Button {
+                text: "Send File"
+                visible: root.selectedPaired
+                enabled: !bluetoothController.busy
+                onClicked: sendFileDialog.open()
+            }
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
             Label {
                 Layout.fillWidth: true
                 text: bluetoothController.statusMessage
@@ -284,7 +318,7 @@ ApplicationWindow {
 
         Label {
             Layout.fillWidth: true
-            text: "Current alpha baseline: discovery, modern numeric-confirmation pairing, remembered state, persisted paired state, and live baseband connection state. HID, phone audio, and file transfer require separate profile services and are not claimed yet."
+            text: "Current alpha baseline: discovery, numeric-confirmation pairing, persisted paired state, live baseband state, and on-demand file transfer. HID and Bluetooth audio require separate profile services and are not claimed yet."
             color: lunar.muted
             wrapMode: Text.WordWrap
         }

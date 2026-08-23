@@ -20,9 +20,10 @@ Usage: prepare-image-inputs.sh --lock FILE --check-lock
          --project-root CLEAN_GIT_CHECKOUT --project-commit FULL_GIT_COMMIT
 
 The preparation stage validates a strict input lock and, in normal mode,
-verifies staged base.txz, kernel.txz, and Northstar package artifacts before
-atomically writing a deterministic resolved-input record. It never downloads,
-extracts, mounts, partitions, or modifies an image.
+verifies staged base.txz, kernel.txz, the accepted RFCOMM kernel module, and
+Northstar package artifacts before atomically writing a deterministic
+resolved-input record. It never downloads, extracts, mounts, partitions, or
+modifies an image.
 USAGE
 }
 
@@ -69,7 +70,7 @@ case "$(LC_ALL=C tr -d '\11\12\15\40-\176' < "$LOCK" | wc -c | tr -d ' ')" in
     *) die 'lock contains non-ASCII or control characters' ;;
 esac
 
-allowed_keys='SCHEMA_VERSION TARGET_FORMAT FIRMWARE ROOT_FILESYSTEM FREEBSD_RELEASE FREEBSD_ARCH FREEBSD_ABI SOURCE_DATE_EPOCH RELEASE_BASE_URL RELEASE_MANIFEST RELEASE_MANIFEST_SHA256 BASE_ARTIFACT BASE_SHA256 BASE_SIZE KERNEL_ARTIFACT KERNEL_SHA256 KERNEL_SIZE NORTHSTAR_PACKAGE NORTHSTAR_PACKAGE_VERSION NORTHSTAR_PACKAGE_SHA256 NORTHSTAR_SOURCE_REVISION NORTHSTAR_REPOSITORY_REVISION NORTHSTAR_CATALOGUE_SHA256 NORTHSTAR_METADATA_SHA256 NORTHSTAR_SIGNATURE_FINGERPRINT'
+allowed_keys='SCHEMA_VERSION TARGET_FORMAT FIRMWARE ROOT_FILESYSTEM FREEBSD_RELEASE FREEBSD_ARCH FREEBSD_ABI FREEBSD_KERNEL_ABI FREEBSD_SOURCE_REVISION SOURCE_DATE_EPOCH RELEASE_BASE_URL RELEASE_MANIFEST RELEASE_MANIFEST_SHA256 BASE_ARTIFACT BASE_SHA256 BASE_SIZE KERNEL_ARTIFACT KERNEL_SHA256 KERNEL_SIZE RFCOMM_MODULE_ARTIFACT RFCOMM_MODULE_SHA256 RFCOMM_MODULE_SIZE RFCOMM_STOCK_MODULE_SHA256 NORTHSTAR_PACKAGE NORTHSTAR_PACKAGE_VERSION NORTHSTAR_PACKAGE_SHA256 NORTHSTAR_SOURCE_REVISION NORTHSTAR_REPOSITORY_REVISION NORTHSTAR_CATALOGUE_SHA256 NORTHSTAR_METADATA_SHA256 NORTHSTAR_SIGNATURE_FINGERPRINT'
 
 awk -F= '
     /^[[:space:]]*($|#)/ { next }
@@ -108,6 +109,7 @@ fi
 [ "$(lock_value FREEBSD_RELEASE)" = 15.1-RELEASE ] || die 'image release must be FreeBSD 15.1-RELEASE'
 [ "$(lock_value FREEBSD_ARCH)" = amd64 ] || die 'image architecture must be amd64'
 [ "$(lock_value FREEBSD_ABI)" = 'FreeBSD:15:amd64' ] || die 'image ABI is unsupported'
+[ "$(lock_value FREEBSD_KERNEL_ABI)" = 1501000 ] || die 'kernel ABI is unsupported'
 
 case "$(lock_value RELEASE_BASE_URL)" in
     https://download.freebsd.org/releases/amd64/amd64/15.1-RELEASE) : ;;
@@ -122,12 +124,14 @@ safe_artifact_name() {
 
 safe_artifact_name "$(lock_value BASE_ARTIFACT)"
 safe_artifact_name "$(lock_value KERNEL_ARTIFACT)"
+safe_artifact_name "$(lock_value RFCOMM_MODULE_ARTIFACT)"
 safe_artifact_name "$(lock_value NORTHSTAR_PACKAGE)"
 [ "$(lock_value RELEASE_MANIFEST)" = MANIFEST ] || die 'release manifest must be MANIFEST'
 [ "$(lock_value BASE_ARTIFACT)" = base.txz ] || die 'base artifact must be base.txz'
 [ "$(lock_value KERNEL_ARTIFACT)" = kernel.txz ] || die 'kernel artifact must be kernel.txz'
 
-for digest_key in RELEASE_MANIFEST_SHA256 BASE_SHA256 KERNEL_SHA256 NORTHSTAR_PACKAGE_SHA256 \
+for digest_key in RELEASE_MANIFEST_SHA256 BASE_SHA256 KERNEL_SHA256 RFCOMM_MODULE_SHA256 \
+    RFCOMM_STOCK_MODULE_SHA256 NORTHSTAR_PACKAGE_SHA256 \
     NORTHSTAR_CATALOGUE_SHA256 \
     NORTHSTAR_METADATA_SHA256 NORTHSTAR_SIGNATURE_FINGERPRINT; do
     printf '%s\n' "$(lock_value "$digest_key")" | grep -Eq '^[0-9a-f]{64}$' \
@@ -135,8 +139,10 @@ for digest_key in RELEASE_MANIFEST_SHA256 BASE_SHA256 KERNEL_SHA256 NORTHSTAR_PA
 done
 printf '%s\n' "$(lock_value NORTHSTAR_SOURCE_REVISION)" | grep -Eq '^[0-9a-f]{40}$' \
     || die 'invalid Northstar source revision'
+printf '%s\n' "$(lock_value FREEBSD_SOURCE_REVISION)" | grep -Eq '^[0-9a-f]{40}$' \
+    || die 'invalid FreeBSD source revision'
 
-for numeric_key in SOURCE_DATE_EPOCH BASE_SIZE KERNEL_SIZE NORTHSTAR_REPOSITORY_REVISION; do
+for numeric_key in FREEBSD_KERNEL_ABI SOURCE_DATE_EPOCH BASE_SIZE KERNEL_SIZE RFCOMM_MODULE_SIZE NORTHSTAR_REPOSITORY_REVISION; do
     printf '%s\n' "$(lock_value "$numeric_key")" | grep -Eq '^[0-9]+$' \
         || die "invalid numeric value: $numeric_key"
 done
@@ -208,6 +214,9 @@ verify_artifact "$(lock_value BASE_ARTIFACT)" "$(lock_value BASE_SHA256)" \
     "$(lock_value BASE_SIZE)" > "$unsorted_records"
 verify_artifact "$(lock_value KERNEL_ARTIFACT)" "$(lock_value KERNEL_SHA256)" \
     "$(lock_value KERNEL_SIZE)" >> "$unsorted_records"
+verify_artifact "$(lock_value RFCOMM_MODULE_ARTIFACT)" \
+    "$(lock_value RFCOMM_MODULE_SHA256)" "$(lock_value RFCOMM_MODULE_SIZE)" \
+    >> "$unsorted_records"
 verify_artifact "$(lock_value NORTHSTAR_PACKAGE)" \
     "$(lock_value NORTHSTAR_PACKAGE_SHA256)" >> "$unsorted_records"
 sort "$unsorted_records" > "$records"
@@ -226,6 +235,10 @@ records_sha256=$(file_sha256 "$records")
     printf 'artifact_records_sha256=%s\n' "$records_sha256"
     printf 'freebsd_release=%s\n' "$(lock_value FREEBSD_RELEASE)"
     printf 'freebsd_arch=%s\n' "$(lock_value FREEBSD_ARCH)"
+    printf 'freebsd_kernel_abi=%s\n' "$(lock_value FREEBSD_KERNEL_ABI)"
+    printf 'freebsd_source_revision=%s\n' "$(lock_value FREEBSD_SOURCE_REVISION)"
+    printf 'rfcomm_module_sha256=%s\n' "$(lock_value RFCOMM_MODULE_SHA256)"
+    printf 'rfcomm_stock_module_sha256=%s\n' "$(lock_value RFCOMM_STOCK_MODULE_SHA256)"
     printf 'freebsd_release_manifest_sha256=%s\n' "$(lock_value RELEASE_MANIFEST_SHA256)"
     printf 'northstar_package_version=%s\n' "$(lock_value NORTHSTAR_PACKAGE_VERSION)"
     printf 'northstar_source_revision=%s\n' "$(lock_value NORTHSTAR_SOURCE_REVISION)"

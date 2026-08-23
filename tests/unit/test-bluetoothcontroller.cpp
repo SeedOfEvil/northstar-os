@@ -3,6 +3,7 @@
 #include <QFile>
 #include <QSignalSpy>
 #include <QTemporaryDir>
+#include <QUrl>
 #include <QtTest>
 
 class BluetoothControllerTest final : public QObject
@@ -12,6 +13,7 @@ private slots:
     void scansAndSortsDeviceState();
     void confirmsSecureSimplePairingWithoutWritingSecrets();
     void forgetsAndChangesDiscoverability();
+    void sendsAndReceivesFilesWithoutPrivilege();
     void restoresWindowLifecycleWhenAuthorizationIsCancelled();
 };
 
@@ -120,6 +122,61 @@ void BluetoothControllerTest::forgetsAndChangesDiscoverability()
     QCOMPARE(eventFile.readAll(), QByteArray("forgot\nvisible\n"));
     qunsetenv("NORTHSTAR_BLUETOOTH_AUTH_COMMAND");
     qunsetenv("NORTHSTAR_BLUETOOTH_TEST_EVENTS");
+}
+
+void BluetoothControllerTest::sendsAndReceivesFilesWithoutPrivilege()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString events = directory.filePath(QStringLiteral("events"));
+    const QString obex = writeExecutable(directory, QStringLiteral("obexapp"),
+        "#!/bin/sh\n"
+        "if [ \"$1\" = --start ]; then\n"
+        "  printf '%s\\n' NORTHSTAR_BLUETOOTH_AUTHORIZED=1\n"
+        "  printf 'server=authorized\\n' >> \"$NORTHSTAR_BLUETOOTH_TEST_EVENTS\"\n"
+        "  printf '%s\\n' $$ > \"$NORTHSTAR_BLUETOOTH_TEST_SERVER_PID\"\n"
+        "  trap 'exit 0' TERM INT; while :; do sleep 1; done\n"
+        "elif [ \"$1\" = --stop ]; then\n"
+        "  printf 'server=stopped\\n' >> \"$NORTHSTAR_BLUETOOTH_TEST_EVENTS\"\n"
+        "  kill -TERM \"$(cat \"$NORTHSTAR_BLUETOOTH_TEST_SERVER_PID\")\"\n"
+        "  exit 0\n"
+        "fi\n"
+        "case \"$1\" in\n"
+        "  -c) printf 'client=%s\\n' \"$*\" >> \"$NORTHSTAR_BLUETOOTH_TEST_EVENTS\";;\n"
+        "  *) exit 64;;\n"
+        "esac\n");
+    const QString payload = directory.filePath(QStringLiteral("payload.txt"));
+    QFile payloadFile(payload);
+    QVERIFY(payloadFile.open(QIODevice::WriteOnly));
+    QCOMPARE(payloadFile.write("northstar\n"), qint64(10));
+    payloadFile.close();
+    qputenv("NORTHSTAR_BLUETOOTH_OBEX_COMMAND", obex.toUtf8());
+    qputenv("NORTHSTAR_BLUETOOTH_OBEX_RECEIVE_COMMAND", obex.toUtf8());
+    qputenv("NORTHSTAR_BLUETOOTH_TEST_EVENTS", events.toUtf8());
+    qputenv("NORTHSTAR_BLUETOOTH_TEST_SERVER_PID",
+            directory.filePath(QStringLiteral("server.pid")).toUtf8());
+    BluetoothController controller;
+    QVERIFY(controller.fileTransferAvailable());
+    QVERIFY(controller.setReceivingFiles(true));
+    QTRY_VERIFY_WITH_TIMEOUT(controller.receivingFiles(), 3000);
+    QVERIFY(controller.setReceivingFiles(false));
+    QTRY_VERIFY_WITH_TIMEOUT(!controller.receivingFiles(), 3000);
+    QVERIFY(controller.sendFile(QStringLiteral("aabbccddeeff"),
+                                QUrl::fromLocalFile(payload).toString()));
+    QTRY_VERIFY_WITH_TIMEOUT(!controller.busy(), 3000);
+    QFile eventFile(events);
+    QVERIFY(eventFile.open(QIODevice::ReadOnly));
+    const QByteArray output = eventFile.readAll();
+    QVERIFY(output.contains("server=authorized"));
+    QVERIFY(output.contains("server=stopped"));
+    QVERIFY(output.contains("client=-c -a aa:bb:cc:dd:ee:ff -C OPUSH -n put "));
+    QVERIFY(output.contains("payload.txt"));
+    QCOMPARE(controller.statusMessage(), QStringLiteral("The file was sent over Bluetooth."));
+    QVERIFY(!controller.statusIsError());
+    qunsetenv("NORTHSTAR_BLUETOOTH_OBEX_COMMAND");
+    qunsetenv("NORTHSTAR_BLUETOOTH_OBEX_RECEIVE_COMMAND");
+    qunsetenv("NORTHSTAR_BLUETOOTH_TEST_EVENTS");
+    qunsetenv("NORTHSTAR_BLUETOOTH_TEST_SERVER_PID");
 }
 
 void BluetoothControllerTest::restoresWindowLifecycleWhenAuthorizationIsCancelled()

@@ -1,0 +1,15 @@
+--- sys/netgraph/bluetooth/socket/ng_btsocket_rfcomm.c.orig
++++ sys/netgraph/bluetooth/socket/ng_btsocket_rfcomm.c
+@@ -2592,6 +2592,12 @@ ng_btsocket_rfcomm_session_create(ng_btsocket_rfcomm_session_p *sp,
+ 		error = solisten(s->l2so, 10, td);
+ 		if (error != 0)
+ 			goto bad;
++
++		/*
++		 * Completed connections wake listeners through sol_upcall, not
++		 * the receive sockbuf upcall installed above.
++		 */
++		solisten_upcall_set(s->l2so, ng_btsocket_rfcomm_upcall, NULL);
+ 	} else {
+ 		s->flags = NG_BTSOCKET_RFCOMM_SESSION_INITIATOR;
+ 		s->state = NG_BTSOCKET_RFCOMM_SESSION_CONNECTING;
