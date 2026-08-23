@@ -9,6 +9,7 @@
 #include <QRegularExpression>
 #include <QStandardPaths>
 #include <QTemporaryFile>
+#include <QUrl>
 
 namespace {
 const QRegularExpression AddressHexPattern(QStringLiteral("^[0-9a-f]{12}$"));
@@ -19,8 +20,37 @@ const QRegularExpression ConfirmationPattern(QStringLiteral("^[0-9]{6}$"));
 BluetoothController::BluetoothController(QObject *parent)
     : QObject(parent)
     , m_process(new QProcess(this))
+    , m_transferServer(new QProcess(this))
     , m_statusMessage(QStringLiteral("Choose Refresh to find discoverable or remembered Bluetooth devices."))
 {
+    connect(m_transferServer, &QProcess::started, this, [this]() {
+        m_receivingFiles = true;
+        m_statusIsError = false;
+        m_statusMessage = QStringLiteral("Ready to receive Bluetooth files in Downloads.");
+        emit stateChanged();
+    });
+    connect(m_transferServer, &QProcess::errorOccurred, this,
+            [this](QProcess::ProcessError error) {
+        if (error != QProcess::FailedToStart) return;
+        m_receivingFiles = false;
+        m_statusIsError = true;
+        m_statusMessage = QStringLiteral("The Bluetooth file-transfer service could not be started.");
+        emit stateChanged();
+    });
+    connect(m_transferServer, qOverload<int, QProcess::ExitStatus>(&QProcess::finished), this,
+            [this](int exitCode, QProcess::ExitStatus exitStatus) {
+        const bool requestedStop = m_transferServer->property("northstarRequestedStop").toBool();
+        m_transferServer->setProperty("northstarRequestedStop", false);
+        m_receivingFiles = false;
+        if (requestedStop) {
+            m_statusIsError = false;
+            m_statusMessage = QStringLiteral("Bluetooth file receiving stopped.");
+        } else if (exitStatus != QProcess::NormalExit || exitCode != 0) {
+            m_statusIsError = true;
+            m_statusMessage = QStringLiteral("Bluetooth file receiving stopped unexpectedly.");
+        }
+        emit stateChanged();
+    });
     connect(m_process, &QProcess::readyReadStandardOutput, this, [this]() {
         m_standardOutput.append(m_process->readAllStandardOutput());
         if (m_operation != Operation::Scan) processOutput();
@@ -29,7 +59,9 @@ BluetoothController::BluetoothController(QObject *parent)
         if (error == QProcess::FailedToStart && m_busy) {
             finish(false, m_operation == Operation::Scan
                 ? QStringLiteral("The Bluetooth scanner could not be started.")
-                : QStringLiteral("The protected Bluetooth service could not be started."));
+                : m_operation == Operation::SendFile
+                    ? QStringLiteral("Bluetooth file sending could not be started.")
+                    : QStringLiteral("The protected Bluetooth service could not be started."));
         }
     });
     connect(m_process, qOverload<int, QProcess::ExitStatus>(&QProcess::finished), this,
@@ -62,6 +94,8 @@ BluetoothController::BluetoothController(QObject *parent)
                 finish(true, QStringLiteral(
                     "Device forgotten locally. Also choose Forget on the other device."));
                 emit forgetFinished(true);
+            } else if (completed == Operation::SendFile) {
+                finish(true, QStringLiteral("The file was sent over Bluetooth."));
             } else {
                 m_discoverable = m_pendingDiscoverable;
                 finish(true, m_discoverable
@@ -87,6 +121,12 @@ bool BluetoothController::awaitingConfirmation() const { return m_awaitingConfir
 QString BluetoothController::confirmationCode() const { return m_confirmationCode; }
 QString BluetoothController::statusMessage() const { return m_statusMessage; }
 bool BluetoothController::statusIsError() const { return m_statusIsError; }
+bool BluetoothController::fileTransferAvailable() const
+{
+    return !qEnvironmentVariable("NORTHSTAR_BLUETOOTH_OBEX_COMMAND").isEmpty()
+        || !QStandardPaths::findExecutable(QStringLiteral("obexapp")).isEmpty();
+}
+bool BluetoothController::receivingFiles() const { return m_receivingFiles; }
 QVariantList BluetoothController::devices() const { return m_devices; }
 
 bool BluetoothController::start(Operation operation, const QStringList &arguments)
@@ -100,6 +140,14 @@ bool BluetoothController::start(Operation operation, const QStringList &argument
             program = QStringLiteral("/usr/local/libexec/northstar-bluetooth-scan");
         if (!QFileInfo::exists(program)) {
             finish(false, QStringLiteral("The Northstar Bluetooth scanner is not installed."));
+            return false;
+        }
+    } else if (operation == Operation::SendFile) {
+        program = qEnvironmentVariable("NORTHSTAR_BLUETOOTH_OBEX_COMMAND");
+        if (program.isEmpty())
+            program = QStandardPaths::findExecutable(QStringLiteral("obexapp"));
+        if (program.isEmpty()) {
+            finish(false, QStringLiteral("Bluetooth file transfer is not installed."));
             return false;
         }
     } else {
@@ -132,11 +180,14 @@ bool BluetoothController::start(Operation operation, const QStringList &argument
     case Operation::Discoverability:
         m_statusMessage = QStringLiteral("Changing this computer's Bluetooth visibility...");
         break;
+    case Operation::SendFile:
+        m_statusMessage = QStringLiteral("Sending the file over Bluetooth...");
+        break;
     default:
         break;
     }
     emit stateChanged();
-    if (operation != Operation::Scan) {
+    if (operation != Operation::Scan && operation != Operation::SendFile) {
         m_authorizationPending = true;
         emit authorizationPromptExpected();
     }
@@ -225,6 +276,64 @@ bool BluetoothController::setDiscoverable(bool enabled)
     return start(Operation::Discoverability,
                  {QStringLiteral("--discoverable"),
                   enabled ? QStringLiteral("on") : QStringLiteral("off")});
+}
+
+bool BluetoothController::setReceivingFiles(bool enabled)
+{
+    if (!fileTransferAvailable()) {
+        finish(false, QStringLiteral("Bluetooth file transfer is not installed."));
+        return false;
+    }
+    if (!enabled) {
+        if (m_transferServer->state() == QProcess::NotRunning) return false;
+        m_transferServer->setProperty("northstarRequestedStop", true);
+        m_transferServer->terminate();
+        return true;
+    }
+    if (m_transferServer->state() != QProcess::NotRunning) return false;
+    QString downloads = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
+    if (downloads.isEmpty())
+        downloads = QDir::homePath() + QStringLiteral("/Downloads");
+    if (!QDir().mkpath(downloads)) {
+        finish(false, QStringLiteral("The Downloads folder could not be prepared."));
+        return false;
+    }
+    QString program = qEnvironmentVariable("NORTHSTAR_BLUETOOTH_OBEX_COMMAND");
+    if (program.isEmpty())
+        program = QStandardPaths::findExecutable(QStringLiteral("obexapp"));
+    m_transferServer->setProgram(program);
+    m_transferServer->setArguments({QStringLiteral("-s"), QStringLiteral("-d"),
+                                    QStringLiteral("-r"), downloads});
+    m_statusIsError = false;
+    m_statusMessage = QStringLiteral("Starting Bluetooth file receiving...");
+    emit stateChanged();
+    m_transferServer->start();
+    return true;
+}
+
+bool BluetoothController::sendFile(const QString &addressHex, const QString &fileUrl)
+{
+    if (m_busy || !AddressHexPattern.match(addressHex).hasMatch()) {
+        finish(false, QStringLiteral("Choose a valid paired Bluetooth device."));
+        return false;
+    }
+    const QUrl url(fileUrl);
+    const QString localPath = url.isLocalFile() ? url.toLocalFile() : QString();
+    const QFileInfo file(localPath);
+    if (!file.isFile() || !file.isReadable() || file.isSymLink()) {
+        finish(false, QStringLiteral("Choose a readable local file."));
+        return false;
+    }
+    QString address;
+    for (int offset = 0; offset < addressHex.size(); offset += 2) {
+        if (!address.isEmpty()) address += QLatin1Char(':');
+        address += addressHex.mid(offset, 2);
+    }
+    return start(Operation::SendFile,
+                 {QStringLiteral("-c"), QStringLiteral("-a"), address,
+                  QStringLiteral("-C"), QStringLiteral("OPUSH"),
+                  QStringLiteral("-n"), QStringLiteral("put"),
+                  file.absoluteFilePath(), file.fileName()});
 }
 
 void BluetoothController::parseScan(const QByteArray &output)

@@ -17,6 +17,8 @@ class BluetoothController final : public QObject
     Q_PROPERTY(QString confirmationCode READ confirmationCode NOTIFY stateChanged)
     Q_PROPERTY(QString statusMessage READ statusMessage NOTIFY stateChanged)
     Q_PROPERTY(bool statusIsError READ statusIsError NOTIFY stateChanged)
+    Q_PROPERTY(bool fileTransferAvailable READ fileTransferAvailable NOTIFY stateChanged)
+    Q_PROPERTY(bool receivingFiles READ receivingFiles NOTIFY stateChanged)
     Q_PROPERTY(QVariantList devices READ devices NOTIFY devicesChanged)
 
 public:
@@ -28,6 +30,8 @@ public:
     QString confirmationCode() const;
     QString statusMessage() const;
     bool statusIsError() const;
+    bool fileTransferAvailable() const;
+    bool receivingFiles() const;
     QVariantList devices() const;
 
     Q_INVOKABLE bool refreshDevices();
@@ -35,6 +39,8 @@ public:
     Q_INVOKABLE bool respondToPairing(bool accepted);
     Q_INVOKABLE bool forgetDevice(const QString &addressHex);
     Q_INVOKABLE bool setDiscoverable(bool enabled);
+    Q_INVOKABLE bool setReceivingFiles(bool enabled);
+    Q_INVOKABLE bool sendFile(const QString &addressHex, const QString &fileUrl);
 
 signals:
     void stateChanged();
@@ -46,7 +52,7 @@ signals:
     void authorizationCompleted();
 
 private:
-    enum class Operation { None, Scan, Pair, Forget, Discoverability };
+    enum class Operation { None, Scan, Pair, Forget, Discoverability, SendFile };
 
     bool start(Operation operation, const QStringList &arguments);
     bool createRequest(const QByteArray &contents);
@@ -55,6 +61,7 @@ private:
     void processOutput(bool flushRemainder = false);
 
     QProcess *m_process = nullptr;
+    QProcess *m_transferServer = nullptr;
     QTemporaryFile *m_request = nullptr;
     QByteArray m_standardOutput;
     QVariantList m_devices;
@@ -65,6 +72,7 @@ private:
     bool m_authorizationPending = false;
     bool m_awaitingConfirmation = false;
     bool m_statusIsError = false;
+    bool m_receivingFiles = false;
     QString m_statusMessage;
     QString m_confirmationCode;
     QString m_pairingName;

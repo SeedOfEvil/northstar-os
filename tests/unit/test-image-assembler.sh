@@ -133,6 +133,14 @@ for intel_root in drm-66-kmod gpu-firmware-intel-kmod-kabylake iwmbt-firmware wi
         exit 1
     }
 done
+grep -Fx 'obexapp' "$ROOT/image/manifests/northstar-runtime-roots.txt" >/dev/null || {
+    printf 'FAIL: image runtime roots omit Bluetooth OBEX file transfer\n' >&2
+    exit 1
+}
+grep -F 'sdpd_enable="YES"' "$ASSEMBLER" >/dev/null || {
+    printf 'FAIL: image does not enable Bluetooth service discovery for profiles\n' >&2
+    exit 1
+}
 grep -F 'kld_list="i915kms"' "$ASSEMBLER" >/dev/null || {
     printf 'FAIL: image does not enable i915kms for the Intel Alpha lane\n' >&2
     exit 1
