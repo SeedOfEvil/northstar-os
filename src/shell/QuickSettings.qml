@@ -372,17 +372,34 @@ Window {
                         }
                     }
 
-                    Slider {
-                        id: soundSlider
-                        enabled: quickSettings.controller && quickSettings.controller.soundAvailable
-                        from: 0
-                        to: 100
-                        value: quickSettings.controller ? quickSettings.controller.volume : 0
-                        live: false
+                    Row {
+                        spacing: 8
                         width: parent.width
-                        onPressedChanged: {
-                            if (!pressed && quickSettings.controller)
-                                quickSettings.controller.setVolume(Math.round(value))
+
+                        Button {
+                            id: muteButton
+                            enabled: quickSettings.controller && quickSettings.controller.soundAvailable
+                            text: quickSettings.controller && quickSettings.controller.muted
+                                ? "Unmute" : "Mute"
+                            width: 76
+                            onClicked: {
+                                if (quickSettings.controller)
+                                    quickSettings.controller.setMuted(!quickSettings.controller.muted)
+                            }
+                        }
+
+                        Slider {
+                            id: soundSlider
+                            enabled: quickSettings.controller && quickSettings.controller.soundAvailable
+                            from: 0
+                            to: 100
+                            value: quickSettings.controller ? quickSettings.controller.volume : 0
+                            live: false
+                            width: parent.width - muteButton.width - parent.spacing
+                            onPressedChanged: {
+                                if (!pressed && quickSettings.controller)
+                                    quickSettings.controller.setVolume(Math.round(value))
+                            }
                         }
                     }
                 }

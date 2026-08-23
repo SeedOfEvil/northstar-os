@@ -20,6 +20,7 @@ class QuickSettingsControllerTest final : public QObject
 private slots:
     void reportsConfirmedCapabilities();
     void confirmsMixerMutations();
+    void confirmsMixerMuteMutations();
     void rejectsUnconfirmedMixerMutations();
     void persistsDoNotDisturb();
 
@@ -107,7 +108,7 @@ void QuickSettingsControllerTest::reportsConfirmedCapabilities()
         }
         if (program == QStringLiteral("/usr/sbin/mixer")) {
             mixerCalls.append(arguments.join(QLatin1Char(' ')));
-            return result(0, QStringLiteral("vol.volume=0.65:0.65"));
+            return result(0, QStringLiteral("vol.volume=0.65:0.65\nvol.mute=off"));
         }
         if (program == QStringLiteral("/sbin/sysctl")) {
             return result(0, QStringLiteral("72"));
@@ -122,7 +123,8 @@ void QuickSettingsControllerTest::reportsConfirmedCapabilities()
     QCOMPARE(controller.wifiStatus(), QStringLiteral("Connected to NorthstarLab"));
     QVERIFY(controller.bluetoothAvailable());
     QVERIFY(controller.soundAvailable());
-    QCOMPARE(controller.volume(), 65);
+    QCOMPARE(controller.volume(), 42);
+    QVERIFY(!controller.muted());
     QCOMPARE(mixerCalls, QStringList{QStringLiteral("vol")});
     QVERIFY(controller.displayAvailable());
     QCOMPARE(controller.displayBrightness(), 72);
@@ -142,7 +144,8 @@ void QuickSettingsControllerTest::confirmsMixerMutations()
                 mixerVolume = qRound(arguments.constFirst().section(QLatin1Char('='), 1).toDouble() * 100.0);
                 return result(0);
             }
-            return result(0, QStringLiteral("vol.volume=%1").arg(mixerVolume / 100.0, 0, 'f', 2));
+            return result(0, QStringLiteral("vol.volume=%1\nvol.mute=off")
+                                 .arg(mixerVolume / 100.0, 0, 'f', 2));
         }
         return result(1);
     };
@@ -155,7 +158,45 @@ void QuickSettingsControllerTest::confirmsMixerMutations()
     QVERIFY(controller.statusMessage().contains(QStringLiteral("confirmed")));
     QCOMPARE(mixerCalls,
              QStringList({QStringLiteral("vol"),
-                          QStringLiteral("vol.volume=0.74"),
+                          QStringLiteral("vol.volume=0.86"),
+                          QStringLiteral("vol")}));
+}
+
+void QuickSettingsControllerTest::confirmsMixerMuteMutations()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    bool muted = false;
+    QStringList mixerCalls;
+    const auto provider = [&muted, &mixerCalls](const QString &program, const QStringList &arguments) {
+        if (program != QStringLiteral("/usr/sbin/mixer")) {
+            return result(1);
+        }
+        mixerCalls.append(arguments.join(QLatin1Char(' ')));
+        if (arguments == QStringList{QStringLiteral("vol.mute=on")}) {
+            muted = true;
+            return result(0);
+        }
+        if (arguments == QStringList{QStringLiteral("vol.mute=off")}) {
+            muted = false;
+            return result(0);
+        }
+        return result(0, QStringLiteral("vol.volume=0.80:0.80\nvol.mute=%1")
+                             .arg(muted ? QStringLiteral("on") : QStringLiteral("off")));
+    };
+
+    QuickSettingsController controller(
+        nullptr, directory.filePath(QStringLiteral("preferences.ini")), provider);
+    QVERIFY(!controller.muted());
+    QVERIFY(controller.setMuted(true));
+    QVERIFY(controller.muted());
+    QVERIFY(controller.setMuted(false));
+    QVERIFY(!controller.muted());
+    QCOMPARE(mixerCalls,
+             QStringList({QStringLiteral("vol"),
+                          QStringLiteral("vol.mute=on"),
+                          QStringLiteral("vol"),
+                          QStringLiteral("vol.mute=off"),
                           QStringLiteral("vol")}));
 }
 
@@ -173,7 +214,7 @@ void QuickSettingsControllerTest::rejectsUnconfirmedMixerMutations()
     QuickSettingsController controller(
         nullptr, directory.filePath(QStringLiteral("preferences.ini")), provider);
     QVERIFY(!controller.setVolume(80));
-    QCOMPARE(controller.volume(), 25);
+    QCOMPARE(controller.volume(), 6);
     QVERIFY(controller.statusMessage().contains(QStringLiteral("did not confirm")));
 }
 

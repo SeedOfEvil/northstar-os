@@ -27,6 +27,7 @@ class QuickSettingsController final : public QObject
     Q_PROPERTY(bool bluetoothWritable READ bluetoothWritable NOTIFY capabilitiesChanged)
     Q_PROPERTY(bool soundAvailable READ soundAvailable NOTIFY capabilitiesChanged)
     Q_PROPERTY(int volume READ volume NOTIFY capabilitiesChanged)
+    Q_PROPERTY(bool muted READ muted NOTIFY capabilitiesChanged)
     Q_PROPERTY(QString soundStatus READ soundStatus NOTIFY capabilitiesChanged)
     Q_PROPERTY(bool displayAvailable READ displayAvailable NOTIFY capabilitiesChanged)
     Q_PROPERTY(int displayBrightness READ displayBrightness NOTIFY capabilitiesChanged)
@@ -65,6 +66,7 @@ public:
     bool bluetoothWritable() const;
     bool soundAvailable() const;
     int volume() const;
+    bool muted() const;
     QString soundStatus() const;
     bool displayAvailable() const;
     int displayBrightness() const;
@@ -79,6 +81,7 @@ public:
     Q_INVOKABLE bool setWifiEnabled(bool enabled);
     Q_INVOKABLE bool setBluetoothEnabled(bool enabled);
     Q_INVOKABLE bool setVolume(int volume);
+    Q_INVOKABLE bool setMuted(bool muted);
     Q_INVOKABLE void toggleDoNotDisturb();
 
 public slots:
@@ -116,6 +119,7 @@ private:
     QString m_bluetoothStatus = QStringLiteral("No Bluetooth adapter detected");
     bool m_soundAvailable = false;
     int m_volume = 0;
+    bool m_muted = false;
     QString m_soundStatus = QStringLiteral("No mixer device available");
     bool m_displayAvailable = false;
     int m_displayBrightness = 0;

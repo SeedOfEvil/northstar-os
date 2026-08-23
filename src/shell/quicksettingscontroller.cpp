@@ -6,6 +6,7 @@
 #include <QRegularExpression>
 #include <QSettings>
 #include <QStandardPaths>
+#include <QtMath>
 
 #include <utility>
 
@@ -44,6 +45,26 @@ int parseMixerVolume(const QString &output)
     return qBound(0, qRound(percentage), 100);
 }
 
+int perceptualVolumeForMixer(int mixerVolume)
+{
+    const double normalized = qBound(0, mixerVolume, 100) / 100.0;
+    return qBound(0, qRound(normalized * normalized * 100.0), 100);
+}
+
+int mixerVolumeForPerceptual(int perceptualVolume)
+{
+    const double normalized = qBound(0, perceptualVolume, 100) / 100.0;
+    return qBound(0, qRound(qSqrt(normalized) * 100.0), 100);
+}
+
+bool parseMixerMuted(const QString &output)
+{
+    static const QRegularExpression muteExpression(
+        QStringLiteral(R"(vol\.mute\s*=\s*on)"),
+        QRegularExpression::CaseInsensitiveOption);
+    return muteExpression.match(output).hasMatch();
+}
+
 } // namespace
 
 QuickSettingsController::QuickSettingsController(QObject *parent,
@@ -70,6 +91,7 @@ bool QuickSettingsController::bluetoothEnabled() const { return m_bluetoothEnabl
 QString QuickSettingsController::bluetoothStatus() const { return m_bluetoothStatus; }
 bool QuickSettingsController::soundAvailable() const { return m_soundAvailable; }
 int QuickSettingsController::volume() const { return m_volume; }
+bool QuickSettingsController::muted() const { return m_muted; }
 QString QuickSettingsController::soundStatus() const { return m_soundStatus; }
 bool QuickSettingsController::displayAvailable() const { return m_displayAvailable; }
 int QuickSettingsController::displayBrightness() const { return m_displayBrightness; }
@@ -178,8 +200,9 @@ bool QuickSettingsController::setVolume(int volume)
     }
 
     const int requestedVolume = qBound(0, volume, 100);
+    const int requestedMixerVolume = mixerVolumeForPerceptual(requestedVolume);
     const QString mixerValue = QStringLiteral("vol.volume=%1")
-                                   .arg(QString::number(requestedVolume / 100.0, 'f', 2));
+                                   .arg(QString::number(requestedMixerVolume / 100.0, 'f', 2));
     const QuickSettingsCommandResult mutation = m_commandProvider(
         QStringLiteral("/usr/sbin/mixer"), {mixerValue});
     if (!commandSucceeded(mutation)) {
@@ -196,6 +219,35 @@ bool QuickSettingsController::setVolume(int volume)
         return false;
     }
     setStatusMessage(QStringLiteral("Volume confirmed at %1%.").arg(m_volume));
+    return true;
+}
+
+bool QuickSettingsController::setMuted(bool muted)
+{
+    if (!m_soundAvailable) {
+        setStatusMessage(QStringLiteral("Mute is unavailable because FreeBSD reported no mixer device."));
+        return false;
+    }
+
+    const QString mixerValue = muted ? QStringLiteral("vol.mute=on")
+                                     : QStringLiteral("vol.mute=off");
+    const QuickSettingsCommandResult mutation = m_commandProvider(
+        QStringLiteral("/usr/sbin/mixer"), {mixerValue});
+    if (!commandSucceeded(mutation)) {
+        setStatusMessage(QStringLiteral("FreeBSD mixer rejected the mute change."));
+        refreshSound();
+        emit capabilitiesChanged();
+        return false;
+    }
+
+    refreshSound();
+    emit capabilitiesChanged();
+    if (!m_soundAvailable || m_muted != muted) {
+        setStatusMessage(QStringLiteral("Mixer did not confirm the requested mute state."));
+        return false;
+    }
+    setStatusMessage(muted ? QStringLiteral("Output muted.")
+                           : QStringLiteral("Output unmuted."));
     return true;
 }
 
@@ -339,15 +391,19 @@ void QuickSettingsController::refreshSound()
 {
     const QuickSettingsCommandResult result = m_commandProvider(
         QStringLiteral("/usr/sbin/mixer"), {QStringLiteral("vol")});
-    const int parsedVolume = commandSucceeded(result) ? parseMixerVolume(result.standardOutput) : -1;
-    m_soundAvailable = parsedVolume >= 0;
+    const int mixerVolume = commandSucceeded(result) ? parseMixerVolume(result.standardOutput) : -1;
+    m_soundAvailable = mixerVolume >= 0;
     if (!m_soundAvailable) {
         m_volume = 0;
+        m_muted = false;
         m_soundStatus = QStringLiteral("No mixer device available");
         return;
     }
-    m_volume = parsedVolume;
-    m_soundStatus = QStringLiteral("FreeBSD mixer - %1%").arg(parsedVolume);
+    m_volume = perceptualVolumeForMixer(mixerVolume);
+    m_muted = parseMixerMuted(result.standardOutput);
+    m_soundStatus = m_muted
+        ? QStringLiteral("Muted - %1%").arg(m_volume)
+        : QStringLiteral("Output - %1%").arg(m_volume);
 }
 
 void QuickSettingsController::refreshDisplay()
