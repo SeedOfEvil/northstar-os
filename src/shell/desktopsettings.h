@@ -5,6 +5,7 @@ class ClockController;
 class DesktopLayoutController;
 class NotificationCenter;
 class PinnedApplicationModel;
+class PowerController;
 class QuickSettingsController;
 class SessionController;
 class SettingsCatalog;
@@ -21,6 +22,7 @@ void registerDesktopSettings(SettingsCatalog *catalog,
                              DesktopLayoutController *desktopLayout,
                              ApplicationLauncher *launcher,
                              PinnedApplicationModel *pinnedApplications,
+                             PowerController *power,
                              SessionController *session,
                              WallpaperController *wallpaper,
                              ClockController *clock);

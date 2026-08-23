@@ -90,6 +90,14 @@ require administrator authentication. The shell never constructs or executes
 an arbitrary privileged command, and no caller-provided option reaches
 `shutdown(8)`.
 
+The same controller reads the fixed FreeBSD ACPI battery sysctls every 30
+seconds. The primary panel shows charge percentage, Quick Settings shows the
+reported charging or remaining-time state, and Settings exposes a dedicated
+Power section. An unknown remaining-time value stays unknown rather than being
+estimated. While running on battery, crossing 15 percent creates one warning;
+the warning is re-armed only after AC is connected or charge recovers to 20
+percent.
+
 Settings > Session also exposes a confirmed **Restart Northstar Shell** action
 when the shell can prove that it is the exact supervised child recorded in the
 session status contract. The action signals only that shell PID and lets the

@@ -29,14 +29,43 @@ QString actionLabel(const QString &action)
     return action == QStringLiteral("restart") ? QStringLiteral("Restart") : QStringLiteral("Shut down");
 }
 
+PowerCommandResult runPowerCommand(const QString &program, const QStringList &arguments)
+{
+    QProcess process;
+    process.start(program, arguments);
+    if (!process.waitForStarted(800)) {
+        return {};
+    }
+    if (!process.waitForFinished(800)) {
+        process.kill();
+        process.waitForFinished();
+        return {true, -1, {}};
+    }
+    return {true, process.exitCode(), QString::fromUtf8(process.readAllStandardOutput())};
+}
+
+QString remainingTimeLabel(int minutes)
+{
+    if (minutes <= 0) {
+        return {};
+    }
+    const int hours = minutes / 60;
+    const int remainder = minutes % 60;
+    return hours > 0
+        ? QStringLiteral("%1h %2m remaining").arg(hours).arg(remainder)
+        : QStringLiteral("%1m remaining").arg(remainder);
+}
+
 } // namespace
 
 PowerController::PowerController(QObject *parent,
                                  PowerFunction powerFunction,
-                                 QString helperPath)
+                                 QString helperPath,
+                                 CommandFunction commandFunction)
     : QObject(parent)
     , m_helperPath(helperPath.isEmpty() ? defaultPowerHelperPath() : std::move(helperPath))
     , m_powerFunction(std::move(powerFunction))
+    , m_commandFunction(commandFunction ? std::move(commandFunction) : runPowerCommand)
 {
     if (!m_powerFunction) {
         m_powerFunction = [this](const QString &action, QString *error) {
@@ -46,6 +75,10 @@ PowerController::PowerController(QObject *parent,
     } else {
         m_available = true;
     }
+
+    connect(&m_batteryTimer, &QTimer::timeout, this, &PowerController::refreshBattery);
+    m_batteryTimer.start(30000);
+    refreshBattery();
 }
 
 bool PowerController::available() const
@@ -66,6 +99,71 @@ QString PowerController::statusMessage() const
 QString PowerController::lastAction() const
 {
     return m_lastAction;
+}
+
+bool PowerController::batteryAvailable() const { return m_batteryAvailable; }
+int PowerController::batteryPercentage() const { return m_batteryPercentage; }
+bool PowerController::onAcPower() const { return m_onAcPower; }
+bool PowerController::batteryCharging() const { return m_batteryCharging; }
+QString PowerController::batteryStatus() const { return m_batteryStatus; }
+
+void PowerController::refreshBattery()
+{
+    const PowerCommandResult result = m_commandFunction(
+        QStringLiteral("/sbin/sysctl"),
+        {QStringLiteral("-n"), QStringLiteral("hw.acpi.battery.units"),
+         QStringLiteral("hw.acpi.battery.life"), QStringLiteral("hw.acpi.battery.state"),
+         QStringLiteral("hw.acpi.battery.time"), QStringLiteral("hw.acpi.acline")});
+
+    const QStringList lines = result.standardOutput.split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+    bool unitsOk = false;
+    bool lifeOk = false;
+    bool stateOk = false;
+    bool timeOk = false;
+    bool acOk = false;
+    const int units = lines.value(0).trimmed().toInt(&unitsOk);
+    const int life = lines.value(1).trimmed().toInt(&lifeOk);
+    const int state = lines.value(2).trimmed().toInt(&stateOk);
+    const int minutes = lines.value(3).trimmed().toInt(&timeOk);
+    const int acLine = lines.value(4).trimmed().toInt(&acOk);
+    const bool available = result.started && result.exitCode == 0 && lines.size() >= 5
+        && unitsOk && lifeOk && stateOk && timeOk && acOk && units > 0;
+
+    bool onAc = false;
+    bool charging = false;
+    int percentage = 0;
+    QString status = QStringLiteral("No battery detected");
+    if (available) {
+        percentage = qBound(0, life, 100);
+        onAc = acLine != 0;
+        charging = (state & 0x02) != 0;
+        if (charging) {
+            status = QStringLiteral("Charging - %1%").arg(percentage);
+        } else if (onAc && percentage >= 100) {
+            status = QStringLiteral("Fully charged");
+        } else if (onAc) {
+            status = QStringLiteral("Plugged in - %1%").arg(percentage);
+        } else {
+            const QString remaining = remainingTimeLabel(minutes);
+            status = remaining.isEmpty()
+                ? QStringLiteral("On battery - %1%").arg(percentage)
+                : QStringLiteral("%1% - %2").arg(percentage).arg(remaining);
+        }
+    }
+
+    const bool changed = m_batteryAvailable != available
+        || m_batteryPercentage != percentage || m_onAcPower != onAc
+        || m_batteryCharging != charging || m_batteryMinutes != minutes
+        || m_batteryStatus != status;
+    m_batteryAvailable = available;
+    m_batteryPercentage = percentage;
+    m_onAcPower = onAc;
+    m_batteryCharging = charging;
+    m_batteryMinutes = available ? minutes : -1;
+    m_batteryStatus = status;
+    if (changed) {
+        emit batteryChanged();
+    }
 }
 
 bool PowerController::requestRestart()

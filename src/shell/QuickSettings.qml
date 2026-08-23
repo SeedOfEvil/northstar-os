@@ -12,6 +12,7 @@ Window {
 
     property var state
     property var controller
+    property var powerController
     property var settingsWindow
     property var targetScreen
     property int panelHeight: 44
@@ -53,6 +54,8 @@ Window {
     function openPanel() {
         if (controller)
             controller.refresh()
+        if (powerController)
+            powerController.refreshBattery()
         quickSettingsDrag.prepareForOpen()
         show()
         raise()
@@ -109,7 +112,10 @@ Window {
                         Text {
                             color: quickSettings.surfaceMuted
                             font.pixelSize: 11
-                            text: "Northstar controls"
+                            text: quickSettings.powerController
+                                && quickSettings.powerController.batteryAvailable
+                                ? quickSettings.powerController.batteryStatus
+                                : "Northstar controls"
                         }
                     }
 

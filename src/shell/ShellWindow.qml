@@ -398,6 +398,19 @@ Window {
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 5
 
+                Text {
+                    color: northstarPowerController.batteryAvailable
+                        && !northstarPowerController.onAcPower
+                        && northstarPowerController.batteryPercentage <= 15
+                        ? lunar.danger : root.panelForeground
+                    font.pixelSize: 11
+                    text: northstarPowerController.batteryAvailable
+                        ? (northstarPowerController.batteryCharging ? "⚡ " : "")
+                            + northstarPowerController.batteryPercentage + "%"
+                        : ""
+                    visible: northstarPowerController.batteryAvailable
+                }
+
                 Rectangle {
                     color: notificationMouse.containsMouse ? lunar.raisedHover : "transparent"
                     height: 30
@@ -555,6 +568,7 @@ Window {
         id: quickSettingsWindow
         onVisibleChanged: if (!visible) root.restoreShellFocus()
         controller: northstarQuickSettingsController
+        powerController: northstarPowerController
         state: shellState
         settingsWindow: settingsWindow
         targetScreen: targetScreen
