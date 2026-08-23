@@ -21,7 +21,9 @@ private slots:
     void reportsConfirmedCapabilities();
     void confirmsMixerMutations();
     void confirmsMixerMuteMutations();
+    void confirmsMixerBalanceMutations();
     void confirmsSoundOutputMutations();
+    void confirmsTestSound();
     void rejectsUnconfirmedMixerMutations();
     void persistsDoNotDisturb();
 
@@ -146,17 +148,24 @@ void QuickSettingsControllerTest::confirmsMixerMutations()
 {
     QTemporaryDir directory;
     QVERIFY(directory.isValid());
-    int mixerVolume = 30;
+    int mixerLeft = 30;
+    int mixerRight = 30;
     QStringList mixerCalls;
-    const auto provider = [&mixerVolume, &mixerCalls](const QString &program, const QStringList &arguments) {
+    const auto provider = [&mixerLeft, &mixerRight, &mixerCalls](const QString &program,
+                                                                const QStringList &arguments) {
         if (program == QStringLiteral("/usr/sbin/mixer")) {
             mixerCalls.append(arguments.join(QLatin1Char(' ')));
             if (arguments.size() == 1 && arguments.constFirst().startsWith(QStringLiteral("vol.volume="))) {
-                mixerVolume = qRound(arguments.constFirst().section(QLatin1Char('='), 1).toDouble() * 100.0);
+                const QStringList channels = arguments.constFirst()
+                    .section(QLatin1Char('='), 1).split(QLatin1Char(':'));
+                mixerLeft = qRound(channels.value(0).toDouble() * 100.0);
+                mixerRight = qRound(channels.value(1, channels.value(0)).toDouble() * 100.0);
                 return result(0);
             }
             return result(0, QStringLiteral("vol.volume=%1\nvol.mute=off")
-                                 .arg(mixerVolume / 100.0, 0, 'f', 2));
+                                 .arg(QStringLiteral("%1:%2")
+                                     .arg(mixerLeft / 100.0, 0, 'f', 2)
+                                     .arg(mixerRight / 100.0, 0, 'f', 2)));
         }
         return result(1);
     };
@@ -170,9 +179,43 @@ void QuickSettingsControllerTest::confirmsMixerMutations()
     QCOMPARE(mixerCalls,
              QStringList({QStringLiteral("-a"),
                           QStringLiteral("vol"),
-                          QStringLiteral("vol.volume=0.94"),
+                          QStringLiteral("vol.volume=0.94:0.94"),
                           QStringLiteral("-a"),
                           QStringLiteral("vol")}));
+}
+
+void QuickSettingsControllerTest::confirmsMixerBalanceMutations()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    int mixerLeft = 100;
+    int mixerRight = 100;
+    QStringList mixerCalls;
+    const auto provider = [&mixerLeft, &mixerRight, &mixerCalls](const QString &program,
+                                                                const QStringList &arguments) {
+        if (program != QStringLiteral("/usr/sbin/mixer")) {
+            return result(1);
+        }
+        mixerCalls.append(arguments.join(QLatin1Char(' ')));
+        if (arguments.size() == 1 && arguments.constFirst().startsWith(QStringLiteral("vol.volume="))) {
+            const QStringList channels = arguments.constFirst()
+                .section(QLatin1Char('='), 1).split(QLatin1Char(':'));
+            mixerLeft = qRound(channels.value(0).toDouble() * 100.0);
+            mixerRight = qRound(channels.value(1).toDouble() * 100.0);
+            return result(0);
+        }
+        return result(0, QStringLiteral("vol.volume=%1:%2\nvol.mute=off")
+                             .arg(mixerLeft / 100.0, 0, 'f', 2)
+                             .arg(mixerRight / 100.0, 0, 'f', 2));
+    };
+
+    QuickSettingsController controller(
+        nullptr, directory.filePath(QStringLiteral("preferences.ini")), provider);
+    QCOMPARE(controller.balance(), 0);
+    QVERIFY(controller.setBalance(-50));
+    QVERIFY(controller.balance() < -45);
+    QVERIFY(controller.balance() > -55);
+    QVERIFY(mixerCalls.contains(QStringLiteral("vol.volume=1.00:0.88")));
 }
 
 void QuickSettingsControllerTest::confirmsMixerMuteMutations()
@@ -253,6 +296,30 @@ void QuickSettingsControllerTest::confirmsSoundOutputMutations()
     QVERIFY(!controller.setSoundOutput(9));
     QVERIFY(controller.statusMessage().contains(QStringLiteral("not available")));
     QVERIFY(mixerCalls.contains(QStringLiteral("-d 1")));
+}
+
+void QuickSettingsControllerTest::confirmsTestSound()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    QStringList calls;
+    const auto provider = [&calls](const QString &program, const QStringList &arguments) {
+        calls.append(program + QLatin1Char(' ') + arguments.join(QLatin1Char(' ')));
+        if (program == QStringLiteral("/usr/sbin/mixer")) {
+            return result(0, QStringLiteral("vol.volume=1.00:1.00\nvol.mute=off"));
+        }
+        if (program == QStringLiteral("/usr/bin/beep")) {
+            return result(0);
+        }
+        return result(1);
+    };
+
+    QuickSettingsController controller(
+        nullptr, directory.filePath(QStringLiteral("preferences.ini")), provider);
+    QVERIFY(controller.testSound());
+    QVERIFY(calls.contains(QStringLiteral(
+        "/usr/bin/beep -d /dev/dsp -F 440 -D 350 -g 8")));
+    QVERIFY(controller.statusMessage().contains(QStringLiteral("played")));
 }
 
 void QuickSettingsControllerTest::rejectsUnconfirmedMixerMutations()

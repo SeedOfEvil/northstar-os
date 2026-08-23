@@ -299,6 +299,39 @@ void registerDesktopSettings(SettingsCatalog *catalog,
         };
         output.unavailableReason = [quickSettings]() { return quickSettings->soundStatus(); };
         catalog->registerEntry(output);
+
+        SettingsCatalog::Entry balance;
+        balance.id = QStringLiteral("sound.balance");
+        balance.section = QStringLiteral("sound");
+        balance.title = QStringLiteral("Stereo balance");
+        balance.description = QStringLiteral("Shift output toward the left or right channel.");
+        balance.keywords = QStringList{QStringLiteral("balance"), QStringLiteral("left"),
+                                       QStringLiteral("right"), QStringLiteral("stereo"),
+                                       QStringLiteral("audio")};
+        balance.kind = SettingsCatalog::sliderKind();
+        balance.minimum = -100;
+        balance.maximum = 100;
+        balance.read = [quickSettings]() { return QVariant(quickSettings->balance()); };
+        balance.write = [quickSettings](const QVariant &value) {
+            return quickSettings->setBalance(value.toInt());
+        };
+        balance.available = [quickSettings]() { return quickSettings->soundAvailable(); };
+        balance.unavailableReason = [quickSettings]() { return quickSettings->soundStatus(); };
+        catalog->registerEntry(balance);
+
+        SettingsCatalog::Entry test;
+        test.id = QStringLiteral("sound.test");
+        test.section = QStringLiteral("sound");
+        test.title = QStringLiteral("Test selected output");
+        test.description = QStringLiteral("Play a brief, low-volume tone through the selected device.");
+        test.keywords = QStringList{QStringLiteral("test"), QStringLiteral("tone"),
+                                    QStringLiteral("speaker"), QStringLiteral("audio")};
+        test.kind = SettingsCatalog::actionKind();
+        test.actionLabel = QStringLiteral("Play test sound");
+        test.perform = [quickSettings]() { return quickSettings->testSound(); };
+        test.available = [quickSettings]() { return quickSettings->soundAvailable(); };
+        test.unavailableReason = [quickSettings]() { return quickSettings->soundStatus(); };
+        catalog->registerEntry(test);
     }
 
     // --- Network -----------------------------------------------------------
