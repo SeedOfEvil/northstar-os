@@ -95,7 +95,10 @@ names and values are never accepted. The fixed lid assignment is replaced
 atomically in `sysctl.conf` because `sysrc(8)` intentionally rejects dotted
 sysctl names. During S3 resume the shell also remains alive while DRM briefly
 replaces the physical panel with a placeholder output, so that transient
-display loss is not interpreted as a clean logout.
+display loss is not interpreted as a clean logout. Once the DRM output set has
+settled, Northstar rebuilds only its panel, desktop, and dock surfaces against
+the restored physical screen; compositor-owned application processes remain
+in the existing session.
 
 The same controller reads the fixed FreeBSD ACPI battery sysctls every 30
 seconds. The primary panel shows charge percentage, Quick Settings shows the
