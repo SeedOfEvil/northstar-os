@@ -25,6 +25,21 @@ need different physical acceptance devices.
 - Pairing keys, passwords, and file contents are not copied into privileged
   request files or diagnostic output.
 
+## FreeBSD 15.1 RFCOMM listener correction
+
+Physical Android testing proved that the stock 15.1 RFCOMM client path works,
+but its listener never dequeues a completed inbound L2CAP connection. The
+kernel receives the RFCOMM handshake on PSM 3 and leaves it unread until the
+phone times out. `solisten()` uses the dedicated listener upcall, while
+`ng_btsocket_rfcomm` installs only receive/send sockbuf upcalls.
+
+`patches/freebsd/15.1/ng-btsocket-rfcomm-listener-upcall.patch` installs the
+same RFCOMM task callback through `solisten_upcall_set()` after the listener is
+created. A patched `ng_btsocket.ko` must match the exact installed FreeBSD
+kernel build. It is not accepted into an image merely because it compiles;
+Android inbound transfer, outbound transfer, reboot loading, and rollback to
+the stock module remain physical gates.
+
 ## Automated gates
 
 The focused controller test uses an isolated fake OBEX executable to prove the
