@@ -260,6 +260,8 @@ add_test(NAME northstar-bluetooth-scan
     COMMAND sh ${PROJECT_SOURCE_DIR}/tests/unit/test-bluetooth-scan.sh)
 add_test(NAME northstar-bluetooth-configure
     COMMAND sh ${PROJECT_SOURCE_DIR}/tests/unit/test-bluetooth-configure.sh)
+add_test(NAME northstar-bluetooth-receive
+    COMMAND sh ${PROJECT_SOURCE_DIR}/tests/unit/test-bluetooth-receive.sh)
 add_test(NAME northstar-bluetooth-qml COMMAND northstar-bluetooth --self-test)
 if(TARGET northstar-bluetooth-ssp)
     add_test(NAME northstar-bluetooth-ssp COMMAND northstar-bluetooth-ssp --self-test)

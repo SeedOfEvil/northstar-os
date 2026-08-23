@@ -70,6 +70,7 @@ private:
     bool m_discoverable = false;
     bool m_pendingDiscoverable = false;
     bool m_authorizationPending = false;
+    bool m_transferAuthorizationPending = false;
     bool m_awaitingConfirmation = false;
     bool m_statusIsError = false;
     bool m_receivingFiles = false;

@@ -22,4 +22,5 @@ install(TARGETS northstar-bluetooth RUNTIME DESTINATION bin)
 install(PROGRAMS
     northstar-bluetooth-scan
     northstar-bluetooth-configure
+    northstar-bluetooth-receive
     DESTINATION libexec)

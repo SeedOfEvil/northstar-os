@@ -23,7 +23,13 @@ BluetoothController::BluetoothController(QObject *parent)
     , m_transferServer(new QProcess(this))
     , m_statusMessage(QStringLiteral("Choose Refresh to find discoverable or remembered Bluetooth devices."))
 {
-    connect(m_transferServer, &QProcess::started, this, [this]() {
+    connect(m_transferServer, &QProcess::readyReadStandardOutput, this, [this]() {
+        const QByteArray output = m_transferServer->readAllStandardOutput();
+        if (!output.split('\n').contains("NORTHSTAR_BLUETOOTH_AUTHORIZED=1")) return;
+        if (m_transferAuthorizationPending) {
+            m_transferAuthorizationPending = false;
+            emit authorizationCompleted();
+        }
         m_receivingFiles = true;
         m_statusIsError = false;
         m_statusMessage = QStringLiteral("Ready to receive Bluetooth files in Downloads.");
@@ -41,6 +47,10 @@ BluetoothController::BluetoothController(QObject *parent)
             [this](int exitCode, QProcess::ExitStatus exitStatus) {
         const bool requestedStop = m_transferServer->property("northstarRequestedStop").toBool();
         m_transferServer->setProperty("northstarRequestedStop", false);
+        if (m_transferAuthorizationPending) {
+            m_transferAuthorizationPending = false;
+            emit authorizationCompleted();
+        }
         m_receivingFiles = false;
         if (requestedStop) {
             m_statusIsError = false;
@@ -123,8 +133,13 @@ QString BluetoothController::statusMessage() const { return m_statusMessage; }
 bool BluetoothController::statusIsError() const { return m_statusIsError; }
 bool BluetoothController::fileTransferAvailable() const
 {
-    return !qEnvironmentVariable("NORTHSTAR_BLUETOOTH_OBEX_COMMAND").isEmpty()
+    const bool sender = !qEnvironmentVariable("NORTHSTAR_BLUETOOTH_OBEX_COMMAND").isEmpty()
         || !QStandardPaths::findExecutable(QStringLiteral("obexapp")).isEmpty();
+    const bool receiver = !qEnvironmentVariable(
+                              "NORTHSTAR_BLUETOOTH_OBEX_RECEIVE_COMMAND").isEmpty()
+        || QFileInfo::exists(QStringLiteral(
+            "/usr/local/libexec/northstar-bluetooth-receive"));
+    return sender && receiver;
 }
 bool BluetoothController::receivingFiles() const { return m_receivingFiles; }
 QVariantList BluetoothController::devices() const { return m_devices; }
@@ -291,21 +306,23 @@ bool BluetoothController::setReceivingFiles(bool enabled)
         return true;
     }
     if (m_transferServer->state() != QProcess::NotRunning) return false;
-    QString downloads = QStandardPaths::writableLocation(QStandardPaths::DownloadLocation);
-    if (downloads.isEmpty())
-        downloads = QDir::homePath() + QStringLiteral("/Downloads");
-    if (!QDir().mkpath(downloads)) {
-        finish(false, QStringLiteral("The Downloads folder could not be prepared."));
-        return false;
+    QString program = qEnvironmentVariable("NORTHSTAR_BLUETOOTH_OBEX_RECEIVE_COMMAND");
+    QStringList arguments;
+    if (program.isEmpty()) {
+        program = QStandardPaths::findExecutable(QStringLiteral("pkexec"));
+        if (program.isEmpty()) {
+            finish(false, QStringLiteral("Administrator authorization is unavailable."));
+            return false;
+        }
+        arguments << QStringLiteral("--disable-internal-agent")
+                  << QStringLiteral("/usr/local/libexec/northstar-bluetooth-receive");
     }
-    QString program = qEnvironmentVariable("NORTHSTAR_BLUETOOTH_OBEX_COMMAND");
-    if (program.isEmpty())
-        program = QStandardPaths::findExecutable(QStringLiteral("obexapp"));
     m_transferServer->setProgram(program);
-    m_transferServer->setArguments({QStringLiteral("-s"), QStringLiteral("-d"),
-                                    QStringLiteral("-r"), downloads});
+    m_transferServer->setArguments(arguments);
+    m_transferAuthorizationPending = true;
     m_statusIsError = false;
-    m_statusMessage = QStringLiteral("Starting Bluetooth file receiving...");
+    m_statusMessage = QStringLiteral("Authorizing Bluetooth file receiving...");
+    emit authorizationPromptExpected();
     emit stateChanged();
     m_transferServer->start();
     return true;

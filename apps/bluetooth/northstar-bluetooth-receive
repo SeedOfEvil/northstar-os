@@ -1,0 +1,68 @@
+#!/bin/sh
+set -eu
+EX_UNAVAILABLE=69
+EX_NOPERM=77
+TEST_MODE=${NORTHSTAR_BLUETOOTH_TEST_MODE:-0}
+ROOT=${NORTHSTAR_BLUETOOTH_ROOT:-/}
+OBEXAPP=${NORTHSTAR_BLUETOOTH_OBEX_PATH:-/usr/local/bin/obexapp}
+STAT=${NORTHSTAR_BLUETOOTH_STAT_PATH:-/usr/bin/stat}
+INSTALL=${NORTHSTAR_BLUETOOTH_INSTALL_PATH:-/usr/bin/install}
+fail() { status=$1; shift; printf 'ERROR: %s\n' "$*" >&2; exit "$status"; }
+match() { printf '%s\n' "$1" | grep -Eq "$2"; }
+
+[ "$#" -eq 0 ] || fail 64 'Bluetooth receiving accepts no arguments'
+[ -x "$OBEXAPP" ] || fail "$EX_UNAVAILABLE" 'Bluetooth file transfer is not installed'
+
+if [ "$TEST_MODE" = 1 ]; then
+    caller=$(id -u)
+    username=${NORTHSTAR_BLUETOOTH_TEST_USER:-northstar}
+    group=$(id -g)
+    home=${ROOT%/}/home/$username
+    mkdir -p "$home"
+else
+    [ "$(id -u)" -eq 0 ] ||
+        fail "$EX_NOPERM" 'Bluetooth receiving requires PolicyKit authorization'
+    caller=${PKEXEC_UID:-}
+    match "$caller" '^[0-9]+$' ||
+        fail "$EX_NOPERM" 'Bluetooth receiving requires a PolicyKit caller'
+    username=$(id -nu "$caller" 2>/dev/null || true)
+    group=$(id -g "$caller" 2>/dev/null || true)
+    home=$(getent passwd "$caller" | awk -F: 'NR == 1 { print $6 }')
+fi
+
+match "$username" '^[A-Za-z_][A-Za-z0-9_-]{0,31}$' ||
+    fail "$EX_NOPERM" 'the desktop user name is unsafe'
+match "$group" '^[0-9]+$' || fail "$EX_NOPERM" 'the desktop group is unavailable'
+if [ "$TEST_MODE" = 1 ]; then
+    case "$home" in
+        "${ROOT%/}"/home/*) ;;
+        *) fail "$EX_NOPERM" 'the test desktop home directory is unsafe';;
+    esac
+else
+    case "$home" in
+        /home/*) ;;
+        *) fail "$EX_NOPERM" 'the desktop home directory is unsafe';;
+    esac
+fi
+[ -d "$home" ] && [ ! -L "$home" ] ||
+    fail "$EX_NOPERM" 'the desktop home directory is unavailable'
+[ "$TEST_MODE" = 1 ] || [ "$("$STAT" -f %u "$home")" = "$caller" ] ||
+    fail "$EX_NOPERM" 'the desktop home directory has unsafe ownership'
+
+downloads=$home/Downloads
+if [ ! -d "$downloads" ]; then
+    if [ "$TEST_MODE" = 1 ]; then
+        mkdir -p "$downloads"
+        chmod 0755 "$downloads"
+    else
+        "$INSTALL" -d -o "$caller" -g "$group" -m 0755 "$downloads" ||
+            fail "$EX_UNAVAILABLE" 'the Downloads folder could not be prepared'
+    fi
+fi
+[ -d "$downloads" ] && [ ! -L "$downloads" ] ||
+    fail "$EX_NOPERM" 'the Downloads folder is unsafe'
+[ "$TEST_MODE" = 1 ] || [ "$("$STAT" -f %u "$downloads")" = "$caller" ] ||
+    fail "$EX_NOPERM" 'the Downloads folder has unsafe ownership'
+
+printf '%s\n' NORTHSTAR_BLUETOOTH_AUTHORIZED=1
+exec "$OBEXAPP" -s -d -S -u "$username" -r "$downloads"
