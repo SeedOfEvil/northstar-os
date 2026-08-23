@@ -11,6 +11,7 @@ CMakeUserPresets.json
 *.img
 *.qcow2
 *.raw
+!assets/audio/northstar-test-tone-s16le-stereo-48k.raw
 *.vhd
 *.vmdk
 *.ova

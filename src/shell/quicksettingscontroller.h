@@ -32,6 +32,7 @@ class QuickSettingsController final : public QObject
     Q_PROPERTY(int balance READ balance NOTIFY capabilitiesChanged)
     Q_PROPERTY(QVariantList soundOutputs READ soundOutputs NOTIFY capabilitiesChanged)
     Q_PROPERTY(int soundOutput READ soundOutput NOTIFY capabilitiesChanged)
+    Q_PROPERTY(bool testSoundAvailable READ testSoundAvailable NOTIFY capabilitiesChanged)
     Q_PROPERTY(QString soundStatus READ soundStatus NOTIFY capabilitiesChanged)
     Q_PROPERTY(bool displayAvailable READ displayAvailable NOTIFY capabilitiesChanged)
     Q_PROPERTY(int displayBrightness READ displayBrightness NOTIFY capabilitiesChanged)
@@ -74,6 +75,7 @@ public:
     int balance() const;
     QVariantList soundOutputs() const;
     int soundOutput() const;
+    bool testSoundAvailable() const;
     QString soundStatus() const;
     bool displayAvailable() const;
     int displayBrightness() const;
@@ -106,6 +108,7 @@ private:
     static QuickSettingsCommandResult runCommand(const QString &program,
                                                   const QStringList &arguments);
     static QString defaultSettingsPath();
+    static QString testTonePath();
 
     // Where the privileged boundary lives. Empty when it is not installed,
     // which is what makes a radio read-only rather than silently broken.

@@ -329,8 +329,14 @@ void registerDesktopSettings(SettingsCatalog *catalog,
         test.kind = SettingsCatalog::actionKind();
         test.actionLabel = QStringLiteral("Play test sound");
         test.perform = [quickSettings]() { return quickSettings->testSound(); };
-        test.available = [quickSettings]() { return quickSettings->soundAvailable(); };
-        test.unavailableReason = [quickSettings]() { return quickSettings->soundStatus(); };
+        test.available = [quickSettings]() {
+            return quickSettings->soundAvailable() && quickSettings->testSoundAvailable();
+        };
+        test.unavailableReason = [quickSettings]() {
+            return quickSettings->soundAvailable()
+                ? QStringLiteral("The Northstar test tone is not installed.")
+                : quickSettings->soundStatus();
+        };
         catalog->registerEntry(test);
     }
 

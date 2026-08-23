@@ -176,6 +176,7 @@ bool QuickSettingsController::muted() const { return m_muted; }
 int QuickSettingsController::balance() const { return m_balance; }
 QVariantList QuickSettingsController::soundOutputs() const { return m_soundOutputs; }
 int QuickSettingsController::soundOutput() const { return m_soundOutput; }
+bool QuickSettingsController::testSoundAvailable() const { return !testTonePath().isEmpty(); }
 QString QuickSettingsController::soundStatus() const { return m_soundStatus; }
 bool QuickSettingsController::displayAvailable() const { return m_displayAvailable; }
 int QuickSettingsController::displayBrightness() const { return m_displayBrightness; }
@@ -409,12 +410,18 @@ bool QuickSettingsController::testSound()
         return false;
     }
 
+    const QString tonePath = testTonePath();
+    if (tonePath.isEmpty()) {
+        setStatusMessage(QStringLiteral("The Northstar test tone is not installed."));
+        return false;
+    }
+
     const QuickSettingsCommandResult result = m_commandProvider(
-        QStringLiteral("/usr/bin/beep"),
-        {QStringLiteral("-d"), QStringLiteral("/dev/dsp"),
-         QStringLiteral("-F"), QStringLiteral("523"),
-         QStringLiteral("-D"), QStringLiteral("500"),
-         QStringLiteral("-g"), QStringLiteral("25")});
+        QStringLiteral("/bin/dd"),
+        {QStringLiteral("if=%1").arg(tonePath),
+         QStringLiteral("of=/dev/dsp"),
+         QStringLiteral("bs=192000"),
+         QStringLiteral("count=1")});
     if (!commandSucceeded(result)) {
         setStatusMessage(QStringLiteral("The selected output could not play the test sound."));
         return false;
@@ -460,7 +467,9 @@ QuickSettingsCommandResult QuickSettingsController::runCommand(
         result.standardError = process.errorString();
         return result;
     }
-    if (!process.waitForFinished(CommandTimeoutMilliseconds)) {
+    const int finishTimeout = program == QStringLiteral("/bin/dd")
+        ? 1800 : CommandTimeoutMilliseconds;
+    if (!process.waitForFinished(finishTimeout)) {
         process.kill();
         process.waitForFinished(CommandTimeoutMilliseconds);
         result.standardError = QStringLiteral("Capability probe timed out.");
@@ -479,6 +488,25 @@ QString QuickSettingsController::defaultSettingsPath()
         configDirectory = QDir::home().filePath(QStringLiteral(".config/northstar"));
     }
     return QDir(configDirectory).filePath(QStringLiteral("preferences.ini"));
+}
+
+QString QuickSettingsController::testTonePath()
+{
+    if (qEnvironmentVariableIsSet("NORTHSTAR_TEST_TONE_PATH")) {
+        const QString configured = qEnvironmentVariable("NORTHSTAR_TEST_TONE_PATH");
+        return QFileInfo(configured).isReadable() ? configured : QString();
+    }
+
+    const QString relativePath = QStringLiteral(
+        "northstar/audio/northstar-test-tone-s16le-stereo-48k.raw");
+    for (const QString &dataRoot
+         : QStandardPaths::standardLocations(QStandardPaths::GenericDataLocation)) {
+        const QString candidate = QDir(dataRoot).filePath(relativePath);
+        if (QFileInfo(candidate).isReadable()) {
+            return candidate;
+        }
+    }
+    return {};
 }
 
 void QuickSettingsController::refreshWifi()

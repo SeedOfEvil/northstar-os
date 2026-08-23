@@ -98,6 +98,10 @@ install(TARGETS northstar-shell northstar-shell-command
     RUNTIME DESTINATION bin
 )
 
+install(FILES ${PROJECT_SOURCE_DIR}/assets/audio/northstar-test-tone-s16le-stereo-48k.raw
+    DESTINATION share/northstar/audio
+)
+
 install(PROGRAMS ${PROJECT_SOURCE_DIR}/src/power/northstar-power
     ${PROJECT_SOURCE_DIR}/src/power/northstar-clock
     ${PROJECT_SOURCE_DIR}/src/power/northstar-radio

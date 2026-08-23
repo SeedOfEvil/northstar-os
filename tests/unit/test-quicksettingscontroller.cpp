@@ -302,13 +302,19 @@ void QuickSettingsControllerTest::confirmsTestSound()
 {
     QTemporaryDir directory;
     QVERIFY(directory.isValid());
+    const QString tonePath = directory.filePath(QStringLiteral("test-tone.raw"));
+    QFile tone(tonePath);
+    QVERIFY(tone.open(QIODevice::WriteOnly));
+    tone.write("tone");
+    tone.close();
+    qputenv("NORTHSTAR_TEST_TONE_PATH", tonePath.toUtf8());
     QStringList calls;
     const auto provider = [&calls](const QString &program, const QStringList &arguments) {
         calls.append(program + QLatin1Char(' ') + arguments.join(QLatin1Char(' ')));
         if (program == QStringLiteral("/usr/sbin/mixer")) {
             return result(0, QStringLiteral("vol.volume=1.00:1.00\nvol.mute=off"));
         }
-        if (program == QStringLiteral("/usr/bin/beep")) {
+        if (program == QStringLiteral("/bin/dd")) {
             return result(0);
         }
         return result(1);
@@ -316,10 +322,12 @@ void QuickSettingsControllerTest::confirmsTestSound()
 
     QuickSettingsController controller(
         nullptr, directory.filePath(QStringLiteral("preferences.ini")), provider);
+    QVERIFY(controller.testSoundAvailable());
     QVERIFY(controller.testSound());
-    QVERIFY(calls.contains(QStringLiteral(
-        "/usr/bin/beep -d /dev/dsp -F 523 -D 500 -g 25")));
+    QVERIFY(calls.contains(QStringLiteral("/bin/dd if=%1 of=/dev/dsp bs=192000 count=1")
+                               .arg(tonePath)));
     QVERIFY(controller.statusMessage().contains(QStringLiteral("played")));
+    qunsetenv("NORTHSTAR_TEST_TONE_PATH");
 }
 
 void QuickSettingsControllerTest::rejectsUnconfirmedMixerMutations()
