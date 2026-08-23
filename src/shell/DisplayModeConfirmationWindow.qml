@@ -14,6 +14,7 @@ Window {
     property int screenY: targetScreen ? targetScreen.geometry.y : 0
     property int screenWidth: targetScreen ? targetScreen.geometry.width : 1280
     property int screenHeight: targetScreen ? targetScreen.geometry.height : 800
+    property string pendingAction: ""
 
     LunarPalette {
         id: lunar
@@ -34,8 +35,26 @@ Window {
 
     onVisibleChanged: {
         if (visible) {
+            pendingAction = ""
             raise()
             requestActivate()
+        }
+    }
+
+    Timer {
+        id: actionTimer
+        interval: 0
+        onTriggered: {
+            if (!confirmation.controller) {
+                confirmation.pendingAction = ""
+                return
+            }
+            const succeeded = confirmation.pendingAction === "keep"
+                ? confirmation.controller.keepDisplayMode()
+                : confirmation.controller.revertDisplayMode()
+            if (!succeeded) {
+                confirmation.pendingAction = ""
+            }
         }
     }
 
@@ -59,10 +78,14 @@ Window {
             Text {
                 color: lunar.muted
                 font.pixelSize: 13
-                text: "Northstar will restore the previous mode in "
-                    + (confirmation.controller
-                        ? confirmation.controller.displayModeSecondsRemaining : 0)
-                    + " seconds unless you keep this one."
+                text: confirmation.pendingAction === "keep"
+                    ? "Keeping this mode..."
+                    : confirmation.pendingAction === "revert"
+                        ? "Restoring the previous mode..."
+                        : "Northstar will restore the previous mode in "
+                            + (confirmation.controller
+                                ? confirmation.controller.displayModeSecondsRemaining : 0)
+                            + " seconds unless you keep this one."
                 width: parent.width
                 wrapMode: Text.WordWrap
             }
@@ -77,14 +100,22 @@ Window {
                 spacing: 12
 
                 Button {
-                    text: "Revert"
-                    onClicked: confirmation.controller.revertDisplayMode()
+                    enabled: confirmation.pendingAction.length === 0
+                    text: confirmation.pendingAction === "revert" ? "Restoring..." : "Revert"
+                    onClicked: {
+                        confirmation.pendingAction = "revert"
+                        actionTimer.start()
+                    }
                 }
 
                 Button {
+                    enabled: confirmation.pendingAction.length === 0
                     highlighted: true
-                    text: "Keep display"
-                    onClicked: confirmation.controller.keepDisplayMode()
+                    text: confirmation.pendingAction === "keep" ? "Keeping..." : "Keep display"
+                    onClicked: {
+                        confirmation.pendingAction = "keep"
+                        actionTimer.start()
+                    }
                 }
             }
         }

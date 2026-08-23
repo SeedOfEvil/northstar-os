@@ -266,6 +266,8 @@ int main(int argc, char *argv[])
     QQmlComponent backgroundComponent(&engine, QUrl(QStringLiteral("qrc:/Northstar/Shell/DesktopBackground.qml")));
     QQmlComponent component(&engine, QUrl(QStringLiteral("qrc:/Northstar/Shell/ShellWindow.qml")));
     QQmlComponent dockComponent(&engine, QUrl(QStringLiteral("qrc:/Northstar/Shell/DockWindow.qml")));
+    QQmlComponent displayConfirmationComponent(
+        &engine, QUrl(QStringLiteral("qrc:/Northstar/Shell/DisplayModeConfirmationWindow.qml")));
 
     if (backgroundComponent.status() == QQmlComponent::Error) {
         for (const auto &error : backgroundComponent.errors()) {
@@ -281,6 +283,12 @@ int main(int argc, char *argv[])
     }
     if (dockComponent.status() == QQmlComponent::Error) {
         for (const auto &error : dockComponent.errors()) {
+            qCritical().noquote() << error.toString();
+        }
+        return 1;
+    }
+    if (displayConfirmationComponent.status() == QQmlComponent::Error) {
+        for (const auto &error : displayConfirmationComponent.errors()) {
             qCritical().noquote() << error.toString();
         }
         return 1;
@@ -324,6 +332,20 @@ int main(int argc, char *argv[])
 
         ~SurfaceTeardown() { (*this)(); }
     } destroySurfaces{surfaces, contexts};
+
+    // Unlike the panel/background/dock surfaces, display confirmation must
+    // survive a compositor output rebuild. Otherwise a Keep/Revert click can
+    // land on a window being torn down and appear to be ignored.
+    QObject *displayConfirmationObject = nullptr;
+    struct PersistentSurfaceTeardown
+    {
+        QObject *&object;
+        ~PersistentSurfaceTeardown()
+        {
+            delete object;
+            object = nullptr;
+        }
+    } destroyPersistentSurface{displayConfirmationObject};
 
     int displayIndex = 0;
 
@@ -464,11 +486,41 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    QVariantMap displayConfirmationProperties;
+    displayConfirmationProperties.insert(
+        QStringLiteral("controller"),
+        QVariant::fromValue(static_cast<QObject *>(&quickSettingsController)));
+    displayConfirmationProperties.insert(
+        QStringLiteral("state"),
+        QVariant::fromValue(static_cast<QObject *>(&shellState)));
+    displayConfirmationProperties.insert(
+        QStringLiteral("targetScreen"),
+        QVariant::fromValue(static_cast<QObject *>(application.primaryScreen())));
+    displayConfirmationProperties.insert(QStringLiteral("panelHeight"), PanelHeight);
+    displayConfirmationObject = displayConfirmationComponent.createWithInitialProperties(
+        displayConfirmationProperties, engine.rootContext());
+    if (displayConfirmationObject == nullptr) {
+        for (const auto &error : displayConfirmationComponent.errors()) {
+            qCritical().noquote() << error.toString();
+        }
+        return 1;
+    }
+    const auto updateConfirmationScreen = [displayConfirmationObject](QScreen *screen) {
+        if (screen != nullptr) {
+            displayConfirmationObject->setProperty(
+                "targetScreen", QVariant::fromValue(static_cast<QObject *>(screen)));
+        }
+    };
+    QObject::connect(&application, &QGuiApplication::primaryScreenChanged,
+                     displayConfirmationObject, updateConfirmationScreen);
+
     if (qmlSelfTest) {
         const int selfTestStatus = runShellSelfTest(surfaces);
 
         // Run the teardown early rather than leaving it to the scope guard, so
         // any binding error it raises is counted before the check below.
+        delete displayConfirmationObject;
+        displayConfirmationObject = nullptr;
         destroySurfaces();
         // Counted after teardown so binding errors raised on the way down are
         // included. Anything emitted later than this cannot be seen from here,
