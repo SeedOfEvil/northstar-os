@@ -27,10 +27,18 @@ constexpr uint8_t IoCapabilityDisplayYesNo = 0x01;
 constexpr uint8_t AuthenticationGeneralBondingMitm = 0x05;
 constexpr uint16_t ReadSimplePairingMode = 0x0055;
 constexpr uint8_t RequestFailed = 0xff;
+constexpr uint8_t IoCapabilityResponseEvent = 0x32;
 
 struct SimplePairingModeReply {
     uint8_t status;
     uint8_t mode;
+} __attribute__((packed));
+
+struct IoCapabilityResponseEventParameters {
+    bdaddr_t bdaddr;
+    uint8_t ioCapability;
+    uint8_t oobDataPresent;
+    uint8_t authenticationRequirements;
 } __attribute__((packed));
 
 uint8_t requestCommand(int socket, uint16_t opcode, void *parameters,
@@ -158,18 +166,20 @@ int main(int argc, char **argv)
     const bool probe = argc == 3 && std::strcmp(argv[1], "--probe") == 0;
     const bool enableProbe = argc == 3
         && std::strcmp(argv[1], "--enable-probe") == 0;
-    if (argc != 3)
+    const bool listen = argc == 4 && std::strcmp(argv[1], "--listen") == 0;
+    if ((!listen && argc != 3) || (listen && argc != 4))
         return fail(ExitUsage,
-                    "usage: northstar-bluetooth-ssp NODE BD_ADDR | --probe NODE | --enable-probe NODE");
+                    "usage: northstar-bluetooth-ssp NODE BD_ADDR | --listen NODE BD_ADDR | --probe NODE | --enable-probe NODE");
     if (geteuid() != 0)
         return fail(77, "the SSP pairing agent requires root");
 
-    const std::string node((probe || enableProbe) ? argv[2] : argv[1]);
+    const std::string node((probe || enableProbe || listen) ? argv[2] : argv[1]);
     if (!validNode(node))
         return fail(ExitData, "the Bluetooth controller name is invalid");
 
     bdaddr_t target{};
-    if (!probe && !enableProbe && bt_aton(argv[2], &target) != 1)
+    const char *targetText = listen ? argv[3] : argv[2];
+    if (!probe && !enableProbe && bt_aton(targetText, &target) != 1)
         return fail(ExitData, "the Bluetooth address is invalid");
 
     const int socket = bt_devopen(node.c_str());
@@ -297,10 +307,15 @@ int main(int argc, char **argv)
 
     struct bt_devfilter filter{};
     bt_devfilter_pkt_set(&filter, NG_HCI_EVENT_PKT);
+    bt_devfilter_evt_set(&filter, NG_HCI_EVENT_COMMAND_COMPL);
     bt_devfilter_evt_set(&filter, NG_HCI_EVENT_COMMAND_STATUS);
     bt_devfilter_evt_set(&filter, NG_HCI_EVENT_CON_COMPL);
     bt_devfilter_evt_set(&filter, NG_HCI_EVENT_AUTH_COMPL);
+    bt_devfilter_evt_set(&filter, NG_HCI_EVENT_PIN_CODE_REQ);
+    bt_devfilter_evt_set(&filter, NG_HCI_EVENT_LINK_KEY_REQ);
+    bt_devfilter_evt_set(&filter, NG_HCI_EVENT_LINK_KEY_NOTIFICATION);
     bt_devfilter_evt_set(&filter, NG_HCI_EVENT_IO_CAPABILITY_REQUEST);
+    bt_devfilter_evt_set(&filter, IoCapabilityResponseEvent);
     bt_devfilter_evt_set(&filter, NG_HCI_EVENT_USER_CONFIRMATION_REQUEST);
     bt_devfilter_evt_set(&filter, NG_HCI_EVENT_SIMPLE_PAIRING_COMPLETE);
     if (bt_devfilter(socket, &filter, nullptr) < 0) {
@@ -308,24 +323,41 @@ int main(int argc, char **argv)
         return fail(ExitUnavailable, "the SSP event filter could not be installed");
     }
 
-    ng_hci_create_con_cp connection{};
-    connection.bdaddr = target;
-    connection.pkt_type = htole16(0xcc18);
-    connection.page_scan_rep_mode = 1;
-    connection.page_scan_mode = 0;
-    connection.clock_offset = 0;
-    connection.accept_role_switch = 1;
-    if (!sendCommand(socket,
-            NG_HCI_OPCODE(NG_HCI_OGF_LINK_CONTROL, NG_HCI_OCF_CREATE_CON),
-            &connection, sizeof(connection))) {
-        bt_devclose(socket);
-        return fail(ExitUnavailable, "the Bluetooth connection could not be initiated");
+    uint8_t priorScanEnable = 0;
+    if (listen) {
+        if (readScanEnable(socket, &priorScanEnable) != 0) {
+            bt_devclose(socket);
+            return fail(ExitUnavailable,
+                        "Bluetooth discoverability state could not be read");
+        }
+        if (writeScanEnable(socket, 3) != 0) {
+            bt_devclose(socket);
+            return fail(ExitUnavailable,
+                        "Bluetooth discoverability could not be enabled");
+        }
+        std::puts("NORTHSTAR_BLUETOOTH_INBOUND_PAIRING=WAITING");
+        std::fflush(stdout);
+    } else {
+        ng_hci_create_con_cp connection{};
+        connection.bdaddr = target;
+        connection.pkt_type = htole16(0xcc18);
+        connection.page_scan_rep_mode = 1;
+        connection.page_scan_mode = 0;
+        connection.clock_offset = 0;
+        connection.accept_role_switch = 1;
+        if (!sendCommand(socket,
+                NG_HCI_OPCODE(NG_HCI_OGF_LINK_CONTROL, NG_HCI_OCF_CREATE_CON),
+                &connection, sizeof(connection))) {
+            bt_devclose(socket);
+            return fail(ExitUnavailable, "the Bluetooth connection could not be initiated");
+        }
     }
 
     unsigned char buffer[NG_HCI_EVENT_PKT_SIZE + sizeof(ng_hci_event_pkt_t)]{};
     bool confirmationAnswered = false;
     bool pairingComplete = false;
     bool authenticationComplete = false;
+    bool capabilityReplied = false;
     uint16_t targetHandle = 0xffff;
     for (;;) {
         const ssize_t count = bt_devrecv(socket, buffer, sizeof(buffer), PairingTimeoutSeconds);
@@ -338,6 +370,17 @@ int main(int argc, char **argv)
             || count < static_cast<ssize_t>(sizeof(*event) + event->length))
             continue;
         const unsigned char *payload = buffer + sizeof(*event);
+
+        if (event->event == NG_HCI_EVENT_COMMAND_COMPL
+            && event->length >= sizeof(ng_hci_command_compl_ep) + 1) {
+            const auto *complete =
+                reinterpret_cast<const ng_hci_command_compl_ep *>(payload);
+            std::printf("NORTHSTAR_BLUETOOTH_HCI_COMMAND_COMPLETE=0x%04x:0x%02x\n",
+                        le16toh(complete->opcode),
+                        payload[sizeof(ng_hci_command_compl_ep)]);
+            std::fflush(stdout);
+            continue;
+        }
 
         if (event->event == NG_HCI_EVENT_COMMAND_STATUS
             && event->length >= sizeof(ng_hci_command_status_ep)) {
@@ -376,7 +419,7 @@ int main(int argc, char **argv)
                 bt_devclose(socket);
                 return fail(ExitUnavailable, "the selected device rejected the Bluetooth connection");
             }
-            if (sameAddress(complete->bdaddr, target)) {
+            if (sameAddress(complete->bdaddr, target) && !listen) {
                 targetHandle = complete->con_handle;
                 ng_hci_auth_req_cp authenticationRequest{};
                 authenticationRequest.con_handle = complete->con_handle;
@@ -389,6 +432,8 @@ int main(int argc, char **argv)
                                 "Bluetooth authentication could not be requested");
                 }
             }
+            if (sameAddress(complete->bdaddr, target) && listen)
+                targetHandle = complete->con_handle;
             continue;
         }
 
@@ -418,6 +463,46 @@ int main(int argc, char **argv)
             continue;
         }
 
+        if (event->event == NG_HCI_EVENT_LINK_KEY_REQ
+            && event->length >= sizeof(bdaddr_t)) {
+            const auto *address = reinterpret_cast<const bdaddr_t *>(payload);
+            if (sameAddress(*address, target)) {
+                std::puts("NORTHSTAR_BLUETOOTH_HCI_LINK_KEY_REQUEST=1");
+                std::fflush(stdout);
+            }
+            continue;
+        }
+
+        if (event->event == NG_HCI_EVENT_LINK_KEY_NOTIFICATION
+            && event->length >= sizeof(ng_hci_link_key_notification_ep)) {
+            const auto *notification =
+                reinterpret_cast<const ng_hci_link_key_notification_ep *>(payload);
+            if (!sameAddress(notification->bdaddr, target))
+                continue;
+            std::puts("NORTHSTAR_BLUETOOTH_HCI_LINK_KEY_NOTIFICATION=1");
+            std::puts(confirmationAnswered
+                ? "NORTHSTAR_BLUETOOTH_PAIRED=CONFIRMED"
+                : "NORTHSTAR_BLUETOOTH_PAIRED=JUST_WORKS");
+            std::fflush(stdout);
+            if (listen && writeScanEnable(socket, priorScanEnable) != 0) {
+                bt_devclose(socket);
+                return fail(ExitUnavailable,
+                            "Bluetooth discoverability could not be restored");
+            }
+            bt_devclose(socket);
+            return 0;
+        }
+
+        if (event->event == NG_HCI_EVENT_PIN_CODE_REQ
+            && event->length >= sizeof(bdaddr_t)) {
+            const auto *address = reinterpret_cast<const bdaddr_t *>(payload);
+            if (sameAddress(*address, target)) {
+                std::puts("NORTHSTAR_BLUETOOTH_HCI_PIN_CODE_REQUEST=1");
+                std::fflush(stdout);
+            }
+            continue;
+        }
+
         if (event->event == NG_HCI_EVENT_IO_CAPABILITY_REQUEST
             && event->length >= sizeof(ng_hci_io_capability_request_ep)) {
             const auto *request = reinterpret_cast<const ng_hci_io_capability_request_ep *>(payload);
@@ -436,6 +521,37 @@ int main(int argc, char **argv)
                     &reply, sizeof(reply))) {
                 bt_devclose(socket);
                 return fail(ExitUnavailable, "the SSP capability reply failed");
+            }
+            capabilityReplied = true;
+            continue;
+        }
+
+        if (event->event == IoCapabilityResponseEvent
+            && event->length >= sizeof(IoCapabilityResponseEventParameters)) {
+            const auto *response =
+                reinterpret_cast<const IoCapabilityResponseEventParameters *>(payload);
+            if (sameAddress(response->bdaddr, target)) {
+                std::puts("NORTHSTAR_BLUETOOTH_HCI_IO_CAPABILITY_RESPONSE=1");
+                std::fflush(stdout);
+                if (!capabilityReplied) {
+                    ng_hci_io_capability_request_reply_cp reply{};
+                    reply.bdaddr = target;
+                    reply.io_capability = IoCapabilityDisplayYesNo;
+                    reply.oob_data_present = 0;
+                    reply.authentication_requirements =
+                        AuthenticationGeneralBondingMitm;
+                    if (!sendCommand(socket,
+                            NG_HCI_OPCODE(NG_HCI_OGF_LINK_CONTROL,
+                                          NG_HCI_IO_CAPABILITY_REQUEST_REPLY),
+                            &reply, sizeof(reply))) {
+                        bt_devclose(socket);
+                        return fail(ExitUnavailable,
+                                    "the SSP compatibility capability reply failed");
+                    }
+                    capabilityReplied = true;
+                    std::puts("NORTHSTAR_BLUETOOTH_HCI_IO_CAPABILITY_FALLBACK=1");
+                    std::fflush(stdout);
+                }
             }
             continue;
         }

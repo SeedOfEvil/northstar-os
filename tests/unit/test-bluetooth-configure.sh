@@ -8,7 +8,9 @@ trap 'rm -rf "$TMP"' EXIT HUP INT TERM
 fail(){ printf 'FAIL: %s\n' "$1" >&2; exit 1; }
 
 FAKE=$TMP/root
-mkdir -p "$FAKE/etc/bluetooth" "$FAKE/var/db/northstar" "$TMP/bin"
+mkdir -p "$FAKE/etc/bluetooth" "$FAKE/var/db/northstar" \
+    "$FAKE/var/run" "$TMP/bin"
+printf '%s\n' 123 > "$FAKE/var/run/hcsecd.pid"
 printf '%s\t%s\n' 'aa:bb:cc:dd:ee:ff' 'Old_Phone' > "$FAKE/etc/bluetooth/hosts"
 cat > "$FAKE/etc/bluetooth/hcsecd.conf" <<'EOF'
 device {
@@ -19,14 +21,8 @@ device {
 }
 EOF
 cat > "$FAKE/var/db/hcsecd.keys" <<'EOF'
-device {
-    bdaddr aa:bb:cc:dd:ee:ff;
-    key "target-key";
-}
-device {
-    bdaddr 11:22:33:44:55:66;
-    key "other-key";
-}
+aa:bb:cc:dd:ee:ff 00000000000000000000000000000000
+11:22:33:44:55:66 11111111111111111111111111111111
 EOF
 printf '%s\n' 'aa:bb:cc:dd:ee:ff' '11:22:33:44:55:66' > \
     "$FAKE/var/db/northstar/bluetooth-paired"
@@ -45,6 +41,16 @@ cat > "$TMP/bin/service" <<'EOF'
 #!/bin/sh
 printf 'service=%s\n' "$*" >> "$NORTHSTAR_TEST_EVENTS"
 EOF
+cat > "$TMP/bin/kill" <<'EOF'
+#!/bin/sh
+printf 'kill=%s\n' "$*" >> "$NORTHSTAR_TEST_EVENTS"
+[ "$*" = '-HUP 123' ] || exit 1
+if [ -f "$NORTHSTAR_TEST_PENDING" ]; then
+    cat "$NORTHSTAR_TEST_PENDING" >> \
+        "$NORTHSTAR_BLUETOOTH_ROOT/var/db/hcsecd.keys"
+    rm -f "$NORTHSTAR_TEST_PENDING"
+fi
+EOF
 cat > "$TMP/bin/hccontrol" <<'EOF'
 #!/bin/sh
 printf 'hccontrol=%s\n' "$*" >> "$NORTHSTAR_TEST_EVENTS"
@@ -58,7 +64,8 @@ esac
 EOF
 cat > "$TMP/bin/northstar-bluetooth-ssp" <<'EOF'
 #!/bin/sh
-[ "$1" = ubt0hci ] && [ "$2" = aa:bb:cc:dd:ee:ff ] || exit 65
+[ "$1" = --listen ] && [ "$2" = ubt0hci ] \
+    && [ "$3" = aa:bb:cc:dd:ee:ff ] || exit 65
 if grep -qi 'aa:bb:cc:dd:ee:ff' "$NORTHSTAR_BLUETOOTH_ROOT/var/db/hcsecd.keys"; then
     printf '%s\n' 'ERROR: stale target link key reached the SSP agent' >&2
     exit 65
@@ -66,24 +73,23 @@ fi
 printf '%s\n' NORTHSTAR_BLUETOOTH_CONFIRM=654321
 IFS= read -r decision
 [ "$decision" = accept ] || exit 125
-cat >> "$NORTHSTAR_BLUETOOTH_ROOT/var/db/hcsecd.keys" <<'KEYEOF'
-device {
-    bdaddr aa:bb:cc:dd:ee:ff;
-    key "fresh-target-key";
-}
+cat > "$NORTHSTAR_TEST_PENDING" <<'KEYEOF'
+aa:bb:cc:dd:ee:ff aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 KEYEOF
 printf '%s\n' NORTHSTAR_BLUETOOTH_PAIRED=CONFIRMED
 EOF
 chmod +x "$TMP/bin/sysrc" "$TMP/bin/service" "$TMP/bin/hccontrol" \
-    "$TMP/bin/northstar-bluetooth-ssp"
+    "$TMP/bin/kill" "$TMP/bin/northstar-bluetooth-ssp"
 
 run_helper() {
     env NORTHSTAR_BLUETOOTH_TEST_MODE=1 \
         NORTHSTAR_BLUETOOTH_ROOT="$FAKE" \
         NORTHSTAR_BLUETOOTH_SYSRC_PATH="$TMP/bin/sysrc" \
         NORTHSTAR_BLUETOOTH_SERVICE_PATH="$TMP/bin/service" \
+        NORTHSTAR_BLUETOOTH_KILL_PATH="$TMP/bin/kill" \
         NORTHSTAR_BLUETOOTH_HCCONTROL_PATH="$TMP/bin/hccontrol" \
         NORTHSTAR_BLUETOOTH_SSP_PATH="$TMP/bin/northstar-bluetooth-ssp" \
+        NORTHSTAR_TEST_PENDING="$TMP/pending-link-key" \
         NORTHSTAR_TEST_EVENTS="$TMP/events" \
         sh "$HELPER" "$@"
 }
@@ -102,9 +108,12 @@ grep -F 'pin	nopin;' "$FAKE/etc/bluetooth/hcsecd.conf" >/dev/null ||
     fail 'legacy PIN authentication was not disabled for SSP'
 grep -F 'service=hcsecd onerestart' "$TMP/events" >/dev/null ||
     fail 'hcsecd was not restarted'
+grep -F 'kill=-HUP 123' "$TMP/events" >/dev/null ||
+    fail 'hcsecd was not signalled to persist its cached link key'
 grep -F 'hccontrol=-n ubt0hci delete_stored_link_key aa:bb:cc:dd:ee:ff' \
     "$TMP/events" >/dev/null || fail 'stale controller link key was not deleted'
-grep -F 'fresh-target-key' "$FAKE/var/db/hcsecd.keys" >/dev/null ||
+grep -F 'aa:bb:cc:dd:ee:ff aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' \
+    "$FAKE/var/db/hcsecd.keys" >/dev/null ||
     fail 'fresh SSP link key was not persisted'
 grep -Fx 'aa:bb:cc:dd:ee:ff' "$FAKE/var/db/northstar/bluetooth-paired" >/dev/null ||
     fail 'persisted paired state was not recorded'

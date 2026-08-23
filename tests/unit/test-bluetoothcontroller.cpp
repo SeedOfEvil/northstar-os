@@ -62,6 +62,7 @@ void BluetoothControllerTest::confirmsSecureSimplePairingWithoutWritingSecrets()
         "[ \"$1\" = --pair ] || exit 64\n"
         "grep -Eq 'pin|password|secret|key' \"$2\" && exit 65\n"
         "grep -Fx 'address_hex=aabbccddeeff' \"$2\" >/dev/null || exit 65\n"
+        "printf '%s\\n' NORTHSTAR_BLUETOOTH_INBOUND_PAIRING=WAITING\n"
         "printf '%s\\n' NORTHSTAR_BLUETOOTH_CONFIRM=654321\n"
         "IFS= read -r decision\n"
         "[ \"$decision\" = accept ] || exit 125\n"

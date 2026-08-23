@@ -302,6 +302,10 @@ void BluetoothController::processOutput(bool flushRemainder)
         if (line == "NORTHSTAR_BLUETOOTH_AUTHORIZED=1" && m_authorizationPending) {
             m_authorizationPending = false;
             emit authorizationCompleted();
+        } else if (line == "NORTHSTAR_BLUETOOTH_INBOUND_PAIRING=WAITING") {
+            m_statusMessage = QStringLiteral(
+                "On %1, choose Northstar to start pairing.").arg(m_pairingName);
+            emit stateChanged();
         } else if (line.startsWith("NORTHSTAR_BLUETOOTH_CONFIRM=")) {
             const QString code = QString::fromLatin1(line.mid(28));
             if (ConfirmationPattern.match(code).hasMatch()) {

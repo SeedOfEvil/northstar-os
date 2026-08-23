@@ -10,6 +10,7 @@ NODE=${NORTHSTAR_BLUETOOTH_NODE:-ubt0hci}
 HCCONTROL=${NORTHSTAR_BLUETOOTH_HCCONTROL_PATH:-/usr/sbin/hccontrol}
 SYSRC=${NORTHSTAR_BLUETOOTH_SYSRC_PATH:-/usr/sbin/sysrc}
 SERVICE=${NORTHSTAR_BLUETOOTH_SERVICE_PATH:-/usr/sbin/service}
+KILL=${NORTHSTAR_BLUETOOTH_KILL_PATH:-/bin/kill}
 SSP_AGENT=${NORTHSTAR_BLUETOOTH_SSP_PATH:-/usr/local/libexec/northstar-bluetooth-ssp}
 STAT=${NORTHSTAR_BLUETOOTH_STAT_PATH:-/usr/bin/stat}
 INSTALL=${NORTHSTAR_BLUETOOTH_INSTALL_PATH:-/usr/bin/install}
@@ -68,6 +69,21 @@ filter_device() {
     }
     END { if (in_device) printf "%s", block }
     ' "$source" > "$destination"
+}
+filter_key_file() {
+    source=$1
+    target=$2
+    destination=$3
+    awk -v target="$target" 'tolower($1) != tolower(target) { print }' \
+        "$source" > "$destination"
+}
+has_link_key() {
+    source=$1
+    target=$2
+    awk -v target="$target" '
+        tolower($1) == tolower(target) && $2 ~ /^[0-9a-fA-F]{32}$/ { found=1 }
+        END { exit !found }
+    ' "$source" 2>/dev/null
 }
 read_request() {
     request=$1
@@ -196,7 +212,7 @@ if [ "$operation" = pair ]; then
     if [ -f "$keys" ] && [ ! -L "$keys" ]; then
         had_keys=1
         cp "$keys" "$keys_backup"
-        filter_device "$keys" "$address" "$keys_candidate"
+        filter_key_file "$keys" "$address" "$keys_candidate"
     fi
     if [ -f "$paired" ] && [ ! -L "$paired" ]; then
         had_paired=1
@@ -255,15 +271,30 @@ if [ "$operation" = pair ]; then
         rollback_pair
         fail "$EX_UNAVAILABLE" 'the Bluetooth pairing service could not be restarted'
     }
-    if ! "$SSP_AGENT" "$NODE" "$address"; then
+    if ! "$SSP_AGENT" --listen "$NODE" "$address"; then
         rollback_pair
         fail "$EX_UNAVAILABLE" 'Secure Simple Pairing did not complete'
     fi
-    "$SERVICE" hcsecd onerestart >/dev/null 2>&1 || {
-        rollback_pair
-        fail "$EX_UNAVAILABLE" 'the Bluetooth link key could not be persisted'
-    }
-    grep -qi "bdaddr[[:space:]]*$address" "$keys" 2>/dev/null || {
+    key_persisted=0
+    attempts=0
+    while [ "$attempts" -lt 5 ]; do
+        attempts=$((attempts + 1))
+        hcsecd_pid=$(cat "$(root_path var/run/hcsecd.pid)" 2>/dev/null || true)
+        match "$hcsecd_pid" '^[0-9]+$' || {
+            rollback_pair
+            fail "$EX_UNAVAILABLE" 'the Bluetooth pairing service PID is unavailable'
+        }
+        "$KILL" -HUP "$hcsecd_pid" >/dev/null 2>&1 || {
+            rollback_pair
+            fail "$EX_UNAVAILABLE" 'the Bluetooth link key could not be persisted'
+        }
+        sleep 1
+        if has_link_key "$keys" "$address"; then
+            key_persisted=1
+            break
+        fi
+    done
+    [ "$key_persisted" -eq 1 ] || {
         rollback_pair
         fail "$EX_UNAVAILABLE" 'the device did not provide a persistent Bluetooth link key'
     }
@@ -313,7 +344,7 @@ fi
 if [ -f "$keys" ] && [ ! -L "$keys" ]; then
     had_keys=1
     cp "$keys" "$keys_backup"
-    filter_device "$keys" "$address" "$keys_candidate"
+    filter_key_file "$keys" "$address" "$keys_candidate"
 fi
 if [ -f "$paired" ] && [ ! -L "$paired" ]; then
     had_paired=1

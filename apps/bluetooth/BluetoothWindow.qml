@@ -157,7 +157,7 @@ ApplicationWindow {
 
         Label {
             Layout.fillWidth: true
-            text: "For a phone, leave its Bluetooth settings screen open while refreshing here. Northstar will show the same six-digit confirmation number as the phone."
+            text: "For a phone, leave its Bluetooth settings screen open while refreshing here. After choosing Pair and approving administrator access, choose Northstar on the phone."
             color: lunar.muted
             wrapMode: Text.WordWrap
         }
@@ -253,7 +253,7 @@ ApplicationWindow {
             Layout.fillWidth: true
             visible: root.selectedAddress.length > 0 && !root.selectedConnected
                 && !root.selectedPaired
-            text: "Choose Pair, approve administrator access, then confirm the six-digit number shown on both devices."
+            text: "Choose Pair, approve administrator access, choose Northstar on the other device, then confirm the six-digit number shown on both devices."
             color: lunar.muted
             wrapMode: Text.WordWrap
         }
