@@ -3,6 +3,7 @@
 #include "desktopsettings.h"
 #include "notificationcenter.h"
 #include "pinnedapplicationmodel.h"
+#include "powercontroller.h"
 #include "quicksettingscontroller.h"
 #include "sessioncontroller.h"
 #include "settingscatalog.h"
@@ -140,6 +141,9 @@ struct Desktop
                    {QDir(root).filePath(QStringLiteral("bundles"))},
                    QDir(root).filePath(QStringLiteral("associations.ini")))
         , pinned(nullptr, QDir(root).filePath(QStringLiteral("pinned.ini")))
+        , power(nullptr, [](const QString &, QString *) { return true; },
+                QStringLiteral("/nonexistent/northstar-power"),
+                [](const QString &, const QStringList &) { return PowerCommandResult{}; })
         , session(QDir(root).filePath(QStringLiteral("absent-status")),
                   QDir(root).filePath(QStringLiteral("absent-control")),
                   0)
@@ -147,7 +151,7 @@ struct Desktop
         , clock(nullptr, QDir(root).filePath(QStringLiteral("system")))
     {
         registerDesktopSettings(&catalog, &shellState, &quickSettings, &notifications,
-                                &desktopLayout, &launcher, &pinned, &session, &wallpaper,
+                                &desktopLayout, &launcher, &pinned, &power, &session, &wallpaper,
                                 &clock);
     }
 
@@ -158,6 +162,7 @@ struct Desktop
     DesktopLayoutController desktopLayout;
     ApplicationLauncher launcher;
     PinnedApplicationModel pinned;
+    PowerController power;
     SessionController session;
     WallpaperController wallpaper;
     ClockController clock;
@@ -175,7 +180,8 @@ void DesktopSettingsTest::registersEverySection()
     QCOMPARE(sectionIds, QStringList({QStringLiteral("appearance"), QStringLiteral("desktop"),
                                       QStringLiteral("sound"), QStringLiteral("network"),
                                       QStringLiteral("notifications"), QStringLiteral("datetime"),
-                                      QStringLiteral("session"), QStringLiteral("about")}));
+                                      QStringLiteral("power"), QStringLiteral("session"),
+                                      QStringLiteral("about")}));
 
     // Every section must actually hold something, or it is a dead tab.
     for (const QVariant &value : desktop.catalog.sections()) {

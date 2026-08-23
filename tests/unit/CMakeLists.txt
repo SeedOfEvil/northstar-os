@@ -45,6 +45,8 @@ target_link_libraries(test-powercontroller
 )
 
 add_test(NAME northstar-powercontroller COMMAND test-powercontroller)
+add_test(NAME northstar-power-helper
+    COMMAND sh ${PROJECT_SOURCE_DIR}/tests/unit/test-power-helper.sh)
 
 qt_add_executable(test-applicationcatalog
     test-applicationcatalog.cpp

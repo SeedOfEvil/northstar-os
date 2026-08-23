@@ -83,11 +83,20 @@ development fallback without claiming to perform a session logout.
 
 The system menu also exposes confirmed `Restart FreeBSD` and `Shut Down
 FreeBSD` actions. They call the fixed-argument user-local
-`northstar-power` boundary, which is authorized by the current development
-VM's non-interactive sudo policy. The shell never constructs or executes an
-arbitrary privileged command. Production packaging must replace that wrapper
-with a root-owned helper and a narrow authorization rule for only the restart
-and shutdown operations.
+`northstar-power` boundary. The root-owned installed helper validates one of
+the two exact actions before re-entering itself through PolicyKit. Active local
+sessions may use those standard desktop power actions; inactive sessions
+require administrator authentication. The shell never constructs or executes
+an arbitrary privileged command, and no caller-provided option reaches
+`shutdown(8)`.
+
+The same controller reads the fixed FreeBSD ACPI battery sysctls every 30
+seconds. The primary panel shows charge percentage, Quick Settings shows the
+reported charging or remaining-time state, and Settings exposes a dedicated
+Power section. An unknown remaining-time value stays unknown rather than being
+estimated. While running on battery, crossing 15 percent creates one warning;
+the warning is re-armed only after AC is connected or charge recovers to 20
+percent.
 
 Settings > Session also exposes a confirmed **Restart Northstar Shell** action
 when the shell can prove that it is the exact supervised child recorded in the

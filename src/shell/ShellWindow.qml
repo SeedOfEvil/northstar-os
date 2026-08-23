@@ -398,6 +398,63 @@ Window {
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 5
 
+                Row {
+                    id: batteryIndicator
+                    readonly property bool low: northstarPowerController.batteryAvailable
+                        && !northstarPowerController.onAcPower
+                        && northstarPowerController.batteryPercentage <= 15
+
+                    height: 18
+                    spacing: 4
+                    visible: northstarPowerController.batteryAvailable
+
+                    Item {
+                        anchors.verticalCenter: parent.verticalCenter
+                        height: 14
+                        width: 22
+
+                        Rectangle {
+                            anchors.left: parent.left
+                            anchors.verticalCenter: parent.verticalCenter
+                            border.color: batteryIndicator.low ? lunar.danger : root.panelForeground
+                            border.width: 1
+                            color: "transparent"
+                            height: 12
+                            radius: 2
+                            width: 18
+
+                            Rectangle {
+                                anchors.left: parent.left
+                                anchors.leftMargin: 2
+                                anchors.verticalCenter: parent.verticalCenter
+                                color: batteryIndicator.low ? lunar.danger
+                                    : northstarPowerController.batteryCharging
+                                    ? lunar.accentBright : root.panelForeground
+                                height: 8
+                                radius: 1
+                                width: Math.max(1, 14 * northstarPowerController.batteryPercentage / 100)
+                            }
+                        }
+
+                        Rectangle {
+                            anchors.left: parent.left
+                            anchors.leftMargin: 18
+                            anchors.verticalCenter: parent.verticalCenter
+                            color: batteryIndicator.low ? lunar.danger : root.panelForeground
+                            height: 6
+                            radius: 1
+                            width: 3
+                        }
+                    }
+
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        color: batteryIndicator.low ? lunar.danger : root.panelForeground
+                        font.pixelSize: 11
+                        text: northstarPowerController.batteryPercentage + "%"
+                    }
+                }
+
                 Rectangle {
                     color: notificationMouse.containsMouse ? lunar.raisedHover : "transparent"
                     height: 30
@@ -555,6 +612,7 @@ Window {
         id: quickSettingsWindow
         onVisibleChanged: if (!visible) root.restoreShellFocus()
         controller: northstarQuickSettingsController
+        powerController: northstarPowerController
         state: shellState
         settingsWindow: settingsWindow
         targetScreen: targetScreen

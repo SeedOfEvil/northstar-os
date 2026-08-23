@@ -207,6 +207,9 @@ first-boot-provision-test:
 radio-helper-test:
 	@sh tests/unit/test-radio-helper.sh
 
+power-helper-test:
+	@sh tests/unit/test-power-helper.sh
+
 image-session-selector-test:
 	@sh tests/unit/test-image-session-selector.sh
 

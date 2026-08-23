@@ -193,6 +193,26 @@ int main(int argc, char *argv[])
                 ? QStringLiteral("success")
                 : QStringLiteral("error"));
     });
+    bool lowBatteryNotified = false;
+    const auto refreshBatteryNotification = [&powerController, &notificationCenter,
+                                             &lowBatteryNotified]() {
+        const bool low = powerController.batteryAvailable()
+            && !powerController.onAcPower() && powerController.batteryPercentage() <= 15;
+        if (low && !lowBatteryNotified) {
+            notificationCenter.pushNotification(
+                QStringLiteral("Low battery"),
+                QStringLiteral("Connect the power adapter. %1% remains.")
+                    .arg(powerController.batteryPercentage()),
+                QStringLiteral("warning"));
+            lowBatteryNotified = true;
+        } else if (!low && (powerController.onAcPower()
+                            || powerController.batteryPercentage() >= 20)) {
+            lowBatteryNotified = false;
+        }
+    };
+    QObject::connect(&powerController, &PowerController::batteryChanged,
+                     &notificationCenter, refreshBatteryNotification);
+    refreshBatteryNotification();
     SettingsCatalog settingsCatalog;
     registerDesktopSettings(&settingsCatalog,
                             &shellState,
@@ -201,6 +221,7 @@ int main(int argc, char *argv[])
                             &desktopLayoutController,
                             &applicationLauncher,
                             &pinnedApplicationModel,
+                            &powerController,
                             &sessionController,
                             &wallpaperController,
                             &clockController);
@@ -225,6 +246,8 @@ int main(int argc, char *argv[])
     QObject::connect(&applicationLauncher, &ApplicationLauncher::applicationsChanged,
                      &settingsCatalog, refreshSettings);
     QObject::connect(&pinnedApplicationModel, &PinnedApplicationModel::desktopIdsChanged,
+                     &settingsCatalog, refreshSettings);
+    QObject::connect(&powerController, &PowerController::batteryChanged,
                      &settingsCatalog, refreshSettings);
 
     const QUrl logoSource = northstarLogoSource();

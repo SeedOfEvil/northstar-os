@@ -6,6 +6,7 @@
 #include "notificationcenter.h"
 #include "notificationstore.h"
 #include "pinnedapplicationmodel.h"
+#include "powercontroller.h"
 #include "quicksettingscontroller.h"
 #include "sessioncontroller.h"
 #include "settingscatalog.h"
@@ -55,6 +56,7 @@ void registerDesktopSettings(SettingsCatalog *catalog,
                              DesktopLayoutController *desktopLayout,
                              ApplicationLauncher *launcher,
                              PinnedApplicationModel *pinnedApplications,
+                             PowerController *power,
                              SessionController *session,
                              WallpaperController *wallpaper,
                              ClockController *clock)
@@ -75,6 +77,8 @@ void registerDesktopSettings(SettingsCatalog *catalog,
                              QStringLiteral("Delivery and quiet hours for shell notifications."));
     catalog->registerSection(QStringLiteral("datetime"), QStringLiteral("Date & Time"),
                              QStringLiteral("The system clock, its timezone, and network time."));
+    catalog->registerSection(QStringLiteral("power"), QStringLiteral("Power"),
+                             QStringLiteral("Battery and power-source status."));
     catalog->registerSection(QStringLiteral("session"), QStringLiteral("Session"),
                              QStringLiteral("The supervised Northstar session and its lifecycle."));
     catalog->registerSection(QStringLiteral("about"), QStringLiteral("About Northstar"),
@@ -540,6 +544,31 @@ void registerDesktopSettings(SettingsCatalog *catalog,
             return true;
         };
         catalog->registerEntry(clear);
+    }
+
+    // --- Power -------------------------------------------------------------
+
+    if (power) {
+        catalog->registerEntry(info(
+            QStringLiteral("power.battery"), QStringLiteral("power"),
+            QStringLiteral("Battery"),
+            QStringLiteral("Current battery charge and charging state reported by FreeBSD ACPI."),
+            QStringList{QStringLiteral("battery"), QStringLiteral("charge"),
+                        QStringLiteral("charging"), QStringLiteral("remaining")},
+            [power]() { return QVariant(power->batteryStatus()); }));
+        catalog->registerEntry(info(
+            QStringLiteral("power.source"), QStringLiteral("power"),
+            QStringLiteral("Power source"),
+            QStringLiteral("Whether the computer is using its charger or battery."),
+            QStringList{QStringLiteral("power"), QStringLiteral("charger"),
+                        QStringLiteral("adapter"), QStringLiteral("ac")},
+            [power]() {
+                if (!power->batteryAvailable()) {
+                    return QVariant(QStringLiteral("Battery information unavailable"));
+                }
+                return QVariant(power->onAcPower() ? QStringLiteral("Power adapter")
+                                                    : QStringLiteral("Battery"));
+            }));
     }
 
     // --- Date & Time -------------------------------------------------------
