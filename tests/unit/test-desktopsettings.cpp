@@ -43,6 +43,7 @@ private slots:
     void leavesTheClockReadOnlyWithoutTheBoundary();
     void keepsTheTimezoneOnShowWhileAnotherRegionIsBrowsed();
     void refusesSessionActionsWhenTheSessionIsNotSupervised();
+    void reportsLidSleepUnavailableWithoutAcpiEvidence();
     void resetsTheDesktopLayoutThroughItsController();
     void findsRepresentativeSettingsBySearch();
 
@@ -597,6 +598,17 @@ void DesktopSettingsTest::refusesSessionActionsWhenTheSessionIsNotSupervised()
              QStringLiteral("Not supervised"));
 }
 
+void DesktopSettingsTest::reportsLidSleepUnavailableWithoutAcpiEvidence()
+{
+    Desktop desktop(m_directory->path());
+    const QVariantMap lid = desktop.catalog.entryFor(QStringLiteral("power.lidsuspend"));
+    QCOMPARE(lid.value(QStringLiteral("kind")).toString(), SettingsCatalog::toggleKind());
+    QVERIFY(!lid.value(QStringLiteral("available")).toBool());
+    QVERIFY(!lid.value(QStringLiteral("unavailableReason")).toString().isEmpty());
+    QVERIFY(!desktop.catalog.setValue(QStringLiteral("power.lidsuspend"), true));
+    QVERIFY(desktop.catalog.statusIsError());
+}
+
 void DesktopSettingsTest::resetsTheDesktopLayoutThroughItsController()
 {
     Desktop desktop(m_directory->path());
@@ -625,6 +637,7 @@ void DesktopSettingsTest::findsRepresentativeSettingsBySearch()
     QCOMPARE(firstResultId(QStringLiteral("quiet")), QStringLiteral("notifications.donotdisturb"));
     QCOMPARE(firstResultId(QStringLiteral("log out")), QStringLiteral("session.end"));
     QCOMPARE(firstResultId(QStringLiteral("wireless")), QStringLiteral("network.wifi"));
+    QCOMPARE(firstResultId(QStringLiteral("lid sleep")), QStringLiteral("power.lidsuspend"));
 
     // Searching reaches sections other than the selected one.
     QCOMPARE(desktop.catalog.selectedSection(), QStringLiteral("appearance"));

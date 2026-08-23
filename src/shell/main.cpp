@@ -249,6 +249,8 @@ int main(int argc, char *argv[])
                      &settingsCatalog, refreshSettings);
     QObject::connect(&powerController, &PowerController::batteryChanged,
                      &settingsCatalog, refreshSettings);
+    QObject::connect(&powerController, &PowerController::powerCapabilitiesChanged,
+                     &settingsCatalog, refreshSettings);
 
     const QUrl logoSource = northstarLogoSource();
     const QUrl iconsSource = northstarIconsSource();

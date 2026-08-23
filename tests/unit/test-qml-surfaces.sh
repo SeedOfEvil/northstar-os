@@ -125,6 +125,8 @@ contains src/shell/QuickSettings.qml 'controller.setDisplayBrightness(Math.round
 contains src/shell/QuickSettings.qml 'controller.displayWritable'
 contains src/shell/QuickSettings.qml 'powerController.refreshBattery()'
 contains src/shell/QuickSettings.qml 'powerController.batteryStatus'
+contains src/shell/QuickSettings.qml 'powerController.requestSuspend()'
+contains src/shell/QuickSettings.qml 'powerController.suspendAvailable'
 contains src/shell/QuickSettings.qml 'controller.setMuted(!quickSettings.controller.muted)'
 contains src/shell/QuickSettings.qml 'controller.setSoundOutput(valueAt(currentIndex))'
 contains src/shell/QuickSettings.qml 'controller.soundAvailable'
@@ -138,6 +140,7 @@ contains src/shell/ShellWindow.qml 'id: batteryIndicator'
 contains src/shell/ShellWindow.qml '14 * northstarPowerController.batteryPercentage / 100'
 contains src/shell/main.cpp 'QStringLiteral("Low battery")'
 contains src/shell/SystemMenu.qml 'NativeWindowMoveHandler {'
+contains src/shell/SystemMenu.qml 'menu.powerController.requestSuspend()'
 contains src/shell/NotificationCenterWindow.qml 'NativeWindowMoveHandler {'
 # History now survives a restart, so the panel has to show an age rather than
 # the stored ISO timestamp, and keep the exact time reachable.

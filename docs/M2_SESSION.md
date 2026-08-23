@@ -84,17 +84,23 @@ development fallback without claiming to perform a session logout.
 The system menu also exposes confirmed `Restart FreeBSD` and `Shut Down
 FreeBSD` actions. They call the fixed-argument user-local
 `northstar-power` boundary. The root-owned installed helper validates one of
-the two exact actions before re-entering itself through PolicyKit. Active local
+five exact actions before re-entering itself through PolicyKit. Active local
 sessions may use those standard desktop power actions; inactive sessions
 require administrator authentication. The shell never constructs or executes
 an arbitrary privileged command, and no caller-provided option reaches
-`shutdown(8)`.
+`shutdown(8)`. The same fixed boundary now offers S3 sleep only when the
+FreeBSD ACPI suspend state is readable, and can persist the exact
+`hw.acpi.lid_switch_state` value as either `S3` or `NONE`; arbitrary sysctl
+names and values are never accepted.
 
 The same controller reads the fixed FreeBSD ACPI battery sysctls every 30
 seconds. The primary panel shows charge percentage, Quick Settings shows the
 reported charging or remaining-time state, and Settings exposes a dedicated
 Power section. An unknown remaining-time value stays unknown rather than being
-estimated. While running on battery, crossing 15 percent creates one warning;
+estimated. The Power section also reports whether lid-close sleep is enabled,
+and the system menu and Quick Settings require confirmation before requesting
+S3 sleep.
+While running on battery, crossing 15 percent creates one warning;
 the warning is re-armed only after AC is connected or charge recovers to 20
 percent.
 

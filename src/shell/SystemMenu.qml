@@ -32,13 +32,14 @@ Window {
     property color surfaceAccent: lunar.accent
     property int menuRowHeight: 40
     property int menuSeparatorHeight: 1
-    property int menuContentHeight: (11 * menuRowHeight) + (3 * menuSeparatorHeight)
+    property int menuContentHeight: (12 * menuRowHeight) + (3 * menuSeparatorHeight)
     property bool canLogout: sessionController !== null
         && sessionController !== undefined
         && sessionController.available
     property bool canPower: powerController !== null
         && powerController !== undefined
         && powerController.available
+    property bool canSuspend: canPower && powerController.suspendAvailable
     property string logoutError: ""
     property string powerError: ""
     property string pendingPowerAction: ""
@@ -95,6 +96,7 @@ Window {
         case "browser":
             return "browser"
         case "logout":
+        case "suspend":
         case "restart":
         case "shutdown":
             return "power"
@@ -142,7 +144,7 @@ Window {
                 closeMenu()
                 Qt.quit()
             }
-        } else if (action === "restart" || action === "shutdown") {
+        } else if (action === "suspend" || action === "restart" || action === "shutdown") {
             menu.pendingPowerAction = action
             menu.powerError = ""
             powerDialog.open()
@@ -202,7 +204,8 @@ Window {
     Dialog {
         id: powerDialog
         modal: true
-        title: menu.pendingPowerAction === "restart" ? "Restart Northstar?" : "Shut down Northstar?"
+        title: menu.pendingPowerAction === "suspend" ? "Put Northstar to sleep?"
+            : menu.pendingPowerAction === "restart" ? "Restart Northstar?" : "Shut down Northstar?"
         standardButtons: Dialog.Cancel | Dialog.Ok
         padding: 16
         width: menu.width - 20
@@ -223,7 +226,9 @@ Window {
             Text {
                 color: menu.surfaceForeground
                 text: menu.canPower
-                    ? (menu.pendingPowerAction === "restart"
+                    ? (menu.pendingPowerAction === "suspend"
+                        ? "This enters FreeBSD S3 sleep. Save important work before testing resume."
+                        : menu.pendingPowerAction === "restart"
                         ? "This restarts the FreeBSD system and closes Northstar."
                         : "This shuts down the FreeBSD system and closes Northstar.")
                     : "Power controls are not configured for this system."
@@ -241,7 +246,9 @@ Window {
         }
 
         onAccepted: {
-            const requested = menu.canPower && menu.pendingPowerAction === "restart"
+            const requested = menu.canSuspend && menu.pendingPowerAction === "suspend"
+                ? menu.powerController.requestSuspend()
+                : menu.canPower && menu.pendingPowerAction === "restart"
                 ? menu.powerController.requestRestart()
                 : menu.canPower && menu.pendingPowerAction === "shutdown"
                 ? menu.powerController.requestShutdown()
@@ -309,6 +316,7 @@ Window {
                     { kind: "separator" },
                     { kind: "action", id: "logout", label: "Log Out of Northstar" },
                     { kind: "separator" },
+                    { kind: "action", id: "suspend", label: "Sleep" },
                     { kind: "action", id: "restart", label: "Restart FreeBSD" },
                     { kind: "action", id: "shutdown", label: "Shut Down FreeBSD" }
                 ]
@@ -317,6 +325,7 @@ Window {
 
                 delegate: Rectangle {
                     required property var modelData
+                    readonly property bool actionAvailable: modelData.id !== "suspend" || menu.canSuspend
 
                     color: modelData.kind === "separator"
                         ? menu.surfaceMuted
@@ -329,7 +338,7 @@ Window {
                         anchors.fill: parent
                         anchors.leftMargin: 42
                         anchors.rightMargin: shortcutText.visible ? shortcutText.implicitWidth + 16 : 10
-                        color: menu.surfaceForeground
+                        color: parent.actionAvailable ? menu.surfaceForeground : menu.surfaceMuted
                         elide: Text.ElideRight
                         font.pixelSize: 13
                         text: modelData.kind === "separator" ? "" : modelData.id === "theme"
@@ -366,7 +375,7 @@ Window {
                     MouseArea {
                         id: menuItemMouse
                         anchors.fill: parent
-                        enabled: modelData.kind !== "separator"
+                        enabled: modelData.kind !== "separator" && parent.actionAvailable
                         hoverEnabled: true
                         onClicked: menu.triggerAction(modelData.id)
                     }

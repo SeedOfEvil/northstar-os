@@ -9,6 +9,8 @@ class PowerControllerTest final : public QObject
 private slots:
     void requestsRestartThroughControlledAction();
     void reportsPowerActionFailure();
+    void requestsSuspendOnlyWhenAcpiSupportsIt();
+    void persistsAndConfirmsLidSleep();
     void reportsBatteryAndAcState();
     void reportsUnknownBatteryTimeHonestly();
 };
@@ -46,6 +48,60 @@ void PowerControllerTest::reportsPowerActionFailure()
     QVERIFY(!controller.busy());
 }
 
+void PowerControllerTest::requestsSuspendOnlyWhenAcpiSupportsIt()
+{
+    QString requestedAction;
+    PowerController controller(
+        nullptr,
+        [&requestedAction](const QString &action, QString *) {
+            requestedAction = action;
+            return true;
+        }, {},
+        [](const QString &, const QStringList &arguments) {
+            if (arguments.contains(QStringLiteral("hw.acpi.suspend_state"))) {
+                return PowerCommandResult{true, 0, QStringLiteral("S3\nNONE\n")};
+            }
+            return PowerCommandResult{};
+        });
+
+    QVERIFY(controller.suspendAvailable());
+    QVERIFY(controller.lidSwitchAvailable());
+    QVERIFY(!controller.lidSuspendEnabled());
+    QVERIFY(controller.requestSuspend());
+    QCOMPARE(requestedAction, QStringLiteral("suspend"));
+    QCOMPARE(controller.statusMessage(), QStringLiteral("Sleep requested"));
+}
+
+void PowerControllerTest::persistsAndConfirmsLidSleep()
+{
+    QString lidState = QStringLiteral("NONE");
+    QStringList requestedActions;
+    PowerController controller(
+        nullptr,
+        [&lidState, &requestedActions](const QString &action, QString *) {
+            requestedActions.append(action);
+            lidState = action == QStringLiteral("lid-suspend-on")
+                ? QStringLiteral("S3") : QStringLiteral("NONE");
+            return true;
+        }, {},
+        [&lidState](const QString &, const QStringList &arguments) {
+            if (arguments.contains(QStringLiteral("hw.acpi.suspend_state"))) {
+                return PowerCommandResult{true, 0,
+                                          QStringLiteral("S3\n%1\n").arg(lidState)};
+            }
+            return PowerCommandResult{};
+        });
+
+    QVERIFY(controller.setLidSuspendEnabled(true));
+    QVERIFY(controller.lidSuspendEnabled());
+    QCOMPARE(requestedActions.constLast(), QStringLiteral("lid-suspend-on"));
+    QVERIFY(controller.statusMessage().contains(QStringLiteral("will put Northstar to sleep")));
+
+    QVERIFY(controller.setLidSuspendEnabled(false));
+    QVERIFY(!controller.lidSuspendEnabled());
+    QCOMPARE(requestedActions.constLast(), QStringLiteral("lid-suspend-off"));
+}
+
 void PowerControllerTest::reportsBatteryAndAcState()
 {
     QStringList calls;
@@ -53,6 +109,9 @@ void PowerControllerTest::reportsBatteryAndAcState()
         nullptr, [](const QString &, QString *) { return true; }, {},
         [&calls](const QString &program, const QStringList &arguments) {
             calls.append(program + QLatin1Char(' ') + arguments.join(QLatin1Char(' ')));
+            if (arguments.contains(QStringLiteral("hw.acpi.suspend_state"))) {
+                return PowerCommandResult{};
+            }
             return PowerCommandResult{true, 0, QStringLiteral("1\n64\n1\n137\n0\n")};
         });
 
@@ -61,8 +120,9 @@ void PowerControllerTest::reportsBatteryAndAcState()
     QVERIFY(!controller.onAcPower());
     QVERIFY(!controller.batteryCharging());
     QCOMPARE(controller.batteryStatus(), QStringLiteral("64% - 2h 17m remaining"));
-    QCOMPARE(calls.size(), 1);
+    QCOMPARE(calls.size(), 2);
     QVERIFY(calls.constFirst().contains(QStringLiteral("hw.acpi.battery.life")));
+    QVERIFY(calls.constLast().contains(QStringLiteral("hw.acpi.suspend_state")));
 }
 
 void PowerControllerTest::reportsUnknownBatteryTimeHonestly()

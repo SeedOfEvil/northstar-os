@@ -21,13 +21,30 @@ cat > "$TMP_DIR/shutdown" <<'STUB'
 #!/bin/sh
 printf 'shutdown:%s\n' "$*" >> "$NORTHSTAR_TEST_EVENTS"
 STUB
-chmod +x "$TMP_DIR/id" "$TMP_DIR/pkexec" "$TMP_DIR/shutdown"
+cat > "$TMP_DIR/acpiconf" <<'STUB'
+#!/bin/sh
+printf 'acpiconf:%s\n' "$*" >> "$NORTHSTAR_TEST_EVENTS"
+STUB
+cat > "$TMP_DIR/sysrc" <<'STUB'
+#!/bin/sh
+printf 'sysrc:%s\n' "$*" >> "$NORTHSTAR_TEST_EVENTS"
+STUB
+cat > "$TMP_DIR/sysctl" <<'STUB'
+#!/bin/sh
+printf 'sysctl:%s\n' "$*" >> "$NORTHSTAR_TEST_EVENTS"
+STUB
+chmod +x "$TMP_DIR/id" "$TMP_DIR/pkexec" "$TMP_DIR/shutdown" \
+    "$TMP_DIR/acpiconf" "$TMP_DIR/sysrc" "$TMP_DIR/sysctl"
 
 run_helper() {
     env NORTHSTAR_POWER_ID_PATH="$TMP_DIR/id" \
         NORTHSTAR_POWER_PKEXEC_PATH="$TMP_DIR/pkexec" \
         NORTHSTAR_POWER_SELF_PATH=/usr/local/bin/northstar-power \
         NORTHSTAR_POWER_SHUTDOWN_PATH="$TMP_DIR/shutdown" \
+        NORTHSTAR_POWER_ACPICONF_PATH="$TMP_DIR/acpiconf" \
+        NORTHSTAR_POWER_SYSRC_PATH="$TMP_DIR/sysrc" \
+        NORTHSTAR_POWER_SYSCTL_PATH="$TMP_DIR/sysctl" \
+        NORTHSTAR_POWER_SYSCTL_CONF=/etc/sysctl.conf \
         NORTHSTAR_TEST_UID="${NORTHSTAR_TEST_UID:-1002}" \
         NORTHSTAR_TEST_EVENTS="$TMP_DIR/events" \
         sh "$HELPER" "$@"
@@ -40,7 +57,7 @@ grep -Fx 'pkexec:/usr/local/bin/northstar-power restart' "$TMP_DIR/events" >/dev
 [ "$(wc -l < "$TMP_DIR/events" | tr -d ' ')" -eq 1 ] \
     || fail 'unprivileged restart reached shutdown before authorization'
 
-for arguments in '' 'reboot' 'restart now' 'shutdown now'; do
+for arguments in '' 'reboot' 'restart now' 'shutdown now' 'suspend now' 'lid-suspend-maybe'; do
     if run_helper $arguments >/dev/null 2>&1; then
         fail "malformed power action was accepted: $arguments"
     fi
@@ -58,4 +75,24 @@ NORTHSTAR_TEST_UID=0 run_helper shutdown
 grep -Fx 'shutdown:-p now' "$TMP_DIR/events" >/dev/null \
     || fail 'authorized shutdown did not invoke the fixed shutdown arguments'
 
-printf '%s\n' 'PASS: power helper validates one fixed action before PolicyKit elevation and shutdown'
+: > "$TMP_DIR/events"
+NORTHSTAR_TEST_UID=0 run_helper suspend
+sleep 1
+grep -Fx 'acpiconf:-s 3' "$TMP_DIR/events" >/dev/null \
+    || fail 'authorized sleep did not invoke the fixed S3 request'
+
+: > "$TMP_DIR/events"
+NORTHSTAR_TEST_UID=0 run_helper lid-suspend-on
+grep -Fx 'sysrc:-f /etc/sysctl.conf hw.acpi.lid_switch_state=S3' "$TMP_DIR/events" >/dev/null \
+    || fail 'lid sleep enable was not persisted through the fixed sysctl key'
+grep -Fx 'sysctl:hw.acpi.lid_switch_state=S3' "$TMP_DIR/events" >/dev/null \
+    || fail 'lid sleep enable was not applied to the fixed sysctl key'
+
+: > "$TMP_DIR/events"
+NORTHSTAR_TEST_UID=0 run_helper lid-suspend-off
+grep -Fx 'sysrc:-f /etc/sysctl.conf hw.acpi.lid_switch_state=NONE' "$TMP_DIR/events" >/dev/null \
+    || fail 'lid sleep disable was not persisted through the fixed sysctl key'
+grep -Fx 'sysctl:hw.acpi.lid_switch_state=NONE' "$TMP_DIR/events" >/dev/null \
+    || fail 'lid sleep disable was not applied to the fixed sysctl key'
+
+printf '%s\n' 'PASS: power helper validates fixed lifecycle and lid actions before PolicyKit elevation'

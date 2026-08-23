@@ -78,7 +78,7 @@ void registerDesktopSettings(SettingsCatalog *catalog,
     catalog->registerSection(QStringLiteral("datetime"), QStringLiteral("Date & Time"),
                              QStringLiteral("The system clock, its timezone, and network time."));
     catalog->registerSection(QStringLiteral("power"), QStringLiteral("Power"),
-                             QStringLiteral("Battery and power-source status."));
+                             QStringLiteral("Battery, sleep, and lid-close behavior."));
     catalog->registerSection(QStringLiteral("session"), QStringLiteral("Session"),
                              QStringLiteral("The supervised Northstar session and its lifecycle."));
     catalog->registerSection(QStringLiteral("about"), QStringLiteral("About Northstar"),
@@ -569,6 +569,27 @@ void registerDesktopSettings(SettingsCatalog *catalog,
                 return QVariant(power->onAcPower() ? QStringLiteral("Power adapter")
                                                     : QStringLiteral("Battery"));
             }));
+
+        SettingsCatalog::Entry lidSleep;
+        lidSleep.id = QStringLiteral("power.lidsuspend");
+        lidSleep.section = QStringLiteral("power");
+        lidSleep.title = QStringLiteral("Sleep when lid closes");
+        lidSleep.description = QStringLiteral(
+            "Persist the FreeBSD ACPI lid action and apply it immediately.");
+        lidSleep.keywords = QStringList{QStringLiteral("lid"), QStringLiteral("close"),
+                                        QStringLiteral("sleep"), QStringLiteral("suspend"),
+                                        QStringLiteral("laptop")};
+        lidSleep.kind = SettingsCatalog::toggleKind();
+        lidSleep.read = [power]() { return QVariant(power->lidSuspendEnabled()); };
+        lidSleep.write = [power](const QVariant &value) {
+            return power->setLidSuspendEnabled(value.toBool());
+        };
+        lidSleep.available = [power]() { return power->lidSwitchAvailable(); };
+        lidSleep.unavailableReason = []() {
+            return QStringLiteral("A configurable FreeBSD ACPI lid switch was not detected.");
+        };
+        lidSleep.writeFailureReason = [power]() { return power->statusMessage(); };
+        catalog->registerEntry(lidSleep);
     }
 
     // --- Date & Time -------------------------------------------------------
