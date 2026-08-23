@@ -466,10 +466,10 @@ unavailable ones. Seven sections consolidate the real controls.
 Registering an entry whose accessors cannot back its declared kind is refused,
 which is what prevents a non-functioning control from reaching the surface. A
 capability the system does not provide is reported unavailable with the reason
-its own controller gave. Wi-Fi, Bluetooth, brightness, and night light have no
-writable backend in this build and are declared read-only for that reason; the
-writable controls are dark appearance, Files grid view, output volume, Do Not
-Disturb, and the declared actions.
+its own controller gave. Night light remains read-only until the compositor
+provides a tested color-management boundary. Wi-Fi, Bluetooth, native laptop
+brightness, dark appearance, Files grid view, output volume, Do Not Disturb,
+and the declared actions have capability-backed writers.
 
 Persistent notifications are accepted through PR #100. Notification history is
 written to a user-private, owner-only file and restored at login with read and

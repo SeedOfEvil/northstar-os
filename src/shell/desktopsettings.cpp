@@ -151,20 +151,31 @@ void registerDesktopSettings(SettingsCatalog *catalog,
     }
 
     if (quickSettings) {
-        // Brightness and night light are observed, not driven: this build has
-        // no writable backend for either, so they are reported rather than
-        // offered as controls that would silently do nothing.
-        catalog->registerEntry(info(
-            QStringLiteral("appearance.brightness"), QStringLiteral("appearance"),
-            QStringLiteral("Display brightness"),
-            QStringLiteral("Reported by the display backend. Northstar cannot set it on this system."),
-            QStringList{QStringLiteral("brightness"), QStringLiteral("display"),
-                        QStringLiteral("screen"), QStringLiteral("backlight")},
-            [quickSettings]() {
-                return QVariant(quickSettings->displayAvailable()
-                                    ? QStringLiteral("%1%").arg(quickSettings->displayBrightness())
-                                    : quickSettings->displayStatus());
-            }));
+        SettingsCatalog::Entry brightness;
+        brightness.id = QStringLiteral("appearance.brightness");
+        brightness.section = QStringLiteral("appearance");
+        brightness.title = QStringLiteral("Display brightness");
+        brightness.description = QStringLiteral(
+            "Set the laptop panel backlight through FreeBSD and read it back to confirm the change.");
+        brightness.keywords = QStringList{QStringLiteral("brightness"), QStringLiteral("display"),
+                                           QStringLiteral("screen"), QStringLiteral("backlight")};
+        brightness.kind = SettingsCatalog::sliderKind();
+        brightness.minimum = 1;
+        brightness.maximum = 100;
+        brightness.unit = QStringLiteral("%");
+        brightness.read = [quickSettings]() {
+            return QVariant(quickSettings->displayBrightness());
+        };
+        brightness.write = [quickSettings](const QVariant &value) {
+            return quickSettings->setDisplayBrightness(value.toInt());
+        };
+        brightness.available = [quickSettings]() { return quickSettings->displayWritable(); };
+        brightness.unavailableReason = [quickSettings]() {
+            return quickSettings->displayAvailable()
+                ? QStringLiteral("This display reports brightness but does not allow Northstar to change it.")
+                : quickSettings->displayStatus();
+        };
+        catalog->registerEntry(brightness);
 
         catalog->registerEntry(info(
             QStringLiteral("appearance.nightlight"), QStringLiteral("appearance"),

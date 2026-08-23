@@ -179,6 +179,7 @@ int QuickSettingsController::soundOutput() const { return m_soundOutput; }
 bool QuickSettingsController::testSoundAvailable() const { return !testTonePath().isEmpty(); }
 QString QuickSettingsController::soundStatus() const { return m_soundStatus; }
 bool QuickSettingsController::displayAvailable() const { return m_displayAvailable; }
+bool QuickSettingsController::displayWritable() const { return m_displayWritable; }
 int QuickSettingsController::displayBrightness() const { return m_displayBrightness; }
 QString QuickSettingsController::displayStatus() const { return m_displayStatus; }
 bool QuickSettingsController::nightLightAvailable() const { return m_nightLightAvailable; }
@@ -430,6 +431,37 @@ bool QuickSettingsController::testSound()
     return true;
 }
 
+bool QuickSettingsController::setDisplayBrightness(int brightness)
+{
+    if (!m_displayWritable) {
+        setStatusMessage(QStringLiteral("Brightness cannot be changed on this display."));
+        return false;
+    }
+
+    // Avoid a zero-brightness setting that could leave a laptop panel looking
+    // powered off with no obvious route back to the control.
+    const int requestedBrightness = qBound(1, brightness, 100);
+    const QuickSettingsCommandResult mutation = m_commandProvider(
+        QStringLiteral("/usr/bin/backlight"),
+        {QString::number(requestedBrightness)});
+    if (!commandSucceeded(mutation)) {
+        setStatusMessage(QStringLiteral("FreeBSD rejected the brightness change."));
+        refreshDisplay();
+        emit capabilitiesChanged();
+        return false;
+    }
+
+    refreshDisplay();
+    emit capabilitiesChanged();
+    if (!m_displayWritable || qAbs(m_displayBrightness - requestedBrightness) > 1) {
+        setStatusMessage(QStringLiteral("The display did not confirm the requested brightness."));
+        return false;
+    }
+
+    setStatusMessage(QStringLiteral("Brightness confirmed at %1%.").arg(m_displayBrightness));
+    return true;
+}
+
 void QuickSettingsController::toggleDoNotDisturb()
 {
     setDoNotDisturb(!m_doNotDisturb);
@@ -660,19 +692,32 @@ void QuickSettingsController::refreshSoundOutputs()
 
 void QuickSettingsController::refreshDisplay()
 {
-    const QuickSettingsCommandResult result = m_commandProvider(
+    const QuickSettingsCommandResult backlightResult = m_commandProvider(
+        QStringLiteral("/usr/bin/backlight"), {QStringLiteral("-q")});
+    bool ok = false;
+    int brightness = backlightResult.standardOutput.trimmed().toInt(&ok);
+    if (commandSucceeded(backlightResult) && ok) {
+        m_displayAvailable = true;
+        m_displayWritable = true;
+        m_displayBrightness = qBound(0, brightness, 100);
+        m_displayStatus = QStringLiteral("Hardware brightness - %1%").arg(m_displayBrightness);
+        return;
+    }
+
+    const QuickSettingsCommandResult acpiResult = m_commandProvider(
         QStringLiteral("/sbin/sysctl"),
         {QStringLiteral("-n"), QStringLiteral("hw.acpi.video.lcd0.brightness")});
-    bool ok = false;
-    const int brightness = result.standardOutput.toInt(&ok);
-    m_displayAvailable = commandSucceeded(result) && ok;
+    brightness = acpiResult.standardOutput.trimmed().toInt(&ok);
+    m_displayAvailable = commandSucceeded(acpiResult) && ok;
+    m_displayWritable = false;
     if (!m_displayAvailable) {
         m_displayBrightness = 0;
         m_displayStatus = QStringLiteral("Brightness control unavailable");
         return;
     }
     m_displayBrightness = qBound(0, brightness, 100);
-    m_displayStatus = QStringLiteral("Hardware brightness - %1%").arg(m_displayBrightness);
+    m_displayStatus = QStringLiteral("Hardware brightness - %1% (read only)")
+                          .arg(m_displayBrightness);
 }
 
 void QuickSettingsController::setStatusMessage(const QString &message)

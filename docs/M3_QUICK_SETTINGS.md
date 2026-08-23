@@ -14,8 +14,10 @@ properties to QML.
 - Volume is available only when `mixer -s vol` returns a parseable value. A
   slider mutation succeeds only if a second mixer read confirms the requested
   value within two percentage points.
-- Display brightness is reported only when the FreeBSD ACPI brightness sysctl
-  exists and returns a numeric value. Mutation is not exposed yet.
+- Display brightness uses FreeBSD's native `backlight(8)` interface when it is
+  available. A mutation succeeds only after a second query confirms the
+  requested value. The legacy ACPI brightness sysctl remains a read-only
+  fallback.
 - Night Light remains disabled until the compositor provides a tested color-
   management boundary.
 - Unsupported controls remain visibly unavailable and provide a route to the
@@ -33,7 +35,6 @@ normal unread notification behavior.
 
 ## Deferred work
 
-Wi-Fi and Bluetooth mutation, compositor-backed Night Light, monitor
-brightness mutation, and a privileged audio broker are intentionally outside
-this slice. A control must not claim success until its backend confirms the
-change.
+Compositor-backed Night Light, external-monitor brightness, and a privileged
+audio broker are intentionally outside this slice. A control must not claim
+success until its backend confirms the change.

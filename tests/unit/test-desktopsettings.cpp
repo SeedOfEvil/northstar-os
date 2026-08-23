@@ -31,6 +31,7 @@ private slots:
     void registersNoDeadControls();
     void togglesAppearanceThroughShellState();
     void togglesFilesGridViewThroughShellState();
+    void offersConfirmedBrightnessControl();
     void reportsMissingSoundAsUnavailableWithTheMixerReason();
     void reportsMissingWirelessHardwareHonestly();
     void offersRadioTogglesWhereControlIsInstalled();
@@ -126,10 +127,12 @@ QString DesktopSettingsTest::path(const QString &name) const
 // A fixture holding every controller the declaration routes to.
 struct Desktop
 {
-    explicit Desktop(const QString &root)
+    explicit Desktop(const QString &root,
+                     QuickSettingsController::CommandProvider quickSettingsProvider
+                         = unequippedSystem())
         : shellState(nullptr, QDir(root).filePath(QStringLiteral("shell.ini")))
         , quickSettings(nullptr, QDir(root).filePath(QStringLiteral("quick.ini")),
-                        unequippedSystem())
+                        quickSettingsProvider)
         , notifications(nullptr, 40, QDir(root).filePath(QStringLiteral("notifications.ini")))
         , desktopLayout(nullptr, QDir(root).filePath(QStringLiteral("layout.ini")))
         , launcher(nullptr, {}, {QDir(root).filePath(QStringLiteral("applications"))},
@@ -278,6 +281,43 @@ void DesktopSettingsTest::togglesFilesGridViewThroughShellState()
 
     QVERIFY(desktop.catalog.setValue(QStringLiteral("desktop.filesgrid"), !before));
     QCOMPARE(desktop.shellState.filesGridView(), !before);
+}
+
+void DesktopSettingsTest::offersConfirmedBrightnessControl()
+{
+    int brightness = 100;
+    QStringList calls;
+    const auto provider = [&brightness, &calls](const QString &program,
+                                                const QStringList &arguments) {
+        if (program != QStringLiteral("/usr/bin/backlight")) {
+            return QuickSettingsCommandResult{true, 1, {}, {}};
+        }
+        calls.append(arguments.join(QLatin1Char(' ')));
+        if (arguments == QStringList{QStringLiteral("-q")}) {
+            return QuickSettingsCommandResult{true, 0, QString::number(brightness), {}};
+        }
+        bool ok = false;
+        const int requested = arguments.value(0).toInt(&ok);
+        if (!ok) {
+            return QuickSettingsCommandResult{true, 1, {}, {}};
+        }
+        brightness = requested;
+        return QuickSettingsCommandResult{true, 0, {}, {}};
+    };
+
+    Desktop desktop(m_directory->path(), provider);
+    const QVariantMap entry = desktop.catalog.entryFor(QStringLiteral("appearance.brightness"));
+    QCOMPARE(entry.value(QStringLiteral("kind")).toString(), SettingsCatalog::sliderKind());
+    QVERIFY(entry.value(QStringLiteral("available")).toBool());
+    QVERIFY(entry.value(QStringLiteral("writable")).toBool());
+    QCOMPARE(entry.value(QStringLiteral("value")).toInt(), 100);
+
+    QVERIFY(desktop.catalog.setValue(QStringLiteral("appearance.brightness"), 35));
+    QCOMPARE(desktop.quickSettings.displayBrightness(), 35);
+    QCOMPARE(desktop.catalog.entryFor(QStringLiteral("appearance.brightness"))
+                 .value(QStringLiteral("value")).toInt(), 35);
+    QCOMPARE(calls, QStringList({QStringLiteral("-q"), QStringLiteral("35"),
+                                 QStringLiteral("-q")}));
 }
 
 void DesktopSettingsTest::reportsMissingSoundAsUnavailableWithTheMixerReason()
