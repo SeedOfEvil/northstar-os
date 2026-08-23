@@ -13,8 +13,33 @@ SELF=${NORTHSTAR_POWER_SELF_PATH:-/usr/local/bin/northstar-power}
 SHUTDOWN=${NORTHSTAR_POWER_SHUTDOWN_PATH:-/sbin/shutdown}
 ACPICONF=${NORTHSTAR_POWER_ACPICONF_PATH:-/usr/sbin/acpiconf}
 SYSCTL=${NORTHSTAR_POWER_SYSCTL_PATH:-/sbin/sysctl}
-SYSRC=${NORTHSTAR_POWER_SYSRC_PATH:-/usr/sbin/sysrc}
 SYSCTL_CONF=${NORTHSTAR_POWER_SYSCTL_CONF:-/etc/sysctl.conf}
+
+persist_lid_switch_state()
+{
+    value=$1
+
+    # sysrc(8) manages shell-style rc.conf names and rejects this dotted
+    # sysctl key. Rewrite only the one fixed assignment, beside the target,
+    # then atomically replace the configuration file.
+    if [ -L "$SYSCTL_CONF" ] || { [ -e "$SYSCTL_CONF" ] && [ ! -f "$SYSCTL_CONF" ]; }; then
+        printf '%s\n' 'ERROR: the sysctl configuration is not a regular file' >&2
+        return 70
+    fi
+
+    temp=$(mktemp "${SYSCTL_CONF}.northstar.XXXXXX") || return 70
+    trap 'rm -f "$temp"' 0 HUP INT TERM
+
+    if [ -f "$SYSCTL_CONF" ]; then
+        awk '!/^[[:space:]]*hw[.]acpi[.]lid_switch_state[[:space:]]*=/' \
+            "$SYSCTL_CONF" > "$temp" || return 70
+    fi
+    printf 'hw.acpi.lid_switch_state="%s"\n' "$value" >> "$temp" || return 70
+    chmod 0644 "$temp" || return 70
+    mv -f "$temp" "$SYSCTL_CONF" || return 70
+    temp=
+    trap - 0 HUP INT TERM
+}
 
 [ "$#" -eq 1 ] || exit 64
 
@@ -37,11 +62,11 @@ case "$1" in
         exit 0
         ;;
     lid-suspend-on)
-        "$SYSRC" -f "$SYSCTL_CONF" hw.acpi.lid_switch_state=S3
+        persist_lid_switch_state S3
         exec "$SYSCTL" hw.acpi.lid_switch_state=S3
         ;;
     lid-suspend-off)
-        "$SYSRC" -f "$SYSCTL_CONF" hw.acpi.lid_switch_state=NONE
+        persist_lid_switch_state NONE
         exec "$SYSCTL" hw.acpi.lid_switch_state=NONE
         ;;
 esac

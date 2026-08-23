@@ -130,6 +130,11 @@ QUrl northstarGeneratedIconsDirectory()
 int main(int argc, char *argv[])
 {
     QGuiApplication application(argc, argv);
+    // A DRM resume briefly removes the physical output and gives Qt a
+    // placeholder screen. That must not turn a successful S3 cycle into a
+    // clean shell exit, which the session supervisor correctly treats as a
+    // user logout.
+    application.setQuitOnLastWindowClosed(false);
     const bool qmlSelfTest =
         application.arguments().contains(QStringLiteral("--qml-self-test"));
     QCoreApplication::setApplicationName(QStringLiteral("northstar-shell"));

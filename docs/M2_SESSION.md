@@ -91,7 +91,11 @@ an arbitrary privileged command, and no caller-provided option reaches
 `shutdown(8)`. The same fixed boundary now offers S3 sleep only when the
 FreeBSD ACPI suspend state is readable, and can persist the exact
 `hw.acpi.lid_switch_state` value as either `S3` or `NONE`; arbitrary sysctl
-names and values are never accepted.
+names and values are never accepted. The fixed lid assignment is replaced
+atomically in `sysctl.conf` because `sysrc(8)` intentionally rejects dotted
+sysctl names. During S3 resume the shell also remains alive while DRM briefly
+replaces the physical panel with a placeholder output, so that transient
+display loss is not interpreted as a clean logout.
 
 The same controller reads the fixed FreeBSD ACPI battery sysctls every 30
 seconds. The primary panel shows charge percentage, Quick Settings shows the

@@ -25,16 +25,12 @@ cat > "$TMP_DIR/acpiconf" <<'STUB'
 #!/bin/sh
 printf 'acpiconf:%s\n' "$*" >> "$NORTHSTAR_TEST_EVENTS"
 STUB
-cat > "$TMP_DIR/sysrc" <<'STUB'
-#!/bin/sh
-printf 'sysrc:%s\n' "$*" >> "$NORTHSTAR_TEST_EVENTS"
-STUB
 cat > "$TMP_DIR/sysctl" <<'STUB'
 #!/bin/sh
 printf 'sysctl:%s\n' "$*" >> "$NORTHSTAR_TEST_EVENTS"
 STUB
 chmod +x "$TMP_DIR/id" "$TMP_DIR/pkexec" "$TMP_DIR/shutdown" \
-    "$TMP_DIR/acpiconf" "$TMP_DIR/sysrc" "$TMP_DIR/sysctl"
+    "$TMP_DIR/acpiconf" "$TMP_DIR/sysctl"
 
 run_helper() {
     env NORTHSTAR_POWER_ID_PATH="$TMP_DIR/id" \
@@ -42,9 +38,8 @@ run_helper() {
         NORTHSTAR_POWER_SELF_PATH=/usr/local/bin/northstar-power \
         NORTHSTAR_POWER_SHUTDOWN_PATH="$TMP_DIR/shutdown" \
         NORTHSTAR_POWER_ACPICONF_PATH="$TMP_DIR/acpiconf" \
-        NORTHSTAR_POWER_SYSRC_PATH="$TMP_DIR/sysrc" \
         NORTHSTAR_POWER_SYSCTL_PATH="$TMP_DIR/sysctl" \
-        NORTHSTAR_POWER_SYSCTL_CONF=/etc/sysctl.conf \
+        NORTHSTAR_POWER_SYSCTL_CONF="$TMP_DIR/sysctl.conf" \
         NORTHSTAR_TEST_UID="${NORTHSTAR_TEST_UID:-1002}" \
         NORTHSTAR_TEST_EVENTS="$TMP_DIR/events" \
         sh "$HELPER" "$@"
@@ -82,17 +77,38 @@ grep -Fx 'acpiconf:-s 3' "$TMP_DIR/events" >/dev/null \
     || fail 'authorized sleep did not invoke the fixed S3 request'
 
 : > "$TMP_DIR/events"
+cat > "$TMP_DIR/sysctl.conf" <<'EOF'
+# Preserve unrelated settings and comments.
+kern.randompid="1"
+hw.acpi.lid_switch_state="NONE"
+hw.acpi.lid_switch_state = "S3"
+EOF
 NORTHSTAR_TEST_UID=0 run_helper lid-suspend-on
-grep -Fx 'sysrc:-f /etc/sysctl.conf hw.acpi.lid_switch_state=S3' "$TMP_DIR/events" >/dev/null \
-    || fail 'lid sleep enable was not persisted through the fixed sysctl key'
 grep -Fx 'sysctl:hw.acpi.lid_switch_state=S3' "$TMP_DIR/events" >/dev/null \
     || fail 'lid sleep enable was not applied to the fixed sysctl key'
+grep -Fx '# Preserve unrelated settings and comments.' "$TMP_DIR/sysctl.conf" >/dev/null \
+    || fail 'lid sleep enable discarded an unrelated comment'
+grep -Fx 'kern.randompid="1"' "$TMP_DIR/sysctl.conf" >/dev/null \
+    || fail 'lid sleep enable discarded an unrelated sysctl'
+[ "$(grep -Fc 'hw.acpi.lid_switch_state=' "$TMP_DIR/sysctl.conf")" -eq 1 ] \
+    || fail 'lid sleep enable did not replace duplicate fixed-key assignments'
+grep -Fx 'hw.acpi.lid_switch_state="S3"' "$TMP_DIR/sysctl.conf" >/dev/null \
+    || fail 'lid sleep enable did not persist the fixed S3 value'
 
 : > "$TMP_DIR/events"
 NORTHSTAR_TEST_UID=0 run_helper lid-suspend-off
-grep -Fx 'sysrc:-f /etc/sysctl.conf hw.acpi.lid_switch_state=NONE' "$TMP_DIR/events" >/dev/null \
-    || fail 'lid sleep disable was not persisted through the fixed sysctl key'
 grep -Fx 'sysctl:hw.acpi.lid_switch_state=NONE' "$TMP_DIR/events" >/dev/null \
     || fail 'lid sleep disable was not applied to the fixed sysctl key'
+grep -Fx 'hw.acpi.lid_switch_state="NONE"' "$TMP_DIR/sysctl.conf" >/dev/null \
+    || fail 'lid sleep disable did not persist the fixed NONE value'
+
+rm -f "$TMP_DIR/sysctl.conf"
+ln -s "$TMP_DIR/missing-sysctl.conf" "$TMP_DIR/sysctl.conf"
+: > "$TMP_DIR/events"
+if NORTHSTAR_TEST_UID=0 run_helper lid-suspend-on >/dev/null 2>&1; then
+    fail 'lid sleep accepted a symlinked sysctl configuration'
+fi
+[ ! -s "$TMP_DIR/events" ] \
+    || fail 'lid sleep reached the live sysctl after refusing a symlinked configuration'
 
 printf '%s\n' 'PASS: power helper validates fixed lifecycle and lid actions before PolicyKit elevation'
