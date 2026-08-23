@@ -4,6 +4,7 @@
 #include <QFileInfo>
 #include <QProcess>
 #include <QRegularExpression>
+#include <QSaveFile>
 #include <QSettings>
 #include <QStandardPaths>
 #include <QtMath>
@@ -146,6 +147,72 @@ QString soundOutputLabel(const QString &description)
     return description.trimmed();
 }
 
+bool persistWayfireMode(const QString &path, const QString &output, const QString &mode)
+{
+    const QFileInfo info(path);
+    if (info.isSymLink() || (!QDir().mkpath(info.absolutePath()))) {
+        return false;
+    }
+
+    QString content;
+    if (info.exists()) {
+        QFile input(path);
+        if (!input.open(QIODevice::ReadOnly)) {
+            return false;
+        }
+        content = QString::fromUtf8(input.readAll());
+    }
+
+    const QString header = QStringLiteral("[output:%1]").arg(output);
+    const QString assignment = QStringLiteral("mode = %1").arg(mode);
+    const QRegularExpression sectionExpression(QStringLiteral(R"(^\s*\[[^]]+\]\s*$)"));
+    const QRegularExpression modeExpression(QStringLiteral(R"(^\s*mode\s*=)"),
+                                            QRegularExpression::CaseInsensitiveOption);
+    QStringList rewritten;
+    bool targetSection = false;
+    bool sectionFound = false;
+    bool modeWritten = false;
+
+    const QStringList lines = content.split(QLatin1Char('\n'));
+    for (const QString &line : lines) {
+        if (sectionExpression.match(line).hasMatch()) {
+            if (targetSection && !modeWritten) {
+                rewritten.append(assignment);
+                modeWritten = true;
+            }
+            targetSection = line.trimmed() == header;
+            sectionFound = sectionFound || targetSection;
+        }
+        if (targetSection && modeExpression.match(line).hasMatch()) {
+            if (!modeWritten) {
+                rewritten.append(assignment);
+                modeWritten = true;
+            }
+            continue;
+        }
+        rewritten.append(line);
+    }
+    if (targetSection && !modeWritten) {
+        rewritten.append(assignment);
+        modeWritten = true;
+    }
+    if (!sectionFound) {
+        if (!rewritten.isEmpty() && !rewritten.constLast().isEmpty()) {
+            rewritten.append(QString());
+        }
+        rewritten.append(header);
+        rewritten.append(assignment);
+    }
+
+    QSaveFile outputFile(path);
+    if (!outputFile.open(QIODevice::WriteOnly)
+        || outputFile.write(rewritten.join(QLatin1Char('\n')).toUtf8()) < 0) {
+        outputFile.cancelWriting();
+        return false;
+    }
+    return outputFile.commit();
+}
+
 } // namespace
 
 QuickSettingsController::QuickSettingsController(QObject *parent,
@@ -159,6 +226,19 @@ QuickSettingsController::QuickSettingsController(QObject *parent,
 {
     QSettings settings(m_settingsPath, QSettings::IniFormat);
     m_doNotDisturb = settings.value(QStringLiteral("notifications/doNotDisturb"), false).toBool();
+    m_displayRevertTimer.setInterval(1000);
+    QObject::connect(&m_displayRevertTimer, &QTimer::timeout, this, [this]() {
+        if (!m_displayModePending) {
+            m_displayRevertTimer.stop();
+            return;
+        }
+        --m_displayModeSecondsRemaining;
+        if (m_displayModeSecondsRemaining <= 0) {
+            revertDisplayMode();
+        } else {
+            emit capabilitiesChanged();
+        }
+    });
     refresh();
 }
 
@@ -182,6 +262,12 @@ bool QuickSettingsController::displayAvailable() const { return m_displayAvailab
 bool QuickSettingsController::displayWritable() const { return m_displayWritable; }
 int QuickSettingsController::displayBrightness() const { return m_displayBrightness; }
 QString QuickSettingsController::displayStatus() const { return m_displayStatus; }
+QVariantList QuickSettingsController::displayModes() const { return m_displayModes; }
+QString QuickSettingsController::currentDisplayMode() const { return m_currentDisplayMode; }
+QString QuickSettingsController::displayOutputName() const { return m_displayOutputName; }
+bool QuickSettingsController::displayModeWritable() const { return m_displayModeWritable; }
+bool QuickSettingsController::displayModePending() const { return m_displayModePending; }
+int QuickSettingsController::displayModeSecondsRemaining() const { return m_displayModeSecondsRemaining; }
 bool QuickSettingsController::nightLightAvailable() const { return m_nightLightAvailable; }
 bool QuickSettingsController::nightLightEnabled() const { return m_nightLightEnabled; }
 QString QuickSettingsController::nightLightStatus() const { return m_nightLightStatus; }
@@ -194,7 +280,27 @@ void QuickSettingsController::refresh()
     refreshBluetooth();
     refreshSound();
     refreshDisplay();
+    refreshDisplayModes();
     emit capabilitiesChanged();
+}
+
+QString QuickSettingsController::wlrRandrPath()
+{
+    const QString configured = qEnvironmentVariable("NORTHSTAR_WLR_RANDR");
+    if (!configured.isEmpty()) {
+        return QFileInfo(configured).isExecutable() ? configured : QString();
+    }
+    const QString installed = QStringLiteral("/usr/local/bin/wlr-randr");
+    return QFileInfo(installed).isExecutable()
+        ? installed : QStandardPaths::findExecutable(QStringLiteral("wlr-randr"));
+}
+
+QString QuickSettingsController::wayfireConfigPath()
+{
+    const QString configured = qEnvironmentVariable("NORTHSTAR_WAYFIRE_CONFIG").trimmed();
+    return configured.isEmpty()
+        ? QDir::home().filePath(QStringLiteral(".config/wayfire.ini"))
+        : QDir::cleanPath(configured);
 }
 
 QString QuickSettingsController::radioHelperPath()
@@ -462,6 +568,97 @@ bool QuickSettingsController::setDisplayBrightness(int brightness)
     return true;
 }
 
+bool QuickSettingsController::previewDisplayMode(const QString &mode)
+{
+    if (!m_displayModeWritable || m_displayOutputName.isEmpty()) {
+        setStatusMessage(QStringLiteral("Display mode control is unavailable."));
+        return false;
+    }
+    if (m_displayModePending) {
+        setStatusMessage(QStringLiteral("Keep or revert the current display preview first."));
+        return false;
+    }
+    const bool offered = std::any_of(m_displayModes.cbegin(), m_displayModes.cend(),
+                                     [&mode](const QVariant &entry) {
+        return entry.toMap().value(QStringLiteral("value")).toString() == mode;
+    });
+    if (!offered || mode == m_currentDisplayMode) {
+        return offered;
+    }
+
+    const QString program = wlrRandrPath();
+    const QStringList arguments{QStringLiteral("--output"), m_displayOutputName,
+                                QStringLiteral("--mode"), mode};
+    if (!commandSucceeded(m_commandProvider(program,
+                                            QStringList{QStringLiteral("--dryrun")} + arguments))) {
+        setStatusMessage(QStringLiteral("Wayfire rejected that display mode during validation."));
+        return false;
+    }
+    if (!commandSucceeded(m_commandProvider(program, arguments))) {
+        setStatusMessage(QStringLiteral("Wayfire could not apply that display mode."));
+        return false;
+    }
+
+    m_previousDisplayMode = m_currentDisplayMode;
+    m_currentDisplayMode = mode;
+    m_displayModePending = true;
+    m_displayModeSecondsRemaining = 15;
+    m_displayRevertTimer.start();
+    setStatusMessage(QStringLiteral("Display preview applied. Keep it within 15 seconds."));
+    emit capabilitiesChanged();
+    return true;
+}
+
+bool QuickSettingsController::keepDisplayMode()
+{
+    if (!m_displayModePending || m_displayOutputName.isEmpty()) {
+        return false;
+    }
+
+    const QString configPath = wayfireConfigPath();
+    QString persistentMode = m_currentDisplayMode;
+    persistentMode.remove(QStringLiteral("Hz"));
+    if (!persistWayfireMode(configPath, m_displayOutputName, persistentMode)) {
+        setStatusMessage(QStringLiteral("The display mode could not be saved."));
+        return false;
+    }
+
+    m_displayRevertTimer.stop();
+    m_displayModePending = false;
+    m_displayModeSecondsRemaining = 0;
+    m_previousDisplayMode.clear();
+    setStatusMessage(QStringLiteral("Display mode saved for %1.").arg(m_displayOutputName));
+    emit capabilitiesChanged();
+    return true;
+}
+
+bool QuickSettingsController::revertDisplayMode()
+{
+    if (!m_displayModePending || m_previousDisplayMode.isEmpty()
+        || m_displayOutputName.isEmpty()) {
+        return false;
+    }
+
+    const QString previous = m_previousDisplayMode;
+    const QuickSettingsCommandResult result = m_commandProvider(
+        wlrRandrPath(),
+        {QStringLiteral("--output"), m_displayOutputName,
+         QStringLiteral("--mode"), previous});
+    m_displayRevertTimer.stop();
+    m_displayModePending = false;
+    m_displayModeSecondsRemaining = 0;
+    m_previousDisplayMode.clear();
+    if (!commandSucceeded(result)) {
+        setStatusMessage(QStringLiteral("The previous display mode could not be restored."));
+        emit capabilitiesChanged();
+        return false;
+    }
+    m_currentDisplayMode = previous;
+    setStatusMessage(QStringLiteral("The previous display mode was restored."));
+    emit capabilitiesChanged();
+    return true;
+}
+
 void QuickSettingsController::toggleDoNotDisturb()
 {
     setDoNotDisturb(!m_doNotDisturb);
@@ -718,6 +915,92 @@ void QuickSettingsController::refreshDisplay()
     m_displayBrightness = qBound(0, brightness, 100);
     m_displayStatus = QStringLiteral("Hardware brightness - %1% (read only)")
                           .arg(m_displayBrightness);
+}
+
+void QuickSettingsController::refreshDisplayModes()
+{
+    m_displayModes.clear();
+    m_displayOutputName.clear();
+    m_currentDisplayMode.clear();
+    m_displayModeWritable = false;
+
+    const QString program = wlrRandrPath();
+    if (program.isEmpty()) {
+        return;
+    }
+    const QuickSettingsCommandResult result = m_commandProvider(program, {});
+    if (!commandSucceeded(result)) {
+        return;
+    }
+
+    static const QRegularExpression headExpression(
+        QStringLiteral(R"(^([^\s]+)\s+\"([^\"]*)\"$)"));
+    static const QRegularExpression modeExpression(
+        QStringLiteral(R"(^\s+([0-9]+)x([0-9]+) px(?:,\s*([0-9.]+) Hz)?(?:\s+\(([^)]*)\))?$)"));
+    QString activeHead;
+    bool enabled = false;
+    QVariantList activeModes;
+    QString activeCurrent;
+
+    const auto commitHead = [&]() {
+        if (m_displayOutputName.isEmpty() && enabled && !activeHead.isEmpty()
+            && !activeModes.isEmpty()) {
+            m_displayOutputName = activeHead;
+            m_displayModes = activeModes;
+            m_currentDisplayMode = activeCurrent;
+        }
+    };
+
+    const QStringList lines = result.standardOutput.split(QLatin1Char('\n'));
+    for (const QString &line : lines) {
+        const QRegularExpressionMatch headMatch = headExpression.match(line);
+        if (headMatch.hasMatch()) {
+            commitHead();
+            activeHead = headMatch.captured(1);
+            enabled = false;
+            activeModes.clear();
+            activeCurrent.clear();
+            continue;
+        }
+        if (activeHead.isEmpty()) {
+            continue;
+        }
+        if (line.trimmed() == QStringLiteral("Enabled: yes")) {
+            enabled = true;
+            continue;
+        }
+        const QRegularExpressionMatch modeMatch = modeExpression.match(line);
+        if (!modeMatch.hasMatch()) {
+            continue;
+        }
+        const QString width = modeMatch.captured(1);
+        const QString height = modeMatch.captured(2);
+        const QString refresh = modeMatch.captured(3);
+        const QString flags = modeMatch.captured(4);
+        const QString value = refresh.isEmpty()
+            ? QStringLiteral("%1x%2").arg(width, height)
+            : QStringLiteral("%1x%2@%3Hz").arg(width, height, refresh);
+        bool refreshOk = false;
+        const double refreshRate = refresh.toDouble(&refreshOk);
+        const QString label = refreshOk
+            ? QStringLiteral("%1 × %2 at %3 Hz")
+                  .arg(width, height, QString::number(refreshRate, 'f',
+                      qFuzzyCompare(refreshRate, qRound(refreshRate)) ? 0 : 3))
+            : QStringLiteral("%1 × %2").arg(width, height);
+        const bool current = flags.contains(QStringLiteral("current"));
+        activeModes.append(QVariantMap{
+            {QStringLiteral("value"), value},
+            {QStringLiteral("label"), label},
+            {QStringLiteral("preferred"), flags.contains(QStringLiteral("preferred"))},
+            {QStringLiteral("current"), current},
+        });
+        if (current) {
+            activeCurrent = value;
+        }
+    }
+    commitHead();
+    m_displayModeWritable = !m_displayOutputName.isEmpty()
+        && !m_currentDisplayMode.isEmpty() && m_displayModes.size() > 1;
 }
 
 void QuickSettingsController::setStatusMessage(const QString &message)

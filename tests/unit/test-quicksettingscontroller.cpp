@@ -1,6 +1,7 @@
 #include "quicksettingscontroller.h"
 
 #include <QFile>
+#include <QSettings>
 #include <QTemporaryDir>
 #include <QtTest/QtTest>
 
@@ -10,6 +11,8 @@ QuickSettingsCommandResult result(int exitCode, const QString &output = {})
 {
     return {true, exitCode, output, {}};
 }
+
+bool installHelperStub(const QString &path);
 
 } // namespace
 
@@ -25,6 +28,7 @@ private slots:
     void confirmsSoundOutputMutations();
     void confirmsTestSound();
     void confirmsBrightnessMutations();
+    void previewsAndPersistsReportedDisplayModes();
     void rejectsUnconfirmedMixerMutations();
     void persistsDoNotDisturb();
 
@@ -35,6 +39,78 @@ private slots:
     void refusesToActOnAbsentWireless();
     void reportsAdministrativeStateRatherThanAssociation();
 };
+
+void QuickSettingsControllerTest::previewsAndPersistsReportedDisplayModes()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const QString randr = directory.filePath(QStringLiteral("wlr-randr"));
+    QVERIFY(installHelperStub(randr));
+    const QString wayfireConfig = directory.filePath(QStringLiteral("wayfire.ini"));
+    QFile initialConfig(wayfireConfig);
+    QVERIFY(initialConfig.open(QIODevice::WriteOnly));
+    initialConfig.write("[core]\nplugins = ipc command\n\n[output:eDP-1]\nscale = 1.0\nmode = auto\n");
+    initialConfig.close();
+    qputenv("NORTHSTAR_WLR_RANDR", randr.toUtf8());
+    qputenv("NORTHSTAR_WAYFIRE_CONFIG", wayfireConfig.toUtf8());
+
+    QStringList calls;
+    const QString inventory = QStringLiteral(
+        "eDP-1 \"BOE panel\"\n"
+        "  Physical size: 340x190 mm\n"
+        "  Enabled: yes\n"
+        "  Modes:\n"
+        "    1920x1080 px, 59.999000 Hz (preferred, current)\n"
+        "    1920x1080 px, 47.999000 Hz\n"
+        "  Position: 0,0\n"
+        "  Transform: normal\n"
+        "  Scale: 1.000000\n");
+    const auto provider = [&calls, randr, inventory](const QString &program,
+                                                     const QStringList &arguments) {
+        if (program != randr) {
+            return QuickSettingsCommandResult{};
+        }
+        calls.append(arguments.join(QLatin1Char(' ')));
+        return result(0, arguments.isEmpty() ? inventory : QString());
+    };
+
+    QuickSettingsController controller(nullptr,
+        directory.filePath(QStringLiteral("northstar.ini")), provider);
+    QCOMPARE(controller.displayOutputName(), QStringLiteral("eDP-1"));
+    QCOMPARE(controller.displayModes().size(), 2);
+    QCOMPARE(controller.currentDisplayMode(), QStringLiteral("1920x1080@59.999000Hz"));
+    QVERIFY(controller.displayModeWritable());
+    QVERIFY(!controller.previewDisplayMode(QStringLiteral("640x480@60Hz")));
+
+    QVERIFY(controller.previewDisplayMode(QStringLiteral("1920x1080@47.999000Hz")));
+    QVERIFY(controller.displayModePending());
+    QCOMPARE(controller.displayModeSecondsRemaining(), 15);
+    QVERIFY(calls.contains(QStringLiteral(
+        "--dryrun --output eDP-1 --mode 1920x1080@47.999000Hz")));
+    QVERIFY(calls.contains(QStringLiteral(
+        "--output eDP-1 --mode 1920x1080@47.999000Hz")));
+    QVERIFY(controller.revertDisplayMode());
+    QCOMPARE(controller.currentDisplayMode(), QStringLiteral("1920x1080@59.999000Hz"));
+    QVERIFY(!controller.displayModePending());
+    QVERIFY(calls.contains(QStringLiteral(
+        "--output eDP-1 --mode 1920x1080@59.999000Hz")));
+
+    QVERIFY(controller.previewDisplayMode(QStringLiteral("1920x1080@47.999000Hz")));
+    QVERIFY(controller.keepDisplayMode());
+    QVERIFY(!controller.displayModePending());
+
+    QSettings saved(wayfireConfig, QSettings::IniFormat);
+    QCOMPARE(saved.value(QStringLiteral("output:eDP-1/mode")).toString(),
+             QStringLiteral("1920x1080@47.999000"));
+    QFile preserved(wayfireConfig);
+    QVERIFY(preserved.open(QIODevice::ReadOnly));
+    const QByteArray savedText = preserved.readAll();
+    QVERIFY(savedText.contains("plugins = ipc command"));
+    QVERIFY(savedText.contains("scale = 1.0"));
+    QCOMPARE(savedText.count("mode = "), 1);
+    qunsetenv("NORTHSTAR_WLR_RANDR");
+    qunsetenv("NORTHSTAR_WAYFIRE_CONFIG");
+}
 
 namespace {
 

@@ -181,6 +181,76 @@ void registerDesktopSettings(SettingsCatalog *catalog,
         };
         catalog->registerEntry(brightness);
 
+        if (!quickSettings->displayModes().isEmpty()) {
+            SettingsCatalog::Entry resolution;
+            resolution.id = QStringLiteral("appearance.resolution");
+            resolution.section = QStringLiteral("appearance");
+            resolution.title = QStringLiteral("Display resolution");
+            resolution.description = QStringLiteral(
+                "Preview a mode reported by the connected Wayland display. Unconfirmed changes revert after 15 seconds.");
+            resolution.keywords = QStringList{QStringLiteral("display"), QStringLiteral("screen"),
+                                               QStringLiteral("resolution"), QStringLiteral("mode"),
+                                               QStringLiteral("refresh"), QStringLiteral("hertz")};
+            resolution.kind = SettingsCatalog::choiceKind();
+            for (const QVariant &modeValue : quickSettings->displayModes()) {
+                const QVariantMap mode = modeValue.toMap();
+                resolution.options.append(SettingsCatalog::choiceOption(
+                    mode.value(QStringLiteral("value")).toString(),
+                    mode.value(QStringLiteral("label")).toString()));
+            }
+            resolution.read = [quickSettings]() {
+                return QVariant(quickSettings->currentDisplayMode());
+            };
+            resolution.write = [quickSettings](const QVariant &value) {
+                return quickSettings->previewDisplayMode(value.toString());
+            };
+            resolution.writeFailureReason = [quickSettings]() {
+                return quickSettings->statusMessage();
+            };
+            resolution.available = [quickSettings]() {
+                return quickSettings->displayModeWritable();
+            };
+            resolution.unavailableReason = []() {
+                return QStringLiteral("No alternate mode was reported for this display.");
+            };
+            catalog->registerEntry(resolution);
+
+            SettingsCatalog::Entry keepMode;
+            keepMode.id = QStringLiteral("appearance.keepdisplaymode");
+            keepMode.section = QStringLiteral("appearance");
+            keepMode.title = QStringLiteral("Keep display preview");
+            keepMode.description = QStringLiteral("Save the previewed mode for future Northstar sessions.");
+            keepMode.keywords = resolution.keywords;
+            keepMode.kind = SettingsCatalog::actionKind();
+            keepMode.actionLabel = QStringLiteral("Keep");
+            keepMode.perform = [quickSettings]() { return quickSettings->keepDisplayMode(); };
+            keepMode.available = [quickSettings]() { return quickSettings->displayModePending(); };
+            keepMode.unavailableReason = []() {
+                return QStringLiteral("No display preview is waiting for confirmation.");
+            };
+            catalog->registerEntry(keepMode);
+
+            SettingsCatalog::Entry revertMode = keepMode;
+            revertMode.id = QStringLiteral("appearance.revertdisplaymode");
+            revertMode.title = QStringLiteral("Revert display preview");
+            revertMode.description = QStringLiteral("Restore the mode used before the current preview.");
+            revertMode.actionLabel = QStringLiteral("Revert");
+            revertMode.perform = [quickSettings]() { return quickSettings->revertDisplayMode(); };
+            catalog->registerEntry(revertMode);
+
+            catalog->registerEntry(info(
+                QStringLiteral("appearance.displaypreview"), QStringLiteral("appearance"),
+                QStringLiteral("Display preview status"),
+                QStringLiteral("Time remaining before an unconfirmed mode is restored."),
+                resolution.keywords,
+                [quickSettings]() {
+                    return QVariant(quickSettings->displayModePending()
+                        ? QStringLiteral("Reverting in %1 seconds")
+                              .arg(quickSettings->displayModeSecondsRemaining())
+                        : QStringLiteral("No preview pending"));
+                }));
+        }
+
         catalog->registerEntry(info(
             QStringLiteral("appearance.nightlight"), QStringLiteral("appearance"),
             QStringLiteral("Night light"),

@@ -18,13 +18,29 @@ properties to QML.
   available. A mutation succeeds only after a second query confirms the
   requested value. The legacy ACPI brightness sysctl remains a read-only
   fallback.
+- Resolution and refresh-rate choices come only from the connected output's
+  `wlr-output-management` inventory through `wlr-randr`. Northstar validates
+  an enumerated mode with `--dryrun`, applies it as a 15-second preview, and
+  restores the previous mode unless the user explicitly keeps it. A kept mode
+  is written only to that user's matching Wayfire output group; arbitrary
+  connector names, custom modelines, and caller-provided command options are
+  not accepted.
 - Night Light remains disabled until the compositor provides a tested color-
   management boundary.
 - Unsupported controls remain visibly unavailable and provide a route to the
   full Settings window.
 
 Every external probe has an 800 ms timeout. No probe or mutation uses root,
-shell command evaluation, or user-provided command arguments.
+shell command evaluation, or unvalidated command arguments.
+
+## Display acceptance
+
+On the physical Intel lane, verify that Settings lists `eDP-1` modes exactly as
+reported by Wayfire, a preview visibly changes the panel, Revert restores the
+previous mode, the 15-second timeout also restores it, and Keep survives a
+shell restart. Confirm that the desktop, panel, dock, and existing application
+windows remain usable after each mode change. This focused physical check is
+the merge gate; a nested X11 `xrandr` result is not equivalent evidence.
 
 ## Do Not Disturb
 
