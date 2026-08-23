@@ -26,7 +26,16 @@ QString defaultPowerHelperPath()
 
 QString actionLabel(const QString &action)
 {
-    return action == QStringLiteral("restart") ? QStringLiteral("Restart") : QStringLiteral("Shut down");
+    if (action == QStringLiteral("restart")) {
+        return QStringLiteral("Restart");
+    }
+    if (action == QStringLiteral("shutdown")) {
+        return QStringLiteral("Shut down");
+    }
+    if (action == QStringLiteral("suspend")) {
+        return QStringLiteral("Sleep");
+    }
+    return QStringLiteral("Lid-close sleep");
 }
 
 PowerCommandResult runPowerCommand(const QString &program, const QStringList &arguments)
@@ -79,6 +88,7 @@ PowerController::PowerController(QObject *parent,
     connect(&m_batteryTimer, &QTimer::timeout, this, &PowerController::refreshBattery);
     m_batteryTimer.start(30000);
     refreshBattery();
+    refreshPowerCapabilities();
 }
 
 bool PowerController::available() const
@@ -106,6 +116,9 @@ int PowerController::batteryPercentage() const { return m_batteryPercentage; }
 bool PowerController::onAcPower() const { return m_onAcPower; }
 bool PowerController::batteryCharging() const { return m_batteryCharging; }
 QString PowerController::batteryStatus() const { return m_batteryStatus; }
+bool PowerController::suspendAvailable() const { return m_suspendAvailable; }
+bool PowerController::lidSwitchAvailable() const { return m_lidSwitchAvailable; }
+bool PowerController::lidSuspendEnabled() const { return m_lidSuspendEnabled; }
 
 void PowerController::refreshBattery()
 {
@@ -166,6 +179,36 @@ void PowerController::refreshBattery()
     }
 }
 
+void PowerController::refreshPowerCapabilities()
+{
+    const PowerCommandResult result = m_commandFunction(
+        QStringLiteral("/sbin/sysctl"),
+        {QStringLiteral("-n"), QStringLiteral("hw.acpi.suspend_state"),
+         QStringLiteral("hw.acpi.lid_switch_state")});
+    const QStringList lines = result.standardOutput.split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+    const QString suspendState = lines.value(0).trimmed().toUpper();
+    const QString lidState = lines.value(1).trimmed().toUpper();
+    const bool readable = result.started && result.exitCode == 0 && lines.size() >= 2;
+    const bool suspendAvailable = m_available && readable
+        && suspendState == QStringLiteral("S3");
+    const bool lidAvailable = m_available && readable && !lidState.isEmpty();
+    const bool lidEnabled = lidAvailable && lidState == QStringLiteral("S3");
+
+    if (m_suspendAvailable == suspendAvailable && m_lidSwitchAvailable == lidAvailable
+        && m_lidSuspendEnabled == lidEnabled) {
+        return;
+    }
+    m_suspendAvailable = suspendAvailable;
+    m_lidSwitchAvailable = lidAvailable;
+    m_lidSuspendEnabled = lidEnabled;
+    emit powerCapabilitiesChanged();
+}
+
+bool PowerController::requestSuspend()
+{
+    return request(QStringLiteral("suspend"));
+}
+
 bool PowerController::requestRestart()
 {
     return request(QStringLiteral("restart"));
@@ -174,6 +217,24 @@ bool PowerController::requestRestart()
 bool PowerController::requestShutdown()
 {
     return request(QStringLiteral("shutdown"));
+}
+
+bool PowerController::setLidSuspendEnabled(bool enabled)
+{
+    if (!request(enabled ? QStringLiteral("lid-suspend-on")
+                         : QStringLiteral("lid-suspend-off"))) {
+        return false;
+    }
+    refreshPowerCapabilities();
+    if (!m_lidSwitchAvailable || m_lidSuspendEnabled != enabled) {
+        m_statusMessage = QStringLiteral("Lid-close sleep changed, but FreeBSD did not confirm it.");
+        emit statusChanged();
+        return false;
+    }
+    m_statusMessage = enabled ? QStringLiteral("Closing the lid will put Northstar to sleep.")
+                              : QStringLiteral("Closing the lid will not put Northstar to sleep.");
+    emit statusChanged();
+    return true;
 }
 
 bool PowerController::request(const QString &action)
@@ -186,12 +247,19 @@ bool PowerController::request(const QString &action)
     m_busy = true;
     emit statusChanged();
 
+    const bool supported = m_available
+        && (action != QStringLiteral("suspend") || m_suspendAvailable)
+        && (!action.startsWith(QStringLiteral("lid-suspend-")) || m_lidSwitchAvailable);
     QString error;
-    const bool succeeded = m_available && m_powerFunction(action, &error);
+    const bool succeeded = supported && m_powerFunction(action, &error);
     if (succeeded) {
         m_statusMessage = QStringLiteral("%1 requested").arg(actionLabel(action));
-    } else if (!m_available) {
-        m_statusMessage = QStringLiteral("Power controls are not configured.");
+    } else if (!supported) {
+        m_statusMessage = action == QStringLiteral("suspend")
+            ? QStringLiteral("Sleep is not supported by this system.")
+            : action.startsWith(QStringLiteral("lid-suspend-"))
+            ? QStringLiteral("A configurable lid switch was not detected.")
+            : QStringLiteral("Power controls are not configured.");
     } else if (error.isEmpty()) {
         m_statusMessage = QStringLiteral("%1 request failed.").arg(actionLabel(action));
     } else {

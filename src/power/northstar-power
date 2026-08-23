@@ -11,11 +11,40 @@ ID=${NORTHSTAR_POWER_ID_PATH:-/usr/bin/id}
 PKEXEC=${NORTHSTAR_POWER_PKEXEC_PATH:-/usr/local/bin/pkexec}
 SELF=${NORTHSTAR_POWER_SELF_PATH:-/usr/local/bin/northstar-power}
 SHUTDOWN=${NORTHSTAR_POWER_SHUTDOWN_PATH:-/sbin/shutdown}
+ACPICONF=${NORTHSTAR_POWER_ACPICONF_PATH:-/usr/sbin/acpiconf}
+SYSCTL=${NORTHSTAR_POWER_SYSCTL_PATH:-/sbin/sysctl}
+SYSCTL_CONF=${NORTHSTAR_POWER_SYSCTL_CONF:-/etc/sysctl.conf}
+
+persist_lid_switch_state()
+{
+    value=$1
+
+    # sysrc(8) manages shell-style rc.conf names and rejects this dotted
+    # sysctl key. Rewrite only the one fixed assignment, beside the target,
+    # then atomically replace the configuration file.
+    if [ -L "$SYSCTL_CONF" ] || { [ -e "$SYSCTL_CONF" ] && [ ! -f "$SYSCTL_CONF" ]; }; then
+        printf '%s\n' 'ERROR: the sysctl configuration is not a regular file' >&2
+        return 70
+    fi
+
+    temp=$(mktemp "${SYSCTL_CONF}.northstar.XXXXXX") || return 70
+    trap 'rm -f "$temp"' 0 HUP INT TERM
+
+    if [ -f "$SYSCTL_CONF" ]; then
+        awk '!/^[[:space:]]*hw[.]acpi[.]lid_switch_state[[:space:]]*=/' \
+            "$SYSCTL_CONF" > "$temp" || return 70
+    fi
+    printf 'hw.acpi.lid_switch_state="%s"\n' "$value" >> "$temp" || return 70
+    chmod 0644 "$temp" || return 70
+    mv -f "$temp" "$SYSCTL_CONF" || return 70
+    temp=
+    trap - 0 HUP INT TERM
+}
 
 [ "$#" -eq 1 ] || exit 64
 
 case "$1" in
-    restart|shutdown) ;;
+    restart|shutdown|suspend|lid-suspend-on|lid-suspend-off) ;;
     *) exit 64 ;;
 esac
 
@@ -26,4 +55,18 @@ fi
 case "$1" in
     restart) exec "$SHUTDOWN" -r now ;;
     shutdown) exec "$SHUTDOWN" -p now ;;
+    suspend)
+        # Detach the fixed suspend request so the shell can finish closing its
+        # confirmation surface before the machine enters S3.
+        "$ACPICONF" -s 3 </dev/null >/dev/null 2>&1 &
+        exit 0
+        ;;
+    lid-suspend-on)
+        persist_lid_switch_state S3
+        exec "$SYSCTL" hw.acpi.lid_switch_state=S3
+        ;;
+    lid-suspend-off)
+        persist_lid_switch_state NONE
+        exec "$SYSCTL" hw.acpi.lid_switch_state=NONE
+        ;;
 esac

@@ -26,6 +26,9 @@ class PowerController final : public QObject
     Q_PROPERTY(bool onAcPower READ onAcPower NOTIFY batteryChanged)
     Q_PROPERTY(bool batteryCharging READ batteryCharging NOTIFY batteryChanged)
     Q_PROPERTY(QString batteryStatus READ batteryStatus NOTIFY batteryChanged)
+    Q_PROPERTY(bool suspendAvailable READ suspendAvailable NOTIFY powerCapabilitiesChanged)
+    Q_PROPERTY(bool lidSwitchAvailable READ lidSwitchAvailable NOTIFY powerCapabilitiesChanged)
+    Q_PROPERTY(bool lidSuspendEnabled READ lidSuspendEnabled NOTIFY powerCapabilitiesChanged)
 
 public:
     using PowerFunction = std::function<bool(const QString &action, QString *error)>;
@@ -46,14 +49,21 @@ public:
     bool onAcPower() const;
     bool batteryCharging() const;
     QString batteryStatus() const;
+    bool suspendAvailable() const;
+    bool lidSwitchAvailable() const;
+    bool lidSuspendEnabled() const;
 
+    Q_INVOKABLE bool requestSuspend();
     Q_INVOKABLE bool requestRestart();
     Q_INVOKABLE bool requestShutdown();
+    Q_INVOKABLE bool setLidSuspendEnabled(bool enabled);
     Q_INVOKABLE void refreshBattery();
+    Q_INVOKABLE void refreshPowerCapabilities();
 
 signals:
     void statusChanged();
     void batteryChanged();
+    void powerCapabilitiesChanged();
 
 private:
     bool request(const QString &action);
@@ -73,4 +83,7 @@ private:
     bool m_batteryCharging = false;
     int m_batteryMinutes = -1;
     QString m_batteryStatus = QStringLiteral("No battery detected");
+    bool m_suspendAvailable = false;
+    bool m_lidSwitchAvailable = false;
+    bool m_lidSuspendEnabled = false;
 };

@@ -6,7 +6,7 @@
   <vendor>Northstar</vendor>
   <vendor_url>https://github.com/SeedOfEvil/northstar-os</vendor_url>
   <action id="org.northstar.power.control">
-    <description>Restart or shut down the computer</description>
+    <description>Control restart, shutdown, sleep, and lid-close sleep</description>
     <message>Authentication is required to control system power</message>
     <defaults>
       <allow_any>no</allow_any>

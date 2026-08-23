@@ -56,6 +56,8 @@ Window {
             controller.refresh()
         if (powerController)
             powerController.refreshBattery()
+        if (powerController)
+            powerController.refreshPowerCapabilities()
         quickSettingsDrag.prepareForOpen()
         show()
         raise()
@@ -67,6 +69,54 @@ Window {
             hide()
         } else {
             openPanel()
+        }
+    }
+
+    Dialog {
+        id: sleepDialog
+        modal: true
+        title: "Put Northstar to sleep?"
+        standardButtons: Dialog.Cancel | Dialog.Ok
+        padding: 16
+        width: quickSettings.width - 20
+        x: (quickSettings.width - width) / 2
+        y: (quickSettings.height - height) / 2
+
+        background: Rectangle {
+            color: quickSettings.surfaceBackground
+            border.color: quickSettings.surfaceAccent
+            border.width: 1
+            radius: lunar.radiusMedium
+        }
+
+        contentItem: Column {
+            spacing: 8
+            width: sleepDialog.width - (2 * sleepDialog.padding)
+
+            Text {
+                color: quickSettings.surfaceForeground
+                text: "This enters FreeBSD S3 sleep. Save important work before testing resume."
+                wrapMode: Text.WordWrap
+                width: parent.width
+            }
+
+            Text {
+                color: "#c34f65"
+                text: quickSettings.powerController
+                    ? quickSettings.powerController.statusMessage : ""
+                visible: text.length > 0 && text !== "Sleep requested"
+                wrapMode: Text.WordWrap
+                width: parent.width
+            }
+        }
+
+        onAccepted: {
+            if (quickSettings.powerController
+                && quickSettings.powerController.requestSuspend()) {
+                quickSettings.hide()
+            } else {
+                sleepDialog.open()
+            }
         }
     }
 
@@ -511,7 +561,36 @@ Window {
                         ? quickSettings.controller.statusMessage
                         : "Controls reflect confirmed FreeBSD capabilities."
                     verticalAlignment: Text.AlignVCenter
-                    width: parent.width - settingsButton.width - parent.spacing
+                    width: parent.width - sleepButton.width - settingsButton.width
+                        - (2 * parent.spacing)
+                }
+
+                Rectangle {
+                    id: sleepButton
+                    color: sleepMouse.containsMouse && sleepMouse.enabled
+                        ? lunar.accentSoft : quickSettings.surfaceRaised
+                    border.color: lunar.borderSoft
+                    border.width: 1
+                    height: 28
+                    radius: lunar.radiusSmall
+                    width: 56
+
+                    Text {
+                        anchors.centerIn: parent
+                        color: sleepMouse.enabled
+                            ? quickSettings.surfaceForeground : quickSettings.surfaceMuted
+                        font.pixelSize: 10
+                        text: "Sleep"
+                    }
+
+                    MouseArea {
+                        id: sleepMouse
+                        anchors.fill: parent
+                        enabled: !!quickSettings.powerController
+                            && quickSettings.powerController.suspendAvailable
+                        hoverEnabled: true
+                        onClicked: sleepDialog.open()
+                    }
                 }
 
                 Rectangle {

@@ -37,6 +37,7 @@
 #include <QQmlError>
 #include <QScreen>
 #include <QStandardPaths>
+#include <QTimer>
 #include <QVariant>
 #include <QUrl>
 #include <QWindow>
@@ -130,6 +131,11 @@ QUrl northstarGeneratedIconsDirectory()
 int main(int argc, char *argv[])
 {
     QGuiApplication application(argc, argv);
+    // A DRM resume briefly removes the physical output and gives Qt a
+    // placeholder screen. That must not turn a successful S3 cycle into a
+    // clean shell exit, which the session supervisor correctly treats as a
+    // user logout.
+    application.setQuitOnLastWindowClosed(false);
     const bool qmlSelfTest =
         application.arguments().contains(QStringLiteral("--qml-self-test"));
     QCoreApplication::setApplicationName(QStringLiteral("northstar-shell"));
@@ -248,6 +254,8 @@ int main(int argc, char *argv[])
     QObject::connect(&pinnedApplicationModel, &PinnedApplicationModel::desktopIdsChanged,
                      &settingsCatalog, refreshSettings);
     QObject::connect(&powerController, &PowerController::batteryChanged,
+                     &settingsCatalog, refreshSettings);
+    QObject::connect(&powerController, &PowerController::powerCapabilitiesChanged,
                      &settingsCatalog, refreshSettings);
 
     const QUrl logoSource = northstarLogoSource();
@@ -472,6 +480,40 @@ int main(int argc, char *argv[])
         }
         return selfTestStatus;
     }
+
+    // wlroots temporarily replaces the DRM output with a headless NOOP output
+    // while the seat is paused for S3. Qt moves the existing windows onto its
+    // placeholder screen, but does not move their layer-shell bindings back
+    // when eDP-1 returns. Debounce the burst of screenRemoved/screenAdded
+    // signals and rebuild only Northstar's shell surfaces after the output set
+    // has settled. Application windows remain owned by the compositor.
+    QTimer outputRefreshTimer;
+    outputRefreshTimer.setSingleShot(true);
+    outputRefreshTimer.setInterval(750);
+    QObject::connect(&outputRefreshTimer, &QTimer::timeout, &application, [&]() {
+        destroySurfaces();
+        displayIndex = 0;
+        for (QScreen *screen : application.screens()) {
+            if (!createSurface(screen, displayIndex)) {
+                qWarning() << "Unable to rebuild Northstar surfaces after an output change";
+                destroySurfaces();
+                return;
+            }
+            ++displayIndex;
+        }
+        if (surfaces.isEmpty()) {
+            qWarning() << "No connected display was available after an output change";
+        } else {
+            qInfo() << "Northstar surfaces rebuilt after output change";
+        }
+    });
+    const auto scheduleOutputRefresh = [&outputRefreshTimer](QScreen *) {
+        outputRefreshTimer.start();
+    };
+    QObject::connect(&application, &QGuiApplication::screenAdded,
+                     &application, scheduleOutputRefresh);
+    QObject::connect(&application, &QGuiApplication::screenRemoved,
+                     &application, scheduleOutputRefresh);
 
     // The scope guard tears the surfaces down on the way out of here.
     return application.exec();
