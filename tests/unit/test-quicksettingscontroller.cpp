@@ -21,6 +21,7 @@ private slots:
     void reportsConfirmedCapabilities();
     void confirmsMixerMutations();
     void confirmsMixerMuteMutations();
+    void confirmsSoundOutputMutations();
     void rejectsUnconfirmedMixerMutations();
     void persistsDoNotDisturb();
 
@@ -108,6 +109,12 @@ void QuickSettingsControllerTest::reportsConfirmedCapabilities()
         }
         if (program == QStringLiteral("/usr/sbin/mixer")) {
             mixerCalls.append(arguments.join(QLatin1Char(' ')));
+            if (arguments == QStringList{QStringLiteral("-a")}) {
+                return result(0, QStringLiteral(
+                    "pcm0:mixer: <Realtek ALC236 (Internal Analog)> on hdaa0 (play/rec) (default)\n"
+                    "pcm1:mixer: <Realtek ALC236 (Front Analog Headphones)> on hdaa0 (play)\n"
+                    "pcm2:mixer: <Intel Kaby Lake (HDMI/DP 8ch)> on hdaa1 (play)"));
+            }
             return result(0, QStringLiteral("vol.volume=0.65:0.65\nvol.mute=off"));
         }
         if (program == QStringLiteral("/sbin/sysctl")) {
@@ -125,7 +132,11 @@ void QuickSettingsControllerTest::reportsConfirmedCapabilities()
     QVERIFY(controller.soundAvailable());
     QCOMPARE(controller.volume(), 2);
     QVERIFY(!controller.muted());
-    QCOMPARE(mixerCalls, QStringList{QStringLiteral("vol")});
+    QCOMPARE(controller.soundOutputs().size(), 3);
+    QCOMPARE(controller.soundOutput(), 0);
+    QCOMPARE(controller.soundOutputs().at(0).toMap().value(QStringLiteral("label")).toString(),
+             QStringLiteral("Internal Speakers"));
+    QCOMPARE(mixerCalls, QStringList({QStringLiteral("-a"), QStringLiteral("vol")}));
     QVERIFY(controller.displayAvailable());
     QCOMPARE(controller.displayBrightness(), 72);
     QVERIFY(!controller.nightLightAvailable());
@@ -157,8 +168,10 @@ void QuickSettingsControllerTest::confirmsMixerMutations()
     QCOMPARE(controller.volume(), 72);
     QVERIFY(controller.statusMessage().contains(QStringLiteral("confirmed")));
     QCOMPARE(mixerCalls,
-             QStringList({QStringLiteral("vol"),
+             QStringList({QStringLiteral("-a"),
+                          QStringLiteral("vol"),
                           QStringLiteral("vol.volume=0.94"),
+                          QStringLiteral("-a"),
                           QStringLiteral("vol")}));
 }
 
@@ -193,11 +206,53 @@ void QuickSettingsControllerTest::confirmsMixerMuteMutations()
     QVERIFY(controller.setMuted(false));
     QVERIFY(!controller.muted());
     QCOMPARE(mixerCalls,
-             QStringList({QStringLiteral("vol"),
+             QStringList({QStringLiteral("-a"),
+                          QStringLiteral("vol"),
                           QStringLiteral("vol.mute=on"),
+                          QStringLiteral("-a"),
                           QStringLiteral("vol"),
                           QStringLiteral("vol.mute=off"),
+                          QStringLiteral("-a"),
                           QStringLiteral("vol")}));
+}
+
+void QuickSettingsControllerTest::confirmsSoundOutputMutations()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    int currentOutput = 0;
+    QStringList mixerCalls;
+    const auto provider = [&currentOutput, &mixerCalls](const QString &program,
+                                                        const QStringList &arguments) {
+        if (program != QStringLiteral("/usr/sbin/mixer")) {
+            return result(1);
+        }
+        mixerCalls.append(arguments.join(QLatin1Char(' ')));
+        if (arguments.size() == 2 && arguments.constFirst() == QStringLiteral("-d")) {
+            currentOutput = arguments.constLast().toInt();
+            return result(0);
+        }
+        if (arguments == QStringList{QStringLiteral("-a")}) {
+            return result(0, QStringLiteral(
+                "pcm0:mixer: <Realtek ALC236 (Internal Analog)>%1\n"
+                "pcm1:mixer: <Realtek ALC236 (Front Analog Headphones)>%2\n"
+                "pcm2:mixer: <Intel Kaby Lake (HDMI/DP 8ch)>%3")
+                    .arg(currentOutput == 0 ? QStringLiteral(" (default)") : QString(),
+                         currentOutput == 1 ? QStringLiteral(" (default)") : QString(),
+                         currentOutput == 2 ? QStringLiteral(" (default)") : QString()));
+        }
+        return result(0, QStringLiteral("vol.volume=1.00:1.00\nvol.mute=off"));
+    };
+
+    QuickSettingsController controller(
+        nullptr, directory.filePath(QStringLiteral("preferences.ini")), provider);
+    QCOMPARE(controller.soundOutput(), 0);
+    QVERIFY(controller.setSoundOutput(1));
+    QCOMPARE(controller.soundOutput(), 1);
+    QVERIFY(controller.statusMessage().contains(QStringLiteral("Headphones")));
+    QVERIFY(!controller.setSoundOutput(9));
+    QVERIFY(controller.statusMessage().contains(QStringLiteral("not available")));
+    QVERIFY(mixerCalls.contains(QStringLiteral("-d 1")));
 }
 
 void QuickSettingsControllerTest::rejectsUnconfirmedMixerMutations()

@@ -409,6 +409,31 @@ Window {
                             }
                         }
                     }
+
+                    ComboBox {
+                        id: outputChooser
+                        enabled: quickSettings.controller
+                            && quickSettings.controller.soundOutputs.length > 1
+                        model: quickSettings.controller
+                            ? quickSettings.controller.soundOutputs : []
+                        textRole: "label"
+                        valueRole: "unit"
+                        width: parent.width
+
+                        function syncToOutput() {
+                            currentIndex = indexOfValue(quickSettings.controller
+                                ? quickSettings.controller.soundOutput : -1)
+                        }
+
+                        Component.onCompleted: syncToOutput()
+                        onModelChanged: syncToOutput()
+                        onActivated: {
+                            if (!quickSettings.controller
+                                || !quickSettings.controller.setSoundOutput(valueAt(currentIndex))) {
+                                syncToOutput()
+                            }
+                        }
+                    }
                 }
             }
 

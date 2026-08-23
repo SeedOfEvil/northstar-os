@@ -8,6 +8,7 @@
 #include <QStandardPaths>
 #include <QtMath>
 
+#include <algorithm>
 #include <utility>
 
 namespace {
@@ -82,6 +83,22 @@ bool parseMixerMuted(const QString &output)
     return muteExpression.match(output).hasMatch();
 }
 
+QString soundOutputLabel(const QString &description)
+{
+    if (description.contains(QStringLiteral("Internal Analog"), Qt::CaseInsensitive)) {
+        return QStringLiteral("Internal Speakers");
+    }
+    if (description.contains(QStringLiteral("Headphones"), Qt::CaseInsensitive)) {
+        return QStringLiteral("Headphones");
+    }
+    if (description.contains(QStringLiteral("HDMI"), Qt::CaseInsensitive)
+        || description.contains(QStringLiteral("DisplayPort"), Qt::CaseInsensitive)
+        || description.contains(QStringLiteral("DP "), Qt::CaseInsensitive)) {
+        return QStringLiteral("HDMI / DisplayPort");
+    }
+    return description.trimmed();
+}
+
 } // namespace
 
 QuickSettingsController::QuickSettingsController(QObject *parent,
@@ -109,6 +126,8 @@ QString QuickSettingsController::bluetoothStatus() const { return m_bluetoothSta
 bool QuickSettingsController::soundAvailable() const { return m_soundAvailable; }
 int QuickSettingsController::volume() const { return m_volume; }
 bool QuickSettingsController::muted() const { return m_muted; }
+QVariantList QuickSettingsController::soundOutputs() const { return m_soundOutputs; }
+int QuickSettingsController::soundOutput() const { return m_soundOutput; }
 QString QuickSettingsController::soundStatus() const { return m_soundStatus; }
 bool QuickSettingsController::displayAvailable() const { return m_displayAvailable; }
 int QuickSettingsController::displayBrightness() const { return m_displayBrightness; }
@@ -268,6 +287,45 @@ bool QuickSettingsController::setMuted(bool muted)
     return true;
 }
 
+bool QuickSettingsController::setSoundOutput(int unit)
+{
+    const bool offered = std::any_of(m_soundOutputs.cbegin(), m_soundOutputs.cend(),
+                                     [unit](const QVariant &output) {
+        return output.toMap().value(QStringLiteral("unit")).toInt() == unit;
+    });
+    if (!offered) {
+        setStatusMessage(QStringLiteral("That audio output is not available."));
+        return false;
+    }
+
+    const QuickSettingsCommandResult mutation = m_commandProvider(
+        QStringLiteral("/usr/sbin/mixer"),
+        {QStringLiteral("-d"), QString::number(unit)});
+    if (!commandSucceeded(mutation)) {
+        setStatusMessage(QStringLiteral("FreeBSD mixer rejected the output change."));
+        refreshSound();
+        emit capabilitiesChanged();
+        return false;
+    }
+
+    refreshSound();
+    emit capabilitiesChanged();
+    if (m_soundOutput != unit) {
+        setStatusMessage(QStringLiteral("Mixer did not confirm the requested audio output."));
+        return false;
+    }
+
+    const auto selected = std::find_if(m_soundOutputs.cbegin(), m_soundOutputs.cend(),
+                                       [unit](const QVariant &output) {
+        return output.toMap().value(QStringLiteral("unit")).toInt() == unit;
+    });
+    const QString label = selected == m_soundOutputs.cend()
+        ? QStringLiteral("audio output")
+        : selected->toMap().value(QStringLiteral("label")).toString();
+    setStatusMessage(QStringLiteral("Audio output changed to %1.").arg(label));
+    return true;
+}
+
 void QuickSettingsController::toggleDoNotDisturb()
 {
     setDoNotDisturb(!m_doNotDisturb);
@@ -406,6 +464,7 @@ void QuickSettingsController::refreshBluetooth()
 
 void QuickSettingsController::refreshSound()
 {
+    refreshSoundOutputs();
     const QuickSettingsCommandResult result = m_commandProvider(
         QStringLiteral("/usr/sbin/mixer"), {QStringLiteral("vol")});
     const int mixerVolume = commandSucceeded(result) ? parseMixerVolume(result.standardOutput) : -1;
@@ -418,9 +477,55 @@ void QuickSettingsController::refreshSound()
     }
     m_volume = perceptualVolumeForMixer(mixerVolume);
     m_muted = parseMixerMuted(result.standardOutput);
-    m_soundStatus = m_muted
-        ? QStringLiteral("Muted - %1%").arg(m_volume)
-        : QStringLiteral("Output - %1%").arg(m_volume);
+    QString activeOutput;
+    for (const QVariant &output : std::as_const(m_soundOutputs)) {
+        const QVariantMap map = output.toMap();
+        if (map.value(QStringLiteral("unit")).toInt() == m_soundOutput) {
+            activeOutput = map.value(QStringLiteral("label")).toString();
+            break;
+        }
+    }
+    const QString level = m_muted ? QStringLiteral("Muted")
+                                  : QStringLiteral("%1%").arg(m_volume);
+    m_soundStatus = activeOutput.isEmpty()
+        ? level
+        : QStringLiteral("%1 - %2").arg(activeOutput, level);
+}
+
+void QuickSettingsController::refreshSoundOutputs()
+{
+    m_soundOutputs.clear();
+    m_soundOutput = -1;
+
+    const QuickSettingsCommandResult result = m_commandProvider(
+        QStringLiteral("/usr/sbin/mixer"), {QStringLiteral("-a")});
+    if (!commandSucceeded(result)) {
+        return;
+    }
+
+    static const QRegularExpression headerExpression(
+        QStringLiteral(R"(^pcm([0-9]+):mixer:\s*<([^>]+)>)"),
+        QRegularExpression::CaseInsensitiveOption);
+    const QStringList lines = result.standardOutput.split(QLatin1Char('\n'));
+    for (const QString &line : lines) {
+        const QRegularExpressionMatch match = headerExpression.match(line.trimmed());
+        if (!match.hasMatch()) {
+            continue;
+        }
+
+        const int unit = match.captured(1).toInt();
+        const QString description = match.captured(2).trimmed();
+        const bool current = line.contains(QStringLiteral("(default)"), Qt::CaseInsensitive);
+        QVariantMap output;
+        output.insert(QStringLiteral("unit"), unit);
+        output.insert(QStringLiteral("label"), soundOutputLabel(description));
+        output.insert(QStringLiteral("description"), description);
+        output.insert(QStringLiteral("current"), current);
+        m_soundOutputs.append(output);
+        if (current) {
+            m_soundOutput = unit;
+        }
+    }
 }
 
 void QuickSettingsController::refreshDisplay()
