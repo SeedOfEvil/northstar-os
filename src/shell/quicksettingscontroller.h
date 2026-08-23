@@ -168,6 +168,7 @@ private:
     QString m_currentDisplayMode;
     QString m_displayOutputName;
     QString m_previousDisplayMode;
+    bool m_previousDisplayModeCustom = false;
     bool m_displayModeWritable = false;
     bool m_displayModePending = false;
     int m_displayModeSecondsRemaining = 0;

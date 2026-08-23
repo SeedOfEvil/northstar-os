@@ -77,10 +77,17 @@ void QuickSettingsControllerTest::previewsAndPersistsReportedDisplayModes()
     QuickSettingsController controller(nullptr,
         directory.filePath(QStringLiteral("northstar.ini")), provider);
     QCOMPARE(controller.displayOutputName(), QStringLiteral("eDP-1"));
-    QCOMPARE(controller.displayModes().size(), 2);
+    QCOMPARE(controller.displayModes().size(), 5);
     QCOMPARE(controller.currentDisplayMode(), QStringLiteral("1920x1080@59.999000Hz"));
     QVERIFY(controller.displayModeWritable());
     QVERIFY(!controller.previewDisplayMode(QStringLiteral("640x480@60Hz")));
+
+    QVERIFY(controller.previewDisplayMode(QStringLiteral("1600x900@60Hz")));
+    QVERIFY(calls.contains(QStringLiteral(
+        "--dryrun --output eDP-1 --custom-mode 1600x900@60Hz")));
+    QVERIFY(calls.contains(QStringLiteral(
+        "--output eDP-1 --custom-mode 1600x900@60Hz")));
+    QVERIFY(controller.revertDisplayMode());
 
     QVERIFY(controller.previewDisplayMode(QStringLiteral("1920x1080@47.999000Hz")));
     QVERIFY(controller.displayModePending());
