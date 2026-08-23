@@ -412,9 +412,9 @@ bool QuickSettingsController::testSound()
     const QuickSettingsCommandResult result = m_commandProvider(
         QStringLiteral("/usr/bin/beep"),
         {QStringLiteral("-d"), QStringLiteral("/dev/dsp"),
-         QStringLiteral("-F"), QStringLiteral("440"),
-         QStringLiteral("-D"), QStringLiteral("350"),
-         QStringLiteral("-g"), QStringLiteral("8")});
+         QStringLiteral("-F"), QStringLiteral("523"),
+         QStringLiteral("-D"), QStringLiteral("500"),
+         QStringLiteral("-g"), QStringLiteral("25")});
     if (!commandSucceeded(result)) {
         setStatusMessage(QStringLiteral("The selected output could not play the test sound."));
         return false;

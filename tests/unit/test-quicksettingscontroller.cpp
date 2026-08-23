@@ -318,7 +318,7 @@ void QuickSettingsControllerTest::confirmsTestSound()
         nullptr, directory.filePath(QStringLiteral("preferences.ini")), provider);
     QVERIFY(controller.testSound());
     QVERIFY(calls.contains(QStringLiteral(
-        "/usr/bin/beep -d /dev/dsp -F 440 -D 350 -g 8")));
+        "/usr/bin/beep -d /dev/dsp -F 523 -D 500 -g 25")));
     QVERIFY(controller.statusMessage().contains(QStringLiteral("played")));
 }
 
