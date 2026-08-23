@@ -123,7 +123,7 @@ void QuickSettingsControllerTest::reportsConfirmedCapabilities()
     QCOMPARE(controller.wifiStatus(), QStringLiteral("Connected to NorthstarLab"));
     QVERIFY(controller.bluetoothAvailable());
     QVERIFY(controller.soundAvailable());
-    QCOMPARE(controller.volume(), 42);
+    QCOMPARE(controller.volume(), 2);
     QVERIFY(!controller.muted());
     QCOMPARE(mixerCalls, QStringList{QStringLiteral("vol")});
     QVERIFY(controller.displayAvailable());
@@ -154,11 +154,11 @@ void QuickSettingsControllerTest::confirmsMixerMutations()
         nullptr, directory.filePath(QStringLiteral("preferences.ini")), provider);
     QVERIFY(controller.soundAvailable());
     QVERIFY(controller.setVolume(74));
-    QCOMPARE(controller.volume(), 74);
+    QCOMPARE(controller.volume(), 72);
     QVERIFY(controller.statusMessage().contains(QStringLiteral("confirmed")));
     QCOMPARE(mixerCalls,
              QStringList({QStringLiteral("vol"),
-                          QStringLiteral("vol.volume=0.86"),
+                          QStringLiteral("vol.volume=0.94"),
                           QStringLiteral("vol")}));
 }
 
@@ -214,7 +214,7 @@ void QuickSettingsControllerTest::rejectsUnconfirmedMixerMutations()
     QuickSettingsController controller(
         nullptr, directory.filePath(QStringLiteral("preferences.ini")), provider);
     QVERIFY(!controller.setVolume(80));
-    QCOMPARE(controller.volume(), 6);
+    QCOMPARE(controller.volume(), 0);
     QVERIFY(controller.statusMessage().contains(QStringLiteral("did not confirm")));
 }
 

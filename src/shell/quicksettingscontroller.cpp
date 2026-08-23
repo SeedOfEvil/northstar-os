@@ -13,6 +13,7 @@
 namespace {
 
 constexpr int CommandTimeoutMilliseconds = 800;
+constexpr int MinimumAudibleMixerVolume = 60;
 
 bool commandSucceeded(const QuickSettingsCommandResult &result)
 {
@@ -47,14 +48,30 @@ int parseMixerVolume(const QString &output)
 
 int perceptualVolumeForMixer(int mixerVolume)
 {
-    const double normalized = qBound(0, mixerVolume, 100) / 100.0;
+    if (mixerVolume <= 0) {
+        return 0;
+    }
+
+    // The accepted ALC236 laptop is effectively silent through most of the
+    // lower hardware range: raw 63% is barely audible and raw 86% sounds near
+    // 40%. Compress that usable 60-100 range into the desktop's 1-100 scale,
+    // while keeping a true zero available for silence.
+    const double normalized = qBound(0, mixerVolume - MinimumAudibleMixerVolume,
+                                     100 - MinimumAudibleMixerVolume)
+        / double(100 - MinimumAudibleMixerVolume);
     return qBound(0, qRound(normalized * normalized * 100.0), 100);
 }
 
 int mixerVolumeForPerceptual(int perceptualVolume)
 {
+    if (perceptualVolume <= 0) {
+        return 0;
+    }
+
     const double normalized = qBound(0, perceptualVolume, 100) / 100.0;
-    return qBound(0, qRound(qSqrt(normalized) * 100.0), 100);
+    const int mixerVolume = MinimumAudibleMixerVolume
+        + qRound(qSqrt(normalized) * (100 - MinimumAudibleMixerVolume));
+    return qBound(MinimumAudibleMixerVolume, mixerVolume, 100);
 }
 
 bool parseMixerMuted(const QString &output)
