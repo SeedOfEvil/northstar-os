@@ -613,6 +613,8 @@ bool QuickSettingsController::previewDisplayMode(const QString &mode)
         && previousMode->toMap().value(QStringLiteral("custom")).toBool();
     m_currentDisplayMode = mode;
     m_displayModePending = true;
+    m_pendingDisplayModeCustom = customMode;
+    m_pendingDisplayMode = mode;
     m_displayModeSecondsRemaining = 30;
     m_displayRevertTimer.start();
     setStatusMessage(QStringLiteral("Display preview applied. Keep it within 30 seconds."));
@@ -627,17 +629,35 @@ bool QuickSettingsController::keepDisplayMode()
         return false;
     }
 
-    const QString configPath = wayfireConfigPath();
-    QString persistentMode = m_currentDisplayMode;
-    persistentMode.remove(QStringLiteral("Hz"));
-    if (!persistWayfireMode(configPath, m_displayOutputName, persistentMode)) {
-        setStatusMessage(QStringLiteral("The display mode could not be saved."));
-        return false;
+    QSettings preferences(m_settingsPath, QSettings::IniFormat);
+    if (m_pendingDisplayModeCustom) {
+        // Wayfire treats its output mode field as an advertised EDID mode and
+        // live-reloads the file. Writing a custom lower mode there immediately
+        // resets this panel to preferred. Keep custom modes in Northstar's own
+        // settings and reapply them through --custom-mode at shell startup.
+        preferences.setValue(QStringLiteral("display/customMode"),
+                             m_pendingDisplayMode);
+        preferences.sync();
+        if (preferences.status() != QSettings::NoError) {
+            setStatusMessage(QStringLiteral("The custom display mode could not be saved."));
+            return false;
+        }
+    } else {
+        QString persistentMode = m_currentDisplayMode;
+        persistentMode.remove(QStringLiteral("Hz"));
+        if (!persistWayfireMode(wayfireConfigPath(), m_displayOutputName, persistentMode)) {
+            setStatusMessage(QStringLiteral("The display mode could not be saved."));
+            return false;
+        }
+        preferences.remove(QStringLiteral("display/customMode"));
+        preferences.sync();
     }
 
     m_displayRevertTimer.stop();
     m_displayModePending = false;
     m_displayModeSecondsRemaining = 0;
+    m_pendingDisplayModeCustom = false;
+    m_pendingDisplayMode.clear();
     m_previousDisplayMode.clear();
     m_previousDisplayModeCustom = false;
     setStatusMessage(QStringLiteral("Display mode saved for %1.").arg(m_displayOutputName));
@@ -662,6 +682,8 @@ bool QuickSettingsController::revertDisplayMode()
     m_displayRevertTimer.stop();
     m_displayModePending = false;
     m_displayModeSecondsRemaining = 0;
+    m_pendingDisplayModeCustom = false;
+    m_pendingDisplayMode.clear();
     m_previousDisplayMode.clear();
     m_previousDisplayModeCustom = false;
     if (!commandSucceeded(result)) {
@@ -671,6 +693,43 @@ bool QuickSettingsController::revertDisplayMode()
     }
     m_currentDisplayMode = previous;
     setStatusMessage(QStringLiteral("The previous display mode was restored."));
+    emit displayModeApplied();
+    emit capabilitiesChanged();
+    return true;
+}
+
+bool QuickSettingsController::restorePersistedCustomDisplayMode()
+{
+    if (m_displayModePending || m_displayOutputName.isEmpty()) {
+        return false;
+    }
+    QSettings preferences(m_settingsPath, QSettings::IniFormat);
+    const QString mode = preferences.value(QStringLiteral("display/customMode"))
+                             .toString().trimmed();
+    if (mode.isEmpty() || mode == m_currentDisplayMode) {
+        return !mode.isEmpty();
+    }
+    const auto offeredMode = std::find_if(m_displayModes.cbegin(), m_displayModes.cend(),
+                                          [&mode](const QVariant &entry) {
+        const QVariantMap details = entry.toMap();
+        return details.value(QStringLiteral("custom")).toBool()
+            && details.value(QStringLiteral("value")).toString() == mode;
+    });
+    if (offeredMode == m_displayModes.cend()) {
+        preferences.remove(QStringLiteral("display/customMode"));
+        preferences.sync();
+        return false;
+    }
+    const QStringList arguments{QStringLiteral("--output"), m_displayOutputName,
+                                QStringLiteral("--custom-mode"), mode};
+    if (!commandSucceeded(m_commandProvider(
+            wlrRandrPath(), QStringList{QStringLiteral("--dryrun")} + arguments))
+        || !commandSucceeded(m_commandProvider(wlrRandrPath(), arguments))) {
+        setStatusMessage(QStringLiteral("The saved custom display mode could not be restored."));
+        return false;
+    }
+    m_currentDisplayMode = mode;
+    setStatusMessage(QStringLiteral("Saved custom display mode restored."));
     emit displayModeApplied();
     emit capabilitiesChanged();
     return true;

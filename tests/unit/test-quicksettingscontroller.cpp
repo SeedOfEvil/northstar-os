@@ -89,9 +89,26 @@ void QuickSettingsControllerTest::previewsAndPersistsReportedDisplayModes()
         "--dryrun --output eDP-1 --custom-mode 1600x900@60Hz")));
     QVERIFY(calls.contains(QStringLiteral(
         "--output eDP-1 --custom-mode 1600x900@60Hz")));
-    QVERIFY(controller.revertDisplayMode());
+    QVERIFY(controller.keepDisplayMode());
     QVERIFY(controller.previousDisplayMode().isEmpty());
-    QCOMPARE(modesetSpy.count(), 2);
+    QCOMPARE(modesetSpy.count(), 1);
+    QSettings customPreferences(
+        directory.filePath(QStringLiteral("northstar.ini")), QSettings::IniFormat);
+    QCOMPARE(customPreferences.value(QStringLiteral("display/customMode")).toString(),
+             QStringLiteral("1600x900@60Hz"));
+    QSettings unchangedWayfire(wayfireConfig, QSettings::IniFormat);
+    QCOMPARE(unchangedWayfire.value(QStringLiteral("output:eDP-1/mode")).toString(),
+             QStringLiteral("auto"));
+
+    QuickSettingsController restoredController(nullptr,
+        directory.filePath(QStringLiteral("northstar.ini")), provider);
+    QVERIFY(restoredController.restorePersistedCustomDisplayMode());
+    QCOMPARE(restoredController.currentDisplayMode(), QStringLiteral("1600x900@60Hz"));
+
+    QVERIFY(controller.previewDisplayMode(QStringLiteral("1920x1080@59.999000Hz")));
+    QVERIFY(controller.keepDisplayMode());
+    customPreferences.sync();
+    QVERIFY(!customPreferences.contains(QStringLiteral("display/customMode")));
 
     QVERIFY(controller.previewDisplayMode(QStringLiteral("1920x1080@47.999000Hz")));
     QVERIFY(controller.displayModePending());

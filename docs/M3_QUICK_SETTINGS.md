@@ -25,10 +25,12 @@ properties to QML.
   They use an output mode at compositor scale 1.0, not a Wayland UI scale;
   the fixed-resolution LCD still stretches a lower fullscreen signal to its
   physical pixels. Every choice is validated with `--dryrun`, applied as a 30-second preview,
-  and restored unless the user explicitly keeps it. A kept mode is written
-  only to that user's matching Wayfire output group; arbitrary connector
-  names, caller-provided modes, and caller-provided command options are not
-  accepted. Every successful preview or restore explicitly debounces a shell
+  and restored unless the user explicitly keeps it. A kept native mode is
+  written only to that user's matching Wayfire output group. A kept custom
+  lower mode is stored in Northstar preferences and reapplied with
+  `--custom-mode` at shell startup, avoiding Wayfire's native-mode config
+  reload. Arbitrary connector names, caller-provided modes, and caller-provided
+  command options are not accepted. Every successful preview or restore explicitly debounces a shell
   surface rebuild; compositor screen add/remove events are supplemental and
   are not the only source of resize recovery. If the full Settings window was
   open before that rebuild, the correctly resized replacement is reopened so

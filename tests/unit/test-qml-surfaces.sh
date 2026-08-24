@@ -207,6 +207,7 @@ contains src/shell/main.cpp 'qrc:/Northstar/Shell/DisplayModeConfirmationWindow.
 contains src/shell/main.cpp 'displayConfirmationObject'
 contains src/shell/main.cpp '&QuickSettingsController::displayModeApplied'
 contains src/shell/main.cpp 'outputRefreshTimer.start()'
+contains src/shell/main.cpp 'quickSettingsController.restorePersistedCustomDisplayMode()'
 contains src/shell/DisplayModeConfirmationWindow.qml 'confirmation.controller.displayModePending'
 contains src/shell/DisplayModeConfirmationWindow.qml 'confirmation.controller.displayModeSecondsRemaining'
 contains src/shell/DisplayModeConfirmationWindow.qml 'confirmation.controller.previousDisplayMode'

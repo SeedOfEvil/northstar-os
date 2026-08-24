@@ -600,6 +600,9 @@ int main(int argc, char *argv[])
                      &application, [&outputRefreshTimer]() {
         outputRefreshTimer.start();
     });
+    QTimer::singleShot(0, &quickSettingsController, [&quickSettingsController]() {
+        quickSettingsController.restorePersistedCustomDisplayMode();
+    });
 
     // The scope guard tears the surfaces down on the way out of here.
     return application.exec();

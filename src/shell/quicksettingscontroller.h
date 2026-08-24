@@ -115,6 +115,7 @@ public:
     Q_INVOKABLE bool previewDisplayMode(const QString &mode);
     Q_INVOKABLE bool keepDisplayMode();
     Q_INVOKABLE bool revertDisplayMode();
+    Q_INVOKABLE bool restorePersistedCustomDisplayMode();
     Q_INVOKABLE void toggleDoNotDisturb();
 
 public slots:
@@ -174,6 +175,8 @@ private:
     bool m_previousDisplayModeCustom = false;
     bool m_displayModeWritable = false;
     bool m_displayModePending = false;
+    bool m_pendingDisplayModeCustom = false;
+    QString m_pendingDisplayMode;
     int m_displayModeSecondsRemaining = 0;
     QTimer m_displayRevertTimer;
     bool m_nightLightAvailable = false;
