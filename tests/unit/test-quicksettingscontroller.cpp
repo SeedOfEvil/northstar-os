@@ -95,7 +95,7 @@ void QuickSettingsControllerTest::previewsAndPersistsReportedDisplayModes()
 
     QVERIFY(controller.previewDisplayMode(QStringLiteral("1920x1080@47.999000Hz")));
     QVERIFY(controller.displayModePending());
-    QCOMPARE(controller.displayModeSecondsRemaining(), 15);
+    QCOMPARE(controller.displayModeSecondsRemaining(), 30);
     QVERIFY(calls.contains(QStringLiteral(
         "--dryrun --output eDP-1 --mode 1920x1080@47.999000Hz")));
     QVERIFY(calls.contains(QStringLiteral(

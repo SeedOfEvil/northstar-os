@@ -187,7 +187,7 @@ void registerDesktopSettings(SettingsCatalog *catalog,
             resolution.section = QStringLiteral("appearance");
             resolution.title = QStringLiteral("Display resolution");
             resolution.description = QStringLiteral(
-                "Preview a mode reported by the connected Wayland display. Unconfirmed changes revert after 15 seconds.");
+                "Preview a mode reported by the connected Wayland display. Unconfirmed changes revert after 30 seconds.");
             resolution.keywords = QStringList{QStringLiteral("display"), QStringLiteral("screen"),
                                                QStringLiteral("resolution"), QStringLiteral("mode"),
                                                QStringLiteral("refresh"), QStringLiteral("hertz")};

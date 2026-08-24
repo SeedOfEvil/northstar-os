@@ -613,9 +613,9 @@ bool QuickSettingsController::previewDisplayMode(const QString &mode)
         && previousMode->toMap().value(QStringLiteral("custom")).toBool();
     m_currentDisplayMode = mode;
     m_displayModePending = true;
-    m_displayModeSecondsRemaining = 15;
+    m_displayModeSecondsRemaining = 30;
     m_displayRevertTimer.start();
-    setStatusMessage(QStringLiteral("Display preview applied. Keep it within 15 seconds."));
+    setStatusMessage(QStringLiteral("Display preview applied. Keep it within 30 seconds."));
     emit displayModeApplied();
     emit capabilitiesChanged();
     return true;
@@ -1036,8 +1036,8 @@ void QuickSettingsController::refreshDisplayModes()
             }
         }
 
-        const QList<QPair<int, int>> scaledModes{{1600, 900}, {1366, 768}, {1280, 720}};
-        for (const auto &[width, height] : scaledModes) {
+        const QList<QPair<int, int>> lowerModes{{1600, 900}, {1366, 768}, {1280, 720}};
+        for (const auto &[width, height] : lowerModes) {
             if (width >= maximumWidth || height >= maximumHeight) {
                 continue;
             }
@@ -1054,7 +1054,7 @@ void QuickSettingsController::refreshDisplayModes()
             }
             m_displayModes.append(QVariantMap{
                 {QStringLiteral("value"), value},
-                {QStringLiteral("label"), QStringLiteral("%1 × %2 at 60 Hz (scaled)")
+                {QStringLiteral("label"), QStringLiteral("%1 × %2 at 60 Hz")
                                                   .arg(width).arg(height)},
                 {QStringLiteral("preferred"), false},
                 {QStringLiteral("current"), false},

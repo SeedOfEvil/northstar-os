@@ -543,6 +543,15 @@ int main(int argc, char *argv[])
     outputRefreshTimer.setSingleShot(true);
     outputRefreshTimer.setInterval(750);
     QObject::connect(&outputRefreshTimer, &QTimer::timeout, &application, [&]() {
+        bool reopenSettings = false;
+        for (QObject *surface : std::as_const(surfaces)) {
+            QObject *settingsWindow = surface != nullptr
+                ? surface->findChild<QObject *>(QStringLiteral("settingsWindow"))
+                : nullptr;
+            reopenSettings = reopenSettings
+                || (settingsWindow != nullptr
+                    && settingsWindow->property("visible").toBool());
+        }
         destroySurfaces();
         displayIndex = 0;
         for (QScreen *screen : application.screens()) {
@@ -557,6 +566,18 @@ int main(int argc, char *argv[])
             qWarning() << "No connected display was available after an output change";
         } else {
             qInfo() << "Northstar surfaces rebuilt after output change";
+            if (reopenSettings) {
+                for (QObject *surface : std::as_const(surfaces)) {
+                    QObject *settingsWindow = surface != nullptr
+                        ? surface->findChild<QObject *>(QStringLiteral("settingsWindow"))
+                        : nullptr;
+                    if (settingsWindow != nullptr) {
+                        QMetaObject::invokeMethod(settingsWindow, "openSettings",
+                                                  Qt::QueuedConnection);
+                        break;
+                    }
+                }
+            }
         }
     });
     const auto scheduleOutputRefresh = [&outputRefreshTimer](QScreen *) {

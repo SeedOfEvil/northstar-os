@@ -4,6 +4,7 @@ import Northstar.Ui 1.0
 
 Window {
     id: settings
+    objectName: "settingsWindow"
 
     LunarPalette {
         id: lunar
