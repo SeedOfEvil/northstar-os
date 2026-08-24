@@ -51,7 +51,7 @@ Window {
 
     color: "transparent"
     flags: Qt.Dialog | Qt.FramelessWindowHint
-    height: 270
+    height: confirmationBody.implicitHeight + 48
     modality: Qt.ApplicationModal
     title: "Confirm display mode"
     visible: false
@@ -88,6 +88,8 @@ Window {
         darkMode: lunar.darkMode
 
         Column {
+            id: confirmationBody
+
             anchors.fill: parent
             anchors.margins: 24
             spacing: 14

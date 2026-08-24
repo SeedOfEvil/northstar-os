@@ -214,6 +214,7 @@ contains src/shell/main.cpp 'quickSettingsController.restorePersistedCustomDispl
 contains src/shell/DisplayModeConfirmationWindow.qml 'confirmation.controller.displayModePending'
 contains src/shell/DisplayModeConfirmationWindow.qml 'confirmation.controller.displayModeSecondsRemaining'
 contains src/shell/DisplayModeConfirmationWindow.qml 'wrapMode: Text.WordWrap'
+contains src/shell/DisplayModeConfirmationWindow.qml 'height: confirmationBody.implicitHeight + 48'
 contains src/shell/DisplayModeConfirmationWindow.qml ': "Revert"'
 contains src/shell/DisplayModeConfirmationWindow.qml ': "Keep"'
 contains src/shell/DisplayModeConfirmationWindow.qml 'confirmation.controller.currentDisplayMode'
