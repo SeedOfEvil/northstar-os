@@ -32,7 +32,9 @@ properties to QML.
   surface rebuild; compositor screen add/remove events are supplemental and
   are not the only source of resize recovery. If the full Settings window was
   open before that rebuild, the correctly resized replacement is reopened so
-  the confirmation workflow is not interrupted.
+  the confirmation workflow is not interrupted. The independent confirmation
+  window is explicitly remapped after the physical output returns because a
+  DRM modeset may unmap a still-live Wayland window.
 - Night Light remains disabled until the compositor provides a tested color-
   management boundary.
 - Unsupported controls remain visibly unavailable and provide a route to the

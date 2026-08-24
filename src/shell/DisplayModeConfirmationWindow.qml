@@ -23,6 +23,27 @@ Window {
         return mode.replace("x", " × ").replace("@", " at ").replace("Hz", " Hz")
     }
 
+    function syncVisibility() {
+        const pending = confirmation.controller
+            && confirmation.controller.displayModePending
+        if (pending && !visible) {
+            show()
+            raise()
+            requestActivate()
+        } else if (!pending && visible) {
+            hide()
+        }
+    }
+
+    function remapIfPending() {
+        if (!confirmation.controller
+            || !confirmation.controller.displayModePending) {
+            return
+        }
+        hide()
+        remapTimer.restart()
+    }
+
     LunarPalette {
         id: lunar
         darkMode: confirmation.state ? confirmation.state.darkMode : true
@@ -33,8 +54,7 @@ Window {
     height: 238
     modality: Qt.ApplicationModal
     title: "Confirm display mode"
-    visible: confirmation.controller
-        && confirmation.controller.displayModePending
+    visible: false
     width: Math.min(500, screenWidth - (desktopMargin * 2))
     x: screenX + (screenWidth - width) / 2
     y: screenY + panelHeight + Math.max(desktopMargin,
@@ -46,6 +66,21 @@ Window {
             raise()
             requestActivate()
         }
+    }
+
+    Component.onCompleted: syncVisibility()
+
+    Connections {
+        target: confirmation.controller
+        function onCapabilitiesChanged() {
+            confirmation.syncVisibility()
+        }
+    }
+
+    Timer {
+        id: remapTimer
+        interval: 100
+        onTriggered: confirmation.syncVisibility()
     }
 
     Timer {

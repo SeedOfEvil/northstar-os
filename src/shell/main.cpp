@@ -566,6 +566,11 @@ int main(int argc, char *argv[])
             qWarning() << "No connected display was available after an output change";
         } else {
             qInfo() << "Northstar surfaces rebuilt after output change";
+            if (quickSettingsController.displayModePending()) {
+                QMetaObject::invokeMethod(displayConfirmationObject,
+                                          "remapIfPending",
+                                          Qt::QueuedConnection);
+            }
             if (reopenSettings) {
                 for (QObject *surface : std::as_const(surfaces)) {
                     QObject *settingsWindow = surface != nullptr
