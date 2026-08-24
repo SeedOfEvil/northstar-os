@@ -34,8 +34,8 @@ properties to QML.
   open before that rebuild, the correctly resized replacement is reopened so
   the confirmation workflow is not interrupted. The independent confirmation
   window is explicitly remapped after the physical output returns because a
-  DRM modeset may unmap a still-live Wayland window. Keep and Revert use
-  separate queued actions so a remap cannot reinterpret one as the other.
+  DRM modeset may unmap a still-live Wayland window. Keep and Revert call the
+  controller synchronously so no deferred UI callback can be lost to remap.
 - Night Light remains disabled until the compositor provides a tested color-
   management boundary.
 - Unsupported controls remain visibly unavailable and provide a route to the

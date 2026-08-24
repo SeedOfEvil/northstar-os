@@ -62,9 +62,7 @@ Window {
 
     onVisibleChanged: {
         if (visible) {
-            if (!keepTimer.running && !revertTimer.running) {
-                pendingAction = ""
-            }
+            pendingAction = ""
             raise()
             requestActivate()
         }
@@ -83,34 +81,6 @@ Window {
         id: remapTimer
         interval: 100
         onTriggered: confirmation.syncVisibility()
-    }
-
-    Timer {
-        id: keepTimer
-        interval: 0
-        onTriggered: {
-            if (!confirmation.controller) {
-                confirmation.pendingAction = ""
-                return
-            }
-            if (!confirmation.controller.keepDisplayMode()) {
-                confirmation.pendingAction = ""
-            }
-        }
-    }
-
-    Timer {
-        id: revertTimer
-        interval: 0
-        onTriggered: {
-            if (!confirmation.controller) {
-                confirmation.pendingAction = ""
-                return
-            }
-            if (!confirmation.controller.revertDisplayMode()) {
-                confirmation.pendingAction = ""
-            }
-        }
     }
 
     NorthstarWindowFrame {
@@ -164,7 +134,10 @@ Window {
                                 ? confirmation.controller.previousDisplayMode : "")
                     onClicked: {
                         confirmation.pendingAction = "revert"
-                        revertTimer.start()
+                        if (!confirmation.controller
+                            || !confirmation.controller.revertDisplayMode()) {
+                            confirmation.pendingAction = ""
+                        }
                     }
                 }
 
@@ -178,7 +151,10 @@ Window {
                                 ? confirmation.controller.currentDisplayMode : "")
                     onClicked: {
                         confirmation.pendingAction = "keep"
-                        keepTimer.start()
+                        if (!confirmation.controller
+                            || !confirmation.controller.keepDisplayMode()) {
+                            confirmation.pendingAction = ""
+                        }
                     }
                 }
             }
