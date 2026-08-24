@@ -26,7 +26,9 @@ properties to QML.
   and restored unless the user explicitly keeps it. A kept mode is written
   only to that user's matching Wayfire output group; arbitrary connector
   names, caller-provided modes, and caller-provided command options are not
-  accepted.
+  accepted. Every successful preview or restore explicitly debounces a shell
+  surface rebuild; compositor screen add/remove events are supplemental and
+  are not the only source of resize recovery.
 - Night Light remains disabled until the compositor provides a tested color-
   management boundary.
 - Unsupported controls remain visibly unavailable and provide a route to the

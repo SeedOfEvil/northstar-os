@@ -16,6 +16,13 @@ Window {
     property int screenHeight: targetScreen ? targetScreen.geometry.height : 800
     property string pendingAction: ""
 
+    function readableMode(mode) {
+        if (!mode) {
+            return "previous mode"
+        }
+        return mode.replace("x", " × ").replace("@", " at ").replace("Hz", " Hz")
+    }
+
     LunarPalette {
         id: lunar
         darkMode: confirmation.state ? confirmation.state.darkMode : true
@@ -71,7 +78,8 @@ Window {
                 color: lunar.foreground
                 font.bold: true
                 font.pixelSize: 20
-                text: "Keep this display mode?"
+                text: "Keep " + confirmation.readableMode(
+                    confirmation.controller ? confirmation.controller.currentDisplayMode : "") + "?"
                 width: parent.width
             }
 
@@ -101,7 +109,11 @@ Window {
 
                 Button {
                     enabled: confirmation.pendingAction.length === 0
-                    text: confirmation.pendingAction === "revert" ? "Restoring..." : "Revert"
+                    text: confirmation.pendingAction === "revert"
+                        ? "Restoring..."
+                        : "Go back to " + confirmation.readableMode(
+                            confirmation.controller
+                                ? confirmation.controller.previousDisplayMode : "")
                     onClicked: {
                         confirmation.pendingAction = "revert"
                         actionTimer.start()
@@ -111,7 +123,11 @@ Window {
                 Button {
                     enabled: confirmation.pendingAction.length === 0
                     highlighted: true
-                    text: confirmation.pendingAction === "keep" ? "Keeping..." : "Keep display"
+                    text: confirmation.pendingAction === "keep"
+                        ? "Keeping..."
+                        : "Keep " + confirmation.readableMode(
+                            confirmation.controller
+                                ? confirmation.controller.currentDisplayMode : "")
                     onClicked: {
                         confirmation.pendingAction = "keep"
                         actionTimer.start()

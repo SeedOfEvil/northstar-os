@@ -82,12 +82,16 @@ void QuickSettingsControllerTest::previewsAndPersistsReportedDisplayModes()
     QVERIFY(controller.displayModeWritable());
     QVERIFY(!controller.previewDisplayMode(QStringLiteral("640x480@60Hz")));
 
+    QSignalSpy modesetSpy(&controller, &QuickSettingsController::displayModeApplied);
     QVERIFY(controller.previewDisplayMode(QStringLiteral("1600x900@60Hz")));
+    QCOMPARE(controller.previousDisplayMode(), QStringLiteral("1920x1080@59.999000Hz"));
     QVERIFY(calls.contains(QStringLiteral(
         "--dryrun --output eDP-1 --custom-mode 1600x900@60Hz")));
     QVERIFY(calls.contains(QStringLiteral(
         "--output eDP-1 --custom-mode 1600x900@60Hz")));
     QVERIFY(controller.revertDisplayMode());
+    QVERIFY(controller.previousDisplayMode().isEmpty());
+    QCOMPARE(modesetSpy.count(), 2);
 
     QVERIFY(controller.previewDisplayMode(QStringLiteral("1920x1080@47.999000Hz")));
     QVERIFY(controller.displayModePending());

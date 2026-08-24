@@ -41,6 +41,7 @@ class QuickSettingsController final : public QObject
     Q_PROPERTY(QString displayStatus READ displayStatus NOTIFY capabilitiesChanged)
     Q_PROPERTY(QVariantList displayModes READ displayModes NOTIFY capabilitiesChanged)
     Q_PROPERTY(QString currentDisplayMode READ currentDisplayMode NOTIFY capabilitiesChanged)
+    Q_PROPERTY(QString previousDisplayMode READ previousDisplayMode NOTIFY capabilitiesChanged)
     Q_PROPERTY(QString displayOutputName READ displayOutputName NOTIFY capabilitiesChanged)
     Q_PROPERTY(bool displayModeWritable READ displayModeWritable NOTIFY capabilitiesChanged)
     Q_PROPERTY(bool displayModePending READ displayModePending NOTIFY capabilitiesChanged)
@@ -91,6 +92,7 @@ public:
     QString displayStatus() const;
     QVariantList displayModes() const;
     QString currentDisplayMode() const;
+    QString previousDisplayMode() const;
     QString displayOutputName() const;
     bool displayModeWritable() const;
     bool displayModePending() const;
@@ -120,6 +122,7 @@ public slots:
 
 signals:
     void capabilitiesChanged();
+    void displayModeApplied();
     void doNotDisturbChanged();
     void statusMessageChanged();
 

@@ -566,6 +566,14 @@ int main(int argc, char *argv[])
                      &application, scheduleOutputRefresh);
     QObject::connect(&application, &QGuiApplication::screenRemoved,
                      &application, scheduleOutputRefresh);
+    // A rapid preview followed by Revert does not reliably produce a second
+    // screenAdded/screenRemoved pair. The controller knows every successful
+    // modeset, so use that as the authoritative rebuild trigger as well.
+    QObject::connect(&quickSettingsController,
+                     &QuickSettingsController::displayModeApplied,
+                     &application, [&outputRefreshTimer]() {
+        outputRefreshTimer.start();
+    });
 
     // The scope guard tears the surfaces down on the way out of here.
     return application.exec();

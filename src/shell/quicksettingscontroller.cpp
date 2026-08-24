@@ -264,6 +264,7 @@ int QuickSettingsController::displayBrightness() const { return m_displayBrightn
 QString QuickSettingsController::displayStatus() const { return m_displayStatus; }
 QVariantList QuickSettingsController::displayModes() const { return m_displayModes; }
 QString QuickSettingsController::currentDisplayMode() const { return m_currentDisplayMode; }
+QString QuickSettingsController::previousDisplayMode() const { return m_previousDisplayMode; }
 QString QuickSettingsController::displayOutputName() const { return m_displayOutputName; }
 bool QuickSettingsController::displayModeWritable() const { return m_displayModeWritable; }
 bool QuickSettingsController::displayModePending() const { return m_displayModePending; }
@@ -615,6 +616,7 @@ bool QuickSettingsController::previewDisplayMode(const QString &mode)
     m_displayModeSecondsRemaining = 15;
     m_displayRevertTimer.start();
     setStatusMessage(QStringLiteral("Display preview applied. Keep it within 15 seconds."));
+    emit displayModeApplied();
     emit capabilitiesChanged();
     return true;
 }
@@ -669,6 +671,7 @@ bool QuickSettingsController::revertDisplayMode()
     }
     m_currentDisplayMode = previous;
     setStatusMessage(QStringLiteral("The previous display mode was restored."));
+    emit displayModeApplied();
     emit capabilitiesChanged();
     return true;
 }
