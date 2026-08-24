@@ -51,7 +51,7 @@ Window {
 
     color: "transparent"
     flags: Qt.Dialog | Qt.FramelessWindowHint
-    height: 238
+    height: 270
     modality: Qt.ApplicationModal
     title: "Confirm display mode"
     visible: false
@@ -99,6 +99,7 @@ Window {
                 text: "Keep " + confirmation.readableMode(
                     confirmation.controller ? confirmation.controller.currentDisplayMode : "") + "?"
                 width: parent.width
+                wrapMode: Text.WordWrap
             }
 
             Text {
@@ -129,9 +130,7 @@ Window {
                     enabled: confirmation.pendingAction.length === 0
                     text: confirmation.pendingAction === "revert"
                         ? "Restoring..."
-                        : "Go back to " + confirmation.readableMode(
-                            confirmation.controller
-                                ? confirmation.controller.previousDisplayMode : "")
+                        : "Revert"
                     onClicked: {
                         confirmation.pendingAction = "revert"
                         if (!confirmation.controller
@@ -146,9 +145,7 @@ Window {
                     highlighted: true
                     text: confirmation.pendingAction === "keep"
                         ? "Keeping..."
-                        : "Keep " + confirmation.readableMode(
-                            confirmation.controller
-                                ? confirmation.controller.currentDisplayMode : "")
+                        : "Keep"
                     onClicked: {
                         confirmation.pendingAction = "keep"
                         if (!confirmation.controller
