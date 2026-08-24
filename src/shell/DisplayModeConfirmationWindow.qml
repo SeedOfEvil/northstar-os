@@ -62,7 +62,9 @@ Window {
 
     onVisibleChanged: {
         if (visible) {
-            pendingAction = ""
+            if (!keepTimer.running && !revertTimer.running) {
+                pendingAction = ""
+            }
             raise()
             requestActivate()
         }
@@ -84,17 +86,28 @@ Window {
     }
 
     Timer {
-        id: actionTimer
+        id: keepTimer
         interval: 0
         onTriggered: {
             if (!confirmation.controller) {
                 confirmation.pendingAction = ""
                 return
             }
-            const succeeded = confirmation.pendingAction === "keep"
-                ? confirmation.controller.keepDisplayMode()
-                : confirmation.controller.revertDisplayMode()
-            if (!succeeded) {
+            if (!confirmation.controller.keepDisplayMode()) {
+                confirmation.pendingAction = ""
+            }
+        }
+    }
+
+    Timer {
+        id: revertTimer
+        interval: 0
+        onTriggered: {
+            if (!confirmation.controller) {
+                confirmation.pendingAction = ""
+                return
+            }
+            if (!confirmation.controller.revertDisplayMode()) {
                 confirmation.pendingAction = ""
             }
         }
@@ -151,7 +164,7 @@ Window {
                                 ? confirmation.controller.previousDisplayMode : "")
                     onClicked: {
                         confirmation.pendingAction = "revert"
-                        actionTimer.start()
+                        revertTimer.start()
                     }
                 }
 
@@ -165,7 +178,7 @@ Window {
                                 ? confirmation.controller.currentDisplayMode : "")
                     onClicked: {
                         confirmation.pendingAction = "keep"
-                        actionTimer.start()
+                        keepTimer.start()
                     }
                 }
             }

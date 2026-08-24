@@ -216,6 +216,8 @@ contains src/shell/DisplayModeConfirmationWindow.qml 'confirmation.controller.ke
 contains src/shell/DisplayModeConfirmationWindow.qml 'modality: Qt.ApplicationModal'
 contains src/shell/DisplayModeConfirmationWindow.qml 'confirmation.pendingAction = "revert"'
 contains src/shell/DisplayModeConfirmationWindow.qml 'confirmation.pendingAction = "keep"'
+contains src/shell/DisplayModeConfirmationWindow.qml 'id: keepTimer'
+contains src/shell/DisplayModeConfirmationWindow.qml 'id: revertTimer'
 contains src/shell/DisplayModeConfirmationWindow.qml 'function remapIfPending()'
 contains src/shell/DisplayModeConfirmationWindow.qml 'function onCapabilitiesChanged()'
 contains src/shell/main.cpp 'QMetaObject::invokeMethod(displayConfirmationObject,'
