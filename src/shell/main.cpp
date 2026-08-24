@@ -539,6 +539,15 @@ int main(int argc, char *argv[])
     // when eDP-1 returns. Debounce the burst of screenRemoved/screenAdded
     // signals and rebuild only Northstar's shell surfaces after the output set
     // has settled. Application windows remain owned by the compositor.
+    bool controllerModesetInProgress = false;
+    QTimer controllerModesetGuard;
+    controllerModesetGuard.setSingleShot(true);
+    controllerModesetGuard.setInterval(2000);
+    QObject::connect(&controllerModesetGuard, &QTimer::timeout,
+                     &application, [&controllerModesetInProgress]() {
+        controllerModesetInProgress = false;
+    });
+
     QTimer outputRefreshTimer;
     outputRefreshTimer.setSingleShot(true);
     outputRefreshTimer.setInterval(750);
@@ -585,20 +594,31 @@ int main(int argc, char *argv[])
             }
         }
     });
-    const auto scheduleOutputRefresh = [&outputRefreshTimer](QScreen *) {
+    const auto scheduleOutputRefresh = [&outputRefreshTimer,
+                                        &controllerModesetInProgress](QScreen *) {
+        if (controllerModesetInProgress) {
+            return;
+        }
         outputRefreshTimer.start();
     };
     QObject::connect(&application, &QGuiApplication::screenAdded,
                      &application, scheduleOutputRefresh);
     QObject::connect(&application, &QGuiApplication::screenRemoved,
                      &application, scheduleOutputRefresh);
-    // A rapid preview followed by Revert does not reliably produce a second
-    // screenAdded/screenRemoved pair. The controller knows every successful
-    // modeset, so use that as the authoritative rebuild trigger as well.
+    // A controller-driven mode change keeps the same physical connector.
+    // Qt and layer-shell resize those live windows in place; running the S3
+    // recovery path here destroyed Settings and remapped the confirmation
+    // window unnecessarily. Suppress the screen-signal burst only around a
+    // successful Northstar modeset. Genuine output loss still takes the full
+    // rebuild path above.
     QObject::connect(&quickSettingsController,
                      &QuickSettingsController::displayModeApplied,
-                     &application, [&outputRefreshTimer]() {
-        outputRefreshTimer.start();
+                     &application, [&outputRefreshTimer,
+                                    &controllerModesetInProgress,
+                                    &controllerModesetGuard]() {
+        controllerModesetInProgress = true;
+        outputRefreshTimer.stop();
+        controllerModesetGuard.start();
     });
     QTimer::singleShot(0, &quickSettingsController, [&quickSettingsController]() {
         quickSettingsController.restorePersistedCustomDisplayMode();

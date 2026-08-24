@@ -30,14 +30,12 @@ properties to QML.
   lower mode is stored in Northstar preferences and reapplied with
   `--custom-mode` at shell startup, avoiding Wayfire's native-mode config
   reload. Arbitrary connector names, caller-provided modes, and caller-provided
-  command options are not accepted. Every successful preview or restore explicitly debounces a shell
-  surface rebuild; compositor screen add/remove events are supplemental and
-  are not the only source of resize recovery. If the full Settings window was
-  open before that rebuild, the correctly resized replacement is reopened so
-  the confirmation workflow is not interrupted. The independent confirmation
-  window is explicitly remapped after the physical output returns because a
-  DRM modeset may unmap a still-live Wayland window. Keep and Revert call the
-  controller synchronously so no deferred UI callback can be lost to remap.
+  command options are not accepted. Controller-driven modesets keep the same
+  connector and resize the live shell, Settings, and confirmation windows in
+  place. The screen-signal burst from that transaction is therefore excluded
+  from the suspend/resume recovery path, which remains responsible for fully
+  rebuilding surfaces after genuine output loss. Keep and Revert call the
+  controller synchronously so no deferred UI callback can be lost.
 - Night Light remains disabled until the compositor provides a tested color-
   management boundary.
 - Unsupported controls remain visibly unavailable and provide a route to the
