@@ -53,7 +53,8 @@ Item {
 
     implicitHeight: 34
     implicitWidth: entry && entry.kind === "slider" ? 210
-        : entry && entry.kind === "path" ? 230 : 150
+        : entry && entry.kind === "path" ? 230
+        : entry && entry.kind === "choice" ? 250 : 150
 
     function writeValue(value) {
         return control.catalog ? control.catalog.setValue(control.entry.id, value) : false
@@ -160,7 +161,7 @@ Item {
             model: control.entry.options
             textRole: "label"
             valueRole: "value"
-            width: 150
+            width: 250
 
             // An unset choice would otherwise render as an empty box that
             // looks broken rather than unanswered.

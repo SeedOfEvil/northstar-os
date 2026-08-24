@@ -5,6 +5,7 @@
 #include <QObject>
 #include <QString>
 #include <QStringList>
+#include <QTimer>
 #include <QVariantList>
 
 struct QuickSettingsCommandResult
@@ -38,6 +39,13 @@ class QuickSettingsController final : public QObject
     Q_PROPERTY(bool displayWritable READ displayWritable NOTIFY capabilitiesChanged)
     Q_PROPERTY(int displayBrightness READ displayBrightness NOTIFY capabilitiesChanged)
     Q_PROPERTY(QString displayStatus READ displayStatus NOTIFY capabilitiesChanged)
+    Q_PROPERTY(QVariantList displayModes READ displayModes NOTIFY capabilitiesChanged)
+    Q_PROPERTY(QString currentDisplayMode READ currentDisplayMode NOTIFY capabilitiesChanged)
+    Q_PROPERTY(QString previousDisplayMode READ previousDisplayMode NOTIFY capabilitiesChanged)
+    Q_PROPERTY(QString displayOutputName READ displayOutputName NOTIFY capabilitiesChanged)
+    Q_PROPERTY(bool displayModeWritable READ displayModeWritable NOTIFY capabilitiesChanged)
+    Q_PROPERTY(bool displayModePending READ displayModePending NOTIFY capabilitiesChanged)
+    Q_PROPERTY(int displayModeSecondsRemaining READ displayModeSecondsRemaining NOTIFY capabilitiesChanged)
     Q_PROPERTY(bool nightLightAvailable READ nightLightAvailable NOTIFY capabilitiesChanged)
     Q_PROPERTY(bool nightLightEnabled READ nightLightEnabled NOTIFY capabilitiesChanged)
     Q_PROPERTY(QString nightLightStatus READ nightLightStatus NOTIFY capabilitiesChanged)
@@ -82,6 +90,13 @@ public:
     bool displayWritable() const;
     int displayBrightness() const;
     QString displayStatus() const;
+    QVariantList displayModes() const;
+    QString currentDisplayMode() const;
+    QString previousDisplayMode() const;
+    QString displayOutputName() const;
+    bool displayModeWritable() const;
+    bool displayModePending() const;
+    int displayModeSecondsRemaining() const;
     bool nightLightAvailable() const;
     bool nightLightEnabled() const;
     QString nightLightStatus() const;
@@ -97,6 +112,10 @@ public:
     Q_INVOKABLE bool setSoundOutput(int unit);
     Q_INVOKABLE bool testSound();
     Q_INVOKABLE bool setDisplayBrightness(int brightness);
+    Q_INVOKABLE bool previewDisplayMode(const QString &mode);
+    Q_INVOKABLE bool keepDisplayMode();
+    Q_INVOKABLE bool revertDisplayMode();
+    Q_INVOKABLE bool restorePersistedCustomDisplayMode();
     Q_INVOKABLE void toggleDoNotDisturb();
 
 public slots:
@@ -104,6 +123,7 @@ public slots:
 
 signals:
     void capabilitiesChanged();
+    void displayModeApplied();
     void doNotDisturbChanged();
     void statusMessageChanged();
 
@@ -112,6 +132,8 @@ private:
                                                   const QStringList &arguments);
     static QString defaultSettingsPath();
     static QString testTonePath();
+    static QString wlrRandrPath();
+    static QString wayfireConfigPath();
 
     // Where the privileged boundary lives. Empty when it is not installed,
     // which is what makes a radio read-only rather than silently broken.
@@ -122,6 +144,7 @@ private:
     void refreshSound();
     void refreshSoundOutputs();
     void refreshDisplay();
+    void refreshDisplayModes();
     void setStatusMessage(const QString &message);
 
     QString m_settingsPath;
@@ -145,6 +168,17 @@ private:
     bool m_displayWritable = false;
     int m_displayBrightness = 0;
     QString m_displayStatus = QStringLiteral("Brightness control unavailable");
+    QVariantList m_displayModes;
+    QString m_currentDisplayMode;
+    QString m_displayOutputName;
+    QString m_previousDisplayMode;
+    bool m_previousDisplayModeCustom = false;
+    bool m_displayModeWritable = false;
+    bool m_displayModePending = false;
+    bool m_pendingDisplayModeCustom = false;
+    QString m_pendingDisplayMode;
+    int m_displayModeSecondsRemaining = 0;
+    QTimer m_displayRevertTimer;
     bool m_nightLightAvailable = false;
     bool m_nightLightEnabled = false;
     QString m_nightLightStatus = QStringLiteral("Compositor color control unavailable");

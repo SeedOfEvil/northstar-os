@@ -675,4 +675,5 @@ Window {
         targetScreen: targetScreen
         panelHeight: root.height
     }
+
 }

@@ -266,6 +266,8 @@ int main(int argc, char *argv[])
     QQmlComponent backgroundComponent(&engine, QUrl(QStringLiteral("qrc:/Northstar/Shell/DesktopBackground.qml")));
     QQmlComponent component(&engine, QUrl(QStringLiteral("qrc:/Northstar/Shell/ShellWindow.qml")));
     QQmlComponent dockComponent(&engine, QUrl(QStringLiteral("qrc:/Northstar/Shell/DockWindow.qml")));
+    QQmlComponent displayConfirmationComponent(
+        &engine, QUrl(QStringLiteral("qrc:/Northstar/Shell/DisplayModeConfirmationWindow.qml")));
 
     if (backgroundComponent.status() == QQmlComponent::Error) {
         for (const auto &error : backgroundComponent.errors()) {
@@ -281,6 +283,12 @@ int main(int argc, char *argv[])
     }
     if (dockComponent.status() == QQmlComponent::Error) {
         for (const auto &error : dockComponent.errors()) {
+            qCritical().noquote() << error.toString();
+        }
+        return 1;
+    }
+    if (displayConfirmationComponent.status() == QQmlComponent::Error) {
+        for (const auto &error : displayConfirmationComponent.errors()) {
             qCritical().noquote() << error.toString();
         }
         return 1;
@@ -324,6 +332,20 @@ int main(int argc, char *argv[])
 
         ~SurfaceTeardown() { (*this)(); }
     } destroySurfaces{surfaces, contexts};
+
+    // Unlike the panel/background/dock surfaces, display confirmation must
+    // survive a compositor output rebuild. Otherwise a Keep/Revert click can
+    // land on a window being torn down and appear to be ignored.
+    QObject *displayConfirmationObject = nullptr;
+    struct PersistentSurfaceTeardown
+    {
+        QObject *&object;
+        ~PersistentSurfaceTeardown()
+        {
+            delete object;
+            object = nullptr;
+        }
+    } destroyPersistentSurface{displayConfirmationObject};
 
     int displayIndex = 0;
 
@@ -464,11 +486,41 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    QVariantMap displayConfirmationProperties;
+    displayConfirmationProperties.insert(
+        QStringLiteral("controller"),
+        QVariant::fromValue(static_cast<QObject *>(&quickSettingsController)));
+    displayConfirmationProperties.insert(
+        QStringLiteral("state"),
+        QVariant::fromValue(static_cast<QObject *>(&shellState)));
+    displayConfirmationProperties.insert(
+        QStringLiteral("targetScreen"),
+        QVariant::fromValue(static_cast<QObject *>(application.primaryScreen())));
+    displayConfirmationProperties.insert(QStringLiteral("panelHeight"), PanelHeight);
+    displayConfirmationObject = displayConfirmationComponent.createWithInitialProperties(
+        displayConfirmationProperties, engine.rootContext());
+    if (displayConfirmationObject == nullptr) {
+        for (const auto &error : displayConfirmationComponent.errors()) {
+            qCritical().noquote() << error.toString();
+        }
+        return 1;
+    }
+    const auto updateConfirmationScreen = [displayConfirmationObject](QScreen *screen) {
+        if (screen != nullptr) {
+            displayConfirmationObject->setProperty(
+                "targetScreen", QVariant::fromValue(static_cast<QObject *>(screen)));
+        }
+    };
+    QObject::connect(&application, &QGuiApplication::primaryScreenChanged,
+                     displayConfirmationObject, updateConfirmationScreen);
+
     if (qmlSelfTest) {
         const int selfTestStatus = runShellSelfTest(surfaces);
 
         // Run the teardown early rather than leaving it to the scope guard, so
         // any binding error it raises is counted before the check below.
+        delete displayConfirmationObject;
+        displayConfirmationObject = nullptr;
         destroySurfaces();
         // Counted after teardown so binding errors raised on the way down are
         // included. Anything emitted later than this cannot be seen from here,
@@ -487,10 +539,28 @@ int main(int argc, char *argv[])
     // when eDP-1 returns. Debounce the burst of screenRemoved/screenAdded
     // signals and rebuild only Northstar's shell surfaces after the output set
     // has settled. Application windows remain owned by the compositor.
+    bool controllerModesetInProgress = false;
+    QTimer controllerModesetGuard;
+    controllerModesetGuard.setSingleShot(true);
+    controllerModesetGuard.setInterval(2000);
+    QObject::connect(&controllerModesetGuard, &QTimer::timeout,
+                     &application, [&controllerModesetInProgress]() {
+        controllerModesetInProgress = false;
+    });
+
     QTimer outputRefreshTimer;
     outputRefreshTimer.setSingleShot(true);
     outputRefreshTimer.setInterval(750);
     QObject::connect(&outputRefreshTimer, &QTimer::timeout, &application, [&]() {
+        bool reopenSettings = false;
+        for (QObject *surface : std::as_const(surfaces)) {
+            QObject *settingsWindow = surface != nullptr
+                ? surface->findChild<QObject *>(QStringLiteral("settingsWindow"))
+                : nullptr;
+            reopenSettings = reopenSettings
+                || (settingsWindow != nullptr
+                    && settingsWindow->property("visible").toBool());
+        }
         destroySurfaces();
         displayIndex = 0;
         for (QScreen *screen : application.screens()) {
@@ -505,15 +575,54 @@ int main(int argc, char *argv[])
             qWarning() << "No connected display was available after an output change";
         } else {
             qInfo() << "Northstar surfaces rebuilt after output change";
+            if (quickSettingsController.displayModePending()) {
+                QMetaObject::invokeMethod(displayConfirmationObject,
+                                          "remapIfPending",
+                                          Qt::QueuedConnection);
+            }
+            if (reopenSettings) {
+                for (QObject *surface : std::as_const(surfaces)) {
+                    QObject *settingsWindow = surface != nullptr
+                        ? surface->findChild<QObject *>(QStringLiteral("settingsWindow"))
+                        : nullptr;
+                    if (settingsWindow != nullptr) {
+                        QMetaObject::invokeMethod(settingsWindow, "openSettings",
+                                                  Qt::QueuedConnection);
+                        break;
+                    }
+                }
+            }
         }
     });
-    const auto scheduleOutputRefresh = [&outputRefreshTimer](QScreen *) {
+    const auto scheduleOutputRefresh = [&outputRefreshTimer,
+                                        &controllerModesetInProgress](QScreen *) {
+        if (controllerModesetInProgress) {
+            return;
+        }
         outputRefreshTimer.start();
     };
     QObject::connect(&application, &QGuiApplication::screenAdded,
                      &application, scheduleOutputRefresh);
     QObject::connect(&application, &QGuiApplication::screenRemoved,
                      &application, scheduleOutputRefresh);
+    // A controller-driven mode change keeps the same physical connector.
+    // Qt and layer-shell resize those live windows in place; running the S3
+    // recovery path here destroyed Settings and remapped the confirmation
+    // window unnecessarily. Suppress the screen-signal burst only around a
+    // successful Northstar modeset. Genuine output loss still takes the full
+    // rebuild path above.
+    QObject::connect(&quickSettingsController,
+                     &QuickSettingsController::displayModeApplied,
+                     &application, [&outputRefreshTimer,
+                                    &controllerModesetInProgress,
+                                    &controllerModesetGuard]() {
+        controllerModesetInProgress = true;
+        outputRefreshTimer.stop();
+        controllerModesetGuard.start();
+    });
+    QTimer::singleShot(0, &quickSettingsController, [&quickSettingsController]() {
+        quickSettingsController.restorePersistedCustomDisplayMode();
+    });
 
     // The scope guard tears the surfaces down on the way out of here.
     return application.exec();
