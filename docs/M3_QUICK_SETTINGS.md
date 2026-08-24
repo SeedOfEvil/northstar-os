@@ -34,8 +34,10 @@ properties to QML.
   connector and resize the live shell, Settings, and confirmation windows in
   place. The screen-signal burst from that transaction is therefore excluded
   from the suspend/resume recovery path, which remains responsible for fully
-  rebuilding surfaces after genuine output loss. Keep and Revert call the
-  controller synchronously so no deferred UI callback can be lost.
+  rebuilding surfaces after genuine output loss. The modal confirmation is the
+  only Keep/Revert decision surface; Settings does not duplicate those actions.
+  Both modal actions call the controller synchronously so no deferred UI
+  callback can be lost.
 - Night Light remains disabled until the compositor provides a tested color-
   management boundary.
 - Unsupported controls remain visibly unavailable and provide a route to the

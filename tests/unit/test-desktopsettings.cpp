@@ -33,6 +33,7 @@ private slots:
     void togglesAppearanceThroughShellState();
     void togglesFilesGridViewThroughShellState();
     void offersConfirmedBrightnessControl();
+    void keepsDisplayDecisionsInTheConfirmationDialog();
     void reportsMissingSoundAsUnavailableWithTheMixerReason();
     void reportsMissingWirelessHardwareHonestly();
     void offersRadioTogglesWhereControlIsInstalled();
@@ -117,6 +118,7 @@ void DesktopSettingsTest::cleanup()
     qunsetenv("NORTHSTAR_CLOCK_HELPER");
     qunsetenv("NORTHSTAR_BLUETOOTH_WIZARD");
     qunsetenv("NORTHSTAR_BLUETOOTH_TEST_EVENTS");
+    qunsetenv("NORTHSTAR_WLR_RANDR");
     delete m_directory;
     m_directory = nullptr;
 }
@@ -168,6 +170,36 @@ struct Desktop
     WallpaperController wallpaper;
     ClockController clock;
 };
+
+void DesktopSettingsTest::keepsDisplayDecisionsInTheConfirmationDialog()
+{
+    const QString randr = m_directory->filePath(QStringLiteral("northstar-wlr-randr"));
+    QFile randrStub(randr);
+    QVERIFY(randrStub.open(QIODevice::WriteOnly));
+    randrStub.write("#!/bin/sh\nexit 0\n");
+    randrStub.close();
+    QVERIFY(randrStub.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner
+                                    | QFileDevice::ExeOwner));
+    qputenv("NORTHSTAR_WLR_RANDR", randr.toUtf8());
+    const QString inventory = QStringLiteral(
+        "eDP-1 \"BOE panel\"\n"
+        "  Enabled: yes\n"
+        "  Modes:\n"
+        "    1920x1080 px, 59.999000 Hz (preferred, current)\n"
+        "    1920x1080 px, 47.999000 Hz\n");
+    const auto provider = [randr, inventory](const QString &program,
+                                             const QStringList &arguments) {
+        if (program == randr && arguments.isEmpty()) {
+            return QuickSettingsCommandResult{true, 0, inventory, {}};
+        }
+        return QuickSettingsCommandResult{};
+    };
+
+    Desktop desktop(m_directory->path(), provider);
+    QVERIFY(!desktop.catalog.entryFor(QStringLiteral("appearance.resolution")).isEmpty());
+    QVERIFY(desktop.catalog.entryFor(QStringLiteral("appearance.keepdisplaymode")).isEmpty());
+    QVERIFY(desktop.catalog.entryFor(QStringLiteral("appearance.revertdisplaymode")).isEmpty());
+}
 
 void DesktopSettingsTest::registersEverySection()
 {

@@ -215,29 +215,6 @@ void registerDesktopSettings(SettingsCatalog *catalog,
             };
             catalog->registerEntry(resolution);
 
-            SettingsCatalog::Entry keepMode;
-            keepMode.id = QStringLiteral("appearance.keepdisplaymode");
-            keepMode.section = QStringLiteral("appearance");
-            keepMode.title = QStringLiteral("Keep display preview");
-            keepMode.description = QStringLiteral("Save the previewed mode for future Northstar sessions.");
-            keepMode.keywords = resolution.keywords;
-            keepMode.kind = SettingsCatalog::actionKind();
-            keepMode.actionLabel = QStringLiteral("Keep");
-            keepMode.perform = [quickSettings]() { return quickSettings->keepDisplayMode(); };
-            keepMode.available = [quickSettings]() { return quickSettings->displayModePending(); };
-            keepMode.unavailableReason = []() {
-                return QStringLiteral("No display preview is waiting for confirmation.");
-            };
-            catalog->registerEntry(keepMode);
-
-            SettingsCatalog::Entry revertMode = keepMode;
-            revertMode.id = QStringLiteral("appearance.revertdisplaymode");
-            revertMode.title = QStringLiteral("Revert display preview");
-            revertMode.description = QStringLiteral("Restore the mode used before the current preview.");
-            revertMode.actionLabel = QStringLiteral("Revert");
-            revertMode.perform = [quickSettings]() { return quickSettings->revertDisplayMode(); };
-            catalog->registerEntry(revertMode);
-
             catalog->registerEntry(info(
                 QStringLiteral("appearance.displaypreview"), QStringLiteral("appearance"),
                 QStringLiteral("Display preview status"),
