@@ -29,6 +29,14 @@ reducing gloss, bevels, and heavy outlines. Its unprocessed generation is kept
 as `northstar-icons-aurora-source.png`; the original Lunar atlas remains in the
 repository for provenance and rollback.
 
+`northstar-system-icons-aurora.png` is the matching 5-by-4 atlas for every
+Settings category, top-bar status item, Quick Settings control, and utility
+role visible in the approved Aurora reference; its unprocessed generation is
+retained as `northstar-system-icons-aurora-source.png`.
+`northstar-activity-aurora.png`
+is its eight-frame transparent activity strip for discovery, pairing, loading,
+and transaction states; static controls do not animate without meaning.
+
 ## Generated application and control icons
 
 The project-owned `generated/` directory contains four derived raster icons

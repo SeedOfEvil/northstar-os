@@ -16,6 +16,12 @@ The built-in image-generation workflow produced:
 - `assets/icons/northstar-icons-aurora.png`, the installed transparent 4-by-3
   application atlas;
 - `assets/icons/northstar-icons-aurora-source.png`, its source render;
+- `assets/icons/northstar-system-icons-aurora.png`, the complete 5-by-4
+  Settings, status, Quick Settings, and utility atlas;
+- `assets/icons/northstar-system-icons-aurora-source.png`, its unprocessed
+  generated source for provenance;
+- `assets/icons/northstar-activity-aurora.png`, an eight-frame transparent
+  activity animation for operations whose progress needs to be visible;
 - `assets/wallpapers/aurora-glass.png`, the clean installed 1920-by-1080
   orbital desktop background extracted from the approved composition;
 - `assets/design/aurora/aurora-button-states.png`, the normal, hover, and

@@ -5,6 +5,8 @@
 
 void NorthstarUi::registerTypes()
 {
+    qmlRegisterType(QUrl(QStringLiteral("qrc:/Northstar/Ui/AuroraActivityIcon.qml")),
+                    "Northstar.Ui", 1, 0, "AuroraActivityIcon");
     qmlRegisterType(QUrl(QStringLiteral("qrc:/Northstar/Ui/AuroraButton.qml")),
                     "Northstar.Ui", 1, 0, "AuroraButton");
     qmlRegisterType(QUrl(QStringLiteral("qrc:/Northstar/Ui/AuroraComboBox.qml")),
@@ -19,6 +21,8 @@ void NorthstarUi::registerTypes()
                     "Northstar.Ui", 1, 0, "NativeWindowResizeHandler");
     qmlRegisterType(QUrl(QStringLiteral("qrc:/Northstar/Ui/NorthstarIcon.qml")),
                     "Northstar.Ui", 1, 0, "NorthstarIcon");
+    qmlRegisterType(QUrl(QStringLiteral("qrc:/Northstar/Ui/NorthstarSystemIcon.qml")),
+                    "Northstar.Ui", 1, 0, "NorthstarSystemIcon");
     qmlRegisterType(QUrl(QStringLiteral("qrc:/Northstar/Ui/NorthstarWindowControls.qml")),
                     "Northstar.Ui", 1, 0, "NorthstarWindowControls");
     qmlRegisterType(QUrl(QStringLiteral("qrc:/Northstar/Ui/NorthstarWindowFrame.qml")),

@@ -98,6 +98,16 @@ Window {
         return "Settings"
     }
 
+    function iconForSection(sectionId) {
+        const icons = {
+            "appearance": "appearance", "desktop": "display", "input": "mouse",
+            "sound": "sound", "network": "network", "notifications": "notifications",
+            "datetime": "settings", "power": "power", "session": "users",
+            "about": "settings"
+        }
+        return icons[sectionId] || "settings"
+    }
+
     // Destructive entries are confirmed here rather than in each delegate, so
     // every one of them gets the same explicit confirmation.
     function activateEntry(entry) {
@@ -423,9 +433,18 @@ Window {
                             radius: lunar.radiusSmall
                             width: sectionList.width - sectionScrollBar.width - 6
 
+                            NorthstarSystemIcon {
+                                anchors.left: parent.left
+                                anchors.leftMargin: 10
+                                anchors.verticalCenter: parent.verticalCenter
+                                height: 22
+                                iconName: settings.iconForSection(modelData.id)
+                                width: 22
+                            }
+
                             Text {
                                 anchors.left: parent.left
-                                anchors.leftMargin: 12
+                                anchors.leftMargin: 42
                                 anchors.right: sectionCount.left
                                 anchors.rightMargin: 6
                                 anchors.verticalCenter: parent.verticalCenter

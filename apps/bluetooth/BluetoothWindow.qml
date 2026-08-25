@@ -129,8 +129,13 @@ ApplicationWindow {
                 font.bold: true
                 font.pixelSize: 28
             }
-            Button {
-                text: bluetoothController.busy ? "Working..." : "Refresh"
+            AuroraActivityIcon {
+                Layout.preferredHeight: 28
+                Layout.preferredWidth: 28
+                running: bluetoothController.busy
+            }
+            AuroraButton {
+                text: "Refresh"
                 enabled: !bluetoothController.busy
                 onClicked: bluetoothController.refreshDevices()
             }

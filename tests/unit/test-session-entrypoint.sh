@@ -69,6 +69,8 @@ fi
 [ -f "$PREFIX/share/northstar/branding/northstar-logo.png" ] || fail 'canonical Northstar logo was not installed'
 [ -f "$PREFIX/share/northstar/icons/northstar-icons.png" ] || fail 'Northstar shell icon sheet was not installed'
 [ -f "$PREFIX/share/northstar/icons/northstar-icons-aurora.png" ] || fail 'Northstar Aurora icon sheet was not installed'
+[ -f "$PREFIX/share/northstar/icons/northstar-system-icons-aurora.png" ] || fail 'Northstar Aurora system icon sheet was not installed'
+[ -f "$PREFIX/share/northstar/icons/northstar-activity-aurora.png" ] || fail 'Northstar Aurora activity animation was not installed'
 [ -f "$PREFIX/share/northstar/wallpapers/aurora-glass.png" ] || fail 'Northstar Aurora wallpaper was not installed'
 [ -f "$PREFIX/share/northstar/audio/northstar-test-tone-s16le-stereo-48k.raw" ] \
     || fail 'Northstar audio test tone was not installed'

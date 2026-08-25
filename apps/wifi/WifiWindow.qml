@@ -47,8 +47,13 @@ ApplicationWindow {
                 font.bold: true
                 font.pixelSize: 28
             }
-            Button {
-                text: wifiController.busy ? "Working..." : "Refresh"
+            AuroraActivityIcon {
+                Layout.preferredHeight: 28
+                Layout.preferredWidth: 28
+                running: wifiController.busy
+            }
+            AuroraButton {
+                text: "Refresh"
                 enabled: !wifiController.busy
                 onClicked: wifiController.refreshNetworks()
             }

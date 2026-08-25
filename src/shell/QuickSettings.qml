@@ -245,11 +245,11 @@ Window {
                             radius: 16
                             width: 32
 
-                            Text {
+                            NorthstarSystemIcon {
                                 anchors.centerIn: parent
-                                color: quickSettings.surfaceForeground
-                                font.pixelSize: 17
-                                text: "⌁"
+                                height: 23
+                                iconName: "wifi"
+                                width: 23
                             }
                         }
 
@@ -314,11 +314,11 @@ Window {
                             radius: 16
                             width: 32
 
-                            Text {
+                            NorthstarSystemIcon {
                                 anchors.centerIn: parent
-                                color: quickSettings.surfaceForeground
-                                font.pixelSize: 17
-                                text: "ᛒ"
+                                height: 23
+                                iconName: "bluetooth"
+                                width: 23
                             }
                         }
 
@@ -367,11 +367,11 @@ Window {
                             radius: 16
                             width: 32
 
-                            Text {
+                            NorthstarSystemIcon {
                                 anchors.centerIn: parent
-                                color: quickSettings.surfaceForeground
-                                font.pixelSize: 17
-                                text: "◐"
+                                height: 23
+                                iconName: "appearance"
+                                width: 23
                             }
                         }
 

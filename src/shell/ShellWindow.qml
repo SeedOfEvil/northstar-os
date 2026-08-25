@@ -446,7 +446,7 @@ Window {
                 spacing: 5
 
                 Repeater {
-                    model: ["☼", "⌁", "◖"]
+                    model: ["brightness", "wifi", "sound"]
 
                     delegate: Rectangle {
                         required property string modelData
@@ -455,11 +455,11 @@ Window {
                         radius: 9
                         width: 30
 
-                        Text {
+                        NorthstarSystemIcon {
                             anchors.centerIn: parent
-                            color: root.panelForeground
-                            font.pixelSize: 17
-                            text: modelData
+                            height: 21
+                            iconName: modelData
+                            width: 21
                         }
 
                         MouseArea {
