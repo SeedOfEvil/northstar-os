@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import Northstar.Ui 1.0
 
 // The desktop background picker, shared by the desktop context menu and the
 // Settings appearance section so both offer the same browsing, the same fits,

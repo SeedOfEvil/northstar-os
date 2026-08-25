@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Controls
-import Northstar.Ui 1.0
 
 // Renders one settings entry as the control its kind calls for.
 //
@@ -13,11 +12,6 @@ import Northstar.Ui 1.0
 // a controller test cannot see the difference.
 Item {
     id: control
-
-    LunarPalette {
-        id: lunar
-        darkMode: true
-    }
 
     // The entry map as the catalog describes it.
     property var entry
@@ -102,9 +96,9 @@ Item {
             indicator: Rectangle {
                 id: toggleTrack
                 anchors.verticalCenter: parent.verticalCenter
-                border.color: parent.checked ? lunar.accentBright : lunar.border
+                border.color: parent.checked ? "#67d9f5" : control.mutedColor
                 border.width: 1
-                color: parent.checked ? lunar.accent : lunar.field
+                color: parent.checked ? "#24c7ef" : control.backgroundColor
                 height: 22
                 radius: 11
                 width: 42
@@ -151,13 +145,13 @@ Item {
                     width: valueSlider.availableWidth
                     height: 4
                     radius: 2
-                    color: lunar.field
+                    color: control.backgroundColor
 
                     Rectangle {
                         width: valueSlider.visualPosition * parent.width
                         height: parent.height
                         radius: parent.radius
-                        color: lunar.accent
+                        color: "#24c7ef"
                     }
                 }
                 handle: Rectangle {
@@ -168,7 +162,7 @@ Item {
                     height: 18
                     radius: 9
                     color: "#e9f5ff"
-                    border.color: lunar.accentBright
+                    border.color: "#67d9f5"
                     border.width: 1
                 }
                 onMoved: {
@@ -200,9 +194,16 @@ Item {
     Component {
         id: actionControl
 
-        AuroraButton {
+        Button {
+            id: actionButton
             enabled: control.entry.available
             text: control.entry.actionLabel
+            background: Rectangle {
+                border.color: actionButton.activeFocus ? "#24c7ef" : control.mutedColor
+                border.width: 1
+                color: actionButton.hovered ? "#243c59" : control.backgroundColor
+                radius: 9
+            }
             onClicked: control.actionRequested(control.entry)
         }
     }
@@ -227,10 +228,10 @@ Item {
                 verticalAlignment: Text.AlignVCenter
             }
             background: Rectangle {
-                border.color: choiceBox.activeFocus ? lunar.accent : lunar.borderSoft
+                border.color: choiceBox.activeFocus ? "#24c7ef" : control.mutedColor
                 border.width: 1
-                color: choiceBox.hovered ? lunar.raisedHover : lunar.field
-                radius: lunar.radiusSmall
+                color: choiceBox.hovered ? "#243c59" : control.backgroundColor
+                radius: 9
             }
             indicator: Text {
                 anchors.right: parent.right
@@ -289,9 +290,16 @@ Item {
                 width: 130
             }
 
-            AuroraButton {
+            Button {
+                id: pathButton
                 anchors.verticalCenter: parent.verticalCenter
                 text: "Choose..."
+                background: Rectangle {
+                    border.color: pathButton.activeFocus ? "#24c7ef" : control.mutedColor
+                    border.width: 1
+                    color: pathButton.hovered ? "#243c59" : control.backgroundColor
+                    radius: 9
+                }
                 onClicked: control.pathChooseRequested(control.entry)
             }
         }
