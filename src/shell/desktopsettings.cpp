@@ -3,6 +3,7 @@
 #include "applicationlauncher.h"
 #include "clockcontroller.h"
 #include "desktoplayoutcontroller.h"
+#include "inputcontroller.h"
 #include "notificationcenter.h"
 #include "notificationstore.h"
 #include "pinnedapplicationmodel.h"
@@ -52,6 +53,7 @@ SettingsCatalog::Entry info(const QString &id, const QString &section, const QSt
 void registerDesktopSettings(SettingsCatalog *catalog,
                              ShellState *shellState,
                              QuickSettingsController *quickSettings,
+                             InputController *input,
                              NotificationCenter *notifications,
                              DesktopLayoutController *desktopLayout,
                              ApplicationLauncher *launcher,
@@ -69,6 +71,8 @@ void registerDesktopSettings(SettingsCatalog *catalog,
                              QStringLiteral("How the Northstar shell presents its surfaces."));
     catalog->registerSection(QStringLiteral("desktop"), QStringLiteral("Desktop"),
                              QStringLiteral("Desktop icons, Files defaults, and the dock."));
+    catalog->registerSection(QStringLiteral("input"), QStringLiteral("Mouse & Touchpad"),
+                             QStringLiteral("Pointer speed, scrolling, tapping, and click behavior."));
     catalog->registerSection(QStringLiteral("sound"), QStringLiteral("Sound"),
                              QStringLiteral("Output volume, as reported by the system mixer."));
     catalog->registerSection(QStringLiteral("network"), QStringLiteral("Network"),
@@ -289,6 +293,128 @@ void registerDesktopSettings(SettingsCatalog *catalog,
             QStringLiteral("Pins are reordered from the dock itself."),
             QStringList{QStringLiteral("dock"), QStringLiteral("pinned"), QStringLiteral("pins")},
             [pinnedApplications]() { return QVariant(pinnedApplications->count()); }));
+    }
+
+    // --- Mouse & Touchpad --------------------------------------------------
+
+    if (input) {
+        catalog->registerEntry(info(
+            QStringLiteral("input.devices"), QStringLiteral("input"),
+            QStringLiteral("Pointing devices"),
+            QStringLiteral("Devices reported by the active Wayfire session."),
+            {QStringLiteral("mouse"), QStringLiteral("touchpad"), QStringLiteral("pointer"),
+             QStringLiteral("device")},
+            [input]() {
+                return QVariant(input->deviceNames().isEmpty()
+                    ? input->statusMessage() : input->deviceNames().join(QStringLiteral(", ")));
+            }));
+
+        const auto registerSpeed = [catalog, input](const QString &id, const QString &title,
+                                                    bool touchpad) {
+            SettingsCatalog::Entry entry;
+            entry.id = id;
+            entry.section = QStringLiteral("input");
+            entry.title = title;
+            entry.description = QStringLiteral("Adjust pointer acceleration from slower to faster.");
+            entry.keywords = {QStringLiteral("mouse"), QStringLiteral("touchpad"),
+                              QStringLiteral("pointer"), QStringLiteral("speed"),
+                              QStringLiteral("acceleration")};
+            entry.kind = SettingsCatalog::sliderKind();
+            entry.minimum = -100;
+            entry.maximum = 100;
+            entry.read = [input, touchpad]() {
+                return QVariant(touchpad ? input->touchpadSpeed() : input->mouseSpeed());
+            };
+            entry.write = [input, touchpad](const QVariant &value) {
+                return touchpad ? input->setTouchpadSpeed(value.toInt())
+                                : input->setMouseSpeed(value.toInt());
+            };
+            entry.available = [input, touchpad]() {
+                return touchpad ? input->touchpadAvailable() : input->mouseAvailable();
+            };
+            entry.unavailableReason = [input]() { return input->statusMessage(); };
+            entry.writeFailureReason = [input]() { return input->statusMessage(); };
+            catalog->registerEntry(entry);
+        };
+        registerSpeed(QStringLiteral("input.mouseSpeed"), QStringLiteral("Mouse speed"), false);
+        registerSpeed(QStringLiteral("input.touchpadSpeed"), QStringLiteral("Touchpad speed"), true);
+
+        const auto registerNaturalScroll = [catalog, input](const QString &id,
+                                                            const QString &title,
+                                                            bool touchpad) {
+            SettingsCatalog::Entry entry;
+            entry.id = id;
+            entry.section = QStringLiteral("input");
+            entry.title = title;
+            entry.description = QStringLiteral("Move content in the same direction as your fingers.");
+            entry.keywords = {QStringLiteral("mouse"), QStringLiteral("touchpad"),
+                              QStringLiteral("natural"), QStringLiteral("scroll")};
+            entry.kind = SettingsCatalog::toggleKind();
+            entry.read = [input, touchpad]() {
+                return QVariant(touchpad ? input->touchpadNaturalScroll()
+                                         : input->mouseNaturalScroll());
+            };
+            entry.write = [input, touchpad](const QVariant &value) {
+                return touchpad ? input->setTouchpadNaturalScroll(value.toBool())
+                                : input->setMouseNaturalScroll(value.toBool());
+            };
+            entry.available = [input, touchpad]() {
+                return touchpad ? input->touchpadAvailable() : input->mouseAvailable();
+            };
+            entry.unavailableReason = [input]() { return input->statusMessage(); };
+            entry.writeFailureReason = [input]() { return input->statusMessage(); };
+            catalog->registerEntry(entry);
+        };
+        registerNaturalScroll(QStringLiteral("input.mouseNaturalScroll"),
+                              QStringLiteral("Mouse natural scrolling"), false);
+        registerNaturalScroll(QStringLiteral("input.touchpadNaturalScroll"),
+                              QStringLiteral("Touchpad natural scrolling"), true);
+
+        SettingsCatalog::Entry tap;
+        tap.id = QStringLiteral("input.tapToClick");
+        tap.section = QStringLiteral("input");
+        tap.title = QStringLiteral("Tap to click");
+        tap.description = QStringLiteral("Tap the touchpad once for a primary click.");
+        tap.keywords = {QStringLiteral("touchpad"), QStringLiteral("tap"), QStringLiteral("click")};
+        tap.kind = SettingsCatalog::toggleKind();
+        tap.read = [input]() { return QVariant(input->tapToClick()); };
+        tap.write = [input](const QVariant &value) { return input->setTapToClick(value.toBool()); };
+        tap.available = [input]() { return input->touchpadAvailable(); };
+        tap.unavailableReason = [input]() { return input->statusMessage(); };
+        tap.writeFailureReason = tap.unavailableReason;
+        catalog->registerEntry(tap);
+
+        SettingsCatalog::Entry typing = tap;
+        typing.id = QStringLiteral("input.disableWhileTyping");
+        typing.title = QStringLiteral("Disable touchpad while typing");
+        typing.description = QStringLiteral("Ignore accidental touchpad movement while keys are pressed.");
+        typing.keywords.append(QStringLiteral("typing"));
+        typing.read = [input]() { return QVariant(input->disableWhileTyping()); };
+        typing.write = [input](const QVariant &value) {
+            return input->setDisableWhileTyping(value.toBool());
+        };
+        catalog->registerEntry(typing);
+
+        SettingsCatalog::Entry click;
+        click.id = QStringLiteral("input.clickMethod");
+        click.section = QStringLiteral("input");
+        click.title = QStringLiteral("Touchpad click method");
+        click.description = QStringLiteral("Choose whether clicks follow finger count or button areas.");
+        click.keywords = {QStringLiteral("touchpad"), QStringLiteral("click"),
+                          QStringLiteral("button"), QStringLiteral("finger")};
+        click.kind = SettingsCatalog::choiceKind();
+        click.options = {
+            SettingsCatalog::choiceOption(QStringLiteral("default"), QStringLiteral("Automatic")),
+            SettingsCatalog::choiceOption(QStringLiteral("clickfinger"), QStringLiteral("Finger count")),
+            SettingsCatalog::choiceOption(QStringLiteral("button-areas"), QStringLiteral("Button areas"))};
+        click.read = [input]() { return QVariant(input->clickMethod()); };
+        click.write = [input](const QVariant &value) {
+            return input->setClickMethod(value.toString());
+        };
+        click.available = [input]() { return input->touchpadAvailable(); };
+        click.unavailableReason = [input]() { return input->statusMessage(); };
+        click.writeFailureReason = click.unavailableReason;
+        catalog->registerEntry(click);
     }
 
     // --- Sound -------------------------------------------------------------

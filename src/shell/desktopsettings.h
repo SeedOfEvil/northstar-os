@@ -3,6 +3,7 @@
 class ApplicationLauncher;
 class ClockController;
 class DesktopLayoutController;
+class InputController;
 class NotificationCenter;
 class PinnedApplicationModel;
 class PowerController;
@@ -18,6 +19,7 @@ class WallpaperController;
 void registerDesktopSettings(SettingsCatalog *catalog,
                              ShellState *shellState,
                              QuickSettingsController *quickSettings,
+                             InputController *input,
                              NotificationCenter *notifications,
                              DesktopLayoutController *desktopLayout,
                              ApplicationLauncher *launcher,
