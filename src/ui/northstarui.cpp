@@ -5,6 +5,12 @@
 
 void NorthstarUi::registerTypes()
 {
+    qmlRegisterType(QUrl(QStringLiteral("qrc:/Northstar/Ui/AuroraButton.qml")),
+                    "Northstar.Ui", 1, 0, "AuroraButton");
+    qmlRegisterType(QUrl(QStringLiteral("qrc:/Northstar/Ui/AuroraComboBox.qml")),
+                    "Northstar.Ui", 1, 0, "AuroraComboBox");
+    qmlRegisterType(QUrl(QStringLiteral("qrc:/Northstar/Ui/AuroraSlider.qml")),
+                    "Northstar.Ui", 1, 0, "AuroraSlider");
     qmlRegisterType(QUrl(QStringLiteral("qrc:/Northstar/Ui/LunarPalette.qml")),
                     "Northstar.Ui", 1, 0, "LunarPalette");
     qmlRegisterType(QUrl(QStringLiteral("qrc:/Northstar/Ui/NativeWindowMoveHandler.qml")),

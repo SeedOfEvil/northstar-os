@@ -7,18 +7,20 @@ Item {
     property url iconSource: typeof northstarIconsSource !== "undefined" ? northstarIconsSource : ""
     property url generatedIconsDirectory: typeof northstarGeneratedIconsDirectory !== "undefined"
         ? northstarGeneratedIconsDirectory : ""
-    property int tileSize: 362
+    property real tileWidth: 1447 / 4
+    property real tileHeight: 1087 / 3
     property int tileIndex: iconTileIndex(root.iconName)
-    property bool usesGeneratedIcon: String(root.generatedIconsDirectory).length > 0
-        && (root.iconName === "welcome" || root.iconName === "software"
-            || root.iconName === "notifications" || root.iconName === "power")
+    // Aurora keeps one coherent atlas across the shell. The older standalone
+    // generated icons remain installed for rollback, but mixing their glossy
+    // material with the quieter Aurora set made the dock feel inconsistent.
+    property bool usesGeneratedIcon: false
 
     function iconTileIndex(name) {
         switch (name) {
         case "files": case "folder": return 0
         case "terminal": return 1
         case "browser": return 2
-        case "settings": return 3
+        case "settings": case "power": return 3
         case "applications": case "software": return 4
         case "quick-settings": return 5
         case "trash": return 6
@@ -41,9 +43,9 @@ Item {
             ? root.generatedIconsDirectory + "northstar-" + root.iconName + ".png"
             : root.iconSource
         sourceClipRect: Qt.rect(
-            root.usesGeneratedIcon ? 0 : (root.tileIndex % 4) * root.tileSize,
-            root.usesGeneratedIcon ? 0 : Math.floor(root.tileIndex / 4) * root.tileSize,
-            root.usesGeneratedIcon ? 0 : root.tileSize,
-            root.usesGeneratedIcon ? 0 : root.tileSize)
+            root.usesGeneratedIcon ? 0 : (root.tileIndex % 4) * root.tileWidth,
+            root.usesGeneratedIcon ? 0 : Math.floor(root.tileIndex / 4) * root.tileHeight,
+            root.usesGeneratedIcon ? 0 : root.tileWidth,
+            root.usesGeneratedIcon ? 0 : root.tileHeight)
     }
 }

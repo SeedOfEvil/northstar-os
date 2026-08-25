@@ -11,6 +11,7 @@ Window {
     }
 
     property url logoSource: northstarLogoSource
+    property url auroraWallpaperSource: northstarAuroraWallpaperSource
     property var state: shellState
     property var desktopItems: northstarDesktopItemsController
     property var fileBrowserController: northstarFileBrowserController
@@ -279,6 +280,17 @@ Window {
             GradientStop { position: 1.0; color: lunar.desktopBottom }
         }
 
+        // Aurora Glass is the built-in desktop. A user-selected picture still
+        // takes precedence in the image layer immediately above it.
+        Image {
+            anchors.fill: parent
+            fillMode: Image.PreserveAspectCrop
+            mipmap: true
+            smooth: true
+            source: desktopBackground.auroraWallpaperSource
+            visible: !desktopBackground.hasWallpaper && status === Image.Ready
+        }
+
         // The chosen picture sits below the desktop icons and above the
         // built-in gradient, which stays visible in the fits that do not
         // cover the whole screen.
@@ -299,10 +311,11 @@ Window {
             anchors.verticalCenterOffset: -80
             border.color: lunar.accentBright
             visible: !desktopBackground.hasWallpaper
-            border.width: 44
+                && desktopBackground.auroraWallpaperSource.toString().length === 0
+            border.width: 2
             color: "transparent"
             height: 300
-            opacity: desktopBackground.state && desktopBackground.state.darkMode ? 0.13 : 0.18
+            opacity: desktopBackground.state && desktopBackground.state.darkMode ? 0.30 : 0.22
             radius: 150
             rotation: -12
             width: Math.max(980, parent.width * 0.92)
@@ -315,10 +328,11 @@ Window {
             anchors.verticalCenterOffset: 115
             border.color: lunar.accent
             visible: !desktopBackground.hasWallpaper
-            border.width: 58
+                && desktopBackground.auroraWallpaperSource.toString().length === 0
+            border.width: 2
             color: "transparent"
             height: 250
-            opacity: desktopBackground.state && desktopBackground.state.darkMode ? 0.11 : 0.16
+            opacity: desktopBackground.state && desktopBackground.state.darkMode ? 0.22 : 0.18
             radius: 125
             rotation: 18
             width: Math.max(760, parent.width * 0.72)
@@ -329,10 +343,13 @@ Window {
             anchors.horizontalCenterOffset: -390
             anchors.verticalCenter: parent.verticalCenter
             anchors.verticalCenterOffset: 190
-            color: lunar.accentSoft
+            border.color: lunar.accentSoft
+            border.width: 2
+            color: "transparent"
             visible: !desktopBackground.hasWallpaper
+                && desktopBackground.auroraWallpaperSource.toString().length === 0
             height: 170
-            opacity: 0.12
+            opacity: 0.20
             radius: 85
             rotation: -22
             width: Math.max(620, parent.width * 0.56)
@@ -346,7 +363,7 @@ Window {
             opacity: desktopBackground.state && desktopBackground.state.darkMode ? 0.20 : 0.16
             smooth: true
             source: desktopBackground.logoSource
-            visible: !desktopBackground.hasWallpaper
+            visible: false
             width: Math.min(390, desktopBackground.screenWidth * 0.34)
         }
 

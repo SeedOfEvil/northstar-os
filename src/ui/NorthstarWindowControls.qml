@@ -8,25 +8,23 @@ Row {
     property bool maximized: false
     property bool closeDestroysWindow: false
     property bool maximizeEnabled: true
-    property int controlSize: 32
+    property int controlSize: 16
 
     signal minimizeRequested()
     signal maximizeRequested()
     signal closeRequested()
 
-    spacing: 7
+    spacing: 8
 
     Repeater {
-        model: ["minimize", "maximize", "close"]
+        model: ["close", "minimize", "maximize"]
 
         delegate: Rectangle {
             required property string modelData
 
-            color: controlMouse.containsMouse
-                ? (modelData === "close" ? controls.lunarPalette.danger
-                    : modelData === "maximize" ? controls.lunarPalette.success
-                    : controls.lunarPalette.warning)
-                : controls.lunarPalette.raised
+            color: modelData === "close" ? controls.lunarPalette.danger
+                : modelData === "maximize" ? controls.lunarPalette.success
+                : controls.lunarPalette.warning
             enabled: modelData !== "maximize" || controls.maximizeEnabled
             height: controls.controlSize
             opacity: enabled ? 1 : 0.45
@@ -35,9 +33,10 @@ Row {
 
             Text {
                 anchors.centerIn: parent
-                color: controls.lunarPalette.foreground
+                color: "#80101a27"
                 font.bold: true
-                font.pixelSize: parent.modelData === "maximize" ? 12 : 15
+                font.pixelSize: 10
+                opacity: controlMouse.containsMouse ? 1 : 0
                 text: parent.modelData === "minimize" ? "−"
                     : parent.modelData === "maximize" ? (controls.maximized ? "❐" : "□") : "×"
             }

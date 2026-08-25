@@ -202,6 +202,7 @@ Window {
         color: root.panelBackground
         border.color: lunar.borderSoft
         border.width: 1
+        radius: 18
 
         gradient: Gradient {
             GradientStop { position: 0.0; color: lunar.panelStrong }
@@ -256,7 +257,50 @@ Window {
                     text: "NorthStar"
                 }
 
+                Repeater {
+                    model: [
+                        { label: "Settings", action: "settings" },
+                        { label: "File", action: "files" },
+                        { label: "Edit", action: "applications" },
+                        { label: "View", action: "quick-settings" },
+                        { label: "Window", action: "applications" },
+                        { label: "Help", action: "menu" }
+                    ]
+
+                    delegate: Rectangle {
+                        required property var modelData
+                        color: menuMouse.containsMouse ? lunar.raisedHover : "transparent"
+                        height: 32
+                        radius: 9
+                        width: menuLabel.implicitWidth + 18
+
+                        Text {
+                            id: menuLabel
+                            anchors.centerIn: parent
+                            color: root.panelForeground
+                            font.pixelSize: 12
+                            text: modelData.label
+                        }
+
+                        MouseArea {
+                            id: menuMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            onClicked: {
+                                if (modelData.action === "quick-settings") {
+                                    quickSettingsWindow.togglePanel()
+                                } else if (modelData.action === "menu") {
+                                    systemMenu.openMenu()
+                                } else {
+                                    systemMenu.triggerAction(modelData.action)
+                                }
+                            }
+                        }
+                    }
+                }
+
                 Rectangle {
+                    visible: false
                     color: "transparent"
                     height: 32
                     width: 56
@@ -276,6 +320,7 @@ Window {
                 }
 
                 Rectangle {
+                    visible: false
                     color: filesNavMouse.containsMouse ? lunar.raisedHover : "transparent"
                     height: 32
                     radius: 9
@@ -309,6 +354,7 @@ Window {
                 }
 
                 Rectangle {
+                    visible: false
                     color: appsNavMouse.containsMouse ? lunar.raisedHover : "transparent"
                     height: 32
                     radius: 9
@@ -344,6 +390,7 @@ Window {
 
             Rectangle {
                 id: globalSearchSurface
+                visible: false
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.verticalCenter: parent.verticalCenter
                 color: lunar.field
@@ -397,6 +444,33 @@ Window {
                 anchors.rightMargin: 12
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 5
+
+                Repeater {
+                    model: ["☼", "⌁", "◖"]
+
+                    delegate: Rectangle {
+                        required property string modelData
+                        color: statusMouse.containsMouse ? lunar.raisedHover : "transparent"
+                        height: 30
+                        radius: 9
+                        width: 30
+
+                        Text {
+                            anchors.centerIn: parent
+                            color: root.panelForeground
+                            font.pixelSize: 17
+                            text: modelData
+                        }
+
+                        MouseArea {
+                            id: statusMouse
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            hoverEnabled: true
+                            onClicked: quickSettingsWindow.togglePanel()
+                        }
+                    }
+                }
 
                 Row {
                     id: batteryIndicator
@@ -456,6 +530,7 @@ Window {
                 }
 
                 Rectangle {
+                    visible: false
                     color: notificationMouse.containsMouse ? lunar.raisedHover : "transparent"
                     height: 30
                     radius: 9
@@ -487,6 +562,7 @@ Window {
                 }
 
                 Rectangle {
+                    visible: false
                     color: quickSettingsMouse.containsMouse ? lunar.raisedHover : "transparent"
                     height: 30
                     radius: 9
@@ -510,7 +586,7 @@ Window {
                 Text {
                     color: root.panelForeground
                     font.pixelSize: 11
-                    text: Qt.formatDateTime(root.now, "ddd MMM d   hh:mm")
+                    text: Qt.formatDateTime(root.now, "ddd d MMM  hh:mm")
                 }
             }
         }

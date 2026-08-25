@@ -55,19 +55,19 @@ Dialog {
             spacing: 8
             width: parent.width
 
-            Button {
+            AuroraButton {
                 enabled: !!picker.wallpaper
                 text: "Pictures"
                 onClicked: picker.wallpaper.browseToPictures()
             }
 
-            Button {
+            AuroraButton {
                 enabled: !!picker.wallpaper
                 text: "Home"
                 onClicked: picker.wallpaper.browseHome()
             }
 
-            Button {
+            AuroraButton {
                 enabled: !!picker.wallpaper && picker.wallpaper.browseCanNavigateUp
                 text: "Up"
                 onClicked: picker.wallpaper.browseUp()
@@ -165,7 +165,7 @@ Dialog {
             Repeater {
                 model: picker.wallpaper ? picker.wallpaper.availableFitModes() : []
 
-                delegate: Button {
+                delegate: AuroraButton {
                     required property var modelData
 
                     checkable: false
@@ -178,7 +178,7 @@ Dialog {
             }
         }
 
-        Button {
+        AuroraButton {
             enabled: picker.hasImage
             text: "Use built-in background"
             onClicked: picker.wallpaper.clearImage()

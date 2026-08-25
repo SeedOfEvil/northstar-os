@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import Northstar.Ui 1.0
 
 // Renders one settings entry as the control its kind calls for.
 //
@@ -12,6 +13,11 @@ import QtQuick.Controls
 // a controller test cannot see the difference.
 Item {
     id: control
+
+    LunarPalette {
+        id: lunar
+        darkMode: true
+    }
 
     // The entry map as the catalog describes it.
     property var entry
@@ -90,6 +96,29 @@ Item {
             checked: control.entry.value === true
             enabled: control.entry.available
             text: checked ? "On" : "Off"
+            implicitHeight: 24
+            implicitWidth: 44
+            contentItem: Item {}
+            indicator: Rectangle {
+                id: toggleTrack
+                anchors.verticalCenter: parent.verticalCenter
+                border.color: parent.checked ? lunar.accentBright : lunar.border
+                border.width: 1
+                color: parent.checked ? lunar.accent : lunar.field
+                height: 22
+                radius: 11
+                width: 42
+
+                Rectangle {
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: "#f5f8fc"
+                    height: 18
+                    radius: 9
+                    width: 18
+                    x: toggleTrack.parent.checked ? toggleTrack.width - width - 2 : 2
+                    Behavior on x { NumberAnimation { duration: 120 } }
+                }
+            }
             onToggled: {
                 // A refused write must not leave the box showing a state the
                 // system is not in.
@@ -116,6 +145,32 @@ Item {
                 stepSize: 1
                 value: control.entry.value
                 width: 150
+                background: Rectangle {
+                    x: valueSlider.leftPadding
+                    y: valueSlider.topPadding + valueSlider.availableHeight / 2 - height / 2
+                    width: valueSlider.availableWidth
+                    height: 4
+                    radius: 2
+                    color: lunar.field
+
+                    Rectangle {
+                        width: valueSlider.visualPosition * parent.width
+                        height: parent.height
+                        radius: parent.radius
+                        color: lunar.accent
+                    }
+                }
+                handle: Rectangle {
+                    x: valueSlider.leftPadding + valueSlider.visualPosition
+                        * (valueSlider.availableWidth - width)
+                    y: valueSlider.topPadding + valueSlider.availableHeight / 2 - height / 2
+                    width: 18
+                    height: 18
+                    radius: 9
+                    color: "#e9f5ff"
+                    border.color: lunar.accentBright
+                    border.width: 1
+                }
                 onMoved: {
                     if (!pressed) {
                         control.writeValue(Math.round(value))
@@ -145,7 +200,7 @@ Item {
     Component {
         id: actionControl
 
-        Button {
+        AuroraButton {
             enabled: control.entry.available
             text: control.entry.actionLabel
             onClicked: control.actionRequested(control.entry)
@@ -162,6 +217,29 @@ Item {
             textRole: "label"
             valueRole: "value"
             width: 250
+            leftPadding: 12
+            rightPadding: 32
+            contentItem: Text {
+                color: choiceBox.enabled ? control.foregroundColor : control.mutedColor
+                elide: Text.ElideRight
+                font.pixelSize: 12
+                text: choiceBox.displayText
+                verticalAlignment: Text.AlignVCenter
+            }
+            background: Rectangle {
+                border.color: choiceBox.activeFocus ? lunar.accent : lunar.borderSoft
+                border.width: 1
+                color: choiceBox.hovered ? lunar.raisedHover : lunar.field
+                radius: lunar.radiusSmall
+            }
+            indicator: Text {
+                anchors.right: parent.right
+                anchors.rightMargin: 11
+                anchors.verticalCenter: parent.verticalCenter
+                color: control.mutedColor
+                font.pixelSize: 13
+                text: "⌄"
+            }
 
             // An unset choice would otherwise render as an empty box that
             // looks broken rather than unanswered.
@@ -211,7 +289,7 @@ Item {
                 width: 130
             }
 
-            Button {
+            AuroraButton {
                 anchors.verticalCenter: parent.verticalCenter
                 text: "Choose..."
                 onClicked: control.pathChooseRequested(control.entry)

@@ -268,7 +268,7 @@ Window {
                     anchors.fill: parent
                     maximized: software.maximized
                     lunarPalette: lunar
-                    subtitle: "Installed FreeBSD packages"
+                    subtitle: "Installed system packages"
                     title: "Software"
                     window: software
                     onMaximizeRequested: software.toggleMaximize()
@@ -347,7 +347,7 @@ Window {
                         Text {
                             color: software.surfaceMuted
                             font.pixelSize: 12
-                            text: "Installed FreeBSD packages"
+                            text: "Installed system packages"
                         }
                     }
                 }
@@ -933,7 +933,7 @@ Window {
                                 { value: "all", label: "Everything" }
                             ]
 
-                            delegate: Button {
+                            delegate: AuroraButton {
                                 required property var modelData
 
                                 checkable: true
@@ -962,7 +962,7 @@ Window {
                             }
                         }
 
-                        Button {
+                        AuroraButton {
                             enabled: software.packageCatalog
                                 && !software.packageCatalog.scanningUpdates
                             text: "Check for updates"
@@ -1028,7 +1028,7 @@ Window {
                                                 : "Check for updates to see what can be updated.")
                                             : software.packageCatalog.filter === "available"
                                                 ? (software.packageCatalog.refreshingAvailable
-                                                    ? "Reading the pinned FreeBSD package catalogue..."
+                                                    ? "Reading the pinned system package catalogue..."
                                                     : "No additional packages are available.")
                                                 : "No packages to show."
                             }
@@ -1131,7 +1131,7 @@ Window {
                         font.pixelSize: 11
                         text: software.packageCatalog && software.packageCatalog.availableCatalogReady
                             ? software.packageCatalog.availableStatus
-                            : "Installed inventory and the pinned FreeBSD package catalogue remain separate trust sources."
+                            : "Installed inventory and the pinned system package catalogue remain separate trust sources."
                         width: parent.width
                         wrapMode: Text.WordWrap
                     }
@@ -1226,7 +1226,7 @@ Window {
                         font.bold: true
                         font.pixelSize: 12
                         text: software.selectedPackage && software.selectedPackage.installed
-                            ? "Installed on this system" : "Available from the pinned FreeBSD source"
+                            ? "Installed on this system" : "Available from the pinned system source"
                     }
 
                     Text {
@@ -1249,7 +1249,7 @@ Window {
             Row {
                 spacing: 8
 
-                Button {
+                AuroraButton {
                     text: "Review Update Plan"
                     onClicked: {
                         packageDetailsDialog.close()
@@ -1257,7 +1257,7 @@ Window {
                     }
                 }
 
-                Button {
+                AuroraButton {
                     enabled: software.selectedPackage && !software.selectedPackage.installed
                         && software.selectedPackage.planIndex >= 0
                         && software.packageCatalog && software.packageCatalog.availableCatalogReady
@@ -1271,7 +1271,7 @@ Window {
                     }
                 }
 
-                Button {
+                AuroraButton {
                     enabled: software.selectedPackage && software.selectedPackage.installed
                         && !software.selectedPackage.automatic
                         && !software.selectedPackage.locked
@@ -1347,7 +1347,7 @@ Window {
                     font.pixelSize: 11
                     readOnly: true
                     text: software.packageMutation && software.packageMutation.preview.length > 0
-                        ? software.packageMutation.preview : "Preparing exact FreeBSD pkg preview..."
+                        ? software.packageMutation.preview : "Preparing exact package preview..."
                     wrapMode: TextEdit.Wrap
                 }
             }
@@ -1360,7 +1360,7 @@ Window {
                 wrapMode: Text.WordWrap
             }
 
-            Button {
+            AuroraButton {
                 enabled: software.packageMutation && software.packageMutation.planReady
                     && software.packageMutation.authorizationAvailable
                     && !software.packageMutation.busy
@@ -1621,7 +1621,7 @@ Window {
             Row {
                 spacing: 10
 
-                Button {
+                AuroraButton {
                     enabled: !!software.updateAuthorization
                         && software.updateAuthorization.authorizationAvailable
                         && software.updateAuthorization.preflightValid
@@ -1633,7 +1633,7 @@ Window {
                     onClicked: updateConfirmationDialog.open()
                 }
 
-                Button {
+                AuroraButton {
                     enabled: !!software.updateAuthorization
                         && software.updateAuthorization.authorizationAvailable
                         && !software.updateAuthorization.transactionBusy
@@ -1794,7 +1794,7 @@ Window {
                 wrapMode: Text.WordWrap
             }
 
-            Button {
+            AuroraButton {
                 enabled: !!applicationDetailsDialog.application
                     && applicationDetailsDialog.application.launchable !== false
                 text: "Launch"

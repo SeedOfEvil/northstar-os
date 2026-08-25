@@ -74,7 +74,7 @@ ApplicationWindow {
                 Text {
                     color: welcome.mutedColor
                     font.pixelSize: 14
-                    text: "A focused FreeBSD desktop with a calm, familiar workspace."
+                    text: "A focused desktop with a calm, familiar workspace."
                 }
             }
         }

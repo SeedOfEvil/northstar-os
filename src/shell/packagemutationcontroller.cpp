@@ -200,7 +200,7 @@ void PackageMutationController::finishPreview(int exitCode, int exitStatus)
     }
     const QByteArray output = m_previewProcess->readAll().trimmed();
     if (exitStatus != static_cast<int>(QProcess::NormalExit) || exitCode != 0 || output.isEmpty()) {
-        setFailure(QStringLiteral("FreeBSD pkg could not prepare the requested transaction preview."));
+        setFailure(QStringLiteral("The system package service could not prepare the requested transaction preview."));
         return;
     }
     const qint64 timestamp = QDateTime::currentSecsSinceEpoch();

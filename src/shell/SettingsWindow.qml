@@ -56,8 +56,8 @@ Window {
 
     minimumWidth: settings.minimumSurfaceWidth
     minimumHeight: settings.minimumSurfaceHeight
-    width: Math.min(960, Math.max(minimumSurfaceWidth, screenWidth - (desktopMargin * 2)))
-    height: Math.min(screenHeight - panelHeight - desktopMargin, Math.max(minimumSurfaceHeight, 720))
+    width: Math.min(1040, Math.max(minimumSurfaceWidth, screenWidth - (desktopMargin * 2)))
+    height: Math.min(screenHeight - panelHeight - desktopMargin, Math.max(minimumSurfaceHeight, 680))
     x: screenX + Math.max(desktopMargin, (screenWidth - width) / 2)
     y: screenY + panelHeight + desktopMargin
 
@@ -83,6 +83,19 @@ Window {
         settings.settingsCatalog.clearQuery()
         searchField.text = ""
         settings.settingsCatalog.setSelectedSection(sectionId)
+    }
+
+    function selectedSectionLabel() {
+        if (!settings.hasCatalog || settings.searching) {
+            return settings.searching ? "Search results" : "Settings"
+        }
+        const sections = settings.settingsCatalog.sections
+        for (let index = 0; index < sections.length; ++index) {
+            if (sections[index].id === settings.selectedSection) {
+                return sections[index].label
+            }
+        }
+        return "Settings"
     }
 
     // Destructive entries are confirmed here rather than in each delegate, so
@@ -261,7 +274,6 @@ Window {
             Rectangle {
                 id: searchBar
                 anchors.left: parent.left
-                anchors.right: parent.right
                 anchors.top: titleBar.bottom
                 anchors.topMargin: 14
                 border.color: searchField.activeFocus ? lunar.accent : lunar.borderSoft
@@ -269,6 +281,8 @@ Window {
                 color: lunar.field
                 height: 46
                 radius: lunar.radiusMedium
+                width: 220
+                z: 2
 
                 Row {
                     anchors.fill: parent
@@ -291,7 +305,7 @@ Window {
                         placeholderText: "Search settings"
                         placeholderTextColor: settings.surfaceMuted
                         selectByMouse: true
-                        width: parent.width - 200
+                        width: parent.width - 72
                         onTextChanged: {
                             if (settings.hasCatalog) {
                                 settings.settingsCatalog.setQuery(text)
@@ -304,11 +318,8 @@ Window {
                         color: settings.surfaceMuted
                         font.pixelSize: 12
                         horizontalAlignment: Text.AlignRight
-                        text: settings.searching && settings.hasCatalog
-                            ? (settings.settingsCatalog.resultCount === 1
-                                ? "1 result" : settings.settingsCatalog.resultCount + " results")
-                            : ""
-                        width: 84
+                        visible: false
+                        width: 0
                     }
 
                     Rectangle {
@@ -370,24 +381,27 @@ Window {
                 anchors.bottomMargin: 8
                 anchors.left: parent.left
                 anchors.right: parent.right
-                anchors.top: searchBar.bottom
+                anchors.top: titleBar.bottom
                 anchors.topMargin: 14
                 spacing: 18
 
                 Rectangle {
                     id: sectionSidebar
-                    border.color: lunar.borderSoft
-                    border.width: 1
-                    color: lunar.panel
+                    border.color: "transparent"
+                    border.width: 0
+                    color: "#4017273d"
                     height: parent.height
                     opacity: settings.searching ? 0.5 : 1
                     radius: lunar.radiusLarge
-                    width: 196
+                    width: 220
 
                     ListView {
                         id: sectionList
                         anchors.fill: parent
-                        anchors.margins: 10
+                        anchors.leftMargin: 10
+                        anchors.rightMargin: 10
+                        anchors.bottomMargin: 10
+                        anchors.topMargin: 66
                         boundsBehavior: Flickable.StopAtBounds
                         clip: true
                         model: settings.hasCatalog ? settings.settingsCatalog.sections : []
@@ -405,7 +419,7 @@ Window {
                             color: !settings.searching && settings.selectedSection === modelData.id
                                 ? lunar.accentSoft
                                 : sectionMouse.containsMouse ? lunar.raisedHover : "transparent"
-                            height: 40
+                            height: 38
                             radius: lunar.radiusSmall
                             width: sectionList.width - sectionScrollBar.width - 6
 
@@ -444,10 +458,27 @@ Window {
                 }
 
                 Rectangle {
-                    color: settings.surfaceRaised
+                    border.color: lunar.borderSoft
+                    border.width: 1
+                    color: "#5416253a"
                     height: parent.height
                     radius: lunar.radiusLarge
                     width: parent.width - sectionSidebar.width - parent.spacing
+
+                    Text {
+                        id: sectionHeading
+                        anchors.left: parent.left
+                        anchors.leftMargin: 20
+                        anchors.right: parent.right
+                        anchors.rightMargin: 20
+                        anchors.top: parent.top
+                        anchors.topMargin: 17
+                        color: settings.surfaceForeground
+                        elide: Text.ElideRight
+                        font.bold: true
+                        font.pixelSize: 22
+                        text: settings.selectedSectionLabel()
+                    }
 
                     Text {
                         anchors.centerIn: parent
@@ -465,7 +496,10 @@ Window {
                     ListView {
                         id: entryList
                         anchors.fill: parent
-                        anchors.margins: 16
+                        anchors.leftMargin: 16
+                        anchors.rightMargin: 16
+                        anchors.bottomMargin: 16
+                        anchors.topMargin: 58
                         clip: true
                         model: settings.hasCatalog ? settings.settingsCatalog.entries : []
                         spacing: 10
@@ -479,9 +513,9 @@ Window {
                         delegate: Rectangle {
                             required property var modelData
 
-                            border.color: lunar.borderSoft
+                            border.color: "#263f5971"
                             border.width: 1
-                            color: settings.surfaceBackground
+                            color: "#a816263b"
                             height: entryBody.implicitHeight + 26
                             radius: lunar.radiusMedium
                             width: entryList.width - entryScrollBar.width - 6

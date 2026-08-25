@@ -32,7 +32,7 @@ Window {
     modality: Qt.NonModal
     title: "Northstar Quick Settings"
 
-    width: 354
+    width: 380
     height: Math.min(contentColumn.implicitHeight + 32,
                      screenHeight - panelHeight - 20)
     x: screenX + screenWidth - width - 18
@@ -95,7 +95,7 @@ Window {
 
             Text {
                 color: quickSettings.surfaceForeground
-                text: "This enters FreeBSD S3 sleep. Save important work before testing resume."
+                text: "This puts Northstar to sleep. Save important work before testing resume."
                 wrapMode: Text.WordWrap
                 width: parent.width
             }
@@ -142,6 +142,8 @@ Window {
 
             Row {
                 width: parent.width
+                height: 0
+                visible: false
 
                 Item {
                     id: quickSettingsDragHandle
@@ -217,9 +219,9 @@ Window {
                     border.color: quickSettings.controller && quickSettings.controller.wifiEnabled
                         ? lunar.accentBright : lunar.borderSoft
                     border.width: 1
-                    height: 62
+                    height: 92
                     radius: lunar.radiusMedium
-                    width: (parent.width - parent.spacing) / 2
+                    width: (parent.width - (2 * parent.spacing)) / 3
 
                     MouseArea {
                         id: wifiMouse
@@ -233,7 +235,23 @@ Window {
 
                     Column {
                         anchors.centerIn: parent
-                        spacing: 3
+                        spacing: 4
+
+                        Rectangle {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            color: quickSettings.controller && quickSettings.controller.wifiEnabled
+                                ? lunar.accent : lunar.raisedHover
+                            height: 32
+                            radius: 16
+                            width: 32
+
+                            Text {
+                                anchors.centerIn: parent
+                                color: quickSettings.surfaceForeground
+                                font.pixelSize: 17
+                                text: "⌁"
+                            }
+                        }
 
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter
@@ -249,7 +267,7 @@ Window {
                             font.pixelSize: 10
                             text: quickSettings.controller
                                 ? quickSettings.controller.wifiStatus : "Status unavailable"
-                            width: 138
+                            width: 100
                             elide: Text.ElideRight
                             horizontalAlignment: Text.AlignHCenter
                         }
@@ -270,9 +288,9 @@ Window {
                     border.color: quickSettings.controller && quickSettings.controller.bluetoothEnabled
                         ? lunar.accentBright : lunar.borderSoft
                     border.width: 1
-                    height: 62
+                    height: 92
                     radius: lunar.radiusMedium
-                    width: (parent.width - parent.spacing) / 2
+                    width: (parent.width - (2 * parent.spacing)) / 3
 
                     MouseArea {
                         id: bluetoothMouse
@@ -286,7 +304,23 @@ Window {
 
                     Column {
                         anchors.centerIn: parent
-                        spacing: 3
+                        spacing: 4
+
+                        Rectangle {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            color: quickSettings.controller && quickSettings.controller.bluetoothEnabled
+                                ? lunar.accent : lunar.raisedHover
+                            height: 32
+                            radius: 16
+                            width: 32
+
+                            Text {
+                                anchors.centerIn: parent
+                                color: quickSettings.surfaceForeground
+                                font.pixelSize: 17
+                                text: "ᛒ"
+                            }
+                        }
 
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter
@@ -302,9 +336,68 @@ Window {
                             font.pixelSize: 10
                             text: quickSettings.controller
                                 ? quickSettings.controller.bluetoothStatus : "Status unavailable"
-                            width: 138
+                            width: 100
                             elide: Text.ElideRight
                             horizontalAlignment: Text.AlignHCenter
+                        }
+                    }
+                }
+
+                Rectangle {
+                    id: appearanceTile
+                    color: quickSettings.state && quickSettings.state.darkMode
+                        ? lunar.accentSoft
+                        : appearanceMouse.containsMouse ? lunar.raisedHover : quickSettings.surfaceRaised
+                    border.color: quickSettings.state && quickSettings.state.darkMode
+                        ? lunar.accentBright : lunar.borderSoft
+                    border.width: 1
+                    height: 92
+                    radius: lunar.radiusMedium
+                    width: (parent.width - (2 * parent.spacing)) / 3
+
+                    Column {
+                        anchors.centerIn: parent
+                        spacing: 4
+
+                        Rectangle {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            color: quickSettings.state && quickSettings.state.darkMode
+                                ? lunar.accent : lunar.raisedHover
+                            height: 32
+                            radius: 16
+                            width: 32
+
+                            Text {
+                                anchors.centerIn: parent
+                                color: quickSettings.surfaceForeground
+                                font.pixelSize: 17
+                                text: "◐"
+                            }
+                        }
+
+                        Text {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            color: quickSettings.surfaceForeground
+                            font.bold: true
+                            font.pixelSize: 12
+                            text: "Dark mode"
+                        }
+
+                        Text {
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            color: quickSettings.surfaceMuted
+                            font.pixelSize: 10
+                            text: quickSettings.state && quickSettings.state.darkMode ? "On" : "Off"
+                        }
+                    }
+
+                    MouseArea {
+                        id: appearanceMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        onClicked: {
+                            if (quickSettings.state)
+                                quickSettings.state.darkMode = !quickSettings.state.darkMode
                         }
                     }
                 }
@@ -401,7 +494,7 @@ Window {
                         }
                     }
 
-                    Slider {
+                    AuroraSlider {
                         id: displaySlider
                         enabled: quickSettings.controller && quickSettings.controller.displayWritable
                         from: 1
@@ -444,7 +537,7 @@ Window {
                         spacing: 8
                         width: parent.width
 
-                        Button {
+                        AuroraButton {
                             id: muteButton
                             enabled: quickSettings.controller && quickSettings.controller.soundAvailable
                             text: quickSettings.controller && quickSettings.controller.muted
@@ -456,7 +549,7 @@ Window {
                             }
                         }
 
-                        Slider {
+                        AuroraSlider {
                             id: soundSlider
                             enabled: quickSettings.controller && quickSettings.controller.soundAvailable
                             from: 0
@@ -471,7 +564,7 @@ Window {
                         }
                     }
 
-                    ComboBox {
+                    AuroraComboBox {
                         id: outputChooser
                         enabled: quickSettings.controller
                             && quickSettings.controller.soundOutputs.length > 1
@@ -559,7 +652,7 @@ Window {
                     height: 28
                     text: quickSettings.controller && quickSettings.controller.statusMessage.length > 0
                         ? quickSettings.controller.statusMessage
-                        : "Controls reflect confirmed FreeBSD capabilities."
+                        : "Controls reflect confirmed hardware capabilities."
                     verticalAlignment: Text.AlignVCenter
                     width: parent.width - sleepButton.width - settingsButton.width
                         - (2 * parent.spacing)
@@ -571,16 +664,16 @@ Window {
                         ? lunar.accentSoft : quickSettings.surfaceRaised
                     border.color: lunar.borderSoft
                     border.width: 1
-                    height: 28
-                    radius: lunar.radiusSmall
-                    width: 56
+                    height: 34
+                    radius: 17
+                    width: 34
 
                     Text {
                         anchors.centerIn: parent
                         color: sleepMouse.enabled
                             ? quickSettings.surfaceForeground : quickSettings.surfaceMuted
-                        font.pixelSize: 10
-                        text: "Sleep"
+                        font.pixelSize: 15
+                        text: "◒"
                     }
 
                     MouseArea {
@@ -598,15 +691,15 @@ Window {
                     color: settingsMouse.containsMouse ? lunar.accentSoft : quickSettings.surfaceRaised
                     border.color: lunar.borderSoft
                     border.width: 1
-                    height: 28
-                    radius: lunar.radiusSmall
-                    width: 64
+                    height: 34
+                    radius: 17
+                    width: 34
 
                     Text {
                         anchors.centerIn: parent
                         color: quickSettings.surfaceForeground
-                        font.pixelSize: 10
-                        text: "Settings"
+                        font.pixelSize: 15
+                        text: "⚙"
                     }
 
                     MouseArea {

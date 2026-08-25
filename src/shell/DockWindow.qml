@@ -162,8 +162,8 @@ Window {
         anchors.bottomMargin: 1
         anchors.horizontalCenter: parent.horizontalCenter
         color: lunar.shadow
-        height: 64
-        radius: 24
+        height: 62
+        radius: 20
         width: Math.min(parent.width - 20, dockSurface.width + 12)
         y: 8
     }
@@ -174,11 +174,11 @@ Window {
         anchors.bottomMargin: 5
         anchors.horizontalCenter: parent.horizontalCenter
         color: dock.dockBackground
-        height: 62
-        radius: 22
+        height: 58
+        radius: 18
         border.color: lunar.dockGlassEdge
         border.width: 1
-        width: Math.min(parent.width - 24, Math.max(748, dockContent.implicitWidth + 20))
+        width: Math.min(parent.width - 24, Math.max(560, dockContent.implicitWidth + 20))
 
         gradient: Gradient {
             GradientStop { position: 0.0; color: lunar.dockGlass }
@@ -563,7 +563,7 @@ Window {
                 model: dock.chooserGroup && dock.chooserGroup.windows
                     ? dock.chooserGroup.windows : []
 
-                delegate: Button {
+                delegate: AuroraButton {
                     required property var modelData
                     flat: true
                     text: modelData.title + (modelData.minimized ? " (minimized)" : "")

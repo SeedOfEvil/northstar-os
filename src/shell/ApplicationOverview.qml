@@ -198,7 +198,7 @@ Window {
                     }
                 }
 
-                Button {
+                AuroraButton {
                     id: closeButton
                     text: "Close"
                     onClicked: overview.visible = false

@@ -21,6 +21,14 @@ the shell surfaces. It uses a transparent 4-by-3 layout with 362-pixel tiles:
 The source render is retained as `northstar-icons-source.png` for provenance;
 the shell consumes only the alpha-processed PNG.
 
+## Aurora Glass atlas
+
+`northstar-icons-aurora.png` is the generated, alpha-backed replacement used
+by the Aurora Glass shell. It retains the same semantic 4-by-3 tile order while
+reducing gloss, bevels, and heavy outlines. Its unprocessed generation is kept
+as `northstar-icons-aurora-source.png`; the original Lunar atlas remains in the
+repository for provenance and rollback.
+
 ## Generated application and control icons
 
 The project-owned `generated/` directory contains four derived raster icons

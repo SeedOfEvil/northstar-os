@@ -12,6 +12,9 @@ qt_add_qml_module(northstar-ui
     OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/Northstar/Ui"
     NO_PLUGIN
     QML_FILES
+        AuroraButton.qml
+        AuroraComboBox.qml
+        AuroraSlider.qml
         LunarPalette.qml
         NativeWindowMoveHandler.qml
         NativeWindowResizeHandler.qml

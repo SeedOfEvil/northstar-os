@@ -164,7 +164,7 @@ void registerDesktopSettings(SettingsCatalog *catalog,
         brightness.section = QStringLiteral("appearance");
         brightness.title = QStringLiteral("Display brightness");
         brightness.description = QStringLiteral(
-            "Set the laptop panel backlight through FreeBSD and read it back to confirm the change.");
+            "Set the laptop panel backlight and read it back to confirm the change.");
         brightness.keywords = QStringList{QStringLiteral("brightness"), QStringLiteral("display"),
                                            QStringLiteral("screen"), QStringLiteral("backlight")};
         brightness.kind = SettingsCatalog::sliderKind();
@@ -639,7 +639,7 @@ void registerDesktopSettings(SettingsCatalog *catalog,
     manageBluetooth.section = QStringLiteral("network");
     manageBluetooth.title = QStringLiteral("Manage Bluetooth devices");
     manageBluetooth.description = QStringLiteral(
-        "Scan discoverable devices and open the foreground FreeBSD pairing wizard.");
+        "Scan discoverable devices and open the foreground pairing wizard.");
     manageBluetooth.keywords = QStringList{QStringLiteral("bluetooth"), QStringLiteral("pair"),
                                            QStringLiteral("keyboard"), QStringLiteral("mouse"),
                                            QStringLiteral("device")};
@@ -725,7 +725,7 @@ void registerDesktopSettings(SettingsCatalog *catalog,
         catalog->registerEntry(info(
             QStringLiteral("power.battery"), QStringLiteral("power"),
             QStringLiteral("Battery"),
-            QStringLiteral("Current battery charge and charging state reported by FreeBSD ACPI."),
+            QStringLiteral("Current battery charge and charging state reported by the system power service."),
             QStringList{QStringLiteral("battery"), QStringLiteral("charge"),
                         QStringLiteral("charging"), QStringLiteral("remaining")},
             [power]() { return QVariant(power->batteryStatus()); }));
@@ -748,7 +748,7 @@ void registerDesktopSettings(SettingsCatalog *catalog,
         lidSleep.section = QStringLiteral("power");
         lidSleep.title = QStringLiteral("Sleep when lid closes");
         lidSleep.description = QStringLiteral(
-            "Persist the FreeBSD ACPI lid action and apply it immediately.");
+            "Persist the system lid action and apply it immediately.");
         lidSleep.keywords = QStringList{QStringLiteral("lid"), QStringLiteral("close"),
                                         QStringLiteral("sleep"), QStringLiteral("suspend"),
                                         QStringLiteral("laptop")};
@@ -759,7 +759,7 @@ void registerDesktopSettings(SettingsCatalog *catalog,
         };
         lidSleep.available = [power]() { return power->lidSwitchAvailable(); };
         lidSleep.unavailableReason = []() {
-            return QStringLiteral("A configurable FreeBSD ACPI lid switch was not detected.");
+            return QStringLiteral("A configurable lid switch was not detected.");
         };
         lidSleep.writeFailureReason = [power]() { return power->statusMessage(); };
         catalog->registerEntry(lidSleep);
