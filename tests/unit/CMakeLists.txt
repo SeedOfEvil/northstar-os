@@ -192,6 +192,18 @@ target_link_libraries(test-windowcontroller
 
 add_test(NAME northstar-windowcontroller COMMAND test-windowcontroller)
 
+qt_add_executable(test-inputcontroller
+    test-inputcontroller.cpp
+)
+
+target_link_libraries(test-inputcontroller
+    PRIVATE
+        northstar-shell-core
+        Qt6::Test
+)
+
+add_test(NAME northstar-inputcontroller COMMAND test-inputcontroller)
+
 qt_add_executable(test-pinnedapplicationmodel
     test-pinnedapplicationmodel.cpp
 )
@@ -402,6 +414,7 @@ set_tests_properties(
     northstar-updateplancontroller
     northstar-volumecatalog
     northstar-windowcontroller
+    northstar-inputcontroller
     northstar-pinnedapplicationmodel
     northstar-searchcontroller
     northstar-previewcontroller

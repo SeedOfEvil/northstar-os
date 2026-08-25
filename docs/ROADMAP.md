@@ -529,3 +529,8 @@ validation input; that media is not a Northstar release artifact.
 The current work continues with milestone-scoped slices rather than trying to
 land an ISO prematurely. The immediate product target is the M4 package-trust
 and update-safety sequence described above.
+
+Mouse and touchpad controls are in progress on the M6 input-controls branch.
+The Settings catalog now uses Wayfire's user-session input inventory and
+persists its native input options atomically. Focused physical Intel acceptance
+remains the merge gate.

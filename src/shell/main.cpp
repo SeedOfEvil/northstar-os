@@ -4,6 +4,7 @@
 #include "desktoplayoutcontroller.h"
 #include "desktopsettings.h"
 #include "filebrowsercontroller.h"
+#include "inputcontroller.h"
 #include "layershellsurface.h"
 #include "notificationcenter.h"
 #include "packagecatalog.h"
@@ -161,6 +162,7 @@ int main(int argc, char *argv[])
     ClockController clockController;
     NotificationCenter notificationCenter;
     QuickSettingsController quickSettingsController;
+    InputController inputController;
     PackageCatalog packageCatalog;
     PackageMutationController packageMutationController(&packageCatalog);
     PackageTrustController packageTrustController;
@@ -223,6 +225,7 @@ int main(int argc, char *argv[])
     registerDesktopSettings(&settingsCatalog,
                             &shellState,
                             &quickSettingsController,
+                            &inputController,
                             &notificationCenter,
                             &desktopLayoutController,
                             &applicationLauncher,
@@ -242,6 +245,8 @@ int main(int argc, char *argv[])
     QObject::connect(&clockController, &ClockController::clockChanged, &settingsCatalog,
                      refreshSettings);
     QObject::connect(&quickSettingsController, &QuickSettingsController::capabilitiesChanged,
+                     &settingsCatalog, refreshSettings);
+    QObject::connect(&inputController, &InputController::changed,
                      &settingsCatalog, refreshSettings);
     QObject::connect(&quickSettingsController, &QuickSettingsController::doNotDisturbChanged,
                      &settingsCatalog, refreshSettings);

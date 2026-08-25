@@ -1,6 +1,7 @@
 #include "applicationlauncher.h"
 #include "desktoplayoutcontroller.h"
 #include "desktopsettings.h"
+#include "inputcontroller.h"
 #include "notificationcenter.h"
 #include "pinnedapplicationmodel.h"
 #include "powercontroller.h"
@@ -14,6 +15,8 @@
 #include <QDir>
 #include <QFile>
 #include <QImage>
+#include <QJsonArray>
+#include <QJsonObject>
 #include <QTemporaryDir>
 #include <QtTest/QtTest>
 
@@ -137,6 +140,17 @@ struct Desktop
         : shellState(nullptr, QDir(root).filePath(QStringLiteral("shell.ini")))
         , quickSettings(nullptr, QDir(root).filePath(QStringLiteral("quick.ini")),
                         quickSettingsProvider)
+        , input(nullptr, QDir(root).filePath(QStringLiteral("wayfire.ini")),
+                [](const QString &, const QJsonObject &, QJsonValue *response, QString *) {
+                    *response = QJsonArray{
+                        QJsonObject{{QStringLiteral("name"), QStringLiteral("Test Mouse")},
+                                    {QStringLiteral("type"), QStringLiteral("pointer")},
+                                    {QStringLiteral("enabled"), true}},
+                        QJsonObject{{QStringLiteral("name"), QStringLiteral("Test TouchPad")},
+                                    {QStringLiteral("type"), QStringLiteral("pointer")},
+                                    {QStringLiteral("enabled"), true}}};
+                    return true;
+                })
         , notifications(nullptr, 40, QDir(root).filePath(QStringLiteral("notifications.ini")))
         , desktopLayout(nullptr, QDir(root).filePath(QStringLiteral("layout.ini")))
         , launcher(nullptr, {}, {QDir(root).filePath(QStringLiteral("applications"))},
@@ -153,7 +167,7 @@ struct Desktop
         , wallpaper(nullptr, QDir(root).filePath(QStringLiteral("wallpaper.ini")))
         , clock(nullptr, QDir(root).filePath(QStringLiteral("system")))
     {
-        registerDesktopSettings(&catalog, &shellState, &quickSettings, &notifications,
+        registerDesktopSettings(&catalog, &shellState, &quickSettings, &input, &notifications,
                                 &desktopLayout, &launcher, &pinned, &power, &session, &wallpaper,
                                 &clock);
     }
@@ -161,6 +175,7 @@ struct Desktop
     SettingsCatalog catalog;
     ShellState shellState;
     QuickSettingsController quickSettings;
+    InputController input;
     NotificationCenter notifications;
     DesktopLayoutController desktopLayout;
     ApplicationLauncher launcher;
@@ -211,7 +226,7 @@ void DesktopSettingsTest::registersEverySection()
     }
 
     QCOMPARE(sectionIds, QStringList({QStringLiteral("appearance"), QStringLiteral("desktop"),
-                                      QStringLiteral("sound"), QStringLiteral("network"),
+                                      QStringLiteral("input"), QStringLiteral("sound"), QStringLiteral("network"),
                                       QStringLiteral("notifications"), QStringLiteral("datetime"),
                                       QStringLiteral("power"), QStringLiteral("session"),
                                       QStringLiteral("about")}));
