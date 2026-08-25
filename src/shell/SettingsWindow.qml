@@ -438,6 +438,7 @@ Window {
                                 anchors.leftMargin: 10
                                 anchors.verticalCenter: parent.verticalCenter
                                 height: 22
+                                darkMode: settings.state ? settings.state.darkMode : true
                                 iconName: settings.iconForSection(modelData.id)
                                 width: 22
                             }

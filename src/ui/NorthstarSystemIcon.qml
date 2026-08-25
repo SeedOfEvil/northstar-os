@@ -4,7 +4,10 @@ Item {
     id: icon
 
     property string iconName: "settings"
-    property url source: "qrc:/Northstar/Ui/northstar-system-icons-aurora.png"
+    property bool darkMode: true
+    property url source: darkMode
+        ? "qrc:/Northstar/Ui/northstar-system-icons-aurora.png"
+        : "qrc:/Northstar/Ui/northstar-system-icons-aurora-light.png"
     property real atlasWidth: 1402
     property real atlasHeight: 1122
     readonly property real tileWidth: atlasWidth / 5

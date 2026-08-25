@@ -457,6 +457,7 @@ Window {
 
                         NorthstarSystemIcon {
                             anchors.centerIn: parent
+                            darkMode: shellState.darkMode
                             height: 21
                             iconName: modelData
                             width: 21

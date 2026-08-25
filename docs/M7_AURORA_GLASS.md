@@ -22,6 +22,9 @@ The built-in image-generation workflow produced:
   generated source for provenance;
 - `assets/icons/northstar-activity-aurora.png`, an eight-frame transparent
   activity animation for operations whose progress needs to be visible;
+- `assets/icons/northstar-system-icons-aurora-light.png` and
+  `assets/icons/northstar-activity-aurora-light.png`, the theme-aware companions
+  for pale frosted surfaces, with their generated sources retained;
 - `assets/wallpapers/aurora-glass.png`, the clean installed 1920-by-1080
   orbital desktop background extracted from the approved composition;
 - `assets/design/aurora/aurora-button-states.png`, the normal, hover, and

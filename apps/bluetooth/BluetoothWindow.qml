@@ -130,8 +130,10 @@ ApplicationWindow {
                 font.pixelSize: 28
             }
             AuroraActivityIcon {
+                darkMode: northstarDarkMode
                 Layout.preferredHeight: 28
                 Layout.preferredWidth: 28
+                mode: "bluetooth"
                 running: bluetoothController.busy
             }
             AuroraButton {

@@ -49,6 +49,8 @@ install(FILES
     ${PROJECT_SOURCE_DIR}/assets/icons/northstar-icons-aurora.png
     ${PROJECT_SOURCE_DIR}/assets/icons/northstar-system-icons-aurora.png
     ${PROJECT_SOURCE_DIR}/assets/icons/northstar-activity-aurora.png
+    ${PROJECT_SOURCE_DIR}/assets/icons/northstar-system-icons-aurora-light.png
+    ${PROJECT_SOURCE_DIR}/assets/icons/northstar-activity-aurora-light.png
     ${PROJECT_SOURCE_DIR}/assets/icons/generated/northstar-welcome.png
     ${PROJECT_SOURCE_DIR}/assets/icons/generated/northstar-software.png
     ${PROJECT_SOURCE_DIR}/assets/icons/generated/northstar-notifications.png

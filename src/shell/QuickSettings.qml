@@ -247,6 +247,7 @@ Window {
 
                             NorthstarSystemIcon {
                                 anchors.centerIn: parent
+                                darkMode: quickSettings.state ? quickSettings.state.darkMode : true
                                 height: 23
                                 iconName: "wifi"
                                 width: 23
@@ -316,6 +317,7 @@ Window {
 
                             NorthstarSystemIcon {
                                 anchors.centerIn: parent
+                                darkMode: quickSettings.state ? quickSettings.state.darkMode : true
                                 height: 23
                                 iconName: "bluetooth"
                                 width: 23
@@ -369,6 +371,7 @@ Window {
 
                             NorthstarSystemIcon {
                                 anchors.centerIn: parent
+                                darkMode: quickSettings.state ? quickSettings.state.darkMode : true
                                 height: 23
                                 iconName: "appearance"
                                 width: 23

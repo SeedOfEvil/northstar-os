@@ -48,8 +48,10 @@ ApplicationWindow {
                 font.pixelSize: 28
             }
             AuroraActivityIcon {
+                darkMode: northstarDarkMode
                 Layout.preferredHeight: 28
                 Layout.preferredWidth: 28
+                mode: "wifi"
                 running: wifiController.busy
             }
             AuroraButton {

@@ -13,6 +13,14 @@ set_source_files_properties(
     ${PROJECT_SOURCE_DIR}/assets/icons/northstar-activity-aurora.png
     PROPERTIES QT_RESOURCE_ALIAS "northstar-activity-aurora.png"
 )
+set_source_files_properties(
+    ${PROJECT_SOURCE_DIR}/assets/icons/northstar-system-icons-aurora-light.png
+    PROPERTIES QT_RESOURCE_ALIAS "northstar-system-icons-aurora-light.png"
+)
+set_source_files_properties(
+    ${PROJECT_SOURCE_DIR}/assets/icons/northstar-activity-aurora-light.png
+    PROPERTIES QT_RESOURCE_ALIAS "northstar-activity-aurora-light.png"
+)
 
 qt_add_qml_module(northstar-ui
     URI Northstar.Ui
@@ -36,6 +44,8 @@ qt_add_qml_module(northstar-ui
     RESOURCES
         ${PROJECT_SOURCE_DIR}/assets/icons/northstar-system-icons-aurora.png
         ${PROJECT_SOURCE_DIR}/assets/icons/northstar-activity-aurora.png
+        ${PROJECT_SOURCE_DIR}/assets/icons/northstar-system-icons-aurora-light.png
+        ${PROJECT_SOURCE_DIR}/assets/icons/northstar-activity-aurora-light.png
 )
 
 target_link_libraries(northstar-ui

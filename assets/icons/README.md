@@ -36,6 +36,10 @@ retained as `northstar-system-icons-aurora-source.png`.
 `northstar-activity-aurora.png`
 is its eight-frame transparent activity strip for discovery, pairing, loading,
 and transaction states; static controls do not animate without meaning.
+The `*-aurora-light.png` companions switch to navy/cyan outlines on pale glass;
+their `*-source.png` generations are retained beside them. Wi-Fi and Bluetooth
+use the generated glyphs with a restrained pulse, while general work and sync
+use the generated eight-frame orbital strip.
 
 ## Generated application and control icons
 
