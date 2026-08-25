@@ -34,3 +34,17 @@ touchpad speed, natural scrolling, tap to click, disable-while-typing, and the
 supported click methods apply from Settings and survive logout or reboot.
 Unavailable hardware must remain visibly unavailable rather than presenting a
 dead control.
+
+## Intel acceptance — 2026-08-24
+
+Commit `abb3d77` built and linked on NSTAR-DEV01. The focused controller,
+Settings catalog, and shell QML gates passed 3/3. The resulting shell binary
+had SHA-256
+`e600573804b52bd4064278a105b451a694bc5eea1bb8aa117aeb4251593bcb02` on
+both DEV01 output and the installed Intel laptop.
+
+The physical session reported separate enabled `Mouse` and `TouchPad` pointers
+through Wayfire IPC. Manual Settings acceptance confirmed that the controls
+rendered correctly and applied successfully. A read-back of the user's
+`[input]` section confirmed the values were persisted. Reboot persistence was
+not repeated during this focused pass.
