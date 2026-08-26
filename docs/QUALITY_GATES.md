@@ -2,11 +2,11 @@
 
 Quality gates are evidence requirements, not aspirations. The author records the exact command and environment; reviewers check that the evidence matches the change.
 
-The current evidence baseline is the NSTAR-DEV01 FreeBSD 15.1 amd64 VM. Its
-nested X11/pixman path is approved for development and interactive product
-validation, but it does not close the direct DRM/KMS graphics gate. A gate is
-closed only when the required evidence exists on the declared environment;
-the fact that a surface started once is not sufficient.
+The automated baseline is protected GitHub CI plus the NSTAR-DEV01 FreeBSD
+15.1 amd64 VM. DEV01's nested X11/pixman path is supplemental. The accepted
+R90 Intel laptop owns direct DRM/KMS and focused laptop-capability evidence;
+the AMD and native multi-display lanes remain open. A gate closes only when
+the required evidence exists on the declared environment.
 
 Full disk-image assembly and manual Proxmox import are not per-PR requirements.
 Routine PRs use the development lane and may defer image-level claims to a
@@ -86,7 +86,11 @@ evidence are recorded under `docs/validation/`. The next image checkpoint is
 the **M6 Alpha Hardware Release**; routine PRs continue using the development
 lane unless the milestone policy requires earlier image evidence.
 
-## Consolidated sprint acceptance checklist
+## Historical M3 consolidated sprint checklist
+
+> This section preserves the broad M3 integration checklist and its then-current
+> test counts. It is not the current M6/M7 release status. Use the roadmap and
+> the focused milestone/operator documents for present acceptance work.
 
 The current desktop integration is a broad M3 acceptance candidate, so the
 checks are deliberately split into repeatable headless evidence and a short

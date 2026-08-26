@@ -13,7 +13,9 @@ Northstar starts with a narrow, testable hardware lane. Hardware outside this ma
 | Virtual platform | QEMU/Proxmox | First validation lane |
 | Physical graphics | Intel UHD 620 (8086:3ea0, Whiskey Lake); one AMD generation remains | Intel lane accepted in R90; AMD pending |
 | Network | Wired Ethernet | First physical lane |
-| Wi-Fi | Intel Dual Band Wireless-AC 9560 (iwm, 9000-series firmware) | Associated and DHCP-proven; persistence and desktop controls pending |
+| Wi-Fi | Intel Dual Band Wireless-AC 9560 (iwm, 9000-series firmware) | Wizard, WPA2, DHCP, reboot persistence, and desktop controls accepted |
+| Bluetooth | Intel USB Bluetooth companion plus modern Android phone | SSP bond persistence and bidirectional OBEX Push accepted; HID/audio profiles remain separate |
+| Laptop controls | Audio, brightness, battery/power, S3 suspend, display modes, mouse, and touchpad | Focused Intel physical acceptance complete |
 | NVIDIA | Unsupported or experimental | Not an alpha requirement |
 | ARM64 | Out of scope | Not supported |
 | Apple hardware | Out of scope | Not supported |

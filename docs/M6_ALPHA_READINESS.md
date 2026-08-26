@@ -37,13 +37,14 @@ listings, interface names, command lines, environment values, and user paths.
 It records session variables only as present or absent. Output is written
 atomically with mode 0600, and an existing symbolic-link target is rejected.
 
-## Remaining evidence
+## Current and remaining evidence
 
-NSTAR-DEV01 is expected to remain supplemental because Proxmox basic VGA uses
-scfb/pixman and exposes no guest DRM render device. M6 still requires selection
-and interactive validation of one physical Intel DRM machine and one physical
-AMD DRM machine, followed by the complete application, recovery, update,
-rollback, and shutdown matrix.
+NSTAR-DEV01 remains supplemental because Proxmox basic VGA uses scfb/pixman and
+exposes no guest DRM render device. The R90 Whiskey Lake/Intel UHD 620 machine
+has passed installation, native DRM session, and focused laptop-capability
+acceptance. M6 still requires its consolidated matrix/evidence bundle, one
+physical AMD DRM lane, native multi-display evidence, and the final
+application, recovery, update, rollback, and shutdown regression.
 
 PR91 adds the next boundary: `tools/run-alpha-matrix.sh` combines this automatic
 inventory with a strict fixed-field operator observation record. The runner is

@@ -1,13 +1,15 @@
 # Northstar
 
-Northstar is a planning codename for an open-source, FreeBSD-native desktop operating system. It aims to provide one coherent, approachable desktop experience while remaining technically and legally independent from proprietary operating systems.
+Northstar is the development codename for an open-source, FreeBSD-native desktop operating system. It aims to provide one coherent, approachable desktop experience while remaining technically and legally independent from proprietary operating systems.
 
 > A polished, Mac-inspired Unix desktop built on FreeBSD, not an open-source clone of Apple's proprietary operating system.
 
 ## Project status
 
-**Pre-alpha.** Northstar runs as a complete system on its supported lane, and
-the first alpha extends that lane to physical Intel and AMD hardware.
+**Pre-alpha, with one accepted physical Intel lane.** Northstar runs as a
+complete installed system on its QEMU/Proxmox development lane and on the R90
+Whiskey Lake/Intel UHD 620 reference laptop. The AMD and native multi-display
+lanes remain open before Alpha promotion.
 
 A pinned image assembles into a bootable UEFI root-on-ZFS system that installs
 to a disk, completes first boot, logs in through a display manager, updates
@@ -18,7 +20,8 @@ The desktop provides:
 
 - a supervised session that survives a shell restart without closing your
   applications
-- a top bar, dock, desktop icons, and application overview
+- the Aurora Glass top bar, contextual application menus, compact Dock,
+  desktop icons, and application overview
 - a file manager with tabs, background copy and move, conflict handling, and
   one-step undo
 - a multi-document text editor with atomic saves and a private recent-file
@@ -26,9 +29,15 @@ The desktop provides:
 - searchable settings where every control is declared against the code that
   backs it
 - unified search, Quick Look, and notifications that survive a restart
-- a read-only software inventory over signed package provenance
+- guarded software install/remove over signed package provenance
+- graphical Wi-Fi and Bluetooth setup plus capability-backed laptop audio,
+  brightness, battery, power, suspend, display, mouse, and touchpad controls
 
-**Supported today:** amd64 UEFI on QEMU and Proxmox.
+**Validated today:** FreeBSD 15.1 amd64 UEFI/root-on-ZFS on QEMU/Proxmox and
+the declared Intel UHD 620 reference laptop. The VM's X11/pixman path remains
+supplemental rather than direct DRM/KMS evidence. NVIDIA, ARM64, Apple
+hardware, the AMD lane, and native multi-display are not current support
+claims.
 
 [`docs/ROADMAP.md`](docs/ROADMAP.md) carries per-milestone status and what
 comes next; `docs/validation/` carries the dated evidence behind each accepted
