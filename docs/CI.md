@@ -2,30 +2,32 @@
 
 CI is split by trust boundary and operating-system coverage.
 
-## GitHub-hosted checks
+## Pull-request checks
 
-Use GitHub Actions for documentation and repository checks:
+The active [GitHub Actions workflow](../.github/workflows/ci.yml) runs:
 
-- Markdown and link checks;
-- ShellCheck;
-- CMake configuration and formatting checks;
-- clang-format when C++ sources exist;
-- licence and secret scanning;
-- GitHub metadata validation.
+- repository contracts and POSIX shell syntax on GitHub-hosted Ubuntu; and
+- the complete non-privileged `make test` gate in a disposable FreeBSD 15.1
+  amd64 virtual machine.
 
-All third-party actions must be pinned to full commit SHAs before the repository becomes public.
+All remote actions are pinned to full commit SHAs. Jobs receive only read access
+to repository contents and no release credentials. Additional Markdown, link,
+formatting, licence, and secret checks can become required only after they have
+an accepted clean baseline and stable check name.
 
 ## Native FreeBSD checks
 
-Use Cirrus CI for native FreeBSD virtual machines:
+The native job uses a disposable FreeBSD virtual machine for:
 
-- host validation and CMake build;
+- CMake configuration and build;
 - Qt unit tests;
 - QML surface-contract checks for product-critical shell wiring;
-- Ports package tests;
-- basic session integration tests.
+- non-privileged shell and image-boundary contract tests.
 
 The exact FreeBSD release and package source are part of the job evidence.
+Root access inside that disposable guest is used only to install build
+dependencies. Northstar configuration, compilation, and tests run as the
+dedicated unprivileged `northstarci` account.
 
 ## Protected release builder
 
@@ -38,4 +40,14 @@ and manual Proxmox/noVNC acceptance are produced at the named M5/M6 release-
 candidate checkpoints in
 [`docs/MILESTONE_IMAGE_VALIDATION.md`](MILESTONE_IMAGE_VALIDATION.md).
 
-The workflow implementation is planned for PR 3. This document defines the contract without falsely claiming that CI is active in PR 2.
+Package publication, complete image assembly, destructive update/rollback,
+interactive VM acceptance, and physical hardware acceptance are intentionally
+not pull-request CI jobs.
+
+## Main branch protection
+
+Enable protection only after both workflow checks have completed successfully
+on a pull request. Require the stable `Repository contracts` and
+`FreeBSD 15.1 build and test` checks, require pull requests, and block force
+pushes and branch deletion. Do not substitute an automated green check for a
+documented manual hardware gate.
