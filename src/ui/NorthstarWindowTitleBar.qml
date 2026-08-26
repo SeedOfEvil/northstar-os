@@ -23,55 +23,9 @@ Item {
         window: bar.window
     }
 
-    Row {
-        anchors.left: parent.left
-        anchors.right: controls.left
-        anchors.rightMargin: 12
-        anchors.verticalCenter: parent.verticalCenter
-        spacing: 12
-
-        Image {
-            anchors.verticalCenter: parent.verticalCenter
-            fillMode: Image.PreserveAspectFit
-            height: 38
-            source: bar.iconSource
-            visible: bar.showIcon
-            width: visible ? 38 : 0
-        }
-
-        Column {
-            anchors.verticalCenter: parent.verticalCenter
-            spacing: 2
-            width: Math.max(80, parent.width - actionRow.width - (bar.showIcon ? 50 : 0) - 12)
-
-            Text {
-                color: bar.lunarPalette.foreground
-                elide: Text.ElideRight
-                font.bold: true
-                font.pixelSize: 22
-                text: bar.title
-                width: parent.width
-            }
-            Text {
-                color: bar.lunarPalette.muted
-                elide: Text.ElideRight
-                font.pixelSize: 12
-                text: bar.subtitle
-                visible: text.length > 0
-                width: parent.width
-            }
-        }
-
-        Row {
-            id: actionRow
-            anchors.verticalCenter: parent.verticalCenter
-            spacing: 8
-        }
-    }
-
     NorthstarWindowControls {
         id: controls
-        anchors.right: parent.right
+        anchors.left: parent.left
         anchors.verticalCenter: parent.verticalCenter
         closeDestroysWindow: bar.closeDestroysWindow
         maximized: bar.maximized
@@ -79,5 +33,53 @@ Item {
         lunarPalette: bar.lunarPalette
         window: bar.window
         onMaximizeRequested: bar.maximizeRequested()
+    }
+
+    Row {
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.verticalCenter: parent.verticalCenter
+        spacing: 10
+
+        Image {
+            anchors.verticalCenter: parent.verticalCenter
+            fillMode: Image.PreserveAspectFit
+            height: 28
+            source: bar.iconSource
+            visible: bar.showIcon
+            width: visible ? 28 : 0
+        }
+
+        Column {
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: 2
+            width: Math.min(360, Math.max(120, bar.width - controls.width - actionRow.width - 80))
+
+            Text {
+                color: bar.lunarPalette.foreground
+                elide: Text.ElideRight
+                font.bold: true
+                font.pixelSize: 15
+                horizontalAlignment: Text.AlignHCenter
+                text: bar.title
+                width: parent.width
+            }
+            Text {
+                color: bar.lunarPalette.muted
+                elide: Text.ElideRight
+                font.pixelSize: 10
+                horizontalAlignment: Text.AlignHCenter
+                text: bar.subtitle
+                visible: text.length > 0
+                width: parent.width
+            }
+        }
+
+    }
+
+    Row {
+        id: actionRow
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        spacing: 8
     }
 }

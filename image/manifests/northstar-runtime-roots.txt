@@ -7,6 +7,7 @@ gpu-firmware-intel-kmod-kabylake
 iwmbt-firmware
 lxqt-policykit
 northstar
+noto-sans
 obexapp
 pkg
 plasma6-layer-shell-qt

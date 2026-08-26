@@ -1441,7 +1441,7 @@ Window {
                     }
                 }
 
-                ComboBox {
+                AuroraComboBox {
                     id: sortSelector
                     anchors.verticalCenter: parent.verticalCenter
                     currentIndex: files.sortModeIndex()
@@ -1585,27 +1585,27 @@ Window {
                 spacing: 8
                 width: parent.width
 
-                Button {
+                AuroraButton {
                     text: "Copy"
                     enabled: files.hasSelection && !files.showingTrash
                     onClicked: files.fileBrowserController.copyEntry(files.selectedPath)
                 }
 
-                Button {
+                AuroraButton {
                     text: "Cut"
                     enabled: files.hasSelection && !files.showingTrash
                         && files.fileBrowserController && files.fileBrowserController.homeLocation
                     onClicked: files.fileBrowserController.cutEntry(files.selectedPath)
                 }
 
-                Button {
+                AuroraButton {
                     text: files.fileBrowserController && files.fileBrowserController.clipboardName
                         ? "Paste " + files.fileBrowserController.clipboardName : "Paste"
                     enabled: files.fileBrowserController && files.fileBrowserController.canPaste
                     onClicked: files.fileBrowserController.pasteClipboard()
                 }
 
-                Button {
+                AuroraButton {
                     text: files.fileBrowserController && files.fileBrowserController.undoLabel
                         ? files.fileBrowserController.undoLabel : "Undo"
                     enabled: files.fileBrowserController && files.fileBrowserController.canUndo
@@ -2146,7 +2146,7 @@ Window {
                     width: parent.width - showAllApplicationsButton.width - parent.spacing
                 }
 
-                Button {
+                AuroraButton {
                     id: showAllApplicationsButton
                     text: "Show All"
                     visible: !associationDialog.showAllApplications
@@ -2274,7 +2274,7 @@ Window {
                 spacing: 8
                 width: parent.width
 
-                Button {
+                AuroraButton {
                     text: "Forget Default"
                     visible: associationDialog.preferredDesktopId.length > 0
                     onClicked: {
@@ -2285,7 +2285,7 @@ Window {
                     }
                 }
 
-                Button {
+                AuroraButton {
                     text: "Use System Default"
                     enabled: !!files.fileBrowserController
                     onClicked: {
@@ -2296,7 +2296,7 @@ Window {
                     }
                 }
 
-                Button {
+                AuroraButton {
                     text: "Cancel"
                     onClicked: associationDialog.close()
                 }
@@ -2335,7 +2335,7 @@ Window {
                 width: parent.width
             }
 
-            Button {
+            AuroraButton {
                 text: "Keep Both"
                 onClicked: {
                     if (files.fileBrowserController.pasteClipboard("keepBoth")) {

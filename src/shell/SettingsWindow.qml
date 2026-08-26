@@ -11,6 +11,8 @@ Window {
         darkMode: settings.state ? settings.state.darkMode : true
     }
 
+    AuroraMetrics { id: metrics }
+
     property var state
     property var desktopLayoutController
     property var launcherController
@@ -22,7 +24,7 @@ Window {
     property bool sessionFailed: settings.hasSessionController
         && settings.sessionController.state === "failed"
     property var targetScreen
-    property int panelHeight: 44
+    property int panelHeight: metrics.panelHeight
     property int desktopMargin: 24
     property int screenX: targetScreen ? targetScreen.geometry.x : 0
     property int screenY: targetScreen ? targetScreen.geometry.y : 0
@@ -56,10 +58,16 @@ Window {
 
     minimumWidth: settings.minimumSurfaceWidth
     minimumHeight: settings.minimumSurfaceHeight
-    width: Math.min(960, Math.max(minimumSurfaceWidth, screenWidth - (desktopMargin * 2)))
-    height: Math.min(screenHeight - panelHeight - desktopMargin, Math.max(minimumSurfaceHeight, 720))
-    x: screenX + Math.max(desktopMargin, (screenWidth - width) / 2)
-    y: screenY + panelHeight + desktopMargin
+    width: Math.min(metrics.settingsWidth,
+                    Math.max(minimumSurfaceWidth, screenWidth - (desktopMargin * 2)))
+    height: Math.min(screenHeight - panelHeight - desktopMargin,
+                     Math.max(minimumSurfaceHeight, metrics.settingsHeight))
+    x: screenX + Math.max(desktopMargin, Math.min(
+        screenWidth - width - desktopMargin,
+        Math.round(screenWidth * metrics.settingsLeft / metrics.referenceWidth)))
+    y: screenY + Math.max(panelHeight + desktopMargin, Math.min(
+        screenHeight - height - desktopMargin,
+        Math.round(screenHeight * metrics.settingsTop / metrics.referenceHeight)))
 
     function openSettings() {
         settingsRecovery.restoreToReach()
@@ -83,6 +91,29 @@ Window {
         settings.settingsCatalog.clearQuery()
         searchField.text = ""
         settings.settingsCatalog.setSelectedSection(sectionId)
+    }
+
+    function selectedSectionLabel() {
+        if (!settings.hasCatalog || settings.searching) {
+            return settings.searching ? "Search results" : "Settings"
+        }
+        const sections = settings.settingsCatalog.sections
+        for (let index = 0; index < sections.length; ++index) {
+            if (sections[index].id === settings.selectedSection) {
+                return sections[index].label
+            }
+        }
+        return "Settings"
+    }
+
+    function iconForSection(sectionId) {
+        const icons = {
+            "appearance": "appearance", "desktop": "display", "input": "mouse",
+            "sound": "sound", "network": "network", "notifications": "notifications",
+            "datetime": "clock", "power": "power", "session": "users",
+            "about": "settings"
+        }
+        return icons[sectionId] || "settings"
     }
 
     // Destructive entries are confirmed here rather than in each delegate, so
@@ -231,14 +262,14 @@ Window {
 
         Item {
             anchors.fill: parent
-            anchors.margins: 22
+            anchors.margins: metrics.settingsOuterMargin
 
             Item {
                 id: titleBar
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.top: parent.top
-                height: 48
+                height: 52
 
                 NativeWindowMoveHandler {
                     enabled: false
@@ -261,14 +292,15 @@ Window {
             Rectangle {
                 id: searchBar
                 anchors.left: parent.left
-                anchors.right: parent.right
                 anchors.top: titleBar.bottom
                 anchors.topMargin: 14
                 border.color: searchField.activeFocus ? lunar.accent : lunar.borderSoft
                 border.width: 1
                 color: lunar.field
-                height: 46
+                height: 42
                 radius: lunar.radiusMedium
+                width: metrics.settingsSidebarWidth
+                z: 2
 
                 Row {
                     anchors.fill: parent
@@ -276,11 +308,14 @@ Window {
                     anchors.rightMargin: 12
                     spacing: 10
 
-                    Text {
+                    NorthstarSystemIcon {
                         anchors.verticalCenter: parent.verticalCenter
-                        color: settings.surfaceMuted
-                        font.pixelSize: 15
-                        text: "⌕"
+                        accented: false
+                        darkMode: settings.state ? settings.state.darkMode : true
+                        height: 18
+                        iconName: "search"
+                        strokeColor: settings.surfaceMuted
+                        width: 18
                     }
 
                     TextField {
@@ -291,7 +326,7 @@ Window {
                         placeholderText: "Search settings"
                         placeholderTextColor: settings.surfaceMuted
                         selectByMouse: true
-                        width: parent.width - 200
+                        width: parent.width - 72
                         onTextChanged: {
                             if (settings.hasCatalog) {
                                 settings.settingsCatalog.setQuery(text)
@@ -304,11 +339,8 @@ Window {
                         color: settings.surfaceMuted
                         font.pixelSize: 12
                         horizontalAlignment: Text.AlignRight
-                        text: settings.searching && settings.hasCatalog
-                            ? (settings.settingsCatalog.resultCount === 1
-                                ? "1 result" : settings.settingsCatalog.resultCount + " results")
-                            : ""
-                        width: 84
+                        visible: false
+                        width: 0
                     }
 
                     Rectangle {
@@ -370,24 +402,27 @@ Window {
                 anchors.bottomMargin: 8
                 anchors.left: parent.left
                 anchors.right: parent.right
-                anchors.top: searchBar.bottom
+                anchors.top: titleBar.bottom
                 anchors.topMargin: 14
-                spacing: 18
+                spacing: 16
 
                 Rectangle {
                     id: sectionSidebar
-                    border.color: lunar.borderSoft
-                    border.width: 1
-                    color: lunar.panel
+                    border.color: "transparent"
+                    border.width: 0
+                    color: lunar.raised
                     height: parent.height
                     opacity: settings.searching ? 0.5 : 1
                     radius: lunar.radiusLarge
-                    width: 196
+                    width: metrics.settingsSidebarWidth
 
                     ListView {
                         id: sectionList
                         anchors.fill: parent
-                        anchors.margins: 10
+                        anchors.leftMargin: 10
+                        anchors.rightMargin: 10
+                        anchors.bottomMargin: 10
+                        anchors.topMargin: 66
                         boundsBehavior: Flickable.StopAtBounds
                         clip: true
                         model: settings.hasCatalog ? settings.settingsCatalog.sections : []
@@ -405,13 +440,23 @@ Window {
                             color: !settings.searching && settings.selectedSection === modelData.id
                                 ? lunar.accentSoft
                                 : sectionMouse.containsMouse ? lunar.raisedHover : "transparent"
-                            height: 40
+                            height: 44
                             radius: lunar.radiusSmall
                             width: sectionList.width - sectionScrollBar.width - 6
 
+                            NorthstarSystemIcon {
+                                anchors.left: parent.left
+                                anchors.leftMargin: 10
+                                anchors.verticalCenter: parent.verticalCenter
+                                height: 24
+                                darkMode: settings.state ? settings.state.darkMode : true
+                                iconName: settings.iconForSection(modelData.id)
+                                width: 24
+                            }
+
                             Text {
                                 anchors.left: parent.left
-                                anchors.leftMargin: 12
+                                anchors.leftMargin: 46
                                 anchors.right: sectionCount.left
                                 anchors.rightMargin: 6
                                 anchors.verticalCenter: parent.verticalCenter
@@ -419,7 +464,7 @@ Window {
                                     ? settings.surfaceForeground : settings.surfaceMuted
                                 elide: Text.ElideRight
                                 font.bold: !settings.searching && settings.selectedSection === modelData.id
-                                font.pixelSize: 13
+                                font.pixelSize: 15
                                 text: modelData.label
                             }
 
@@ -444,10 +489,27 @@ Window {
                 }
 
                 Rectangle {
-                    color: settings.surfaceRaised
+                    border.color: lunar.borderSoft
+                    border.width: 1
+                    color: lunar.raised
                     height: parent.height
                     radius: lunar.radiusLarge
                     width: parent.width - sectionSidebar.width - parent.spacing
+
+                    Text {
+                        id: sectionHeading
+                        anchors.left: parent.left
+                        anchors.leftMargin: 20
+                        anchors.right: parent.right
+                        anchors.rightMargin: 20
+                        anchors.top: parent.top
+                        anchors.topMargin: 17
+                        color: settings.surfaceForeground
+                        elide: Text.ElideRight
+                        font.bold: true
+                        font.pixelSize: 26
+                        text: settings.selectedSectionLabel()
+                    }
 
                     Text {
                         anchors.centerIn: parent
@@ -465,7 +527,10 @@ Window {
                     ListView {
                         id: entryList
                         anchors.fill: parent
-                        anchors.margins: 16
+                        anchors.leftMargin: 16
+                        anchors.rightMargin: 16
+                        anchors.bottomMargin: 16
+                        anchors.topMargin: 58
                         clip: true
                         model: settings.hasCatalog ? settings.settingsCatalog.entries : []
                         spacing: 10
@@ -481,7 +546,8 @@ Window {
 
                             border.color: lunar.borderSoft
                             border.width: 1
-                            color: settings.surfaceBackground
+                            color: settings.state && settings.state.darkMode
+                                ? "#a816263b" : "#bff6f9fd"
                             height: entryBody.implicitHeight + 26
                             radius: lunar.radiusMedium
                             width: entryList.width - entryScrollBar.width - 6
@@ -502,14 +568,14 @@ Window {
                                         color: settings.surfaceForeground
                                         elide: Text.ElideRight
                                         font.bold: true
-                                        font.pixelSize: 14
+                                        font.pixelSize: 15
                                         text: modelData.title
                                         width: parent.width
                                     }
 
                                     Text {
                                         color: settings.surfaceMuted
-                                        font.pixelSize: 12
+                                        font.pixelSize: 13
                                         text: modelData.description
                                         visible: text.length > 0
                                         width: parent.width
@@ -542,7 +608,10 @@ Window {
                                     anchors.verticalCenter: parent.verticalCenter
                                     catalog: settings.settingsCatalog
                                     entry: modelData
+                                    accentColor: lunar.accent
+                                    backgroundColor: lunar.field
                                     foregroundColor: settings.surfaceForeground
+                                    hoverColor: lunar.raisedHover
                                     mutedColor: settings.surfaceMuted
                                     onActionRequested: (requested) => settings.activateEntry(requested)
                                     onPathChooseRequested: settingsWallpaperPicker.openAt()

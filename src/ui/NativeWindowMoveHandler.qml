@@ -4,6 +4,7 @@ DragHandler {
     id: handler
 
     required property var window
+    signal moveStarted()
 
     target: null
     acceptedButtons: Qt.LeftButton
@@ -13,6 +14,7 @@ DragHandler {
 
     onActiveChanged: {
         if (active) {
+            handler.moveStarted()
             handler.window.startSystemMove()
         }
     }

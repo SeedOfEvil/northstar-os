@@ -227,7 +227,7 @@ bool PowerController::setLidSuspendEnabled(bool enabled)
     }
     refreshPowerCapabilities();
     if (!m_lidSwitchAvailable || m_lidSuspendEnabled != enabled) {
-        m_statusMessage = QStringLiteral("Lid-close sleep changed, but FreeBSD did not confirm it.");
+        m_statusMessage = QStringLiteral("Lid-close sleep changed, but the system did not confirm it.");
         emit statusChanged();
         return false;
     }

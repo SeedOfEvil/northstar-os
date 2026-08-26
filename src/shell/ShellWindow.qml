@@ -10,10 +10,12 @@ Window {
         darkMode: shellState.darkMode
     }
 
+    AuroraMetrics { id: metrics }
+
     visible: false
     color: "transparent"
     flags: Qt.FramelessWindowHint | Qt.Tool
-    height: 44
+    height: metrics.panelHeight
     width: 1280
     title: "Northstar Shell"
 
@@ -202,6 +204,7 @@ Window {
         color: root.panelBackground
         border.color: lunar.borderSoft
         border.width: 1
+        radius: 18
 
         gradient: Gradient {
             GradientStop { position: 0.0; color: lunar.panelStrong }
@@ -213,31 +216,31 @@ Window {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
-            height: 44
+            height: metrics.panelHeight
             color: "transparent"
 
             Row {
                 id: brandNavigation
                 anchors.left: parent.left
-                anchors.leftMargin: 12
+                anchors.leftMargin: 14
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: 7
+                spacing: 9
 
                 Rectangle {
                     color: systemMouse.containsMouse ? lunar.raisedHover : "transparent"
-                    height: 32
-                    radius: 10
-                    width: 34
+                    height: 38
+                    radius: 11
+                    width: 42
 
                     Image {
                         anchors.centerIn: parent
                         fillMode: Image.PreserveAspectFit
-                        height: 24
+                        height: metrics.panelLogoHeight
                         mipmap: true
                         smooth: true
                         source: northstarLogoSource
                         sourceClipRect: Qt.rect(270, 245, 485, 335)
-                        width: 24
+                        width: metrics.panelLogoHeight + 4
                     }
 
                     MouseArea {
@@ -252,11 +255,54 @@ Window {
                     anchors.verticalCenter: parent.verticalCenter
                     color: root.panelForeground
                     font.bold: true
-                    font.pixelSize: 14
+                    font.pixelSize: 17
                     text: "NorthStar"
                 }
 
+                Repeater {
+                    model: [
+                        { label: "Settings", action: "settings" },
+                        { label: "File", action: "files" },
+                        { label: "Edit", action: "applications" },
+                        { label: "View", action: "quick-settings" },
+                        { label: "Window", action: "applications" },
+                        { label: "Help", action: "menu" }
+                    ]
+
+                    delegate: Rectangle {
+                        required property var modelData
+                        color: menuMouse.containsMouse ? lunar.raisedHover : "transparent"
+                        height: 34
+                        radius: 9
+                        width: menuLabel.implicitWidth + 20
+
+                        Text {
+                            id: menuLabel
+                            anchors.centerIn: parent
+                            color: root.panelForeground
+                            font.pixelSize: 14
+                            text: modelData.label
+                        }
+
+                        MouseArea {
+                            id: menuMouse
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            onClicked: {
+                                if (modelData.action === "quick-settings") {
+                                    quickSettingsWindow.togglePanel()
+                                } else if (modelData.action === "menu") {
+                                    systemMenu.openMenu()
+                                } else {
+                                    systemMenu.triggerAction(modelData.action)
+                                }
+                            }
+                        }
+                    }
+                }
+
                 Rectangle {
+                    visible: false
                     color: "transparent"
                     height: 32
                     width: 56
@@ -276,6 +322,7 @@ Window {
                 }
 
                 Rectangle {
+                    visible: false
                     color: filesNavMouse.containsMouse ? lunar.raisedHover : "transparent"
                     height: 32
                     radius: 9
@@ -309,6 +356,7 @@ Window {
                 }
 
                 Rectangle {
+                    visible: false
                     color: appsNavMouse.containsMouse ? lunar.raisedHover : "transparent"
                     height: 32
                     radius: 9
@@ -344,6 +392,7 @@ Window {
 
             Rectangle {
                 id: globalSearchSurface
+                visible: false
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.verticalCenter: parent.verticalCenter
                 color: lunar.field
@@ -396,7 +445,36 @@ Window {
                 anchors.right: parent.right
                 anchors.rightMargin: 12
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: 5
+                spacing: 7
+
+                Repeater {
+                    model: ["brightness", "wifi", "sound"]
+
+                    delegate: Rectangle {
+                        required property string modelData
+                        color: statusMouse.containsMouse ? lunar.raisedHover : "transparent"
+                        height: 34
+                        radius: 9
+                        width: 34
+
+                        NorthstarSystemIcon {
+                            anchors.centerIn: parent
+                            darkMode: shellState.darkMode
+                            height: metrics.panelIconSize
+                            iconName: modelData
+                            accented: false
+                            width: metrics.panelIconSize
+                        }
+
+                        MouseArea {
+                            id: statusMouse
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            hoverEnabled: true
+                            onClicked: quickSettingsWindow.togglePanel()
+                        }
+                    }
+                }
 
                 Row {
                     id: batteryIndicator
@@ -404,6 +482,8 @@ Window {
                         && !northstarPowerController.onAcPower
                         && northstarPowerController.batteryPercentage <= 15
 
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.verticalCenterOffset: 2
                     height: 18
                     spacing: 4
                     visible: northstarPowerController.batteryAvailable
@@ -450,12 +530,13 @@ Window {
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
                         color: batteryIndicator.low ? lunar.danger : root.panelForeground
-                        font.pixelSize: 11
+                        font.pixelSize: 12
                         text: northstarPowerController.batteryPercentage + "%"
                     }
                 }
 
                 Rectangle {
+                    visible: false
                     color: notificationMouse.containsMouse ? lunar.raisedHover : "transparent"
                     height: 30
                     radius: 9
@@ -487,6 +568,7 @@ Window {
                 }
 
                 Rectangle {
+                    visible: false
                     color: quickSettingsMouse.containsMouse ? lunar.raisedHover : "transparent"
                     height: 30
                     radius: 9
@@ -508,9 +590,11 @@ Window {
                 }
 
                 Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.verticalCenterOffset: 2
                     color: root.panelForeground
-                    font.pixelSize: 11
-                    text: Qt.formatDateTime(root.now, "ddd MMM d   hh:mm")
+                    font.pixelSize: 12
+                    text: Qt.formatDateTime(root.now, "ddd d MMM  hh:mm")
                 }
             }
         }
@@ -615,6 +699,7 @@ Window {
         powerController: northstarPowerController
         state: shellState
         settingsWindow: settingsWindow
+        systemMenu: systemMenu
         targetScreen: targetScreen
         panelHeight: root.height
     }

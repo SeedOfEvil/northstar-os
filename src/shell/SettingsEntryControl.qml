@@ -22,6 +22,9 @@ Item {
 
     property color foregroundColor: "#f2f4f8"
     property color mutedColor: "#9aa4b2"
+    property color backgroundColor: "#16263b"
+    property color hoverColor: "#243c59"
+    property color accentColor: "#24c7ef"
 
     // Actions and file choosing are the window's business: one confirms
     // destructive entries, the other owns the picker.
@@ -90,6 +93,29 @@ Item {
             checked: control.entry.value === true
             enabled: control.entry.available
             text: checked ? "On" : "Off"
+            implicitHeight: 24
+            implicitWidth: 44
+            contentItem: Item {}
+            indicator: Rectangle {
+                id: toggleTrack
+                anchors.verticalCenter: parent.verticalCenter
+                border.color: parent.checked ? control.accentColor : control.mutedColor
+                border.width: 1
+                color: parent.checked ? control.accentColor : control.backgroundColor
+                height: 22
+                radius: 11
+                width: 42
+
+                Rectangle {
+                    anchors.verticalCenter: parent.verticalCenter
+                    color: "#f5f8fc"
+                    height: 18
+                    radius: 9
+                    width: 18
+                    x: toggleTrack.parent.checked ? toggleTrack.width - width - 2 : 2
+                    Behavior on x { NumberAnimation { duration: 120 } }
+                }
+            }
             onToggled: {
                 // A refused write must not leave the box showing a state the
                 // system is not in.
@@ -116,6 +142,32 @@ Item {
                 stepSize: 1
                 value: control.entry.value
                 width: 150
+                background: Rectangle {
+                    x: valueSlider.leftPadding
+                    y: valueSlider.topPadding + valueSlider.availableHeight / 2 - height / 2
+                    width: valueSlider.availableWidth
+                    height: 4
+                    radius: 2
+                    color: control.backgroundColor
+
+                    Rectangle {
+                        width: valueSlider.visualPosition * parent.width
+                        height: parent.height
+                        radius: parent.radius
+                        color: control.accentColor
+                    }
+                }
+                handle: Rectangle {
+                    x: valueSlider.leftPadding + valueSlider.visualPosition
+                        * (valueSlider.availableWidth - width)
+                    y: valueSlider.topPadding + valueSlider.availableHeight / 2 - height / 2
+                    width: 18
+                    height: 18
+                    radius: 9
+                    color: "#e9f5ff"
+                    border.color: control.accentColor
+                    border.width: 1
+                }
                 onMoved: {
                     if (!pressed) {
                         control.writeValue(Math.round(value))
@@ -146,8 +198,24 @@ Item {
         id: actionControl
 
         Button {
+            id: actionButton
             enabled: control.entry.available
+            implicitHeight: 34
             text: control.entry.actionLabel
+            contentItem: Text {
+                color: actionButton.enabled ? control.foregroundColor : control.mutedColor
+                elide: Text.ElideRight
+                font.pixelSize: 12
+                horizontalAlignment: Text.AlignHCenter
+                text: actionButton.text
+                verticalAlignment: Text.AlignVCenter
+            }
+            background: Rectangle {
+                border.color: actionButton.activeFocus ? control.accentColor : control.mutedColor
+                border.width: 1
+                color: actionButton.hovered ? control.hoverColor : control.backgroundColor
+                radius: 9
+            }
             onClicked: control.actionRequested(control.entry)
         }
     }
@@ -161,7 +229,31 @@ Item {
             model: control.entry.options
             textRole: "label"
             valueRole: "value"
+            implicitHeight: 34
             width: 250
+            leftPadding: 12
+            rightPadding: 32
+            contentItem: Text {
+                color: choiceBox.enabled ? control.foregroundColor : control.mutedColor
+                elide: Text.ElideRight
+                font.pixelSize: 12
+                text: choiceBox.displayText
+                verticalAlignment: Text.AlignVCenter
+            }
+            background: Rectangle {
+                border.color: choiceBox.activeFocus ? control.accentColor : control.mutedColor
+                border.width: 1
+                color: choiceBox.hovered ? control.hoverColor : control.backgroundColor
+                radius: 9
+            }
+            indicator: Text {
+                anchors.right: parent.right
+                anchors.rightMargin: 11
+                anchors.verticalCenter: parent.verticalCenter
+                color: control.mutedColor
+                font.pixelSize: 13
+                text: "⌄"
+            }
 
             // An unset choice would otherwise render as an empty box that
             // looks broken rather than unanswered.
@@ -212,8 +304,23 @@ Item {
             }
 
             Button {
+                id: pathButton
                 anchors.verticalCenter: parent.verticalCenter
+                implicitHeight: 34
                 text: "Choose..."
+                contentItem: Text {
+                    color: pathButton.enabled ? control.foregroundColor : control.mutedColor
+                    font.pixelSize: 12
+                    horizontalAlignment: Text.AlignHCenter
+                    text: pathButton.text
+                    verticalAlignment: Text.AlignVCenter
+                }
+                background: Rectangle {
+                    border.color: pathButton.activeFocus ? control.accentColor : control.mutedColor
+                    border.width: 1
+                    color: pathButton.hovered ? control.hoverColor : control.backgroundColor
+                    radius: 9
+                }
                 onClicked: control.pathChooseRequested(control.entry)
             }
         }

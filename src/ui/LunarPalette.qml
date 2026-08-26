@@ -3,35 +3,35 @@ import QtQuick
 QtObject {
     property bool darkMode: true
 
-    readonly property color desktopTop: darkMode ? "#07172f" : "#d9e9ff"
-    readonly property color desktopBottom: darkMode ? "#0c2c5a" : "#86b8ee"
-    readonly property color background: darkMode ? "#0a172b" : "#eef5ff"
-    readonly property color backgroundDeep: darkMode ? "#061020" : "#dbe9fa"
-    readonly property color panel: darkMode ? "#e61a3153" : "#eef8fcff"
-    readonly property color panelStrong: darkMode ? "#f01a2b48" : "#f7fbffff"
-    readonly property color dockGlass: darkMode ? "#541a3153" : "#58f8fcff"
-    readonly property color dockGlassEdge: darkMode ? "#526b91bd" : "#659bb9da"
-    readonly property color raised: darkMode ? "#d926436c" : "#dceaf8"
-    readonly property color raisedHover: darkMode ? "#ef315786" : "#c9e1fa"
-    readonly property color field: darkMode ? "#b80b1b33" : "#e7f1fc"
-    readonly property color foreground: darkMode ? "#f6f9ff" : "#14233a"
-    readonly property color muted: darkMode ? "#a9bdd8" : "#546a85"
-    readonly property color subtle: darkMode ? "#718aa9" : "#7a8da4"
-    readonly property color accent: darkMode ? "#63adff" : "#1976d2"
-    readonly property color accentBright: darkMode ? "#82c9ff" : "#3294eb"
-    readonly property color accentSoft: darkMode ? "#3f6fa5" : "#a9d2fa"
-    readonly property color border: darkMode ? "#58779e" : "#9bb9da"
-    readonly property color borderSoft: darkMode ? "#355373" : "#c2d6eb"
+    readonly property color desktopTop: darkMode ? "#061329" : "#dcecff"
+    readonly property color desktopBottom: darkMode ? "#0a2a59" : "#8bbbea"
+    readonly property color background: darkMode ? "#081426" : "#f1f6fc"
+    readonly property color backgroundDeep: darkMode ? "#040d1b" : "#dce8f5"
+    readonly property color panel: darkMode ? "#df122238" : "#ccecf5fb"
+    readonly property color panelStrong: darkMode ? "#eb0b1728" : "#e6f4f9fd"
+    readonly property color dockGlass: darkMode ? "#c0122238" : "#bfe9f2fa"
+    readonly property color dockGlassEdge: darkMode ? "#53647f9d" : "#789ab4cf"
+    readonly property color raised: darkMode ? "#d61a2b42" : "#cce1ebf5"
+    readonly property color raisedHover: darkMode ? "#ee243c59" : "#d8d7e7f7"
+    readonly property color field: darkMode ? "#c00d1b2d" : "#bfe9f1f9"
+    readonly property color foreground: darkMode ? "#f5f8fc" : "#142238"
+    readonly property color muted: darkMode ? "#a7b5c8" : "#53677f"
+    readonly property color subtle: darkMode ? "#74869c" : "#7a8ca1"
+    readonly property color accent: darkMode ? "#24c7ef" : "#147bd1"
+    readonly property color accentBright: darkMode ? "#67d9f5" : "#2998e7"
+    readonly property color accentSoft: darkMode ? "#2a6380" : "#b7dcf7"
+    readonly property color border: darkMode ? "#53657c" : "#a8bed4"
+    readonly property color borderSoft: darkMode ? "#2b3d53" : "#ccd9e6"
     readonly property color success: "#50d890"
     readonly property color warning: "#f4bd65"
     readonly property color danger: "#ff6f82"
     readonly property color shadow: darkMode ? "#99030a14" : "#553c5875"
 
-    readonly property int radiusSmall: 8
-    readonly property int radiusMedium: 12
-    readonly property int radiusLarge: 18
-    readonly property int radiusPanel: 22
+    readonly property int radiusSmall: 9
+    readonly property int radiusMedium: 13
+    readonly property int radiusLarge: 17
+    readonly property int radiusPanel: 18
     readonly property int spacingSmall: 6
-    readonly property int spacing: 10
-    readonly property int spacingLarge: 16
+    readonly property int spacing: 12
+    readonly property int spacingLarge: 18
 }

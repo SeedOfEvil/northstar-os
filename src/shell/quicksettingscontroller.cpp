@@ -388,7 +388,7 @@ bool QuickSettingsController::setBluetoothEnabled(bool enabled)
 bool QuickSettingsController::setVolume(int volume)
 {
     if (!m_soundAvailable) {
-        setStatusMessage(QStringLiteral("Volume is unavailable because FreeBSD reported no mixer device."));
+        setStatusMessage(QStringLiteral("Volume is unavailable because no mixer device was reported."));
         return false;
     }
 
@@ -397,7 +397,7 @@ bool QuickSettingsController::setVolume(int volume)
     const QuickSettingsCommandResult mutation = m_commandProvider(
         QStringLiteral("/usr/sbin/mixer"), {mixerValue});
     if (!commandSucceeded(mutation)) {
-        setStatusMessage(QStringLiteral("FreeBSD mixer rejected the volume change."));
+        setStatusMessage(QStringLiteral("The system mixer rejected the volume change."));
         refreshSound();
         emit capabilitiesChanged();
         return false;
@@ -416,7 +416,7 @@ bool QuickSettingsController::setVolume(int volume)
 bool QuickSettingsController::setBalance(int balance)
 {
     if (!m_soundAvailable) {
-        setStatusMessage(QStringLiteral("Balance is unavailable because FreeBSD reported no mixer device."));
+        setStatusMessage(QStringLiteral("Balance is unavailable because no mixer device was reported."));
         return false;
     }
 
@@ -425,7 +425,7 @@ bool QuickSettingsController::setBalance(int balance)
         QStringLiteral("/usr/sbin/mixer"),
         {stereoMixerValue(m_volume, requestedBalance)});
     if (!commandSucceeded(mutation)) {
-        setStatusMessage(QStringLiteral("FreeBSD mixer rejected the balance change."));
+        setStatusMessage(QStringLiteral("The system mixer rejected the balance change."));
         refreshSound();
         emit capabilitiesChanged();
         return false;
@@ -446,7 +446,7 @@ bool QuickSettingsController::setBalance(int balance)
 bool QuickSettingsController::setMuted(bool muted)
 {
     if (!m_soundAvailable) {
-        setStatusMessage(QStringLiteral("Mute is unavailable because FreeBSD reported no mixer device."));
+        setStatusMessage(QStringLiteral("Mute is unavailable because no mixer device was reported."));
         return false;
     }
 
@@ -455,7 +455,7 @@ bool QuickSettingsController::setMuted(bool muted)
     const QuickSettingsCommandResult mutation = m_commandProvider(
         QStringLiteral("/usr/sbin/mixer"), {mixerValue});
     if (!commandSucceeded(mutation)) {
-        setStatusMessage(QStringLiteral("FreeBSD mixer rejected the mute change."));
+        setStatusMessage(QStringLiteral("The system mixer rejected the mute change."));
         refreshSound();
         emit capabilitiesChanged();
         return false;
@@ -487,7 +487,7 @@ bool QuickSettingsController::setSoundOutput(int unit)
         QStringLiteral("/usr/sbin/mixer"),
         {QStringLiteral("-d"), QString::number(unit)});
     if (!commandSucceeded(mutation)) {
-        setStatusMessage(QStringLiteral("FreeBSD mixer rejected the output change."));
+        setStatusMessage(QStringLiteral("The system mixer rejected the output change."));
         refreshSound();
         emit capabilitiesChanged();
         return false;
@@ -514,7 +514,7 @@ bool QuickSettingsController::setSoundOutput(int unit)
 bool QuickSettingsController::testSound()
 {
     if (!m_soundAvailable) {
-        setStatusMessage(QStringLiteral("Test sound is unavailable because FreeBSD reported no mixer device."));
+        setStatusMessage(QStringLiteral("Test sound is unavailable because no mixer device was reported."));
         return false;
     }
 
@@ -552,7 +552,7 @@ bool QuickSettingsController::setDisplayBrightness(int brightness)
         QStringLiteral("/usr/bin/backlight"),
         {QString::number(requestedBrightness)});
     if (!commandSucceeded(mutation)) {
-        setStatusMessage(QStringLiteral("FreeBSD rejected the brightness change."));
+        setStatusMessage(QStringLiteral("The system rejected the brightness change."));
         refreshDisplay();
         emit capabilitiesChanged();
         return false;
@@ -826,7 +826,7 @@ void QuickSettingsController::refreshWifi()
     const QuickSettingsCommandResult listResult = m_commandProvider(
         QStringLiteral("/sbin/ifconfig"), {QStringLiteral("-l")});
     if (!commandSucceeded(listResult)) {
-        m_wifiStatus = QStringLiteral("FreeBSD network status unavailable");
+        m_wifiStatus = QStringLiteral("Network status unavailable");
         return;
     }
 

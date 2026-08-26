@@ -30,9 +30,11 @@
 
 #include <QCoreApplication>
 #include <QDebug>
+#include <QFontDatabase>
 #include <QGuiApplication>
 #include <QQmlComponent>
 #include <QQmlApplicationEngine>
+#include <QQuickStyle>
 #include <QQmlContext>
 #include <QQmlEngine>
 #include <QQmlError>
@@ -45,8 +47,11 @@
 
 namespace {
 
-constexpr int PanelHeight = 44;
-constexpr int DockHeight = 72;
+constexpr int PanelHeight = 46;
+// The dock is a floating surface with a deliberate bottom gap. Layer-shell
+// owns the outer window size, so it must include both the 88 px glass surface
+// and its 22 px inset instead of retaining the legacy 72 px allocation.
+constexpr int DockHeight = 126;
 
 bool expectVisible(QObject *overlay, bool expected, const char *stage)
 {
@@ -113,7 +118,16 @@ QUrl northstarIconsSource()
 {
     const QString path = QStandardPaths::locate(
         QStandardPaths::GenericDataLocation,
-        QStringLiteral("northstar/icons/northstar-icons.png"),
+        QStringLiteral("northstar/icons/northstar-icons-aurora.png"),
+        QStandardPaths::LocateFile);
+    return path.isEmpty() ? QUrl() : QUrl::fromLocalFile(path);
+}
+
+QUrl northstarAuroraWallpaperSource()
+{
+    const QString path = QStandardPaths::locate(
+        QStandardPaths::GenericDataLocation,
+        QStringLiteral("northstar/wallpapers/aurora-glass.png"),
         QStandardPaths::LocateFile);
     return path.isEmpty() ? QUrl() : QUrl::fromLocalFile(path);
 }
@@ -131,7 +145,22 @@ QUrl northstarGeneratedIconsDirectory()
 
 int main(int argc, char *argv[])
 {
+    QQuickStyle::setStyle(QStringLiteral("Fusion"));
     QGuiApplication application(argc, argv);
+    const QStringList preferredFonts{QStringLiteral("Noto Sans"),
+                                     QStringLiteral("DejaVu Sans"),
+                                     QStringLiteral("Liberation Sans")};
+    QString family = QFontDatabase::systemFont(QFontDatabase::GeneralFont).family();
+    const QStringList installedFonts = QFontDatabase::families();
+    for (const QString &candidate : preferredFonts) {
+        if (installedFonts.contains(candidate)) {
+            family = candidate;
+            break;
+        }
+    }
+    QFont interfaceFont(family);
+    interfaceFont.setPointSize(10);
+    application.setFont(interfaceFont);
     // A DRM resume briefly removes the physical output and gives Qt a
     // placeholder screen. That must not turn a successful S3 cycle into a
     // clean shell exit, which the session supervisor correctly treats as a
@@ -265,6 +294,7 @@ int main(int argc, char *argv[])
 
     const QUrl logoSource = northstarLogoSource();
     const QUrl iconsSource = northstarIconsSource();
+    const QUrl auroraWallpaperSource = northstarAuroraWallpaperSource();
     const QUrl generatedIconsDirectory = northstarGeneratedIconsDirectory();
     engine.rootContext()->setContextProperty(QStringLiteral("northstarGeneratedIconsDirectory"),
                                              generatedIconsDirectory);
@@ -358,6 +388,8 @@ int main(int argc, char *argv[])
         auto *backgroundContext = new QQmlContext(engine.rootContext());
         backgroundContext->setContextProperty(QStringLiteral("northstarLogoSource"), logoSource);
         backgroundContext->setContextProperty(QStringLiteral("northstarIconsSource"), iconsSource);
+        backgroundContext->setContextProperty(QStringLiteral("northstarAuroraWallpaperSource"),
+                                              auroraWallpaperSource);
         backgroundContext->setContextProperty(QStringLiteral("northstarDesktopItemsController"),
                                               &desktopItemsController);
         backgroundContext->setContextProperty(QStringLiteral("northstarFileBrowserController"),

@@ -120,13 +120,13 @@ Window {
                     anchors.verticalCenter: parent.verticalCenter
                     spacing: 6
 
-                    Button {
+                    AuroraButton {
                         text: "Clear"
                         enabled: !!notifications.center && notifications.center.notifications.length > 0
                         onClicked: notifications.center.clearNotifications()
                     }
 
-                    Button {
+                    AuroraButton {
                         text: "Close"
                         onClicked: notifications.closePanel()
                     }

@@ -67,7 +67,7 @@ PackageCatalog::PackageCatalog(QString packageManagerPath, QObject *parent)
         m_packageManagerPath = QStandardPaths::findExecutable(QStringLiteral("pkg"));
     }
     setStatusMessage(m_packageManagerPath.isEmpty()
-            ? QStringLiteral("FreeBSD pkg is unavailable on this host.")
+            ? QStringLiteral("The system package service is unavailable on this computer.")
             : QStringLiteral("Package inventory has not been refreshed yet."));
 }
 
@@ -122,7 +122,7 @@ bool PackageCatalog::refresh()
         return false;
     }
     if (!available()) {
-        setStatusMessage(QStringLiteral("FreeBSD pkg is unavailable on this host."));
+        setStatusMessage(QStringLiteral("The system package service is unavailable on this computer."));
         return false;
     }
 
@@ -138,7 +138,7 @@ bool PackageCatalog::refresh()
     if (!process.waitForStarted(1500)) {
         m_refreshing = false;
         emit refreshingChanged();
-        setStatusMessage(QStringLiteral("Unable to start FreeBSD pkg."));
+        setStatusMessage(QStringLiteral("Unable to start the system package service."));
         return false;
     }
     if (!process.waitForFinished(10000)) {
@@ -146,13 +146,13 @@ bool PackageCatalog::refresh()
         process.waitForFinished(1000);
         m_refreshing = false;
         emit refreshingChanged();
-        setStatusMessage(QStringLiteral("FreeBSD pkg did not finish the inventory query."));
+        setStatusMessage(QStringLiteral("The system package service did not finish the inventory query."));
         return false;
     }
     if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0) {
         m_refreshing = false;
         emit refreshingChanged();
-        setStatusMessage(QStringLiteral("FreeBSD pkg could not read the installed package inventory."));
+        setStatusMessage(QStringLiteral("The system package service could not read the installed package inventory."));
         return false;
     }
 
@@ -164,7 +164,7 @@ bool PackageCatalog::refresh()
     m_refreshing = false;
     emit refreshingChanged();
     setStatusMessage(m_packages.isEmpty()
-            ? QStringLiteral("No installed packages were reported by FreeBSD pkg.")
+            ? QStringLiteral("No installed packages were reported by the system package service.")
             : QStringLiteral("%1 requested, %2 installed as dependencies.")
                   .arg(requestedCount())
                   .arg(dependencyCount()));
@@ -428,7 +428,7 @@ bool PackageCatalog::refreshAvailable()
         } else {
             m_catalogueDigest.clear();
             m_availablePackages.clear();
-            m_availableStatus = QStringLiteral("The pinned FreeBSD package catalogue is unavailable.");
+            m_availableStatus = QStringLiteral("The pinned system package catalogue is unavailable.");
             emit availableCatalogChanged();
             emit matchingPackagesChanged();
         }
@@ -441,11 +441,11 @@ bool PackageCatalog::refreshAvailable()
         m_availableScan = nullptr;
         m_catalogueDigest.clear();
         m_availablePackages.clear();
-        m_availableStatus = QStringLiteral("Unable to read the pinned FreeBSD package catalogue.");
+        m_availableStatus = QStringLiteral("Unable to read the pinned system package catalogue.");
         emit availableCatalogChanged();
         emit matchingPackagesChanged();
     });
-    m_availableStatus = QStringLiteral("Reading the pinned FreeBSD package catalogue...");
+    m_availableStatus = QStringLiteral("Reading the pinned system package catalogue...");
     m_availableScan->start(QIODevice::ReadOnly);
     emit availableCatalogChanged();
     return true;

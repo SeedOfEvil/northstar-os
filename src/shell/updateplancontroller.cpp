@@ -722,7 +722,7 @@ bool UpdatePlanController::parseMetadata(const QByteArray &contents,
         return false;
     }
     if (!QRegularExpression(QStringLiteral("^FreeBSD:[0-9]+:[A-Za-z0-9_]+$")).match(abi).hasMatch()) {
-        setError(errorMessage, QStringLiteral("abi must identify a FreeBSD release and architecture"));
+        setError(errorMessage, QStringLiteral("abi must identify the system release and architecture"));
         return false;
     }
     if (!QDateTime::fromString(generatedAt, Qt::ISODate).isValid()) {

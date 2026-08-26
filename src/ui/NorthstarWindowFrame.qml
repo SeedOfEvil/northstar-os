@@ -6,9 +6,9 @@ Rectangle {
     property bool darkMode: true
 
     color: lunar.panelStrong
-    border.color: lunar.border
+    border.color: lunar.borderSoft
     border.width: 1
-    radius: lunar.radiusPanel
+    radius: lunar.radiusLarge
     clip: true
 
     LunarPalette {
@@ -18,6 +18,7 @@ Rectangle {
 
     gradient: Gradient {
         GradientStop { position: 0.0; color: lunar.panelStrong }
+        GradientStop { position: 0.62; color: lunar.panelStrong }
         GradientStop { position: 1.0; color: lunar.panel }
     }
 }

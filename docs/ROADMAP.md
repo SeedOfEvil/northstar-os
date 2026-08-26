@@ -440,6 +440,12 @@ handling, bounded progress feedback, and one-step recoverable undo. Mounted
 volumes remain read-only sources: copying into Home is allowed, while cutting
 or mutating mounted content is rejected.
 
+Aurora Glass is the active visual-modernization slice. It replaces the older
+Lunar-era chrome with the approved midnight-glass reference across the top bar,
+menus, window frames, Settings, Quick Settings, controls, icon atlas, built-in
+wallpaper, and compact floating Dock while retaining the official Northstar
+mark. Focused physical Intel visual acceptance remains its merge gate.
+
 Text Editor v2 is accepted through PR #95. It replaces the single-buffer editor with
 multiple documents in one window: a tab strip with an explicit unsaved marker,
 New/Open/Save/Save As, a user-private recent-file history that survives a

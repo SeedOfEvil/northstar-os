@@ -30,7 +30,7 @@ Window {
     property color surfaceForeground: lunar.foreground
     property color surfaceMuted: lunar.muted
     property color surfaceAccent: lunar.accent
-    property int menuRowHeight: 40
+    property int menuRowHeight: 34
     property int menuSeparatorHeight: 1
     property int menuContentHeight: (12 * menuRowHeight) + (3 * menuSeparatorHeight)
     property bool canLogout: sessionController !== null
@@ -49,7 +49,7 @@ Window {
     flags: Qt.Window | Qt.FramelessWindowHint
     title: "Northstar Menu"
 
-    width: 292
+    width: 272
     height: menuContentHeight + 134
     x: screenX + desktopMargin
     y: screenY + panelHeight + 8
@@ -227,10 +227,10 @@ Window {
                 color: menu.surfaceForeground
                 text: menu.canPower
                     ? (menu.pendingPowerAction === "suspend"
-                        ? "This enters FreeBSD S3 sleep. Save important work before testing resume."
+                        ? "This puts Northstar to sleep. Save important work before testing resume."
                         : menu.pendingPowerAction === "restart"
-                        ? "This restarts the FreeBSD system and closes Northstar."
-                        : "This shuts down the FreeBSD system and closes Northstar.")
+                        ? "This restarts the computer and closes Northstar."
+                        : "This shuts down the computer and closes Northstar.")
                     : "Power controls are not configured for this system."
                 wrapMode: Text.WordWrap
                 width: parent.width
@@ -287,7 +287,7 @@ Window {
             Text {
                 color: menu.surfaceForeground
                 font.bold: true
-                font.pixelSize: 14
+                font.pixelSize: 13
                 leftPadding: 10
                 text: "Northstar"
                 verticalAlignment: Text.AlignVCenter
@@ -317,8 +317,8 @@ Window {
                     { kind: "action", id: "logout", label: "Log Out of Northstar" },
                     { kind: "separator" },
                     { kind: "action", id: "suspend", label: "Sleep" },
-                    { kind: "action", id: "restart", label: "Restart FreeBSD" },
-                    { kind: "action", id: "shutdown", label: "Shut Down FreeBSD" }
+                    { kind: "action", id: "restart", label: "Restart" },
+                    { kind: "action", id: "shutdown", label: "Shut Down" }
                 ]
                 width: parent.width
                 height: parent.height - 92
@@ -340,7 +340,7 @@ Window {
                         anchors.rightMargin: shortcutText.visible ? shortcutText.implicitWidth + 16 : 10
                         color: parent.actionAvailable ? menu.surfaceForeground : menu.surfaceMuted
                         elide: Text.ElideRight
-                        font.pixelSize: 13
+                        font.pixelSize: 12
                         text: modelData.kind === "separator" ? "" : modelData.id === "theme"
                             ? (menu.state && menu.state.darkMode
                                 ? "Use light appearance" : "Use dark appearance")
@@ -366,9 +366,9 @@ Window {
                         anchors.left: parent.left
                         anchors.leftMargin: 8
                         anchors.verticalCenter: parent.verticalCenter
-                        height: 24
+                        height: 21
                         visible: modelData.kind !== "separator"
-                        width: 24
+                        width: 21
                         iconName: menu.actionIconName(modelData.id)
                     }
 
@@ -429,7 +429,7 @@ Window {
                         Text {
                             color: menu.surfaceMuted
                             font.pixelSize: 10
-                            text: "FreeBSD workspace"
+                            text: "Northstar workspace"
                         }
                     }
                 }

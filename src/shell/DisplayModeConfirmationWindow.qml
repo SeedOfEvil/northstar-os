@@ -128,7 +128,7 @@ Window {
                 anchors.right: parent.right
                 spacing: 12
 
-                Button {
+                AuroraButton {
                     enabled: confirmation.pendingAction.length === 0
                     text: confirmation.pendingAction === "revert"
                         ? "Restoring..."
@@ -142,7 +142,7 @@ Window {
                     }
                 }
 
-                Button {
+                AuroraButton {
                     enabled: confirmation.pendingAction.length === 0
                     highlighted: true
                     text: confirmation.pendingAction === "keep"
