@@ -105,7 +105,7 @@ Window {
                 menuItem("Settings…", "settings.open", "Ctrl+,"),
                 menuSeparator(),
                 menuItem("Close " + activeApplicationName, "window.close", "Ctrl+W",
-                         kind !== "desktop" && kind !== "external")
+                         kind !== "desktop" && (kind !== "external" || activeApplicationViewId >= 0))
             ]
         }
         if (menuName === "File") {
@@ -221,7 +221,11 @@ Window {
         else if (action === "quick-settings.open") quickSettingsWindow.togglePanel()
         else if (action === "notifications.open") notificationCenterWindow.togglePanel()
         else if (action === "applications.open") applicationOverview.openWithQuery("")
-        else if (action === "window.close" && surface) surface.hide()
+        else if (action === "window.close") {
+            if (surface) surface.hide()
+            else if (activeApplicationViewId >= 0)
+                northstarWindowController.closeWindow(activeApplicationViewId)
+        }
         else if (action === "window.minimize") {
             if (surface) surface.showMinimized()
             else if (activeApplicationViewId >= 0)

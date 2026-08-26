@@ -76,6 +76,7 @@ contains src/shell/ShellWindow.qml 'rememberApplication("desktop", "Desktop", -1
 contains src/shell/ShellWindow.qml 'root.openContextMenu(modelData.menu, menuSelector)'
 contains src/shell/ShellWindow.qml 'controller.copyEntry(fileBrowserWindow.selectedPath)'
 contains src/shell/ShellWindow.qml 'northstarWindowController.toggleMinimize'
+contains src/shell/ShellWindow.qml 'northstarWindowController.closeWindow(activeApplicationViewId)'
 contains src/shell/MenuBarPopup.qml 'flags: Qt.Popup | Qt.FramelessWindowHint'
 contains src/shell/MenuBarPopup.qml 'Keys.onPressed:'
 contains src/shell/MenuBarPopup.qml 'modelData.checked === true ? "✓" : ""'

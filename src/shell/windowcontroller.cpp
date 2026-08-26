@@ -197,6 +197,22 @@ bool WindowController::activateWindow(int viewId)
     return true;
 }
 
+bool WindowController::closeWindow(int viewId)
+{
+    QJsonValue response;
+    QString error;
+    if (!request(QStringLiteral("window-rules/close-view"),
+                 QJsonObject{{QStringLiteral("id"), viewId}},
+                 &response,
+                 &error)) {
+        setRequestStatus(false, error);
+        return false;
+    }
+
+    setRequestStatus(true, QStringLiteral("Application close requested"));
+    return true;
+}
+
 bool WindowController::toggleMinimize(int viewId)
 {
     bool minimized = false;

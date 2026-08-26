@@ -163,11 +163,12 @@ void WindowControllerTest::actionsUseWayfireViewIds()
 {
     QStringList methods;
     int focusedViewId = 0;
+    int closedViewId = 0;
     int minimizedViewId = 0;
     bool minimized = false;
     WindowController controller(
         nullptr,
-        [&methods, &focusedViewId, &minimizedViewId, &minimized](const QString &method,
+        [&methods, &focusedViewId, &closedViewId, &minimizedViewId, &minimized](const QString &method,
                                                                   const QJsonObject &data,
                                                                   QJsonValue *response,
                                                                   QString *) {
@@ -178,6 +179,11 @@ void WindowControllerTest::actionsUseWayfireViewIds()
             }
             if (method == QStringLiteral("window-rules/focus-view")) {
                 focusedViewId = data.value(QStringLiteral("id")).toInt();
+                *response = QJsonObject{};
+                return true;
+            }
+            if (method == QStringLiteral("window-rules/close-view")) {
+                closedViewId = data.value(QStringLiteral("id")).toInt();
                 *response = QJsonObject{};
                 return true;
             }
@@ -192,14 +198,17 @@ void WindowControllerTest::actionsUseWayfireViewIds()
 
     QVERIFY(controller.refresh());
     QVERIFY(controller.activateWindow(12));
+    QVERIFY(controller.closeWindow(12));
     QVERIFY(controller.toggleMinimize(12));
     QVERIFY(minimized);
     QCOMPARE(focusedViewId, 12);
+    QCOMPARE(closedViewId, 12);
     QCOMPARE(minimizedViewId, 12);
     QCOMPARE(methods, QStringList({
         QStringLiteral("window-rules/list-views"),
         QStringLiteral("window-rules/focus-view"),
         QStringLiteral("window-rules/list-views"),
+        QStringLiteral("window-rules/close-view"),
         QStringLiteral("wm-actions/set-minimized"),
         QStringLiteral("window-rules/list-views"),
     }));
