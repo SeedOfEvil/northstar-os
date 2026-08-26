@@ -16,7 +16,8 @@ git -C "$PROJECT_ROOT" init -q
 git -C "$PROJECT_ROOT" config user.name Northstar
 git -C "$PROJECT_ROOT" config user.email northstar@localhost.invalid
 printf 'project fixture\n' > "$PROJECT_ROOT/README"
-git -C "$PROJECT_ROOT" add README
+printf '0.1.4\n' > "$PROJECT_ROOT/VERSION"
+git -C "$PROJECT_ROOT" add README VERSION
 git -C "$PROJECT_ROOT" commit -qm fixture
 PROJECT_COMMIT=$(git -C "$PROJECT_ROOT" rev-parse HEAD)
 printf 'base fixture\n' > "$ARTIFACTS/base.txz"
@@ -63,7 +64,7 @@ RFCOMM_STOCK_MODULE_SHA256=fac9f29d5f6b40f113817d26258fddb823ee290bde10086b1acea
 NORTHSTAR_PACKAGE=northstar-0.1.4-amd64.pkg
 NORTHSTAR_PACKAGE_VERSION=0.1.4
 NORTHSTAR_PACKAGE_SHA256=$(digest "$ARTIFACTS/northstar-0.1.4-amd64.pkg")
-NORTHSTAR_SOURCE_REVISION=017fc81040bb33879596b6a3dde630212e30524f
+NORTHSTAR_SOURCE_REVISION=$PROJECT_COMMIT
 NORTHSTAR_REPOSITORY_REVISION=78
 NORTHSTAR_CATALOGUE_SHA256=490893129ad74b1a4377fd4da73ae35fe4978a2b10c2ee96eb2959ba255b2142
 NORTHSTAR_METADATA_SHA256=5f6f47c82c02974886740dace9fa27198df67978a689700cb159544b68390bda
@@ -80,6 +81,8 @@ write_lock
 
 grep -F 'target_format=qcow2' "$TMP_DIR/prepared/resolved-image-inputs.conf" >/dev/null
 grep -F "project_commit=$PROJECT_COMMIT" \
+    "$TMP_DIR/prepared/resolved-image-inputs.conf" >/dev/null
+grep -F 'northstar_package_version=0.1.4' \
     "$TMP_DIR/prepared/resolved-image-inputs.conf" >/dev/null
 [ "$(wc -l < "$TMP_DIR/prepared/artifact-records" | tr -d ' ')" -eq 4 ]
 
@@ -99,6 +102,24 @@ if "$PREPARE" --lock "$LOCK" --artifacts "$ARTIFACTS" \
 fi
 
 write_lock
+sed 's/NORTHSTAR_SOURCE_REVISION=.*/NORTHSTAR_SOURCE_REVISION=0123456789abcdef0123456789abcdef01234567/' \
+    "$LOCK" > "$TMP_DIR/wrong-source.lock"
+if "$PREPARE" --lock "$TMP_DIR/wrong-source.lock" --artifacts "$ARTIFACTS" \
+    --output "$TMP_DIR/wrong-source" \
+    --project-root "$PROJECT_ROOT" --project-commit "$PROJECT_COMMIT" >/dev/null 2>&1; then
+    printf 'FAIL: preparation accepted an image lock for a different source revision\n' >&2
+    exit 1
+fi
+
+sed 's/NORTHSTAR_PACKAGE_VERSION=0.1.4/NORTHSTAR_PACKAGE_VERSION=0.1.5/' \
+    "$LOCK" > "$TMP_DIR/wrong-version.lock"
+if "$PREPARE" --lock "$TMP_DIR/wrong-version.lock" --artifacts "$ARTIFACTS" \
+    --output "$TMP_DIR/wrong-version" \
+    --project-root "$PROJECT_ROOT" --project-commit "$PROJECT_COMMIT" >/dev/null 2>&1; then
+    printf 'FAIL: preparation accepted an image lock that disagrees with project VERSION\n' >&2
+    exit 1
+fi
+
 sed 's/NORTHSTAR_PACKAGE_VERSION=0.1.4/NORTHSTAR_PACKAGE_VERSION=UNSET/' \
     "$LOCK" > "$TMP_DIR/unresolved.lock"
 if "$PREPARE" --lock "$TMP_DIR/unresolved.lock" --check-lock >/dev/null 2>&1; then

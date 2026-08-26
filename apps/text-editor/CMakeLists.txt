@@ -42,13 +42,21 @@ target_link_libraries(northstar-text-editor
         northstar-ui
 )
 
+set(NORTHSTAR_TEXT_EDITOR_MANIFEST ${CMAKE_CURRENT_BINARY_DIR}/NorthstarTextEditor-Info.plist)
+configure_file(
+    ${PROJECT_SOURCE_DIR}/apps/samples/NorthstarTextEditor.app/Contents/Info.plist.in
+    ${NORTHSTAR_TEXT_EDITOR_MANIFEST}
+    @ONLY
+)
+
 install(TARGETS northstar-text-editor
     RUNTIME DESTINATION share/northstar/apps/NorthstarTextEditor.app/Contents/Executable
 )
 
 install(FILES
-    ${PROJECT_SOURCE_DIR}/apps/samples/NorthstarTextEditor.app/Contents/Info.plist
+    ${NORTHSTAR_TEXT_EDITOR_MANIFEST}
     DESTINATION share/northstar/apps/NorthstarTextEditor.app/Contents
+    RENAME Info.plist
 )
 
 install(FILES

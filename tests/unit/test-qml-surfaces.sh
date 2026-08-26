@@ -471,9 +471,10 @@ contains apps/recovery/northstar-boot-environment '--activate NAME --confirm NAM
 contains apps/recovery/northstar-boot-environment 'destructive-operations=none'
 contains packaging/polkit/org.northstar.recovery.policy '/usr/local/libexec/northstar-boot-environment'
 contains packaging/polkit/org.northstar.recovery.policy '<allow_active>auth_admin</allow_active>'
-[ -r "$ROOT/apps/samples/NorthstarRecovery.app/Contents/Info.plist" ] \
+[ -r "$ROOT/apps/samples/NorthstarRecovery.app/Contents/Info.plist.in" ] \
     || fail 'Northstar Recovery bundle manifest is missing'
-contains apps/samples/NorthstarRecovery.app/Contents/Info.plist 'org.northstar.Recovery'
+contains apps/samples/NorthstarRecovery.app/Contents/Info.plist.in 'org.northstar.Recovery'
+contains apps/samples/NorthstarRecovery.app/Contents/Info.plist.in '@NORTHSTAR_VERSION@'
 
 for surface in \
     src/shell/FileBrowserWindow.qml \
@@ -487,9 +488,10 @@ for surface in \
     contains "$surface" 'NativeWindowResizeHandler {'
 done
 
-[ -r "$ROOT/apps/samples/NorthstarTextEditor.app/Contents/Info.plist" ] \
+[ -r "$ROOT/apps/samples/NorthstarTextEditor.app/Contents/Info.plist.in" ] \
     || fail 'Text Editor bundle manifest is missing'
-contains apps/samples/NorthstarTextEditor.app/Contents/Info.plist 'DocumentExtensions'
+contains apps/samples/NorthstarTextEditor.app/Contents/Info.plist.in 'DocumentExtensions'
+contains apps/samples/NorthstarTextEditor.app/Contents/Info.plist.in '@NORTHSTAR_VERSION@'
 
 # Every Lunar palette token a surface references must exist in LunarPalette.
 # A missing one silently evaluates to [undefined] and the control renders with

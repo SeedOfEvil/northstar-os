@@ -169,7 +169,7 @@ int main(int argc, char *argv[])
     const bool qmlSelfTest =
         application.arguments().contains(QStringLiteral("--qml-self-test"));
     QCoreApplication::setApplicationName(QStringLiteral("northstar-shell"));
-    QCoreApplication::setApplicationVersion(QStringLiteral("0.1.0"));
+    QCoreApplication::setApplicationVersion(QStringLiteral(NORTHSTAR_VERSION_STRING));
 
     NorthstarUi::registerTypes();
     QQmlApplicationEngine engine;

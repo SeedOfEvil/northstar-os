@@ -60,7 +60,9 @@ only for a complete physical Intel or AMD bundle. See
 
 On FreeBSD, `make package` creates Northstar's native package with CPack.
 `tools/publish-development-repository.sh` atomically publishes immutable
-package inputs through external catalogue and manifest signers. Its resolved
+package inputs through external catalogue and manifest signers. Publication
+requires the canonical repository-root `VERSION` file and rejects Northstar
+package metadata that disagrees with it. Its resolved
 input, key-custody, provenance, and validation contract is documented in
 `docs/M4_SIGNED_DEVELOPMENT_CHANNEL.md`.
 

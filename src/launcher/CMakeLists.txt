@@ -13,9 +13,17 @@ target_link_libraries(northstar-launcher-core
         Qt6::Core
 )
 
+set(NORTHSTAR_WELCOME_MANIFEST ${CMAKE_CURRENT_BINARY_DIR}/NorthstarWelcome-Info.plist)
+configure_file(
+    ${PROJECT_SOURCE_DIR}/apps/samples/NorthstarWelcome.app/Contents/Info.plist.in
+    ${NORTHSTAR_WELCOME_MANIFEST}
+    @ONLY
+)
+
 install(FILES
-    ${PROJECT_SOURCE_DIR}/apps/samples/NorthstarWelcome.app/Contents/Info.plist
+    ${NORTHSTAR_WELCOME_MANIFEST}
     DESTINATION share/northstar/apps/NorthstarWelcome.app/Contents
+    RENAME Info.plist
 )
 
 install(PROGRAMS

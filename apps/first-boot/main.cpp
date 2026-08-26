@@ -13,7 +13,7 @@ int main(int argc, char *argv[])
 {
     QGuiApplication application(argc, argv);
     QCoreApplication::setApplicationName(QStringLiteral("northstar-first-boot"));
-    QCoreApplication::setApplicationVersion(QStringLiteral("0.1.0"));
+    QCoreApplication::setApplicationVersion(QStringLiteral(NORTHSTAR_VERSION_STRING));
 
     QCommandLineParser parser;
     parser.setApplicationDescription(QStringLiteral("Northstar first-boot account setup"));

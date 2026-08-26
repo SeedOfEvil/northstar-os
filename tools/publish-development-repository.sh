@@ -12,6 +12,7 @@ PKG_SIGNER=
 PUBLICATION_SIGNER=
 PUBLIC_KEY=
 SOURCE_LOCK=
+VERSION_FILE=
 REVISION=
 SOURCE_REVISION=
 GENERATED_AT=
@@ -23,6 +24,7 @@ usage() {
     cat <<USAGE
 Usage: $0 --packages DIR --output DIR --pkg-signer FILE \\
   --publication-signer FILE --public-key FILE --source-lock FILE \\
+  --version-file FILE \\
   --revision NUMBER --source-revision COMMIT --generated-at ISO8601 \\
   --repository-url pkg+https://HOST/PATH --fingerprints-path /ABSOLUTE/PATH
 
@@ -53,6 +55,7 @@ while [ "$#" -gt 0 ]; do
         --publication-signer) PUBLICATION_SIGNER=${2-}; shift 2 ;;
         --public-key) PUBLIC_KEY=${2-}; shift 2 ;;
         --source-lock) SOURCE_LOCK=${2-}; shift 2 ;;
+        --version-file) VERSION_FILE=${2-}; shift 2 ;;
         --revision) REVISION=${2-}; shift 2 ;;
         --source-revision) SOURCE_REVISION=${2-}; shift 2 ;;
         --generated-at) GENERATED_AT=${2-}; shift 2 ;;
@@ -75,6 +78,12 @@ done
 [ -x "$PUBLICATION_SIGNER" ] || die 'publication signer must be an executable file'
 [ -f "$PUBLIC_KEY" ] && [ ! -L "$PUBLIC_KEY" ] || die 'public key must be a regular non-symlink file'
 [ -f "$SOURCE_LOCK" ] && [ ! -L "$SOURCE_LOCK" ] || die 'source lock must be a regular non-symlink file'
+[ -f "$VERSION_FILE" ] && [ ! -L "$VERSION_FILE" ] || die 'version file must be a regular non-symlink file'
+NORTHSTAR_VERSION=$(sed -n '1p' "$VERSION_FILE")
+[ "$(wc -l < "$VERSION_FILE" | tr -d ' ')" -eq 1 ] \
+    || die 'version file must contain exactly one line'
+printf '%s\n' "$NORTHSTAR_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' \
+    || die 'version file must contain exactly one semantic version'
 case "$REVISION" in ''|*[!0-9]*) die 'revision must be a non-negative integer' ;; esac
 [ "${#REVISION}" -le 9 ] || die 'revision is too long'
 printf '%s\n' "$SOURCE_REVISION" | grep -Eq '^[0-9A-Fa-f]{7,64}$' \
@@ -166,6 +175,8 @@ find "$PACKAGES_DIR" -type f -name '*.pkg' -print | sort |
         printf '%s|%s|%s\n' "$package_name" "$package_version" "$package_origin" >> "$PACKAGE_ROWS"
     done || die 'package metadata is missing or unsafe'
 grep -Eq '^northstar\|' "$PACKAGE_ROWS" || die 'publication must contain the Northstar package'
+grep -Fx "northstar|$NORTHSTAR_VERSION|x11/northstar" "$PACKAGE_ROWS" >/dev/null 2>&1 \
+    || die 'Northstar package metadata does not match the canonical version and origin'
 awk -F'|' 'seen[$1]++ { exit 1 }' "$PACKAGE_ROWS" \
     || die 'publication contains duplicate package names'
 
@@ -231,6 +242,7 @@ printf '%s\n' \
     "repository_revision=$REVISION" \
     "generated_at=$GENERATED_AT" \
     "source_revision=$SOURCE_REVISION" \
+    "northstar_version=$NORTHSTAR_VERSION" \
     "source_lock_sha256=$SOURCE_LOCK_SHA256" \
     "metadata_sha256=$METADATA_SHA256" \
     "catalogue_sha256=$CATALOGUE_SHA256" \

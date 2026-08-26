@@ -16,7 +16,7 @@ Run the native package build on FreeBSD:
 
 ```sh
 make package
-pkg query -F build/northstar-0.1.0-amd64.pkg '%n|%v|%o'
+pkg query -F "build/northstar-$(sed -n '1p' VERSION)-amd64.pkg" '%n|%v|%o'
 ```
 
 ## Publication boundary
@@ -26,6 +26,8 @@ pkg query -F build/northstar-0.1.0-amd64.pkg '%n|%v|%o'
 
 - a fully resolved source lock naming FreeBSD, architecture, Ports branch and
   exact commit, Qt and Wayfire versions, and the exact Northstar source commit;
+- the repository-root `VERSION` file, whose value must match the Northstar
+  package metadata;
 - a non-negative repository revision and explicit UTC build timestamp;
 - an external `pkg repo` signing-command executable;
 - a separate external publication signer accepting payload and output paths;
@@ -38,7 +40,7 @@ package name/version/origin/project revision, writes the resolved policy and
 client configuration, and rejects unresolved locks, duplicate packages,
 unsafe metadata, missing Northstar packages, or failed signature verification.
 
-The generated `publication-record.conf` records the source-lock digest,
+The generated `publication-record.conf` records the Northstar version, source-lock digest,
 publication-manifest digest, catalogue digest, signing fingerprint, dependency
 versions, source revision, timestamp, and repository revision. Private-key
 filenames are rejected from the output as a final containment check.
