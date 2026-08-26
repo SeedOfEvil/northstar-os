@@ -6,14 +6,15 @@ CI is split by trust boundary and operating-system coverage.
 
 The active [GitHub Actions workflow](../.github/workflows/ci.yml) runs:
 
-- repository contracts and POSIX shell syntax on GitHub-hosted Ubuntu; and
+- repository, canonical release-version, and top-level documentation truth
+  contracts plus POSIX shell syntax on GitHub-hosted Ubuntu; and
 - the complete non-privileged `make test` gate in a disposable FreeBSD 15.1
   amd64 virtual machine.
 
 All remote actions are pinned to full commit SHAs. Jobs receive only read access
-to repository contents and no release credentials. Additional Markdown, link,
-formatting, licence, and secret checks can become required only after they have
-an accepted clean baseline and stable check name.
+to repository contents and no release credentials. Markdown/link, formatting,
+licence, and secret-scanning improvements may be added after they have an
+accepted clean baseline and stable check name.
 
 ## Native FreeBSD checks
 
@@ -46,8 +47,13 @@ not pull-request CI jobs.
 
 ## Main branch protection
 
-Enable protection only after both workflow checks have completed successfully
-on a pull request. Require the stable `Repository contracts` and
-`FreeBSD 15.1 build and test` checks, require pull requests, and block force
-pushes and branch deletion. Do not substitute an automated green check for a
-documented manual hardware gate.
+Protection is active on `main`. It requires pull requests, strict success from
+the stable `Repository contracts` and `FreeBSD 15.1 build and test` checks,
+resolved review conversations, and applies to administrators. Force pushes and
+branch deletion are disabled. The zero-approval setting permits the project
+owner's solo workflow; explicit manual acceptance is still required wherever a
+PR declares a physical, noVNC, installer, storage, or release-candidate gate.
+
+An automated green check never substitutes for a documented capability gate.
+Conversely, documentation-only changes do not require DEV01 deployment or
+physical acceptance when they alter no runtime boundary.

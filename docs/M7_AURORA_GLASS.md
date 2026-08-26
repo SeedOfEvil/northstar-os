@@ -57,10 +57,11 @@ Dark Mode; separate Display and Sound cards; then confirmed battery, sleep,
 power/session, and Settings actions. Features that do not fit that hierarchy
 remain available in Settings instead of crowding the popup.
 
-## Acceptance boundary
+## Acceptance
 
-The change must preserve every existing controller and workflow. Focused gates
-cover QML loading, shared controls, Settings, session asset installation, and
-the shell. Physical acceptance on the Intel laptop remains the merge gate and
-must check the top bar, dock, Settings, Quick Settings, dark/light switching,
-window controls, scrollable content, and readable status/error states.
+The change preserves the existing controller and workflow boundaries. Focused
+gates cover QML loading, shared controls, Settings, session asset installation,
+and the shell. PR #125 passed physical Intel acceptance at 1920x1080 for the
+top bar, Dock, Settings, Quick Settings, window controls, scrolling, icon
+alignment, and readable status/error states. PR #126 then passed the contextual
+application-menu and active-application interaction gate on the same machine.
