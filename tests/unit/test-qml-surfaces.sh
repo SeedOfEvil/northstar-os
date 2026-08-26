@@ -32,6 +32,9 @@ src/ui/NorthstarWindowTitleBar.qml \
 src/shell/DesktopBackground.qml \
  src/shell/DockWindow.qml \
  src/shell/FileBrowserWindow.qml \
+ src/shell/FileBrowserFileView.qml \
+ src/shell/FileBrowserSidebar.qml \
+ src/shell/FileBrowserTabBar.qml \
  src/shell/MenuBarPopup.qml \
  src/shell/SettingsWindow.qml \
 src/shell/SoftwareCenterWindow.qml \
@@ -181,7 +184,15 @@ contains src/shell/FileBrowserWindow.qml 'title: "Open with an application"'
 contains src/shell/FileBrowserWindow.qml 'text: "Show All"'
 contains src/shell/FileBrowserWindow.qml 'setFilesGridView'
 contains src/shell/FileBrowserWindow.qml 'id: searchDebounceTimer'
-contains src/shell/FileBrowserWindow.qml 'id: tabBar'
+contains src/shell/FileBrowserWindow.qml 'FileBrowserSidebar {'
+contains src/shell/FileBrowserWindow.qml 'FileBrowserTabBar {'
+contains src/shell/FileBrowserWindow.qml 'FileBrowserFileView {'
+contains src/shell/FileBrowserSidebar.qml 'text: "Northstar Files"'
+contains src/shell/FileBrowserSidebar.qml 'files.openSidebarItem(modelData)'
+contains src/shell/FileBrowserTabBar.qml 'id: tabBar'
+contains src/shell/FileBrowserTabBar.qml 'files.closeTab(index)'
+contains src/shell/FileBrowserFileView.qml 'event.key === Qt.Key_Space'
+contains src/shell/FileBrowserFileView.qml 'Drag.mimeData: ({ "text/uri-list": dragUrl })'
 contains src/shell/FileBrowserWindow.qml 'function newTab()'
 contains src/shell/FileBrowserWindow.qml 'function activateTab(index)'
 contains src/shell/FileBrowserWindow.qml 'id: locationField'
@@ -302,7 +313,7 @@ contains src/shell/QuickLookWindow.qml 'NorthstarWindowTitleBar'
 contains src/shell/QuickLookWindow.qml 'NativeWindowResizeHandler'
 contains src/shell/FileBrowserWindow.qml 'function previewSelectedEntry()'
 contains src/shell/FileBrowserWindow.qml 'function restorePreviewFocus()'
-contains src/shell/FileBrowserWindow.qml 'event.key === Qt.Key_Space'
+contains src/shell/FileBrowserFileView.qml 'event.key === Qt.Key_Space'
 contains src/shell/DesktopBackground.qml 'function previewEntry(entry)'
 contains src/shell/DesktopBackground.qml 'function restorePreviewFocus()'
 contains src/shell/DesktopBackground.qml 'event.key === Qt.Key_Space'
