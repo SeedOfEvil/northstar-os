@@ -12,6 +12,7 @@ class WindowControllerTest final : public QObject
 
 private slots:
     void refreshFiltersDesktopAndShellViews();
+    void recognizesWayfireActivatedField();
     void listsTheShellsOwnWindowsButNotItsPanels();
     void groupsWindowsByApplicationIdentity();
     void actionsUseWayfireViewIds();
@@ -71,6 +72,34 @@ void WindowControllerTest::refreshFiltersDesktopAndShellViews()
     QCOMPARE(controller.windows().first().toMap().value(QStringLiteral("viewId")).toInt(), 4);
     QCOMPARE(controller.windows().first().toMap().value(QStringLiteral("title")).toString(), QStringLiteral("Terminal"));
     QVERIFY(controller.windows().first().toMap().value(QStringLiteral("active")).toBool());
+}
+
+void WindowControllerTest::recognizesWayfireActivatedField()
+{
+    WindowController controller(
+        nullptr,
+        [](const QString &method, const QJsonObject &, QJsonValue *response, QString *) {
+            if (method != QStringLiteral("window-rules/list-views")) {
+                return false;
+            }
+            // This is the focus field emitted by the physical laptop's
+            // Wayfire window-rules/list-views response.
+            *response = QJsonArray{QJsonObject{
+                {QStringLiteral("id"), 64},
+                {QStringLiteral("pid"), 5418},
+                {QStringLiteral("title"), QStringLiteral("Northstar Settings")},
+                {QStringLiteral("app-id"), QStringLiteral("northstar-shell")},
+                {QStringLiteral("mapped"), true},
+                {QStringLiteral("role"), QStringLiteral("toplevel")},
+                {QStringLiteral("minimized"), false},
+                {QStringLiteral("activated"), true},
+            }};
+            return true;
+        });
+
+    QVERIFY(controller.refresh());
+    QCOMPARE(controller.windows().size(), 1);
+    QVERIFY(controller.windows().constFirst().toMap().value(QStringLiteral("active")).toBool());
 }
 
 void WindowControllerTest::listsTheShellsOwnWindowsButNotItsPanels()
