@@ -64,8 +64,10 @@ grep -F 'mode = 1280x800' "$HOME/.config/wayfire.ini" >/dev/null || fail 'wayfir
 grep -F '  ipc ' "$HOME/.config/wayfire.ini" >/dev/null || fail 'wayfire.ini does not enable Wayfire IPC'
 grep -F '  ipc-rules ' "$HOME/.config/wayfire.ini" >/dev/null || fail 'wayfire.ini does not enable Wayfire IPC window rules'
 grep -F '  xdg-activation ' "$HOME/.config/wayfire.ini" >/dev/null || fail 'wayfire.ini does not enable XDG activation'
-grep -F 'binding_search = <ctrl> KEY_K' "$HOME/.config/wayfire.ini" >/dev/null \n    || fail 'wayfire.ini does not bind unified search at the compositor'
-grep -F 'command_search = northstar-shell-command toggle-search' "$HOME/.config/wayfire.ini" >/dev/null \n    || fail 'wayfire.ini does not route the search binding to the shell control socket'
+grep -F 'binding_search = <ctrl> KEY_K' "$HOME/.config/wayfire.ini" >/dev/null \
+    || fail 'wayfire.ini does not bind unified search at the compositor'
+grep -F 'command_search = northstar-shell-command toggle-search' "$HOME/.config/wayfire.ini" >/dev/null \
+    || fail 'wayfire.ini does not route the search binding to the shell control socket'
 if grep -E '^[[:space:]]*terminal[[:space:]]*=[[:space:]]*qterminal[[:space:]]*$' "$HOME/.config/wayfire.ini" >/dev/null; then
     fail 'wayfire.ini still autostarts QTerminal'
 fi

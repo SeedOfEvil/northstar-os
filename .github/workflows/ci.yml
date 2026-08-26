@@ -63,5 +63,5 @@ jobs:
             workspace=$(pwd)
             chown -R northstarci:northstarci "$workspace"
             freebsd-version -ku
-            su -m northstarci -c "cd '$workspace' && sh tools/ci/repository-contracts.sh"
-            su -m northstarci -c "cd '$workspace' && make test BUILD_DIR=build-ci"
+            su -m northstarci -c "export HOME=/home/northstarci; cd '$workspace' && sh tools/ci/repository-contracts.sh"
+            su -m northstarci -c "export HOME=/home/northstarci; cd '$workspace' && make test BUILD_DIR=build-ci"
