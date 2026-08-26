@@ -3,6 +3,7 @@
 
 #include <QDir>
 #include <QFile>
+#include <QFileDevice>
 #include <QFileInfo>
 #include <QTemporaryDir>
 #include <QtTest/QtTest>
@@ -30,6 +31,53 @@ QByteArray applicationEntry(const QByteArray &name, const QByteArray &exec)
            "Name=" + name + "\n"
            "Exec=" + exec + "\n"
            "Categories=Utility;\n";
+}
+
+void writeBundle(const QString &directory,
+                 const QString &bundleId,
+                 const QString &displayName,
+                 const QString &executable)
+{
+    const QString contents = QDir(directory).filePath(
+        bundleId + QStringLiteral(".app/Contents"));
+    const QString executableDirectory = QDir(contents).filePath(QStringLiteral("Executable"));
+    const QString resourceDirectory = QDir(contents).filePath(QStringLiteral("Resources"));
+    QVERIFY(QDir().mkpath(executableDirectory));
+    QVERIFY(QDir().mkpath(resourceDirectory));
+
+    QFile manifest(QDir(contents).filePath(QStringLiteral("Info.plist")));
+    QVERIFY2(manifest.open(QIODevice::WriteOnly), qPrintable(manifest.fileName()));
+    const QByteArray manifestContents = QStringLiteral(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
+        "<plist version=\"1.0\"><dict>\n"
+        "<key>BundleIdentifier</key><string>%1</string>\n"
+        "<key>DisplayName</key><string>%2</string>\n"
+        "<key>Version</key><string>0.1.0</string>\n"
+        "<key>Executable</key><string>%3</string>\n"
+        "<key>Icon</key><string>icon.svg</string>\n"
+        "<key>Categories</key><array><string>Utility</string></array>\n"
+        "<key>Provenance</key><dict>\n"
+        "<key>Source</key><string>northstar-project</string>\n"
+        "<key>Package</key><string>northstar-test</string>\n"
+        "<key>Revision</key><string>test</string>\n"
+        "</dict></dict></plist>\n")
+        .arg(bundleId, displayName, executable)
+        .toUtf8();
+    QCOMPARE(manifest.write(manifestContents), manifestContents.size());
+    manifest.close();
+
+    QFile executableFile(QDir(executableDirectory).filePath(executable));
+    QVERIFY2(executableFile.open(QIODevice::WriteOnly), qPrintable(executableFile.fileName()));
+    QCOMPARE(executableFile.write("#!/bin/sh\nexit 0\n"), qint64(17));
+    executableFile.close();
+    QVERIFY(QFile::setPermissions(
+        executableFile.fileName(),
+        QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner));
+
+    QFile icon(QDir(resourceDirectory).filePath(QStringLiteral("icon.svg")));
+    QVERIFY2(icon.open(QIODevice::WriteOnly), qPrintable(icon.fileName()));
+    const QByteArray iconContents = "<svg xmlns=\"http://www.w3.org/2000/svg\"/>\n";
+    QCOMPARE(icon.write(iconContents), iconContents.size());
 }
 
 } // namespace
@@ -180,14 +228,24 @@ void ApplicationCatalogTest::launcherResolvesWindowIdentity()
     QTemporaryDir temporaryDirectory;
     QVERIFY(temporaryDirectory.isValid());
     const QString applications = applicationsDirectory(temporaryDirectory, QStringLiteral("applications"));
+    const QString bundles = applicationsDirectory(temporaryDirectory, QStringLiteral("bundles"));
     writeDesktopFile(applications, QStringLiteral("northstar-text-editor"),
                      applicationEntry("Northstar Text Editor", "northstar-text-editor"));
+    writeBundle(bundles,
+                QStringLiteral("org.northstar.TextEditor"),
+                QStringLiteral("Northstar Text Editor"),
+                QStringLiteral("northstar-text-editor"));
+    writeBundle(bundles,
+                QStringLiteral("org.northstar.Welcome"),
+                QStringLiteral("Northstar Welcome"),
+                QStringLiteral("northstar-welcome-gui"));
 
     ApplicationLauncher launcher(
         nullptr,
         {},
         {applications},
-        temporaryDirectory.filePath(QStringLiteral("launch.log")));
+        temporaryDirectory.filePath(QStringLiteral("launch.log")),
+        {bundles});
 
     QCOMPARE(launcher.desktopIdForWindow(QStringLiteral("northstar-text-editor"), QString()),
              QStringLiteral("bundle:org.northstar.TextEditor"));

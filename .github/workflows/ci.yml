@@ -62,6 +62,7 @@ jobs:
             set -eu
             workspace=$(pwd)
             chown -R northstarci:northstarci "$workspace"
+            install -d -o northstarci -g northstarci -m 0700 /tmp/northstarci-runtime
             freebsd-version -ku
             su -m northstarci -c "export HOME=/home/northstarci; cd '$workspace' && sh tools/ci/repository-contracts.sh"
-            su -m northstarci -c "export HOME=/home/northstarci; cd '$workspace' && make test BUILD_DIR=build-ci"
+            su -m northstarci -c "export HOME=/home/northstarci XDG_RUNTIME_DIR=/tmp/northstarci-runtime QT_QPA_PLATFORM=offscreen; cd '$workspace' && make test BUILD_DIR=build-ci"
