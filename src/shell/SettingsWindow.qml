@@ -56,7 +56,7 @@ Window {
 
     minimumWidth: settings.minimumSurfaceWidth
     minimumHeight: settings.minimumSurfaceHeight
-    width: Math.min(1040, Math.max(minimumSurfaceWidth, screenWidth - (desktopMargin * 2)))
+    width: Math.min(960, Math.max(minimumSurfaceWidth, screenWidth - (desktopMargin * 2)))
     height: Math.min(screenHeight - panelHeight - desktopMargin, Math.max(minimumSurfaceHeight, 680))
     x: screenX + Math.max(desktopMargin, (screenWidth - width) / 2)
     y: screenY + panelHeight + desktopMargin
@@ -291,7 +291,7 @@ Window {
                 color: lunar.field
                 height: 46
                 radius: lunar.radiusMedium
-                width: 220
+                width: 245
                 z: 2
 
                 Row {
@@ -399,7 +399,7 @@ Window {
                     id: sectionSidebar
                     border.color: "transparent"
                     border.width: 0
-                    color: "#4017273d"
+                    color: lunar.raised
                     height: parent.height
                     opacity: settings.searching ? 0.5 : 1
                     radius: lunar.radiusLarge
@@ -429,7 +429,7 @@ Window {
                             color: !settings.searching && settings.selectedSection === modelData.id
                                 ? lunar.accentSoft
                                 : sectionMouse.containsMouse ? lunar.raisedHover : "transparent"
-                            height: 38
+                            height: 42
                             radius: lunar.radiusSmall
                             width: sectionList.width - sectionScrollBar.width - 6
 
@@ -437,15 +437,15 @@ Window {
                                 anchors.left: parent.left
                                 anchors.leftMargin: 10
                                 anchors.verticalCenter: parent.verticalCenter
-                                height: 22
+                                height: 24
                                 darkMode: settings.state ? settings.state.darkMode : true
                                 iconName: settings.iconForSection(modelData.id)
-                                width: 22
+                                width: 24
                             }
 
                             Text {
                                 anchors.left: parent.left
-                                anchors.leftMargin: 42
+                                anchors.leftMargin: 46
                                 anchors.right: sectionCount.left
                                 anchors.rightMargin: 6
                                 anchors.verticalCenter: parent.verticalCenter
@@ -453,7 +453,7 @@ Window {
                                     ? settings.surfaceForeground : settings.surfaceMuted
                                 elide: Text.ElideRight
                                 font.bold: !settings.searching && settings.selectedSection === modelData.id
-                                font.pixelSize: 13
+                                font.pixelSize: 14
                                 text: modelData.label
                             }
 
@@ -480,7 +480,7 @@ Window {
                 Rectangle {
                     border.color: lunar.borderSoft
                     border.width: 1
-                    color: "#5416253a"
+                    color: lunar.raised
                     height: parent.height
                     radius: lunar.radiusLarge
                     width: parent.width - sectionSidebar.width - parent.spacing
@@ -533,9 +533,10 @@ Window {
                         delegate: Rectangle {
                             required property var modelData
 
-                            border.color: "#263f5971"
+                            border.color: lunar.borderSoft
                             border.width: 1
-                            color: "#a816263b"
+                            color: settings.state && settings.state.darkMode
+                                ? "#a816263b" : "#bff6f9fd"
                             height: entryBody.implicitHeight + 26
                             radius: lunar.radiusMedium
                             width: entryList.width - entryScrollBar.width - 6
@@ -556,14 +557,14 @@ Window {
                                         color: settings.surfaceForeground
                                         elide: Text.ElideRight
                                         font.bold: true
-                                        font.pixelSize: 14
+                                        font.pixelSize: 15
                                         text: modelData.title
                                         width: parent.width
                                     }
 
                                     Text {
                                         color: settings.surfaceMuted
-                                        font.pixelSize: 12
+                                        font.pixelSize: 13
                                         text: modelData.description
                                         visible: text.length > 0
                                         width: parent.width

@@ -41,6 +41,16 @@ NorthStar wordmark, Settings/File/Edit/View/Window/Help strip, compact hardware
 status glyphs, battery, and date. The same glass, spacing, radii, and cyan focus
 treatment carry through popups, Settings, Quick Settings, and the Dock.
 
+Aurora window chrome is functional, not decorative. Normal application windows
+offer compositor-native resizing from all four edges and all four corners,
+retain their minimum usable dimensions, and expose draggable title bars.
+Quick Settings keeps the compact control-centre shape from the reference while
+providing a restrained drag affordance and constraining its remembered session
+position to the usable desktop. Its primary hierarchy is Wi-Fi, Bluetooth, and
+Dark Mode; separate Display and Sound cards; then confirmed battery, sleep,
+power/session, and Settings actions. Features that do not fit that hierarchy
+remain available in Settings instead of crowding the popup.
+
 ## Acceptance boundary
 
 The change must preserve every existing controller and workflow. Focused gates

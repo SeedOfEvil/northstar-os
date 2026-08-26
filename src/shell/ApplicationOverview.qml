@@ -20,6 +20,9 @@ Window {
     property int screenY: targetScreen ? targetScreen.geometry.y : 0
     property int screenWidth: targetScreen ? targetScreen.geometry.width : 1280
     property int screenHeight: targetScreen ? targetScreen.geometry.height : 800
+    property int minimumSurfaceWidth: 720
+    property int minimumSurfaceHeight: 460
+    property bool maximized: visibility === Window.Maximized
     property color surfaceBackground: lunar.panelStrong
     property color surfaceForeground: lunar.foreground
     property color surfaceMuted: lunar.muted
@@ -31,8 +34,10 @@ Window {
     modality: Qt.NonModal
     title: "Northstar Applications"
 
-    width: Math.min(820, screenWidth - 80)
-    height: Math.min(520, screenHeight - panelHeight - 80)
+    minimumWidth: minimumSurfaceWidth
+    minimumHeight: minimumSurfaceHeight
+    width: Math.min(900, screenWidth - 80)
+    height: Math.min(590, screenHeight - panelHeight - 80)
     x: screenX + (screenWidth - width) / 2
     y: screenY + panelHeight + (screenHeight - panelHeight - height) / 2
 
@@ -149,59 +154,33 @@ Window {
         return text.indexOf("file://") === 0 ? decodeURIComponent(text.slice(7)) : ""
     }
 
-    Rectangle {
+    NorthstarWindowFrame {
         anchors.fill: parent
-        color: overview.surfaceBackground
-        border.color: lunar.border
-        border.width: 1
-        radius: lunar.radiusPanel
-
-        gradient: Gradient {
-            GradientStop { position: 0.0; color: lunar.panelStrong }
-            GradientStop { position: 1.0; color: lunar.panel }
-        }
+        darkMode: overview.state ? overview.state.darkMode : true
 
         Column {
             anchors.fill: parent
             anchors.margins: 24
             spacing: 16
 
-            Row {
+            Item {
+                id: overviewTitleBar
+                height: 46
                 width: parent.width
-                spacing: 10
 
-                Item {
-                    id: overviewDragHandle
-                    height: 42
-                    width: parent.width - closeButton.width - parent.spacing
-
-                    Column {
-                        anchors.fill: parent
-                        spacing: 2
-
-                        Text {
-                            color: overview.surfaceForeground
-                            font.bold: true
-                            font.pixelSize: 20
-                            text: "Applications"
-                        }
-
-                        Text {
-                            color: overview.surfaceMuted
-                            font.pixelSize: 12
-                            text: "Launch your Northstar applications"
-                        }
+                NorthstarWindowTitleBar {
+                    anchors.fill: parent
+                    lunarPalette: lunar
+                    maximized: overview.maximized
+                    subtitle: "Launch your Northstar applications"
+                    title: "Applications"
+                    window: overview
+                    onMaximizeRequested: {
+                        if (overview.maximized)
+                            overview.showNormal()
+                        else
+                            overview.showMaximized()
                     }
-
-                    NativeWindowMoveHandler {
-                        window: overview
-                    }
-                }
-
-                AuroraButton {
-                    id: closeButton
-                    text: "Close"
-                    onClicked: overview.visible = false
                 }
             }
 
@@ -242,8 +221,8 @@ Window {
                     id: applicationList
                     anchors.fill: parent
                     anchors.margins: 6
-                    cellHeight: 112
-                    cellWidth: 124
+                    cellHeight: 124
+                    cellWidth: 140
                     clip: true
                     model: applicationLauncher ? applicationLauncher.matchingApplications : []
 
@@ -253,9 +232,9 @@ Window {
 
                         color: applicationDropArea.containsDrag || applicationMouse.containsMouse
                             ? lunar.raisedHover : "transparent"
-                        height: 102
+                        height: 114
                         radius: lunar.radiusMedium
-                        width: 112
+                        width: 128
                         Column {
                             anchors.fill: parent
                             anchors.margins: 10
@@ -263,8 +242,8 @@ Window {
 
                             Item {
                                 anchors.horizontalCenter: parent.horizontalCenter
-                                height: 44
-                                width: 44
+                                height: 56
+                                width: 56
 
                                 NorthstarIcon {
                                     anchors.fill: parent
@@ -286,7 +265,7 @@ Window {
                             Text {
                                 color: overview.surfaceForeground
                                 elide: Text.ElideRight
-                                font.pixelSize: 11
+                                font.pixelSize: 12
                                 horizontalAlignment: Text.AlignHCenter
                                 text: modelData.name
                                 width: parent.width
@@ -481,6 +460,11 @@ Window {
                 }
             }
         }
+    }
+
+    NativeWindowResizeHandler {
+        resizingEnabled: !overview.maximized
+        window: overview
     }
 
     Menu {

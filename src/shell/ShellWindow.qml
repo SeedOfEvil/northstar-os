@@ -13,7 +13,7 @@ Window {
     visible: false
     color: "transparent"
     flags: Qt.FramelessWindowHint | Qt.Tool
-    height: 44
+    height: 48
     width: 1280
     title: "Northstar Shell"
 
@@ -214,7 +214,7 @@ Window {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
-            height: 44
+            height: 48
             color: "transparent"
 
             Row {
@@ -222,23 +222,23 @@ Window {
                 anchors.left: parent.left
                 anchors.leftMargin: 12
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: 7
+                spacing: 9
 
                 Rectangle {
                     color: systemMouse.containsMouse ? lunar.raisedHover : "transparent"
-                    height: 32
-                    radius: 10
-                    width: 34
+                    height: 36
+                    radius: 11
+                    width: 38
 
                     Image {
                         anchors.centerIn: parent
                         fillMode: Image.PreserveAspectFit
-                        height: 24
+                        height: 28
                         mipmap: true
                         smooth: true
                         source: northstarLogoSource
                         sourceClipRect: Qt.rect(270, 245, 485, 335)
-                        width: 24
+                        width: 28
                     }
 
                     MouseArea {
@@ -253,7 +253,7 @@ Window {
                     anchors.verticalCenter: parent.verticalCenter
                     color: root.panelForeground
                     font.bold: true
-                    font.pixelSize: 14
+                    font.pixelSize: 16
                     text: "NorthStar"
                 }
 
@@ -270,15 +270,15 @@ Window {
                     delegate: Rectangle {
                         required property var modelData
                         color: menuMouse.containsMouse ? lunar.raisedHover : "transparent"
-                        height: 32
+                        height: 34
                         radius: 9
-                        width: menuLabel.implicitWidth + 18
+                        width: menuLabel.implicitWidth + 20
 
                         Text {
                             id: menuLabel
                             anchors.centerIn: parent
                             color: root.panelForeground
-                            font.pixelSize: 12
+                            font.pixelSize: 13
                             text: modelData.label
                         }
 
@@ -443,7 +443,7 @@ Window {
                 anchors.right: parent.right
                 anchors.rightMargin: 12
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: 5
+                spacing: 7
 
                 Repeater {
                     model: ["brightness", "wifi", "sound"]
@@ -451,16 +451,16 @@ Window {
                     delegate: Rectangle {
                         required property string modelData
                         color: statusMouse.containsMouse ? lunar.raisedHover : "transparent"
-                        height: 30
+                        height: 34
                         radius: 9
-                        width: 30
+                        width: 34
 
                         NorthstarSystemIcon {
                             anchors.centerIn: parent
                             darkMode: shellState.darkMode
-                            height: 21
+                            height: 24
                             iconName: modelData
-                            width: 21
+                            width: 24
                         }
 
                         MouseArea {
@@ -586,7 +586,7 @@ Window {
 
                 Text {
                     color: root.panelForeground
-                    font.pixelSize: 11
+                    font.pixelSize: 12
                     text: Qt.formatDateTime(root.now, "ddd d MMM  hh:mm")
                 }
             }
@@ -692,6 +692,7 @@ Window {
         powerController: northstarPowerController
         state: shellState
         settingsWindow: settingsWindow
+        systemMenu: systemMenu
         targetScreen: targetScreen
         panelHeight: root.height
     }
