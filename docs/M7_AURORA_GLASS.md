@@ -36,6 +36,12 @@ Buttons remain scalable QML controls so text, focus, localization, and varying
 window sizes do not blur a fixed raster. Their material, borders, states, and
 corner treatment are taken from the generated button reference.
 
+The runtime includes Noto Sans as Aurora's primary interface typeface. The
+shell still retains explicit DejaVu Sans and Liberation Sans fallbacks, but an
+installed Northstar image must not resolve the generic interface family to a
+monospaced face. This keeps the reference's contemporary proportions and makes
+control labels readable without excessive bold weight.
+
 The top bar follows the approved app-menu composition, with the official mark,
 NorthStar wordmark, Settings/File/Edit/View/Window/Help strip, compact hardware
 status glyphs, battery, and date. The same glass, spacing, radii, and cyan focus

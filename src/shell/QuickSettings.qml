@@ -33,8 +33,8 @@ Window {
     modality: Qt.NonModal
     title: "Northstar Quick Settings"
 
-    width: 380
-    height: Math.min(contentColumn.implicitHeight + 28,
+    width: 400
+    height: Math.min(contentColumn.implicitHeight + 32,
                      screenHeight - panelHeight - 20)
     x: screenX + screenWidth - width - 18
     y: screenY + panelHeight + 8
@@ -83,7 +83,7 @@ Window {
         signal activated()
 
         color: primaryMouse.containsMouse && actionable ? lunar.raisedHover : "transparent"
-        height: 94
+        height: 106
         radius: lunar.radiusMedium
         width: (parent.width - (2 * parent.spacing)) / 3
 
@@ -98,18 +98,19 @@ Window {
                 color: primaryToggle.active ? lunar.accent : lunar.raised
                 border.color: primaryToggle.active ? lunar.accentBright : lunar.borderSoft
                 border.width: 1
-                height: 44
-                radius: 22
-                width: 44
+                height: 48
+                radius: 24
+                width: 48
 
                 Behavior on color { ColorAnimation { duration: 150 } }
 
                 NorthstarSystemIcon {
                     anchors.centerIn: parent
                     darkMode: quickSettings.state ? quickSettings.state.darkMode : true
-                    height: 28
+                    height: 30
                     iconName: primaryToggle.iconName
-                    width: 28
+                    monochrome: true
+                    width: 30
                 }
             }
 
@@ -165,6 +166,7 @@ Window {
             darkMode: quickSettings.state ? quickSettings.state.darkMode : true
             height: 25
             iconName: roundAction.iconName
+            monochrome: true
             width: 25
         }
 
@@ -239,12 +241,12 @@ Window {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
-            anchors.margins: 14
-            spacing: 10
+            anchors.margins: 16
+            spacing: 12
 
             Item {
                 id: quickSettingsDragHandle
-                height: 10
+                height: 12
                 width: parent.width
 
                 Rectangle {
@@ -306,7 +308,7 @@ Window {
                 border.color: lunar.borderSoft
                 border.width: 1
                 color: lunar.raised
-                height: 86
+                height: 104
                 radius: lunar.radiusMedium
                 width: parent.width
 
@@ -351,6 +353,7 @@ Window {
 
                     AuroraSlider {
                         id: displaySlider
+                        darkMode: quickSettings.state ? quickSettings.state.darkMode : true
                         enabled: !!quickSettings.controller && quickSettings.controller.displayWritable
                         from: 1
                         live: false
@@ -369,7 +372,7 @@ Window {
                 border.color: lunar.borderSoft
                 border.width: 1
                 color: lunar.raised
-                height: 92
+                height: 104
                 radius: lunar.radiusMedium
                 width: parent.width
 
@@ -427,6 +430,7 @@ Window {
 
                         AuroraSlider {
                             id: soundSlider
+                            darkMode: quickSettings.state ? quickSettings.state.darkMode : true
                             enabled: !!quickSettings.controller && quickSettings.controller.soundAvailable
                             from: 0
                             live: false
@@ -443,7 +447,7 @@ Window {
             }
 
             Row {
-                height: 64
+                height: 72
                 spacing: 8
                 width: parent.width
 
@@ -453,7 +457,7 @@ Window {
                     color: lunar.raised
                     height: parent.height
                     radius: lunar.radiusMedium
-                    width: parent.width - (3 * 44) - (3 * parent.spacing)
+                    width: parent.width - (3 * 48) - (3 * parent.spacing)
 
                     Row {
                         anchors.fill: parent
@@ -499,6 +503,9 @@ Window {
                         && quickSettings.powerController.suspendAvailable
                     description: "Sleep and lock"
                     iconName: "lock"
+                    height: 48
+                    radius: 24
+                    width: 48
                     onActivated: sleepDialog.open()
                 }
 
@@ -506,6 +513,9 @@ Window {
                     actionable: !!quickSettings.systemMenu
                     description: "Power and session"
                     iconName: "power"
+                    height: 48
+                    radius: 24
+                    width: 48
                     onActivated: {
                         quickSettings.hide()
                         quickSettings.systemMenu.openMenu()
@@ -516,6 +526,9 @@ Window {
                     actionable: !!quickSettings.settingsWindow
                     description: "Settings"
                     iconName: "settings"
+                    height: 48
+                    radius: 24
+                    width: 48
                     onActivated: {
                         quickSettings.hide()
                         quickSettings.settingsWindow.openSettings()

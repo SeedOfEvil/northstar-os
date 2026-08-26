@@ -4,7 +4,9 @@ import QtQuick.Controls
 ComboBox {
     id: control
 
-    LunarPalette { id: lunar; darkMode: true }
+    property bool darkMode: true
+
+    LunarPalette { id: lunar; darkMode: control.darkMode }
 
     leftPadding: 12
     rightPadding: 32

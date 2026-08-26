@@ -6,10 +6,11 @@ Button {
 
     property bool accentButton: false
     property bool dangerButton: false
+    property bool darkMode: true
 
     LunarPalette {
         id: lunar
-        darkMode: true
+        darkMode: control.darkMode
     }
 
     implicitHeight: 36

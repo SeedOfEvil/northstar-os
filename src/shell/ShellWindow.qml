@@ -460,6 +460,7 @@ Window {
                             darkMode: shellState.darkMode
                             height: 24
                             iconName: modelData
+                            monochrome: true
                             width: 24
                         }
 

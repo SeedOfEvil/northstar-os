@@ -597,7 +597,10 @@ Window {
                                     anchors.verticalCenter: parent.verticalCenter
                                     catalog: settings.settingsCatalog
                                     entry: modelData
+                                    accentColor: lunar.accent
+                                    backgroundColor: lunar.field
                                     foregroundColor: settings.surfaceForeground
+                                    hoverColor: lunar.raisedHover
                                     mutedColor: settings.surfaceMuted
                                     onActionRequested: (requested) => settings.activateEntry(requested)
                                     onPathChooseRequested: settingsWallpaperPicker.openAt()

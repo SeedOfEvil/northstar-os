@@ -4,7 +4,11 @@ import QtQuick.Controls
 Slider {
     id: control
 
-    LunarPalette { id: lunar; darkMode: true }
+    property bool darkMode: true
+
+    LunarPalette { id: lunar; darkMode: control.darkMode }
+
+    implicitHeight: 32
 
     background: Rectangle {
         x: control.leftPadding

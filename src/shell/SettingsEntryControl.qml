@@ -22,6 +22,9 @@ Item {
 
     property color foregroundColor: "#f2f4f8"
     property color mutedColor: "#9aa4b2"
+    property color backgroundColor: "#16263b"
+    property color hoverColor: "#243c59"
+    property color accentColor: "#24c7ef"
 
     // Actions and file choosing are the window's business: one confirms
     // destructive entries, the other owns the picker.
@@ -96,9 +99,9 @@ Item {
             indicator: Rectangle {
                 id: toggleTrack
                 anchors.verticalCenter: parent.verticalCenter
-                border.color: parent.checked ? "#67d9f5" : control.mutedColor
+                border.color: parent.checked ? control.accentColor : control.mutedColor
                 border.width: 1
-                color: parent.checked ? "#24c7ef" : control.backgroundColor
+                color: parent.checked ? control.accentColor : control.backgroundColor
                 height: 22
                 radius: 11
                 width: 42
@@ -151,7 +154,7 @@ Item {
                         width: valueSlider.visualPosition * parent.width
                         height: parent.height
                         radius: parent.radius
-                        color: "#24c7ef"
+                        color: control.accentColor
                     }
                 }
                 handle: Rectangle {
@@ -162,7 +165,7 @@ Item {
                     height: 18
                     radius: 9
                     color: "#e9f5ff"
-                    border.color: "#67d9f5"
+                    border.color: control.accentColor
                     border.width: 1
                 }
                 onMoved: {
@@ -197,11 +200,20 @@ Item {
         Button {
             id: actionButton
             enabled: control.entry.available
+            implicitHeight: 34
             text: control.entry.actionLabel
+            contentItem: Text {
+                color: actionButton.enabled ? control.foregroundColor : control.mutedColor
+                elide: Text.ElideRight
+                font.pixelSize: 12
+                horizontalAlignment: Text.AlignHCenter
+                text: actionButton.text
+                verticalAlignment: Text.AlignVCenter
+            }
             background: Rectangle {
-                border.color: actionButton.activeFocus ? "#24c7ef" : control.mutedColor
+                border.color: actionButton.activeFocus ? control.accentColor : control.mutedColor
                 border.width: 1
-                color: actionButton.hovered ? "#243c59" : control.backgroundColor
+                color: actionButton.hovered ? control.hoverColor : control.backgroundColor
                 radius: 9
             }
             onClicked: control.actionRequested(control.entry)
@@ -217,6 +229,7 @@ Item {
             model: control.entry.options
             textRole: "label"
             valueRole: "value"
+            implicitHeight: 34
             width: 250
             leftPadding: 12
             rightPadding: 32
@@ -228,9 +241,9 @@ Item {
                 verticalAlignment: Text.AlignVCenter
             }
             background: Rectangle {
-                border.color: choiceBox.activeFocus ? "#24c7ef" : control.mutedColor
+                border.color: choiceBox.activeFocus ? control.accentColor : control.mutedColor
                 border.width: 1
-                color: choiceBox.hovered ? "#243c59" : control.backgroundColor
+                color: choiceBox.hovered ? control.hoverColor : control.backgroundColor
                 radius: 9
             }
             indicator: Text {
@@ -293,11 +306,19 @@ Item {
             Button {
                 id: pathButton
                 anchors.verticalCenter: parent.verticalCenter
+                implicitHeight: 34
                 text: "Choose..."
+                contentItem: Text {
+                    color: pathButton.enabled ? control.foregroundColor : control.mutedColor
+                    font.pixelSize: 12
+                    horizontalAlignment: Text.AlignHCenter
+                    text: pathButton.text
+                    verticalAlignment: Text.AlignVCenter
+                }
                 background: Rectangle {
-                    border.color: pathButton.activeFocus ? "#24c7ef" : control.mutedColor
+                    border.color: pathButton.activeFocus ? control.accentColor : control.mutedColor
                     border.width: 1
-                    color: pathButton.hovered ? "#243c59" : control.backgroundColor
+                    color: pathButton.hovered ? control.hoverColor : control.backgroundColor
                     radius: 9
                 }
                 onClicked: control.pathChooseRequested(control.entry)

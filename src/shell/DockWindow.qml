@@ -13,7 +13,7 @@ Window {
     visible: false
     color: "transparent"
     flags: Qt.FramelessWindowHint | Qt.Tool
-    height: 72
+    height: 88
     width: 1280
     title: "Northstar Dock"
 
@@ -162,8 +162,8 @@ Window {
         anchors.bottomMargin: 1
         anchors.horizontalCenter: parent.horizontalCenter
         color: lunar.shadow
-        height: 68
-        radius: 22
+        height: 80
+        radius: 24
         width: Math.min(parent.width - 20, dockSurface.width + 12)
         y: 8
     }
@@ -174,11 +174,11 @@ Window {
         anchors.bottomMargin: 5
         anchors.horizontalCenter: parent.horizontalCenter
         color: dock.dockBackground
-        height: 64
-        radius: 20
+        height: 76
+        radius: 22
         border.color: lunar.dockGlassEdge
         border.width: 1
-        width: Math.min(parent.width - 24, Math.max(560, dockContent.implicitWidth + 20))
+        width: Math.min(parent.width - 24, Math.max(680, dockContent.implicitWidth + 24))
 
         gradient: Gradient {
             GradientStop { position: 0.0; color: lunar.dockGlass }
@@ -190,28 +190,28 @@ Window {
             anchors.left: parent.left
             anchors.leftMargin: 10
             anchors.verticalCenter: parent.verticalCenter
-            height: 56
-            spacing: 8
+            height: 68
+            spacing: 10
 
             Rectangle {
                 anchors.verticalCenter: parent.verticalCenter
-                color: logoMouse.containsMouse ? lunar.raisedHover : lunar.accentSoft
-                height: 54
-                radius: 17
+                color: logoMouse.containsMouse ? lunar.raisedHover : "transparent"
+                height: 62
+                radius: 19
                 scale: logoMouse.containsMouse ? 1.12 : 1.0
-                width: 54
+                width: 62
 
                 Behavior on scale { NumberAnimation { duration: 140 } }
 
                 Image {
                     anchors.centerIn: parent
                     fillMode: Image.PreserveAspectFit
-                    height: 42
+                    height: 50
                     mipmap: true
                     smooth: true
                     source: northstarLogoSource
                     sourceClipRect: Qt.rect(270, 245, 485, 335)
-                    width: 42
+                    width: 50
                 }
 
                 MouseArea {
@@ -228,7 +228,7 @@ Window {
             Rectangle {
                 anchors.verticalCenter: parent.verticalCenter
                 color: lunar.borderSoft
-                height: 34
+                height: 42
                 opacity: 0.8
                 width: 1
             }
@@ -246,17 +246,17 @@ Window {
 
                     anchors.verticalCenter: parent.verticalCenter
                     color: pinnedMouse.containsMouse ? lunar.raisedHover : "transparent"
-                    height: 54
-                    radius: 14
+                    height: 62
+                    radius: 18
                     scale: pinnedMouse.containsMouse ? 1.12 : 1.0
-                    width: 54
+                    width: 62
 
                     Behavior on scale { NumberAnimation { duration: 140 } }
 
                     NorthstarIcon {
                         anchors.centerIn: parent
                         anchors.verticalCenterOffset: dock.applicationIconVerticalOffset(desktopId)
-                        height: dock.applicationIconSize(desktopId, 42)
+                        height: dock.applicationIconSize(desktopId, 50)
                         iconName: dock.applicationIconName(desktopId)
                         width: height
                     }
@@ -298,7 +298,7 @@ Window {
                                 pinnedDelegate.dragStartX = pinnedDelegate.x
                             } else {
                                 const offset = Math.round(
-                                    (pinnedDelegate.x - pinnedDelegate.dragStartX) / 62)
+                                    (pinnedDelegate.x - pinnedDelegate.dragStartX) / 72)
                                 const destination = Math.max(0, Math.min(
                                     pinnedApplicationModel.count - 1,
                                     pinnedDelegate.index + offset))
@@ -319,18 +319,18 @@ Window {
             Rectangle {
                 anchors.verticalCenter: parent.verticalCenter
                 color: filesMouse.containsMouse ? lunar.raisedHover : "transparent"
-                height: 54
-                radius: 14
+                height: 62
+                radius: 18
                 scale: filesMouse.containsMouse ? 1.12 : 1.0
-                width: 54
+                width: 62
 
                 Behavior on scale { NumberAnimation { duration: 140 } }
 
                 NorthstarIcon {
                     anchors.centerIn: parent
-                    height: 42
+                    height: 50
                     iconName: "files"
-                    width: 42
+                    width: 50
                 }
 
                 MouseArea {
@@ -347,7 +347,7 @@ Window {
             Rectangle {
                 anchors.verticalCenter: parent.verticalCenter
                 color: lunar.borderSoft
-                height: 34
+                height: 42
                 opacity: 0.8
                 width: 1
             }
@@ -356,11 +356,11 @@ Window {
                 anchors.verticalCenter: parent.verticalCenter
                 clip: true
                 contentWidth: runningRow.width
-                height: 56
+                height: 68
                 interactive: runningRow.width > width
                 width: {
                     const groups = dock.unpinnedGroups()
-                    return groups.length === 0 ? 92 : Math.min(250, Math.max(56, groups.length * 54))
+                    return groups.length === 0 ? 104 : Math.min(300, Math.max(64, groups.length * 64))
                 }
 
                 Row {
@@ -379,10 +379,10 @@ Window {
                                 : runningMouse.containsMouse ? lunar.raisedHover : "transparent"
                             border.color: modelData.active ? lunar.accentBright : "transparent"
                             border.width: modelData.active ? 1 : 0
-                            height: 54
-                            radius: 14
+                            height: 62
+                            radius: 18
                             scale: runningMouse.containsMouse ? 1.06 : 1.0
-                            width: 54
+                            width: 62
 
                             Behavior on scale { NumberAnimation { duration: 140 } }
 
@@ -391,7 +391,7 @@ Window {
                                 anchors.verticalCenterOffset: dock.applicationIconVerticalOffset(
                                     modelData.identity || modelData.title)
                                 height: dock.applicationIconSize(
-                                    modelData.identity || modelData.title, 40)
+                                    modelData.identity || modelData.title, 48)
                                 iconName: dock.applicationIconName(modelData.identity || modelData.title)
                                 opacity: modelData.allMinimized ? 0.62 : 1.0
                                 width: height
@@ -444,7 +444,7 @@ Window {
             Rectangle {
                 anchors.verticalCenter: parent.verticalCenter
                 color: lunar.borderSoft
-                height: 34
+                height: 42
                 opacity: 0.8
                 width: 1
             }
@@ -452,18 +452,18 @@ Window {
             Rectangle {
                 anchors.verticalCenter: parent.verticalCenter
                 color: trashMouse.containsMouse ? "#664052" : "transparent"
-                height: 54
-                radius: 14
+                height: 62
+                radius: 18
                 scale: trashMouse.containsMouse ? 1.12 : 1.0
-                width: 54
+                width: 62
 
                 Behavior on scale { NumberAnimation { duration: 140 } }
 
                 NorthstarIcon {
                     anchors.centerIn: parent
-                    height: 42
+                    height: 50
                     iconName: "trash"
-                    width: 42
+                    width: 50
                 }
 
                 MouseArea {
