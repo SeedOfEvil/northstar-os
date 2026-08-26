@@ -9,7 +9,9 @@ Item {
         ? northstarGeneratedIconsDirectory : ""
     property real tileWidth: 1447 / 4
     property real tileHeight: 1087 / 3
-    property real cropFactor: 0.76
+    // Preserve the full rounded tile and its glow. The earlier 0.76 crop made
+    // the artwork larger, but trimmed asymmetric borders at dock sizes.
+    property real cropFactor: 0.88
     property int tileIndex: iconTileIndex(root.iconName)
     // Aurora keeps one coherent atlas across the shell. The older standalone
     // generated icons remain installed for rollback, but mixing their glossy

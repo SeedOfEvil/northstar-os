@@ -10,13 +10,15 @@ Window {
         darkMode: quickSettings.state ? quickSettings.state.darkMode : true
     }
 
+    AuroraMetrics { id: metrics }
+
     property var state
     property var controller
     property var powerController
     property var settingsWindow
     property var systemMenu
     property var targetScreen
-    property int panelHeight: 44
+    property int panelHeight: metrics.panelHeight
     property int screenX: targetScreen ? targetScreen.geometry.x : 0
     property int screenY: targetScreen ? targetScreen.geometry.y : 0
     property int screenWidth: targetScreen ? targetScreen.geometry.width : 1280
@@ -33,11 +35,11 @@ Window {
     modality: Qt.NonModal
     title: "Northstar Quick Settings"
 
-    width: 400
-    height: Math.min(contentColumn.implicitHeight + 32,
+    width: Math.min(metrics.quickSettingsWidth, screenWidth - 24)
+    height: Math.min(metrics.quickSettingsHeight,
                      screenHeight - panelHeight - 20)
-    x: screenX + screenWidth - width - 18
-    y: screenY + panelHeight + 8
+    x: screenX + screenWidth - width - metrics.quickSettingsRight
+    y: screenY + metrics.quickSettingsTop
 
     WindowDragController {
         id: quickSettingsDrag
@@ -48,8 +50,9 @@ Window {
         screenHeight: quickSettings.screenHeight
         topInset: quickSettings.panelHeight
         bottomInset: 12
-        defaultX: quickSettings.screenX + quickSettings.screenWidth - quickSettings.width - 18
-        defaultY: quickSettings.screenY + quickSettings.panelHeight + 8
+        defaultX: quickSettings.screenX + quickSettings.screenWidth - quickSettings.width
+            - metrics.quickSettingsRight
+        defaultY: quickSettings.screenY + metrics.quickSettingsTop
     }
 
     function openPanel() {
@@ -106,10 +109,11 @@ Window {
 
                 NorthstarSystemIcon {
                     anchors.centerIn: parent
+                    accented: false
                     darkMode: quickSettings.state ? quickSettings.state.darkMode : true
                     height: 30
                     iconName: primaryToggle.iconName
-                    monochrome: true
+                    strokeColor: primaryToggle.active ? "#062039" : quickSettings.surfaceForeground
                     width: 30
                 }
             }
@@ -163,10 +167,10 @@ Window {
 
         NorthstarSystemIcon {
             anchors.centerIn: parent
+            accented: false
             darkMode: quickSettings.state ? quickSettings.state.darkMode : true
             height: 25
             iconName: roundAction.iconName
-            monochrome: true
             width: 25
         }
 

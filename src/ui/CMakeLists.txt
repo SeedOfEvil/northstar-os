@@ -32,6 +32,7 @@ qt_add_qml_module(northstar-ui
         AuroraActivityIcon.qml
         AuroraButton.qml
         AuroraComboBox.qml
+        AuroraMetrics.qml
         AuroraSlider.qml
         LunarPalette.qml
         NativeWindowMoveHandler.qml

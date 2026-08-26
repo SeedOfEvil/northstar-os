@@ -11,6 +11,8 @@ Window {
         darkMode: settings.state ? settings.state.darkMode : true
     }
 
+    AuroraMetrics { id: metrics }
+
     property var state
     property var desktopLayoutController
     property var launcherController
@@ -22,7 +24,7 @@ Window {
     property bool sessionFailed: settings.hasSessionController
         && settings.sessionController.state === "failed"
     property var targetScreen
-    property int panelHeight: 44
+    property int panelHeight: metrics.panelHeight
     property int desktopMargin: 24
     property int screenX: targetScreen ? targetScreen.geometry.x : 0
     property int screenY: targetScreen ? targetScreen.geometry.y : 0
@@ -56,10 +58,16 @@ Window {
 
     minimumWidth: settings.minimumSurfaceWidth
     minimumHeight: settings.minimumSurfaceHeight
-    width: Math.min(960, Math.max(minimumSurfaceWidth, screenWidth - (desktopMargin * 2)))
-    height: Math.min(screenHeight - panelHeight - desktopMargin, Math.max(minimumSurfaceHeight, 680))
-    x: screenX + Math.max(desktopMargin, (screenWidth - width) / 2)
-    y: screenY + panelHeight + desktopMargin
+    width: Math.min(metrics.settingsWidth,
+                    Math.max(minimumSurfaceWidth, screenWidth - (desktopMargin * 2)))
+    height: Math.min(screenHeight - panelHeight - desktopMargin,
+                     Math.max(minimumSurfaceHeight, metrics.settingsHeight))
+    x: screenX + Math.max(desktopMargin, Math.min(
+        screenWidth - width - desktopMargin,
+        Math.round(screenWidth * metrics.settingsLeft / metrics.referenceWidth)))
+    y: screenY + Math.max(panelHeight + desktopMargin, Math.min(
+        screenHeight - height - desktopMargin,
+        Math.round(screenHeight * metrics.settingsTop / metrics.referenceHeight)))
 
     function openSettings() {
         settingsRecovery.restoreToReach()
@@ -102,7 +110,7 @@ Window {
         const icons = {
             "appearance": "appearance", "desktop": "display", "input": "mouse",
             "sound": "sound", "network": "network", "notifications": "notifications",
-            "datetime": "settings", "power": "power", "session": "users",
+            "datetime": "clock", "power": "power", "session": "users",
             "about": "settings"
         }
         return icons[sectionId] || "settings"
@@ -254,14 +262,14 @@ Window {
 
         Item {
             anchors.fill: parent
-            anchors.margins: 22
+            anchors.margins: metrics.settingsOuterMargin
 
             Item {
                 id: titleBar
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.top: parent.top
-                height: 48
+                height: 52
 
                 NativeWindowMoveHandler {
                     enabled: false
@@ -289,9 +297,9 @@ Window {
                 border.color: searchField.activeFocus ? lunar.accent : lunar.borderSoft
                 border.width: 1
                 color: lunar.field
-                height: 46
+                height: 42
                 radius: lunar.radiusMedium
-                width: 245
+                width: metrics.settingsSidebarWidth
                 z: 2
 
                 Row {
@@ -300,11 +308,14 @@ Window {
                     anchors.rightMargin: 12
                     spacing: 10
 
-                    Text {
+                    NorthstarSystemIcon {
                         anchors.verticalCenter: parent.verticalCenter
-                        color: settings.surfaceMuted
-                        font.pixelSize: 15
-                        text: "⌕"
+                        accented: false
+                        darkMode: settings.state ? settings.state.darkMode : true
+                        height: 18
+                        iconName: "search"
+                        strokeColor: settings.surfaceMuted
+                        width: 18
                     }
 
                     TextField {
@@ -393,7 +404,7 @@ Window {
                 anchors.right: parent.right
                 anchors.top: titleBar.bottom
                 anchors.topMargin: 14
-                spacing: 18
+                spacing: 16
 
                 Rectangle {
                     id: sectionSidebar
@@ -403,7 +414,7 @@ Window {
                     height: parent.height
                     opacity: settings.searching ? 0.5 : 1
                     radius: lunar.radiusLarge
-                    width: 220
+                    width: metrics.settingsSidebarWidth
 
                     ListView {
                         id: sectionList
@@ -429,7 +440,7 @@ Window {
                             color: !settings.searching && settings.selectedSection === modelData.id
                                 ? lunar.accentSoft
                                 : sectionMouse.containsMouse ? lunar.raisedHover : "transparent"
-                            height: 42
+                            height: 44
                             radius: lunar.radiusSmall
                             width: sectionList.width - sectionScrollBar.width - 6
 
@@ -453,7 +464,7 @@ Window {
                                     ? settings.surfaceForeground : settings.surfaceMuted
                                 elide: Text.ElideRight
                                 font.bold: !settings.searching && settings.selectedSection === modelData.id
-                                font.pixelSize: 14
+                                font.pixelSize: 15
                                 text: modelData.label
                             }
 
@@ -496,7 +507,7 @@ Window {
                         color: settings.surfaceForeground
                         elide: Text.ElideRight
                         font.bold: true
-                        font.pixelSize: 22
+                        font.pixelSize: 26
                         text: settings.selectedSectionLabel()
                     }
 

@@ -10,10 +10,12 @@ Window {
         darkMode: shellState.darkMode
     }
 
+    AuroraMetrics { id: metrics }
+
     visible: false
     color: "transparent"
     flags: Qt.FramelessWindowHint | Qt.Tool
-    height: 48
+    height: metrics.panelHeight
     width: 1280
     title: "Northstar Shell"
 
@@ -214,31 +216,31 @@ Window {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: parent.top
-            height: 48
+            height: metrics.panelHeight
             color: "transparent"
 
             Row {
                 id: brandNavigation
                 anchors.left: parent.left
-                anchors.leftMargin: 12
+                anchors.leftMargin: 14
                 anchors.verticalCenter: parent.verticalCenter
                 spacing: 9
 
                 Rectangle {
                     color: systemMouse.containsMouse ? lunar.raisedHover : "transparent"
-                    height: 36
+                    height: 38
                     radius: 11
-                    width: 38
+                    width: 42
 
                     Image {
                         anchors.centerIn: parent
                         fillMode: Image.PreserveAspectFit
-                        height: 28
+                        height: metrics.panelLogoHeight
                         mipmap: true
                         smooth: true
                         source: northstarLogoSource
                         sourceClipRect: Qt.rect(270, 245, 485, 335)
-                        width: 28
+                        width: metrics.panelLogoHeight + 4
                     }
 
                     MouseArea {
@@ -253,7 +255,7 @@ Window {
                     anchors.verticalCenter: parent.verticalCenter
                     color: root.panelForeground
                     font.bold: true
-                    font.pixelSize: 16
+                    font.pixelSize: 17
                     text: "NorthStar"
                 }
 
@@ -278,7 +280,7 @@ Window {
                             id: menuLabel
                             anchors.centerIn: parent
                             color: root.panelForeground
-                            font.pixelSize: 13
+                            font.pixelSize: 14
                             text: modelData.label
                         }
 
@@ -458,10 +460,10 @@ Window {
                         NorthstarSystemIcon {
                             anchors.centerIn: parent
                             darkMode: shellState.darkMode
-                            height: 24
+                            height: metrics.panelIconSize
                             iconName: modelData
-                            monochrome: true
-                            width: 24
+                            accented: false
+                            width: metrics.panelIconSize
                         }
 
                         MouseArea {
@@ -480,6 +482,8 @@ Window {
                         && !northstarPowerController.onAcPower
                         && northstarPowerController.batteryPercentage <= 15
 
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.verticalCenterOffset: 2
                     height: 18
                     spacing: 4
                     visible: northstarPowerController.batteryAvailable
@@ -526,7 +530,7 @@ Window {
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
                         color: batteryIndicator.low ? lunar.danger : root.panelForeground
-                        font.pixelSize: 11
+                        font.pixelSize: 12
                         text: northstarPowerController.batteryPercentage + "%"
                     }
                 }
@@ -586,6 +590,8 @@ Window {
                 }
 
                 Text {
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.verticalCenterOffset: 2
                     color: root.panelForeground
                     font.pixelSize: 12
                     text: Qt.formatDateTime(root.now, "ddd d MMM  hh:mm")

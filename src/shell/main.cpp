@@ -47,8 +47,11 @@
 
 namespace {
 
-constexpr int PanelHeight = 44;
-constexpr int DockHeight = 72;
+constexpr int PanelHeight = 46;
+// The dock is a floating surface with a deliberate bottom gap. Layer-shell
+// owns the outer window size, so it must include both the 88 px glass surface
+// and its 22 px inset instead of retaining the legacy 72 px allocation.
+constexpr int DockHeight = 126;
 
 bool expectVisible(QObject *overlay, bool expected, const char *stage)
 {
