@@ -12,7 +12,7 @@ int main(int argc, char *argv[])
 {
     QCoreApplication application(argc, argv);
     QCoreApplication::setApplicationName(QStringLiteral("northstar-shell-command"));
-    QCoreApplication::setApplicationVersion(QStringLiteral("0.1.0"));
+    QCoreApplication::setApplicationVersion(QStringLiteral(NORTHSTAR_VERSION_STRING));
 
     QTextStream error(stderr);
     const QStringList arguments = application.arguments();

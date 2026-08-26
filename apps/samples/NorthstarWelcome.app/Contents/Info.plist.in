@@ -6,7 +6,7 @@
     <key>DisplayName</key>
     <string>Northstar Welcome</string>
     <key>Version</key>
-    <string>0.1.0</string>
+    <string>@NORTHSTAR_VERSION@</string>
     <key>Executable</key>
     <string>northstar-welcome</string>
     <key>Icon</key>

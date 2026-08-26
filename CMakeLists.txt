@@ -1,9 +1,13 @@
 cmake_minimum_required(VERSION 3.28)
 
-set(NORTHSTAR_PACKAGE_VERSION "0.1.0" CACHE STRING "Northstar package version")
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/VERSION" NORTHSTAR_VERSION)
+string(STRIP "${NORTHSTAR_VERSION}" NORTHSTAR_VERSION)
+if(NOT NORTHSTAR_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
+    message(FATAL_ERROR "VERSION must contain exactly one semantic version (X.Y.Z)")
+endif()
 
 project(Northstar
-    VERSION ${NORTHSTAR_PACKAGE_VERSION}
+    VERSION "${NORTHSTAR_VERSION}"
     DESCRIPTION "Northstar desktop environment for FreeBSD"
     HOMEPAGE_URL "https://github.com/SeedOfEvil/northstar-os"
     LANGUAGES CXX
@@ -12,6 +16,8 @@ project(Northstar
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+add_compile_definitions(NORTHSTAR_VERSION_STRING="${PROJECT_VERSION}")
 
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)

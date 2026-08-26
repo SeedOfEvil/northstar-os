@@ -21,11 +21,19 @@ qt_add_qml_module(northstar-recovery
 target_link_libraries(northstar-recovery PRIVATE
     northstar-recovery-core Qt6::Gui Qt6::Qml Qt6::Quick Qt6::QuickControls2 northstar-ui)
 
+set(NORTHSTAR_RECOVERY_MANIFEST ${CMAKE_CURRENT_BINARY_DIR}/NorthstarRecovery-Info.plist)
+configure_file(
+    ${PROJECT_SOURCE_DIR}/apps/samples/NorthstarRecovery.app/Contents/Info.plist.in
+    ${NORTHSTAR_RECOVERY_MANIFEST}
+    @ONLY
+)
+
 install(TARGETS northstar-recovery
     RUNTIME DESTINATION share/northstar/apps/NorthstarRecovery.app/Contents/Executable)
 install(PROGRAMS northstar-boot-environment DESTINATION libexec)
-install(FILES ${PROJECT_SOURCE_DIR}/apps/samples/NorthstarRecovery.app/Contents/Info.plist
-    DESTINATION share/northstar/apps/NorthstarRecovery.app/Contents)
+install(FILES ${NORTHSTAR_RECOVERY_MANIFEST}
+    DESTINATION share/northstar/apps/NorthstarRecovery.app/Contents
+    RENAME Info.plist)
 install(FILES ${NORTHSTAR_RECOVERY_ICON}
     DESTINATION share/northstar/apps/NorthstarRecovery.app/Contents/Resources
     RENAME northstar-recovery.png)

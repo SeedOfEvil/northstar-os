@@ -170,6 +170,19 @@ actual_project_commit=$(git -C "$PROJECT_ROOT" rev-parse HEAD 2>/dev/null || tru
     || die 'project commit does not match the selected checkout HEAD'
 [ -z "$(git -C "$PROJECT_ROOT" status --porcelain 2>/dev/null)" ] \
     || die 'project checkout contains uncommitted changes'
+[ -f "$PROJECT_ROOT/VERSION" ] && [ ! -L "$PROJECT_ROOT/VERSION" ] \
+    || die 'project VERSION must be a regular non-symlink file'
+canonical_version=$(sed -n '1p' "$PROJECT_ROOT/VERSION")
+[ "$(wc -l < "$PROJECT_ROOT/VERSION" | tr -d ' ')" -eq 1 ] \
+    || die 'project VERSION must contain exactly one line'
+printf '%s\n' "$canonical_version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' \
+    || die 'project VERSION must contain exactly one semantic version'
+[ "$(lock_value NORTHSTAR_PACKAGE_VERSION)" = "$canonical_version" ] \
+    || die 'image lock package version does not match project VERSION'
+[ "$(lock_value NORTHSTAR_PACKAGE)" = "northstar-$canonical_version-amd64.pkg" ] \
+    || die 'image lock package filename does not match project VERSION'
+[ "$(lock_value NORTHSTAR_SOURCE_REVISION)" = "$PROJECT_COMMIT" ] \
+    || die 'image lock source revision does not match project commit'
 [ -d "$ARTIFACTS" ] && [ ! -L "$ARTIFACTS" ] \
     || die 'artifacts path must be a real directory'
 [ ! -e "$OUTPUT" ] && [ ! -L "$OUTPUT" ] || die 'output already exists'

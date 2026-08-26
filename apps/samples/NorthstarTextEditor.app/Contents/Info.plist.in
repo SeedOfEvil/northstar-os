@@ -6,7 +6,7 @@
     <key>DisplayName</key>
     <string>Northstar Text Editor</string>
     <key>Version</key>
-    <string>0.2.0</string>
+    <string>@NORTHSTAR_VERSION@</string>
     <key>Executable</key>
     <string>northstar-text-editor</string>
     <key>Icon</key>

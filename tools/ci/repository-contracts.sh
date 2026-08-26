@@ -19,6 +19,8 @@ command -v sh >/dev/null 2>&1 || die 'sh is required'
 
 [ -f .github/workflows/ci.yml ] || die 'the required CI workflow is missing'
 
+sh "$REPO_ROOT/tools/ci/version-contracts.sh"
+
 git ls-files '*.sh' | while IFS= read -r path; do
     [ -n "$path" ] || continue
     [ -f "$path" ] || die "tracked shell file is missing: $path"

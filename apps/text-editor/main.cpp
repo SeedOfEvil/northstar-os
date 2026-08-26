@@ -130,7 +130,7 @@ int main(int argc, char *argv[])
 {
     QGuiApplication application(argc, argv);
     QCoreApplication::setApplicationName(QStringLiteral("northstar-text-editor"));
-    QCoreApplication::setApplicationVersion(QStringLiteral("0.2.0"));
+    QCoreApplication::setApplicationVersion(QStringLiteral(NORTHSTAR_VERSION_STRING));
 
     QCommandLineParser parser;
     parser.addHelpOption();

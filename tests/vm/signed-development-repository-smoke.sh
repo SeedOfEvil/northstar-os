@@ -100,6 +100,7 @@ generated_at=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
     --publication-signer "$TMP_DIR/publication-signer" \
     --public-key "$TMP_DIR/development.pub" \
     --source-lock "$TMP_DIR/upstream.lock" \
+    --version-file "$ROOT/VERSION" \
     --revision 73 \
     --source-revision "$SOURCE_REVISION" \
     --generated-at "$generated_at" \
@@ -110,6 +111,9 @@ for artifact in meta.conf data.pkg repository-metadata.json signature.json \
     publication-record.conf repository-policy.conf northstar-development.conf; do
     [ -s "$TMP_DIR/repository/$artifact" ] || die "publication artifact is missing: $artifact"
 done
+grep -Fx "northstar_version=$(sed -n '1p' "$ROOT/VERSION")" \
+    "$TMP_DIR/repository/publication-record.conf" >/dev/null \
+    || die 'publication record does not carry the canonical Northstar version'
 find "$TMP_DIR/repository" -type f \( -name '*.key' -o -name '*private*' \) | grep . >/dev/null 2>&1 \
     && die 'private key material escaped into the publication'
 
