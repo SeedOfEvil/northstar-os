@@ -30,9 +30,10 @@ src/ui/NorthstarWindowControls.qml \
 src/ui/NorthstarWindowFrame.qml \
 src/ui/NorthstarWindowTitleBar.qml \
 src/shell/DesktopBackground.qml \
-src/shell/DockWindow.qml \
-src/shell/FileBrowserWindow.qml \
-src/shell/SettingsWindow.qml \
+ src/shell/DockWindow.qml \
+ src/shell/FileBrowserWindow.qml \
+ src/shell/MenuBarPopup.qml \
+ src/shell/SettingsWindow.qml \
 src/shell/SoftwareCenterWindow.qml \
 src/shell/SystemMenu.qml"
 required_files="$required_files src/shell/SearchOverlay.qml"
@@ -68,6 +69,18 @@ contains src/shell/layershellsurface.cpp 'KeyboardInteractivityOnDemand'
 contains src/shell/layershellsurface.cpp 'KeyboardInteractivityExclusive'
 contains src/shell/layershellsurface.cpp 'restoreKeyboardFocus'
 contains src/shell/ShellWindow.qml 'northstarShellFocus.restore()'
+contains src/shell/ShellWindow.qml 'activeApplicationName'
+contains src/shell/ShellWindow.qml 'function menuItemsFor(menuName)'
+contains src/shell/ShellWindow.qml 'if (windows.length === 0)'
+contains src/shell/ShellWindow.qml 'rememberApplication("desktop", "Desktop", -1)'
+contains src/shell/ShellWindow.qml 'root.openContextMenu(modelData.menu, menuSelector)'
+contains src/shell/ShellWindow.qml 'controller.copyEntry(fileBrowserWindow.selectedPath)'
+contains src/shell/ShellWindow.qml 'northstarWindowController.toggleMinimize'
+contains src/shell/ShellWindow.qml 'northstarWindowController.closeWindow(activeApplicationViewId)'
+contains src/shell/MenuBarPopup.qml 'flags: Qt.Popup | Qt.FramelessWindowHint'
+contains src/shell/MenuBarPopup.qml 'Keys.onPressed:'
+contains src/shell/MenuBarPopup.qml 'modelData.checked === true ? "✓" : ""'
+contains src/shell/CMakeLists.txt 'MenuBarPopup.qml'
 contains src/shell/main.cpp 'shellFocus.setPanelWindow(window)'
 contains src/shell/main.cpp 'application.setQuitOnLastWindowClosed(false)'
 contains src/shell/main.cpp 'QGuiApplication::screenAdded'
@@ -311,8 +324,8 @@ contains src/ui/NorthstarIcon.qml 'property real cropFactor: 0.88'
 contains src/shell/SettingsEntryControl.qml 'property color backgroundColor:'
 contains image/manifests/northstar-runtime-roots.txt 'noto-sans'
 contains src/shell/SoftwareCenterWindow.qml 'Installed inventory and the pinned system package catalogue'
-contains src/shell/ShellWindow.qml '{ label: "Settings", action: "settings" }'
-contains src/shell/ShellWindow.qml '{ label: "Window", action: "applications" }'
+contains src/shell/ShellWindow.qml '{ label: root.activeApplicationName, menu: "Application", emphasized: true }'
+contains src/shell/ShellWindow.qml '{ label: "Window", menu: "Window" }'
 contains src/shell/DesktopBackground.qml 'northstarAuroraWallpaperSource'
 contains src/ui/AuroraButton.qml 'Button {'
 contains src/ui/AuroraSlider.qml 'Slider {'

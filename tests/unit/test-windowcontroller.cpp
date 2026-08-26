@@ -12,6 +12,7 @@ class WindowControllerTest final : public QObject
 
 private slots:
     void refreshFiltersDesktopAndShellViews();
+    void recognizesWayfireActivatedField();
     void listsTheShellsOwnWindowsButNotItsPanels();
     void groupsWindowsByApplicationIdentity();
     void actionsUseWayfireViewIds();
@@ -71,6 +72,34 @@ void WindowControllerTest::refreshFiltersDesktopAndShellViews()
     QCOMPARE(controller.windows().first().toMap().value(QStringLiteral("viewId")).toInt(), 4);
     QCOMPARE(controller.windows().first().toMap().value(QStringLiteral("title")).toString(), QStringLiteral("Terminal"));
     QVERIFY(controller.windows().first().toMap().value(QStringLiteral("active")).toBool());
+}
+
+void WindowControllerTest::recognizesWayfireActivatedField()
+{
+    WindowController controller(
+        nullptr,
+        [](const QString &method, const QJsonObject &, QJsonValue *response, QString *) {
+            if (method != QStringLiteral("window-rules/list-views")) {
+                return false;
+            }
+            // This is the focus field emitted by the physical laptop's
+            // Wayfire window-rules/list-views response.
+            *response = QJsonArray{QJsonObject{
+                {QStringLiteral("id"), 64},
+                {QStringLiteral("pid"), 5418},
+                {QStringLiteral("title"), QStringLiteral("Northstar Settings")},
+                {QStringLiteral("app-id"), QStringLiteral("northstar-shell")},
+                {QStringLiteral("mapped"), true},
+                {QStringLiteral("role"), QStringLiteral("toplevel")},
+                {QStringLiteral("minimized"), false},
+                {QStringLiteral("activated"), true},
+            }};
+            return true;
+        });
+
+    QVERIFY(controller.refresh());
+    QCOMPARE(controller.windows().size(), 1);
+    QVERIFY(controller.windows().constFirst().toMap().value(QStringLiteral("active")).toBool());
 }
 
 void WindowControllerTest::listsTheShellsOwnWindowsButNotItsPanels()
@@ -134,11 +163,12 @@ void WindowControllerTest::actionsUseWayfireViewIds()
 {
     QStringList methods;
     int focusedViewId = 0;
+    int closedViewId = 0;
     int minimizedViewId = 0;
     bool minimized = false;
     WindowController controller(
         nullptr,
-        [&methods, &focusedViewId, &minimizedViewId, &minimized](const QString &method,
+        [&methods, &focusedViewId, &closedViewId, &minimizedViewId, &minimized](const QString &method,
                                                                   const QJsonObject &data,
                                                                   QJsonValue *response,
                                                                   QString *) {
@@ -149,6 +179,11 @@ void WindowControllerTest::actionsUseWayfireViewIds()
             }
             if (method == QStringLiteral("window-rules/focus-view")) {
                 focusedViewId = data.value(QStringLiteral("id")).toInt();
+                *response = QJsonObject{};
+                return true;
+            }
+            if (method == QStringLiteral("window-rules/close-view")) {
+                closedViewId = data.value(QStringLiteral("id")).toInt();
                 *response = QJsonObject{};
                 return true;
             }
@@ -163,14 +198,17 @@ void WindowControllerTest::actionsUseWayfireViewIds()
 
     QVERIFY(controller.refresh());
     QVERIFY(controller.activateWindow(12));
+    QVERIFY(controller.closeWindow(12));
     QVERIFY(controller.toggleMinimize(12));
     QVERIFY(minimized);
     QCOMPARE(focusedViewId, 12);
+    QCOMPARE(closedViewId, 12);
     QCOMPARE(minimizedViewId, 12);
     QCOMPARE(methods, QStringList({
         QStringLiteral("window-rules/list-views"),
         QStringLiteral("window-rules/focus-view"),
         QStringLiteral("window-rules/list-views"),
+        QStringLiteral("window-rules/close-view"),
         QStringLiteral("wm-actions/set-minimized"),
         QStringLiteral("window-rules/list-views"),
     }));

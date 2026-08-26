@@ -158,6 +158,7 @@ bool WindowController::refresh()
         const QString label = !title.isEmpty() ? title : (!appId.isEmpty() ? appId : QStringLiteral("Application"));
         const bool active = view.value(QStringLiteral("focused")).toBool(false)
             || view.value(QStringLiteral("active")).toBool(false)
+            || view.value(QStringLiteral("activated")).toBool(false)
             || view.value(QStringLiteral("focus")).toBool(false)
             || view.value(QStringLiteral("is-focused")).toBool(false);
         nextWindows.append(QVariantMap{
@@ -193,6 +194,22 @@ bool WindowController::activateWindow(int viewId)
 
     setRequestStatus(true, QStringLiteral("Focused application"));
     refresh();
+    return true;
+}
+
+bool WindowController::closeWindow(int viewId)
+{
+    QJsonValue response;
+    QString error;
+    if (!request(QStringLiteral("window-rules/close-view"),
+                 QJsonObject{{QStringLiteral("id"), viewId}},
+                 &response,
+                 &error)) {
+        setRequestStatus(false, error);
+        return false;
+    }
+
+    setRequestStatus(true, QStringLiteral("Application close requested"));
     return true;
 }
 

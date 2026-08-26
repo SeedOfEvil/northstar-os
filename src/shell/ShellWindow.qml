@@ -24,6 +24,220 @@ Window {
     property color panelMuted: lunar.muted
     property color panelAccent: lunar.accent
     property date now: new Date()
+    property string activeApplicationKind: "desktop"
+    property string activeApplicationName: "Desktop"
+    property int activeApplicationViewId: -1
+
+    function menuItem(label, action, shortcut, enabled, checked) {
+        return {
+            kind: "action",
+            label: label,
+            action: action || "",
+            shortcut: shortcut || "",
+            enabled: enabled === undefined ? true : enabled,
+            checked: checked === true
+        }
+    }
+
+    function menuSeparator() {
+        return { kind: "separator" }
+    }
+
+    function rememberApplication(kind, name, viewId) {
+        activeApplicationKind = kind || "external"
+        activeApplicationName = name && name.length > 0 ? name : "Application"
+        activeApplicationViewId = viewId === undefined ? -1 : viewId
+    }
+
+    function activeShellSurface() {
+        if (activeApplicationKind === "files") return fileBrowserWindow
+        if (activeApplicationKind === "settings") return settingsWindow
+        if (activeApplicationKind === "software") return softwareCenterWindow
+        if (activeApplicationKind === "applications") return applicationOverview
+        if (activeApplicationKind === "quicklook") return quickLookWindow
+        return null
+    }
+
+    function refreshActiveApplication() {
+        if (!northstarWindowController)
+            return
+        const windows = northstarWindowController.windows || []
+        for (let index = 0; index < windows.length; ++index) {
+            const window = windows[index]
+            if (!window.active)
+                continue
+            const title = String(window.title || window.appId || "Application")
+            const descriptor = (String(window.appId || "") + " " + title).toLowerCase()
+            if (descriptor.indexOf("northstar files") >= 0)
+                rememberApplication("files", "Files", window.viewId)
+            else if (descriptor.indexOf("settings") >= 0)
+                rememberApplication("settings", "Settings", window.viewId)
+            else if (descriptor.indexOf("software") >= 0)
+                rememberApplication("software", "Software", window.viewId)
+            else if (descriptor.indexOf("applications") >= 0)
+                rememberApplication("applications", "Applications", window.viewId)
+            else if (descriptor.indexOf("quick look") >= 0)
+                rememberApplication("quicklook", "Quick Look", window.viewId)
+            else
+                rememberApplication("external", title, window.viewId)
+            return
+        }
+        // Clicking the panel or an open menu temporarily leaves every client
+        // view unfocused, so retain the last application while any view still
+        // exists. Once the compositor reports no application views at all,
+        // the desktop is genuinely the active context and a stale app name is
+        // misleading.
+        if (windows.length === 0)
+            rememberApplication("desktop", "Desktop", -1)
+    }
+
+    function unavailableExternalMenu() {
+        return [menuItem("This app does not expose a global menu", "", "", false)]
+    }
+
+    function menuItemsFor(menuName) {
+        const kind = activeApplicationKind
+        const filesActive = kind === "files"
+        const controller = fileBrowserWindow.fileBrowserController
+        if (menuName === "Application") {
+            return [
+                menuItem("About Northstar", "help.about"),
+                menuItem("Settings…", "settings.open", "Ctrl+,"),
+                menuSeparator(),
+                menuItem("Close " + activeApplicationName, "window.close", "Ctrl+W",
+                         kind !== "desktop" && (kind !== "external" || activeApplicationViewId >= 0))
+            ]
+        }
+        if (menuName === "File") {
+            if (filesActive) {
+                return [
+                    menuItem("New Tab", "files.new-tab", "Ctrl+T"),
+                    menuItem("Open Selected Item", "files.open-selected", "Enter",
+                             fileBrowserWindow.hasSelection),
+                    menuSeparator(),
+                    menuItem("Close Tab", "files.close-tab", "Ctrl+W",
+                             fileBrowserWindow.activeTabIndex >= 0),
+                    menuItem("Close Window", "window.close", "Ctrl+Shift+W")
+                ]
+            }
+            if (kind === "external") return unavailableExternalMenu()
+            return [
+                menuItem("New Files Window", "files.open", "Ctrl+N"),
+                menuItem("Open Files", "files.open", "Ctrl+O"),
+                menuSeparator(),
+                menuItem("Close Window", "window.close", "Ctrl+W", kind !== "desktop")
+            ]
+        }
+        if (menuName === "Edit") {
+            if (!filesActive)
+                return kind === "external" ? unavailableExternalMenu()
+                    : [menuItem("No editable selection", "", "", false)]
+            return [
+                menuItem(controller && controller.undoLabel.length > 0
+                         ? "Undo " + controller.undoLabel : "Undo",
+                         "files.undo", "Ctrl+Z", controller && controller.canUndo),
+                menuSeparator(),
+                menuItem("Copy", "files.copy", "Ctrl+C", fileBrowserWindow.hasSelection),
+                menuItem("Cut", "files.cut", "Ctrl+X", fileBrowserWindow.hasSelection
+                         && !fileBrowserWindow.showingTrash && controller && controller.homeLocation),
+                menuItem("Paste", "files.paste", "Ctrl+V", controller && controller.canPaste)
+            ]
+        }
+        if (menuName === "View") {
+            if (filesActive) {
+                return [
+                    menuItem("as Icons", "files.grid", "", true, fileBrowserWindow.gridView),
+                    menuItem("as List", "files.list", "", true, !fileBrowserWindow.gridView),
+                    menuSeparator(),
+                    menuItem("Quick Look", "files.quick-look", "Space", fileBrowserWindow.hasSelection),
+                    menuItem("Refresh", "files.refresh", "Ctrl+R")
+                ]
+            }
+            if (kind === "settings") {
+                return [
+                    menuItem("Appearance", "settings.appearance", "", true),
+                    menuItem("Network", "settings.network", "", true),
+                    menuItem("Power", "settings.power", "", true),
+                    menuSeparator(),
+                    menuItem("Quick Settings", "quick-settings.open")
+                ]
+            }
+            if (kind === "external") return unavailableExternalMenu()
+            return [
+                menuItem("Applications", "applications.open"),
+                menuItem("Quick Settings", "quick-settings.open"),
+                menuItem("Notifications", "notifications.open")
+            ]
+        }
+        if (menuName === "Window") {
+            const shellSurface = activeShellSurface()
+            return [
+                menuItem("Minimize", "window.minimize", "Ctrl+M",
+                         shellSurface !== null || (kind === "external" && activeApplicationViewId >= 0)),
+                menuItem("Zoom", "window.zoom", "", shellSurface !== null
+                         && shellSurface.toggleMaximize !== undefined),
+                menuSeparator(),
+                menuItem("Show All Applications", "applications.open")
+            ]
+        }
+        return [
+            menuItem("Northstar Help", "help.welcome"),
+            menuItem("Keyboard Shortcuts", "help.shortcuts"),
+            menuSeparator(),
+            menuItem("About Northstar", "help.about")
+        ]
+    }
+
+    function openContextMenu(menuName, anchorItem) {
+        if (systemMenu.visible) systemMenu.closeMenu()
+        const position = anchorItem.mapToItem(root.contentItem, 0, 0)
+        menuBarPopup.openMenu(menuName, menuItemsFor(menuName), root.x + position.x)
+    }
+
+    function triggerMenuAction(action) {
+        const controller = fileBrowserWindow.fileBrowserController
+        const surface = activeShellSurface()
+        if (action === "settings.open") settingsWindow.openSettings()
+        else if (action === "help.about") {
+            settingsWindow.openSettings(); settingsWindow.selectSection("about")
+        } else if (action === "help.shortcuts") {
+            settingsWindow.openSettings(); settingsWindow.selectSection("session")
+        } else if (action === "help.welcome") launcher.launchApplication("bundle:org.northstar.Welcome")
+        else if (action === "files.open") fileBrowserWindow.openBrowser()
+        else if (action === "files.new-tab") fileBrowserWindow.newTab()
+        else if (action === "files.close-tab") fileBrowserWindow.closeTab(fileBrowserWindow.activeTabIndex)
+        else if (action === "files.open-selected") fileBrowserWindow.openSelectedEntry()
+        else if (action === "files.copy") controller.copyEntry(fileBrowserWindow.selectedPath)
+        else if (action === "files.cut") controller.cutEntry(fileBrowserWindow.selectedPath)
+        else if (action === "files.paste") controller.pasteClipboard()
+        else if (action === "files.undo") controller.undoLastTransfer()
+        else if (action === "files.grid") fileBrowserWindow.setGridView(true)
+        else if (action === "files.list") fileBrowserWindow.setGridView(false)
+        else if (action === "files.quick-look") fileBrowserWindow.previewSelectedEntry()
+        else if (action === "files.refresh") controller.refresh()
+        else if (action === "settings.appearance") settingsWindow.selectSection("appearance")
+        else if (action === "settings.network") settingsWindow.selectSection("network")
+        else if (action === "settings.power") settingsWindow.selectSection("power")
+        else if (action === "quick-settings.open") quickSettingsWindow.togglePanel()
+        else if (action === "notifications.open") notificationCenterWindow.togglePanel()
+        else if (action === "applications.open") applicationOverview.openWithQuery("")
+        else if (action === "window.close") {
+            if (surface) surface.hide()
+            else if (activeApplicationViewId >= 0)
+                northstarWindowController.closeWindow(activeApplicationViewId)
+        }
+        else if (action === "window.minimize") {
+            if (surface) surface.showMinimized()
+            else if (activeApplicationViewId >= 0)
+                northstarWindowController.toggleMinimize(activeApplicationViewId)
+        } else if (action === "window.zoom" && surface && surface.toggleMaximize)
+            surface.toggleMaximize()
+    }
+
+    Connections {
+        target: northstarWindowController
+        function onWindowsChanged() { root.refreshActiveApplication() }
+    }
 
     Timer {
         interval: 1000
@@ -106,7 +320,9 @@ Window {
     }
 
     function closeTransientSurfaces() {
-        if (searchOverlay.visible) {
+        if (menuBarPopup.visible) {
+            menuBarPopup.closeMenu()
+        } else if (searchOverlay.visible) {
             searchOverlay.closeSearch()
         } else if (systemMenu.visible) {
             systemMenu.closeMenu()
@@ -247,31 +463,29 @@ Window {
                         id: systemMouse
                         anchors.fill: parent
                         hoverEnabled: true
-                        onClicked: systemMenu.openMenu()
+                        onClicked: {
+                            menuBarPopup.closeMenu()
+                            systemMenu.openMenu()
+                        }
                     }
-                }
-
-                Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    color: root.panelForeground
-                    font.bold: true
-                    font.pixelSize: 17
-                    text: "NorthStar"
                 }
 
                 Repeater {
                     model: [
-                        { label: "Settings", action: "settings" },
-                        { label: "File", action: "files" },
-                        { label: "Edit", action: "applications" },
-                        { label: "View", action: "quick-settings" },
-                        { label: "Window", action: "applications" },
-                        { label: "Help", action: "menu" }
+                        { label: root.activeApplicationName, menu: "Application", emphasized: true },
+                        { label: "File", menu: "File" },
+                        { label: "Edit", menu: "Edit" },
+                        { label: "View", menu: "View" },
+                        { label: "Window", menu: "Window" },
+                        { label: "Help", menu: "Help" }
                     ]
 
                     delegate: Rectangle {
+                        id: menuSelector
                         required property var modelData
-                        color: menuMouse.containsMouse ? lunar.raisedHover : "transparent"
+                        color: menuBarPopup.visible && menuBarPopup.menuName === modelData.menu
+                            ? lunar.accentSoft
+                            : menuMouse.containsMouse ? lunar.raisedHover : "transparent"
                         height: 34
                         radius: 9
                         width: menuLabel.implicitWidth + 20
@@ -280,6 +494,7 @@ Window {
                             id: menuLabel
                             anchors.centerIn: parent
                             color: root.panelForeground
+                            font.bold: modelData.emphasized === true
                             font.pixelSize: 14
                             text: modelData.label
                         }
@@ -288,15 +503,9 @@ Window {
                             id: menuMouse
                             anchors.fill: parent
                             hoverEnabled: true
-                            onClicked: {
-                                if (modelData.action === "quick-settings") {
-                                    quickSettingsWindow.togglePanel()
-                                } else if (modelData.action === "menu") {
-                                    systemMenu.openMenu()
-                                } else {
-                                    systemMenu.triggerAction(modelData.action)
-                                }
-                            }
+                            onEntered: if (menuBarPopup.visible)
+                                root.openContextMenu(modelData.menu, menuSelector)
+                            onClicked: root.openContextMenu(modelData.menu, menuSelector)
                         }
                     }
                 }
@@ -624,6 +833,18 @@ Window {
         }
     }
 
+    MenuBarPopup {
+        id: menuBarPopup
+        darkMode: shellState.darkMode
+        ownerWindow: root
+        panelHeight: root.height
+        screenX: targetScreen ? targetScreen.geometry.x : 0
+        screenY: targetScreen ? targetScreen.geometry.y : 0
+        screenWidth: targetScreen ? targetScreen.geometry.width : root.width
+        onActionRequested: function(action) { root.triggerMenuAction(action) }
+        onDismissed: root.restoreShellFocus()
+    }
+
     SystemMenu {
         id: systemMenu
         onVisibleChanged: if (!visible) root.restoreShellFocus()
@@ -680,6 +901,7 @@ Window {
 
     ApplicationOverview {
         id: applicationOverview
+        onActiveChanged: if (active) root.rememberApplication("applications", "Applications", -1)
         onVisibleChanged: if (!visible) root.restoreShellFocus()
         applicationLauncher: launcher
         pinnedApplications: northstarPinnedApplicationModel
@@ -715,6 +937,7 @@ Window {
 
     SoftwareCenterWindow {
         id: softwareCenterWindow
+        onActiveChanged: if (active) root.rememberApplication("software", "Software", -1)
         onVisibleChanged: if (!visible) root.restoreShellFocus()
         packageCatalog: northstarPackageCatalog
         packageMutation: northstarPackageMutationController
@@ -729,6 +952,7 @@ Window {
 
     FileBrowserWindow {
         id: fileBrowserWindow
+        onActiveChanged: if (active) root.rememberApplication("files", "Files", -1)
         onVisibleChanged: if (!visible) root.restoreShellFocus()
         fileBrowserController: northstarFileBrowserController
         applicationLauncher: launcher
@@ -741,6 +965,7 @@ Window {
 
     QuickLookWindow {
         id: quickLookWindow
+        onActiveChanged: if (active) root.rememberApplication("quicklook", "Quick Look", -1)
         onVisibleChanged: if (!visible) root.restoreShellFocus()
         previewController: northstarPreviewController
         state: shellState
@@ -750,6 +975,7 @@ Window {
 
     SettingsWindow {
         id: settingsWindow
+        onActiveChanged: if (active) root.rememberApplication("settings", "Settings", -1)
         onVisibleChanged: if (!visible) root.restoreShellFocus()
         state: shellState
         desktopLayoutController: northstarDesktopLayoutController

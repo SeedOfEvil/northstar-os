@@ -64,6 +64,7 @@ qt_add_qml_module(northstar-shell
         WindowDragController.qml
         SoftwareCenterWindow.qml
         FileBrowserWindow.qml
+        MenuBarPopup.qml
         SystemMenu.qml
         NorthstarWindowRecovery.qml
         SettingsEntryControl.qml

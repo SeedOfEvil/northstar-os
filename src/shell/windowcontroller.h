@@ -30,6 +30,7 @@ public:
 
     Q_INVOKABLE bool refresh();
     Q_INVOKABLE bool activateWindow(int viewId);
+    Q_INVOKABLE bool closeWindow(int viewId);
     Q_INVOKABLE bool toggleMinimize(int viewId);
 
 signals:
