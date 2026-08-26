@@ -82,6 +82,13 @@ Window {
                 rememberApplication("external", title, window.viewId)
             return
         }
+        // Clicking the panel or an open menu temporarily leaves every client
+        // view unfocused, so retain the last application while any view still
+        // exists. Once the compositor reports no application views at all,
+        // the desktop is genuinely the active context and a stale app name is
+        // misleading.
+        if (windows.length === 0)
+            rememberApplication("desktop", "Desktop", -1)
     }
 
     function unavailableExternalMenu() {
