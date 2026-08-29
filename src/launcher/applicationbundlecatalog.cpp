@@ -649,3 +649,8 @@ QStringList ApplicationBundleCatalog::defaultBundleDirectories()
     appendRoot(QStringLiteral("/usr/share"));
     return result;
 }
+
+bool ApplicationBundleCatalog::inspectBundle(const QString &path, BundleApplication *application)
+{
+    return readBundle(path, application);
+}

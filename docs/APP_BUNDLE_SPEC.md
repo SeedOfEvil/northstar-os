@@ -60,7 +60,9 @@ Unknown keys are ignored by older launchers but must not weaken validation. Path
 
 ## Installation and updates
 
-Bundles are installed by FreeBSD packages or a future project package integration. They are not copied manually into system directories by the shell. A package owns every installed file, supplies licence/notice metadata, and records its source/package/revision identity in the manifest provenance block.
+System bundles are installed by FreeBSD packages or project package integration. They are never copied manually into system directories by the shell. A package owns every system-installed file, supplies licence/notice metadata, and records its source/package/revision identity in the manifest provenance block.
+
+Northstar also permits an unprivileged user to install a bundle into `XDG_DATA_HOME/northstar/apps`. The installer validates the manifest and the complete source tree, requires every entry to be owned by the current user, rejects symbolic links, special files, and group- or other-writable entries, enforces bounded entry and byte counts, copies into a private staging directory, validates the staged bundle again, and publishes it with an atomic rename. The initial contract rejects duplicate identifiers instead of replacing an installed bundle. Removal applies only to a validated bundle directly below the user application root and moves it to the user's freedesktop Trash. Neither operation uses administrator privileges or mutates package-owned roots.
 
 The launcher prefers a valid `.desktop` entry when one is available, then discovers project bundles from declared application roots. The first development roots are the user-local `XDG_DATA_HOME/northstar/apps` directory followed by `/usr/local/share/northstar/apps` and `/usr/share/northstar/apps`. A bundle can expose a `.desktop` entry for compatibility with existing FreeBSD tools. The repository includes a small `NorthstarWelcome.app` sample and the editable `NorthstarTextEditor.app` installed by the development CMake target; package integration remains a later milestone.
 

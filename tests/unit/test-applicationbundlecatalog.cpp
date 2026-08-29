@@ -1,4 +1,5 @@
 #include "applicationbundlecatalog.h"
+#include "applicationbundleinstaller.h"
 #include "applicationlauncher.h"
 
 #include <QDir>
@@ -110,6 +111,8 @@ private slots:
     void rejectsMalformedTraversalAndWritableBundles();
     void launcherMergesBundleApplicationsAndPassesFiles();
     void filtersApplicationsByDeclaredDocumentType();
+    void installsAndMovesUserBundleToTrash();
+    void rejectsDuplicateAndUnsafePayload();
 };
 
 void ApplicationBundleCatalogTest::discoversValidBundleAndLaunchSpec()
@@ -290,6 +293,63 @@ void ApplicationBundleCatalogTest::filtersApplicationsByDeclaredDocumentType()
     const QString imagePath = QDir(temporaryDirectory.path()).filePath(QStringLiteral("image.png"));
     QVERIFY(writeFile(imagePath, "PNG", QFileDevice::ReadOwner | QFileDevice::WriteOwner));
     QVERIFY(launcher.applicationsForFile(imagePath).isEmpty());
+}
+
+void ApplicationBundleCatalogTest::installsAndMovesUserBundleToTrash()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    const QString sourceRoot = QDir(temporaryDirectory.path()).filePath(QStringLiteral("source"));
+    const QString applicationRoot = QDir(temporaryDirectory.path()).filePath(QStringLiteral("user-apps"));
+    const QString trashRoot = QDir(temporaryDirectory.path()).filePath(QStringLiteral("Trash"));
+    QVERIFY(QDir().mkpath(sourceRoot));
+    QVERIFY(createBundle(sourceRoot, "org.northstar.Welcome"));
+
+    ApplicationBundleInstaller installer(applicationRoot, trashRoot);
+    QVERIFY2(installer.installBundle(bundlePath(sourceRoot, QStringLiteral("org.northstar.Welcome"))),
+             qPrintable(installer.statusMessage()));
+    QVERIFY(!installer.error());
+    QVERIFY(QFileInfo::exists(bundlePath(sourceRoot, QStringLiteral("org.northstar.Welcome"))));
+
+    const QString installedPath = bundlePath(applicationRoot, QStringLiteral("org.northstar.Welcome"));
+    BundleApplication installed;
+    QVERIFY(ApplicationBundleCatalog::inspectBundle(installedPath, &installed));
+    QCOMPARE(installed.bundleId, QStringLiteral("org.northstar.Welcome"));
+
+    QVERIFY2(installer.removeBundle(QStringLiteral("org.northstar.Welcome")),
+             qPrintable(installer.statusMessage()));
+    QVERIFY(!QFileInfo::exists(installedPath));
+    QVERIFY(QFileInfo::exists(
+        QDir(trashRoot).filePath(QStringLiteral("files/org.northstar.Welcome.app"))));
+    QVERIFY(QFileInfo::exists(
+        QDir(trashRoot).filePath(QStringLiteral("info/org.northstar.Welcome.app.trashinfo"))));
+}
+
+void ApplicationBundleCatalogTest::rejectsDuplicateAndUnsafePayload()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    const QString sourceRoot = QDir(temporaryDirectory.path()).filePath(QStringLiteral("source"));
+    const QString applicationRoot = QDir(temporaryDirectory.path()).filePath(QStringLiteral("user-apps"));
+    const QString trashRoot = QDir(temporaryDirectory.path()).filePath(QStringLiteral("Trash"));
+    QVERIFY(QDir().mkpath(sourceRoot));
+    QVERIFY(createBundle(sourceRoot, "org.northstar.Valid"));
+    QVERIFY(createBundle(sourceRoot, "org.northstar.Unsafe"));
+
+    ApplicationBundleInstaller installer(applicationRoot, trashRoot);
+    const QString validPath = bundlePath(sourceRoot, QStringLiteral("org.northstar.Valid"));
+    QVERIFY2(installer.installBundle(validPath), qPrintable(installer.statusMessage()));
+    QVERIFY(!installer.installBundle(validPath));
+    QVERIFY(installer.error());
+
+    const QString unsafePayload = QDir(bundlePath(sourceRoot, QStringLiteral("org.northstar.Unsafe")))
+        .filePath(QStringLiteral("Contents/Resources/untrusted-data"));
+    QVERIFY(writeFile(unsafePayload,
+                      "unsafe\n",
+                      QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::WriteOther));
+    QVERIFY(!installer.installBundle(bundlePath(sourceRoot, QStringLiteral("org.northstar.Unsafe"))));
+    QVERIFY(installer.error());
+    QVERIFY(!QFileInfo::exists(bundlePath(applicationRoot, QStringLiteral("org.northstar.Unsafe"))));
 }
 
 QTEST_MAIN(ApplicationBundleCatalogTest)
