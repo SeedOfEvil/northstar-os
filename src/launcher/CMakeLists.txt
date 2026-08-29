@@ -1,6 +1,7 @@
 add_library(northstar-launcher-core STATIC
     applicationcatalog.cpp
     applicationbundlecatalog.cpp
+    applicationbundleinstaller.cpp
 )
 
 target_include_directories(northstar-launcher-core
@@ -12,6 +13,18 @@ target_link_libraries(northstar-launcher-core
     PUBLIC
         Qt6::Core
 )
+
+qt_add_executable(northstar-app
+    northstar-app.cpp
+)
+
+target_link_libraries(northstar-app
+    PRIVATE
+        northstar-launcher-core
+        Qt6::Core
+)
+
+install(TARGETS northstar-app RUNTIME DESTINATION bin)
 
 set(NORTHSTAR_WELCOME_MANIFEST ${CMAKE_CURRENT_BINARY_DIR}/NorthstarWelcome-Info.plist)
 configure_file(

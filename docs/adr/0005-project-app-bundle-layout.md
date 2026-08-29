@@ -1,6 +1,6 @@
 # ADR 0005: Project application bundle layout
 
-Status: Accepted
+Status: Accepted, amended for user-scoped installation
 
 ## Context
 
@@ -20,9 +20,11 @@ Example.app/Contents/
 
 Use `Contents/Executable` rather than `Contents/MacOS` to keep the namespace project-owned. The launcher validates the manifest, paths, permissions, and package/source provenance before execution. Standard `.desktop` applications remain first-class and bundles do not replace FreeBSD packages.
 
+System-wide bundles remain owned and updated by FreeBSD packages. Northstar may also install a validated bundle without elevation into the current user's `XDG_DATA_HOME/northstar/apps` directory. That operation uses a private staging directory, validates the complete tree before and after copying, and publishes it with an atomic rename. The first user-install contract rejects replacement or in-place updates. It removes only bundles found in the user application root and moves them to the user's freedesktop Trash.
+
 ## Consequences
 
-The format is visually approachable and can carry project-owned resources without claiming compatibility with proprietary bundle internals. The launcher now defines and validates a source/package/revision provenance record for development bundles. Packaging tools must still define cryptographic signing, repository verification, library isolation, localization, and file associations before release use.
+The format is visually approachable and can carry project-owned resources without claiming compatibility with proprietary bundle internals. The launcher now defines and validates a source/package/revision provenance record for development bundles. User installation is deliberately not a privileged package manager and cannot alter package-owned system applications. Packaging tools must still define cryptographic signing, repository verification, library isolation, localization, updates, and file associations before release use.
 
 ## Alternatives considered
 
