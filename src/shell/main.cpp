@@ -74,8 +74,10 @@ bool expectVisible(QObject *overlay, bool expected, const char *stage)
 int runShellSelfTest(const QList<QObject *> &surfaces)
 {
     QObject *overlay = nullptr;
+    QObject *filesWindow = nullptr;
     for (QObject *surface : surfaces) {
         overlay = surface->findChild<QObject *>(QStringLiteral("searchOverlay"));
+        filesWindow = surface->findChild<QObject *>(QStringLiteral("fileBrowserWindow"));
         if (overlay != nullptr) {
             break;
         }
@@ -103,6 +105,24 @@ int runShellSelfTest(const QList<QObject *> &surfaces)
         return 1;
     }
     close();
+
+    if (filesWindow == nullptr) {
+        qCritical() << "the shell surface exposes no fileBrowserWindow";
+        return 1;
+    }
+    QObject *bundleDialog = filesWindow->findChild<QObject *>(
+        QStringLiteral("bundleInstallDialog"));
+    if (bundleDialog == nullptr
+        || !QMetaObject::invokeMethod(filesWindow, "openBundleInstallDialog",
+                                      Q_ARG(QVariant, QVariant(QStringLiteral("/nonexistent/test.app"))))) {
+        qCritical() << "the Files application-install dialog could not be invoked";
+        return 1;
+    }
+    QCoreApplication::processEvents();
+    if (!expectVisible(bundleDialog, true, "opening the Files application-install dialog")) {
+        return 1;
+    }
+    QMetaObject::invokeMethod(bundleDialog, "close");
     return 0;
 }
 

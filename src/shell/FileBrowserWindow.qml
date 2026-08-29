@@ -1673,8 +1673,7 @@ Window {
 
     Dialog {
         id: bundleInstallDialog
-        parent: files.contentItem
-        anchors.centerIn: parent
+        objectName: "bundleInstallDialog"
         closePolicy: Popup.CloseOnEscape
         modal: true
         property string itemPath: ""
@@ -1683,6 +1682,8 @@ Window {
         standardButtons: Dialog.NoButton
         title: details.valid ? details.displayName : "Northstar application"
         width: Math.min(520, files.width - 48)
+        x: (files.width - width) / 2
+        y: (files.height - height) / 2
 
         Column {
             spacing: 12

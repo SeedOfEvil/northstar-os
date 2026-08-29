@@ -550,13 +550,14 @@ Window {
 
     Dialog {
         id: applicationDetailsDialog
-        parent: overview.contentItem
-        anchors.centerIn: parent
+        objectName: "applicationDetailsDialog"
         closePolicy: Popup.CloseOnEscape
         modal: true
         standardButtons: Dialog.NoButton
         title: "Application information"
         width: Math.min(500, overview.width - 48)
+        x: (overview.width - width) / 2
+        y: (overview.height - height) / 2
 
         function openForMenu() {
             removalStatus.text = ""
