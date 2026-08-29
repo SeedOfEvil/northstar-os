@@ -1,4 +1,5 @@
 #include "applicationlauncher.h"
+#include "applicationbundleinstaller.h"
 #include "clockcontroller.h"
 #include "desktopitemscontroller.h"
 #include "desktoplayoutcontroller.h"
@@ -188,6 +189,7 @@ int main(int argc, char *argv[])
     }
     ShellState shellState;
     ApplicationLauncher applicationLauncher;
+    ApplicationBundleInstaller applicationBundleInstaller;
     ClockController clockController;
     NotificationCenter notificationCenter;
     QuickSettingsController quickSettingsController;
@@ -210,6 +212,8 @@ int main(int argc, char *argv[])
     VolumeController volumeController;
     WallpaperController wallpaperController;
     WindowController windowController;
+    QObject::connect(&applicationBundleInstaller, &ApplicationBundleInstaller::applicationsChanged,
+                     &applicationLauncher, &ApplicationLauncher::refreshApplications);
     notificationCenter.setDoNotDisturb(quickSettingsController.doNotDisturb());
     QObject::connect(&quickSettingsController, &QuickSettingsController::doNotDisturbChanged,
                      &notificationCenter, [&quickSettingsController, &notificationCenter]() {
@@ -417,6 +421,8 @@ int main(int argc, char *argv[])
         auto *context = new QQmlContext(engine.rootContext());
         context->setContextProperty(QStringLiteral("shellState"), &shellState);
         context->setContextProperty(QStringLiteral("launcher"), &applicationLauncher);
+        context->setContextProperty(QStringLiteral("northstarApplicationBundleInstaller"),
+                                    &applicationBundleInstaller);
         context->setContextProperty(QStringLiteral("northstarNotificationCenter"), &notificationCenter);
         context->setContextProperty(QStringLiteral("northstarPackageCatalog"), &packageCatalog);
         context->setContextProperty(QStringLiteral("northstarPackageMutationController"),

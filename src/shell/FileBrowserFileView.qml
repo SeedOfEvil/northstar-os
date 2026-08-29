@@ -63,7 +63,7 @@ Rectangle {
                     anchors.horizontalCenter: parent.horizontalCenter
                     height: 38
                     width: 52
-                    iconName: modelData.isDirectory ? "files" : "editor"
+                    iconName: files.entryIconName(modelData)
                 }
 
                 Text {
@@ -95,7 +95,7 @@ Rectangle {
                     anchors.verticalCenter: parent.verticalCenter
                     height: 32
                     width: 32
-                    iconName: modelData.isDirectory ? "files" : "editor"
+                    iconName: files.entryIconName(modelData)
                 }
 
                 Column {

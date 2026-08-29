@@ -904,6 +904,7 @@ Window {
         onActiveChanged: if (active) root.rememberApplication("applications", "Applications", -1)
         onVisibleChanged: if (!visible) root.restoreShellFocus()
         applicationLauncher: launcher
+        bundleInstaller: northstarApplicationBundleInstaller
         pinnedApplications: northstarPinnedApplicationModel
         state: shellState
         targetScreen: targetScreen
@@ -956,6 +957,7 @@ Window {
         onVisibleChanged: if (!visible) root.restoreShellFocus()
         fileBrowserController: northstarFileBrowserController
         applicationLauncher: launcher
+        bundleInstaller: northstarApplicationBundleInstaller
         volumeController: northstarVolumeController
         state: shellState
         targetScreen: targetScreen

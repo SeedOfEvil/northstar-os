@@ -13,6 +13,7 @@ Window {
 
     property var fileBrowserController
     property var applicationLauncher
+    property var bundleInstaller
     property var volumeController
     property var previewWindow
     property var state
@@ -490,6 +491,10 @@ Window {
             return
         }
         const entry = files.selectedEntry
+        if (files.isApplicationBundle(entry)) {
+            files.openBundleInstallDialog(files.selectedPath)
+            return
+        }
         if (entry.isDirectory) {
             if (files.fileBrowserController.openEntry(files.selectedPath)) {
                 files.clearSelection()
@@ -501,6 +506,29 @@ Window {
             return
         }
         files.openAssociationDialog()
+    }
+
+    function isApplicationBundle(entry) {
+        return !!entry && entry.isDirectory
+            && String(entry.name || "").endsWith(".app")
+    }
+
+    function entryIconName(entry) {
+        if (files.isApplicationBundle(entry)) {
+            return "software"
+        }
+        return entry && entry.isDirectory ? "files" : "editor"
+    }
+
+    function openBundleInstallDialog(path) {
+        if (!files.bundleInstaller || !path) {
+            return
+        }
+        bundleInstallDialog.itemPath = path
+        bundleInstallDialog.details = files.bundleInstaller.bundleDetails(path)
+        bundleInstallDialog.operationComplete = false
+        bundleInstallStatus.text = ""
+        bundleInstallDialog.open()
     }
 
     function openAssociationDialog() {
@@ -1082,7 +1110,7 @@ Window {
                     color: backMouse.containsMouse ? files.surfaceAccent : files.surfaceRaised
                     height: 34
                     radius: 5
-                    width: 70
+                    width: files.isApplicationBundle(files.selectedEntry) ? 96 : 70
 
                     Text {
                         anchors.centerIn: parent
@@ -1415,7 +1443,7 @@ Window {
                         anchors.centerIn: parent
                         color: files.surfaceForeground
                         font.pixelSize: 12
-                        text: "Open"
+                        text: files.isApplicationBundle(files.selectedEntry) ? "Install App" : "Open"
                     }
 
                     MouseArea {
@@ -1639,6 +1667,127 @@ Window {
                         ? "Mounted volumes are read-only. Return Home to create, rename, or delete files."
                     : "Select an item and press Space for Quick Look, choose Open, or drag it onto an app."
                 width: parent.width
+            }
+        }
+    }
+
+    Dialog {
+        id: bundleInstallDialog
+        parent: files.contentItem
+        anchors.centerIn: parent
+        closePolicy: Popup.CloseOnEscape
+        modal: true
+        property string itemPath: ""
+        property var details: ({})
+        property bool operationComplete: false
+        standardButtons: Dialog.NoButton
+        title: details.valid ? details.displayName : "Northstar application"
+        width: Math.min(520, files.width - 48)
+
+        Column {
+            spacing: 12
+            width: bundleInstallDialog.width - (2 * bundleInstallDialog.padding)
+
+            Text {
+                color: files.surfaceForeground
+                font.bold: true
+                font.pixelSize: 18
+                text: bundleInstallDialog.details.valid
+                    ? "Install " + bundleInstallDialog.details.displayName + "?"
+                    : "This application cannot be installed"
+                width: parent.width
+                wrapMode: Text.WordWrap
+            }
+
+            Text {
+                color: files.surfaceMuted
+                text: bundleInstallDialog.details.valid
+                    ? "Version " + bundleInstallDialog.details.version
+                        + "  -  " + bundleInstallDialog.details.bundleIdentifier
+                    : (bundleInstallDialog.details.validationError
+                        || "Northstar could not validate this application.")
+                width: parent.width
+                wrapMode: Text.WrapAnywhere
+            }
+
+            Rectangle {
+                color: lunar.raised
+                radius: lunar.radiusMedium
+                height: installProvenance.implicitHeight + 24
+                visible: bundleInstallDialog.details.valid === true
+                width: parent.width
+
+                Column {
+                    id: installProvenance
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.margins: 12
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 6
+
+                    Text { color: files.surfaceForeground; text: "Source: " + (bundleInstallDialog.details.source || ""); width: parent.width; wrapMode: Text.WrapAnywhere }
+                    Text { color: files.surfaceForeground; text: "Package: " + (bundleInstallDialog.details.package || ""); width: parent.width; wrapMode: Text.WrapAnywhere }
+                    Text { color: files.surfaceForeground; text: "Revision: " + (bundleInstallDialog.details.revision || ""); width: parent.width; wrapMode: Text.WrapAnywhere }
+                }
+            }
+
+            Text {
+                color: bundleInstallDialog.details.alreadyInstalled ? lunar.danger : files.surfaceMuted
+                text: !bundleInstallDialog.details.valid ? ""
+                    : bundleInstallDialog.details.installedScope === "system"
+                        ? "A package-owned application already uses this identifier. Northstar will not replace or shadow it."
+                    : bundleInstallDialog.details.installedScope === "user"
+                        ? "This application is already installed for your account."
+                    : "The application will be copied into your private Applications directory without administrator access."
+                visible: text.length > 0
+                width: parent.width
+                wrapMode: Text.WordWrap
+            }
+
+            Text {
+                id: bundleInstallStatus
+                color: files.bundleInstaller && files.bundleInstaller.error ? lunar.danger : lunar.success
+                visible: text.length > 0
+                width: parent.width
+                wrapMode: Text.WordWrap
+            }
+
+            Item {
+                height: installButtons.implicitHeight
+                width: parent.width
+
+                Row {
+                    id: installButtons
+                    anchors.right: parent.right
+                    spacing: 10
+
+                    Button {
+                        text: bundleInstallDialog.operationComplete ? "Done" : "Cancel"
+                        onClicked: bundleInstallDialog.close()
+                    }
+
+                    Button {
+                        enabled: bundleInstallDialog.details.valid === true
+                            && bundleInstallDialog.details.alreadyInstalled !== true
+                            && !bundleInstallDialog.operationComplete
+                        text: "Install"
+                        onClicked: {
+                            if (!files.bundleInstaller) {
+                                return
+                            }
+                            const succeeded = files.bundleInstaller.installBundle(bundleInstallDialog.itemPath)
+                            bundleInstallStatus.text = files.bundleInstaller.statusMessage
+                            if (succeeded) {
+                                bundleInstallDialog.operationComplete = true
+                                bundleInstallDialog.details = files.bundleInstaller.bundleDetails(
+                                    bundleInstallDialog.itemPath)
+                                if (files.applicationLauncher) {
+                                    files.applicationLauncher.refreshApplications()
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }

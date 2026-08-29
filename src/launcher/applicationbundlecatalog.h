@@ -35,6 +35,7 @@ struct BundleApplication
     QString executablePath;
     QString iconPath;
     BundleProvenance provenance;
+    bool userInstalled = false;
 };
 
 inline bool operator==(const BundleApplication &left, const BundleApplication &right)
@@ -50,7 +51,8 @@ inline bool operator==(const BundleApplication &left, const BundleApplication &r
         && left.bundlePath == right.bundlePath
         && left.executablePath == right.executablePath
         && left.iconPath == right.iconPath
-        && left.provenance == right.provenance;
+        && left.provenance == right.provenance
+        && left.userInstalled == right.userInstalled;
 }
 
 class ApplicationBundleCatalog final : public QObject

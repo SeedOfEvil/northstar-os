@@ -508,6 +508,9 @@ QVariantList ApplicationBundleCatalog::toVariantList(const QList<BundleApplicati
         item.insert(QStringLiteral("provenanceSource"), application.provenance.source);
         item.insert(QStringLiteral("provenancePackage"), application.provenance.package);
         item.insert(QStringLiteral("provenanceRevision"), application.provenance.revision);
+        item.insert(QStringLiteral("bundleIdentifier"), application.bundleId);
+        item.insert(QStringLiteral("bundlePath"), application.bundlePath);
+        item.insert(QStringLiteral("userInstalled"), application.userInstalled);
         result.append(item);
     }
 
@@ -528,6 +531,8 @@ bool ApplicationBundleCatalog::reload()
 {
     QList<BundleApplication> discovered;
     QSet<QString> seenBundleIds;
+    const QString userBundleRoot = QDir::cleanPath(
+        QFileInfo(defaultBundleDirectories().value(0)).absoluteFilePath());
 
     for (const QString &directoryPath : std::as_const(m_bundleDirectories)) {
         const QDir directory(directoryPath);
@@ -548,6 +553,7 @@ bool ApplicationBundleCatalog::reload()
                 || seenBundleIds.contains(application.bundleId)) {
                 continue;
             }
+            application.userInstalled = QDir::cleanPath(candidate.absolutePath()) == userBundleRoot;
             seenBundleIds.insert(application.bundleId);
             discovered.append(std::move(application));
         }
