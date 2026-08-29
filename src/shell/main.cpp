@@ -110,6 +110,10 @@ int runShellSelfTest(const QList<QObject *> &surfaces)
         qCritical() << "the shell surface exposes no fileBrowserWindow";
         return 1;
     }
+    if (filesWindow->property("bundleInstaller").value<QObject *>() == nullptr) {
+        qCritical() << "the Files surface exposes no application bundle installer";
+        return 1;
+    }
     QObject *bundleDialog = filesWindow->findChild<QObject *>(
         QStringLiteral("bundleInstallDialog"));
     if (bundleDialog == nullptr
@@ -482,6 +486,18 @@ int main(int argc, char *argv[])
         QObject *object = component.create(context);
         if (backgroundObject != nullptr && object != nullptr) {
             auto *filesWindow = object->findChild<QObject *>(QStringLiteral("fileBrowserWindow"));
+            auto *applicationOverview = object->findChild<QObject *>(
+                QStringLiteral("applicationOverview"));
+            if (filesWindow == nullptr
+                || !filesWindow->setProperty(
+                    "bundleInstaller", QVariant::fromValue<QObject *>(&applicationBundleInstaller))) {
+                qWarning() << "Unable to inject the application bundle installer into Files";
+            }
+            if (applicationOverview == nullptr
+                || !applicationOverview->setProperty(
+                    "bundleInstaller", QVariant::fromValue<QObject *>(&applicationBundleInstaller))) {
+                qWarning() << "Unable to inject the application bundle installer into Applications";
+            }
             auto *quickLookWindow = object->findChild<QObject *>(QStringLiteral("quickLookWindow"));
             backgroundObject->setProperty("fileBrowserWindow", QVariant::fromValue(filesWindow));
             backgroundObject->setProperty("quickLookWindow", QVariant::fromValue(quickLookWindow));

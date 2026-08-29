@@ -4,6 +4,7 @@ import Northstar.Ui 1.0
 
 Window {
     id: overview
+    objectName: "applicationOverview"
 
     LunarPalette {
         id: lunar
