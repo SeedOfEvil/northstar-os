@@ -13,7 +13,8 @@ Window {
 
     property var fileBrowserController
     property var applicationLauncher
-    property var bundleInstaller
+    property QtObject bundleInstaller
+    readonly property bool bundleInstallerAvailable: bundleInstaller !== null
     property var volumeController
     property var previewWindow
     property var state
@@ -527,7 +528,7 @@ Window {
                 valid: false,
                 validationError: "Northstar could not determine which application to install."
             })
-        } else if (!files.bundleInstaller) {
+        } else if (!files.bundleInstallerAvailable) {
             bundleInstallDialog.details = ({
                 valid: false,
                 validationError: "The Northstar application installer is unavailable."
@@ -1772,7 +1773,7 @@ Window {
 
                 Text {
                     id: bundleInstallStatus
-                    color: files.bundleInstaller && files.bundleInstaller.error ? lunar.danger : lunar.success
+                    color: files.bundleInstallerAvailable && files.bundleInstaller.error ? lunar.danger : lunar.success
                     visible: text.length > 0
                     width: parent.width
                     wrapMode: Text.WordWrap
@@ -1798,7 +1799,7 @@ Window {
                                 && !bundleInstallDialog.operationComplete
                             text: "Install"
                             onClicked: {
-                                if (!files.bundleInstaller) {
+                                if (!files.bundleInstallerAvailable) {
                                     bundleInstallStatus.text = "The Northstar application installer is unavailable."
                                     return
                                 }

@@ -12,7 +12,7 @@ Window {
     }
 
     property var applicationLauncher
-    property var bundleInstaller
+    property QtObject bundleInstaller
     property var pinnedApplications
     property var state
     property var targetScreen

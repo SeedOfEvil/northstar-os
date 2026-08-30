@@ -114,6 +114,10 @@ int runShellSelfTest(const QList<QObject *> &surfaces)
         qCritical() << "the Files surface exposes no application bundle installer";
         return 1;
     }
+    if (!filesWindow->property("bundleInstallerAvailable").toBool()) {
+        qCritical() << "QML cannot access the Files application bundle installer";
+        return 1;
+    }
     QObject *bundleDialog = filesWindow->findChild<QObject *>(
         QStringLiteral("bundleInstallDialog"));
     if (bundleDialog == nullptr
