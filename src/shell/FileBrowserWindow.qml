@@ -13,8 +13,6 @@ Window {
 
     property var fileBrowserController
     property var applicationLauncher
-    property QtObject bundleInstaller
-    readonly property bool bundleInstallerAvailable: bundleInstaller !== null
     property var volumeController
     property var previewWindow
     property var state
@@ -528,15 +526,16 @@ Window {
                 valid: false,
                 validationError: "Northstar could not determine which application to install."
             })
-        } else if (!files.bundleInstallerAvailable) {
+        } else if (!files.applicationLauncher) {
             bundleInstallDialog.details = ({
                 valid: false,
                 validationError: "The Northstar application installer is unavailable."
             })
         } else {
-            bundleInstallDialog.details = files.bundleInstaller.bundleDetails(path)
+            bundleInstallDialog.details = files.applicationLauncher.applicationBundleDetails(path)
         }
         bundleInstallDialog.operationComplete = false
+        bundleInstallDialog.operationError = false
         bundleInstallStatus.text = ""
         bundleInstallDialog.show()
         bundleInstallDialog.raise()
@@ -1694,6 +1693,7 @@ Window {
         property string itemPath: ""
         property var details: ({})
         property bool operationComplete: false
+        property bool operationError: false
         title: details.valid ? details.displayName : "Northstar application"
         width: Math.min(520, files.width - 48)
         height: Math.max(300, installDialogContent.implicitHeight + 40)
@@ -1773,7 +1773,7 @@ Window {
 
                 Text {
                     id: bundleInstallStatus
-                    color: files.bundleInstallerAvailable && files.bundleInstaller.error ? lunar.danger : lunar.success
+                    color: bundleInstallDialog.operationError ? lunar.danger : lunar.success
                     visible: text.length > 0
                     width: parent.width
                     wrapMode: Text.WordWrap
@@ -1799,15 +1799,18 @@ Window {
                                 && !bundleInstallDialog.operationComplete
                             text: "Install"
                             onClicked: {
-                                if (!files.bundleInstallerAvailable) {
+                                if (!files.applicationLauncher) {
                                     bundleInstallStatus.text = "The Northstar application installer is unavailable."
+                                    bundleInstallDialog.operationError = true
                                     return
                                 }
-                                const succeeded = files.bundleInstaller.installBundle(bundleInstallDialog.itemPath)
-                                bundleInstallStatus.text = files.bundleInstaller.statusMessage
+                                const succeeded = files.applicationLauncher.installApplicationBundle(
+                                    bundleInstallDialog.itemPath)
+                                bundleInstallDialog.operationError = files.applicationLauncher.applicationBundleError()
+                                bundleInstallStatus.text = files.applicationLauncher.applicationBundleStatusMessage()
                                 if (succeeded) {
                                     bundleInstallDialog.operationComplete = true
-                                    bundleInstallDialog.details = files.bundleInstaller.bundleDetails(
+                                    bundleInstallDialog.details = files.applicationLauncher.applicationBundleDetails(
                                         bundleInstallDialog.itemPath)
                                     if (files.applicationLauncher) {
                                         files.applicationLauncher.refreshApplications()

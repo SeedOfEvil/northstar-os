@@ -12,7 +12,6 @@ Window {
     }
 
     property var applicationLauncher
-    property QtObject bundleInstaller
     property var pinnedApplications
     property var state
     property var targetScreen
@@ -562,8 +561,11 @@ Window {
 
         function openForMenu() {
             removalStatus.text = ""
+            operationError = false
             open()
         }
+
+        property bool operationError: false
 
         Column {
             spacing: 12
@@ -607,8 +609,7 @@ Window {
 
             Text {
                 id: removalStatus
-                color: overview.bundleInstaller && overview.bundleInstaller.error
-                    ? lunar.danger : lunar.success
+                color: applicationDetailsDialog.operationError ? lunar.danger : lunar.success
                 visible: text.length > 0
                 width: parent.width
                 wrapMode: Text.WordWrap
@@ -632,10 +633,13 @@ Window {
                         visible: applicationPinMenu.userInstalled
                         text: "Move to Trash"
                         onClicked: {
-                            if (!overview.bundleInstaller) {
+                            if (!overview.applicationLauncher) {
+                                applicationDetailsDialog.operationError = true
+                                removalStatus.text = "The Northstar application installer is unavailable."
                                 return
                             }
-                            if (overview.bundleInstaller.removeBundle(applicationPinMenu.bundleIdentifier)) {
+                            if (overview.applicationLauncher.removeApplicationBundle(
+                                    applicationPinMenu.bundleIdentifier)) {
                                 if (overview.pinnedApplications
                                         && overview.pinnedApplications.isPinned(applicationPinMenu.desktopId)) {
                                     overview.pinnedApplications.unpin(applicationPinMenu.desktopId)
@@ -643,7 +647,8 @@ Window {
                                 overview.applicationLauncher.refreshApplications()
                                 applicationDetailsDialog.close()
                             } else {
-                                removalStatus.text = overview.bundleInstaller.statusMessage
+                                applicationDetailsDialog.operationError = overview.applicationLauncher.applicationBundleError()
+                                removalStatus.text = overview.applicationLauncher.applicationBundleStatusMessage()
                             }
                         }
                     }

@@ -1,5 +1,7 @@
 #include "applicationlauncher.h"
 
+#include "../launcher/applicationbundleinstaller.h"
+
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
@@ -143,6 +145,55 @@ bool ApplicationLauncher::lastLaunchSucceeded() const
 QString ApplicationLauncher::launchLogPath() const
 {
     return m_launchLogPath;
+}
+
+void ApplicationLauncher::setApplicationBundleInstaller(ApplicationBundleInstaller *installer)
+{
+    if (m_bundleInstaller == installer) {
+        return;
+    }
+    if (m_bundleInstaller != nullptr) {
+        disconnect(m_bundleInstaller, nullptr, this, nullptr);
+    }
+    m_bundleInstaller = installer;
+    if (m_bundleInstaller != nullptr) {
+        connect(m_bundleInstaller, &ApplicationBundleInstaller::applicationsChanged,
+                this, [this]() { refreshApplications(); });
+    }
+}
+
+QVariantMap ApplicationLauncher::applicationBundleDetails(const QString &sourcePath) const
+{
+    if (m_bundleInstaller == nullptr) {
+        return {
+            {QStringLiteral("valid"), false},
+            {QStringLiteral("validationError"),
+             QStringLiteral("The Northstar application installer is unavailable.")}
+        };
+    }
+    return m_bundleInstaller->bundleDetails(sourcePath);
+}
+
+bool ApplicationLauncher::installApplicationBundle(const QString &sourcePath)
+{
+    return m_bundleInstaller != nullptr && m_bundleInstaller->installBundle(sourcePath);
+}
+
+bool ApplicationLauncher::removeApplicationBundle(const QString &bundleIdentifier)
+{
+    return m_bundleInstaller != nullptr && m_bundleInstaller->removeBundle(bundleIdentifier);
+}
+
+QString ApplicationLauncher::applicationBundleStatusMessage() const
+{
+    return m_bundleInstaller != nullptr
+        ? m_bundleInstaller->statusMessage()
+        : QStringLiteral("The Northstar application installer is unavailable.");
+}
+
+bool ApplicationLauncher::applicationBundleError() const
+{
+    return m_bundleInstaller == nullptr || m_bundleInstaller->error();
 }
 
 bool ApplicationLauncher::launchTerminal()

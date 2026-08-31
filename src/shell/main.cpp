@@ -110,14 +110,6 @@ int runShellSelfTest(const QList<QObject *> &surfaces)
         qCritical() << "the shell surface exposes no fileBrowserWindow";
         return 1;
     }
-    if (filesWindow->property("bundleInstaller").value<QObject *>() == nullptr) {
-        qCritical() << "the Files surface exposes no application bundle installer";
-        return 1;
-    }
-    if (!filesWindow->property("bundleInstallerAvailable").toBool()) {
-        qCritical() << "QML cannot access the Files application bundle installer";
-        return 1;
-    }
     QObject *bundleDialog = filesWindow->findChild<QObject *>(
         QStringLiteral("bundleInstallDialog"));
     if (bundleDialog == nullptr
@@ -127,6 +119,12 @@ int runShellSelfTest(const QList<QObject *> &surfaces)
         return 1;
     }
     QCoreApplication::processEvents();
+    const QVariantMap bundleDetails = bundleDialog->property("details").toMap();
+    if (bundleDetails.value(QStringLiteral("validationError")).toString()
+        != QStringLiteral("The manifest, permissions, or required application files are invalid.")) {
+        qCritical() << "the Files surface did not reach the application bundle workflow";
+        return 1;
+    }
     if (!expectVisible(bundleDialog, true, "opening the Files application-install dialog")) {
         return 1;
     }
@@ -218,6 +216,7 @@ int main(int argc, char *argv[])
     ShellState shellState;
     ApplicationLauncher applicationLauncher;
     ApplicationBundleInstaller applicationBundleInstaller;
+    applicationLauncher.setApplicationBundleInstaller(&applicationBundleInstaller);
     ClockController clockController;
     NotificationCenter notificationCenter;
     QuickSettingsController quickSettingsController;
@@ -240,8 +239,6 @@ int main(int argc, char *argv[])
     VolumeController volumeController;
     WallpaperController wallpaperController;
     WindowController windowController;
-    QObject::connect(&applicationBundleInstaller, &ApplicationBundleInstaller::applicationsChanged,
-                     &applicationLauncher, &ApplicationLauncher::refreshApplications);
     notificationCenter.setDoNotDisturb(quickSettingsController.doNotDisturb());
     QObject::connect(&quickSettingsController, &QuickSettingsController::doNotDisturbChanged,
                      &notificationCenter, [&quickSettingsController, &notificationCenter]() {
@@ -449,8 +446,6 @@ int main(int argc, char *argv[])
         auto *context = new QQmlContext(engine.rootContext());
         context->setContextProperty(QStringLiteral("shellState"), &shellState);
         context->setContextProperty(QStringLiteral("launcher"), &applicationLauncher);
-        context->setContextProperty(QStringLiteral("northstarApplicationBundleInstaller"),
-                                    &applicationBundleInstaller);
         context->setContextProperty(QStringLiteral("northstarNotificationCenter"), &notificationCenter);
         context->setContextProperty(QStringLiteral("northstarPackageCatalog"), &packageCatalog);
         context->setContextProperty(QStringLiteral("northstarPackageMutationController"),
@@ -490,18 +485,6 @@ int main(int argc, char *argv[])
         QObject *object = component.create(context);
         if (backgroundObject != nullptr && object != nullptr) {
             auto *filesWindow = object->findChild<QObject *>(QStringLiteral("fileBrowserWindow"));
-            auto *applicationOverview = object->findChild<QObject *>(
-                QStringLiteral("applicationOverview"));
-            if (filesWindow == nullptr
-                || !filesWindow->setProperty(
-                    "bundleInstaller", QVariant::fromValue<QObject *>(&applicationBundleInstaller))) {
-                qWarning() << "Unable to inject the application bundle installer into Files";
-            }
-            if (applicationOverview == nullptr
-                || !applicationOverview->setProperty(
-                    "bundleInstaller", QVariant::fromValue<QObject *>(&applicationBundleInstaller))) {
-                qWarning() << "Unable to inject the application bundle installer into Applications";
-            }
             auto *quickLookWindow = object->findChild<QObject *>(QStringLiteral("quickLookWindow"));
             backgroundObject->setProperty("fileBrowserWindow", QVariant::fromValue(filesWindow));
             backgroundObject->setProperty("quickLookWindow", QVariant::fromValue(quickLookWindow));
