@@ -17,6 +17,9 @@ Applications v2 expands Northstar's application experience without pretending th
 - Files recognizes `.app` directories, displays validated identity and provenance, and asks for confirmation before installation.
 - Applications displays bundle provenance and offers removal only for bundles installed in the current user's application root.
 - A user bundle cannot replace or shadow an installed package-owned bundle with the same identifier.
+- The [developer packaging kit](APP_PACKAGING_KIT.md) assembles a validated,
+  unsigned bundle from a versioned recipe and finished native build inputs,
+  including licence text. Its graphical sample awaits focused acceptance.
 
 ## Foundation acceptance
 
