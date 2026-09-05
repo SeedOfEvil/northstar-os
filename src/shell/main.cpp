@@ -1,4 +1,5 @@
 #include "applicationlauncher.h"
+#include "applicationbundleinstaller.h"
 #include "clockcontroller.h"
 #include "desktopitemscontroller.h"
 #include "desktoplayoutcontroller.h"
@@ -73,8 +74,10 @@ bool expectVisible(QObject *overlay, bool expected, const char *stage)
 int runShellSelfTest(const QList<QObject *> &surfaces)
 {
     QObject *overlay = nullptr;
+    QObject *filesWindow = nullptr;
     for (QObject *surface : surfaces) {
         overlay = surface->findChild<QObject *>(QStringLiteral("searchOverlay"));
+        filesWindow = surface->findChild<QObject *>(QStringLiteral("fileBrowserWindow"));
         if (overlay != nullptr) {
             break;
         }
@@ -102,6 +105,30 @@ int runShellSelfTest(const QList<QObject *> &surfaces)
         return 1;
     }
     close();
+
+    if (filesWindow == nullptr) {
+        qCritical() << "the shell surface exposes no fileBrowserWindow";
+        return 1;
+    }
+    QObject *bundleDialog = filesWindow->findChild<QObject *>(
+        QStringLiteral("bundleInstallDialog"));
+    if (bundleDialog == nullptr
+        || !QMetaObject::invokeMethod(filesWindow, "openBundleInstallDialog",
+                                      Q_ARG(QVariant, QVariant(QStringLiteral("/nonexistent/test.app"))))) {
+        qCritical() << "the Files application-install dialog could not be invoked";
+        return 1;
+    }
+    QCoreApplication::processEvents();
+    const QVariantMap bundleDetails = bundleDialog->property("details").toMap();
+    if (bundleDetails.value(QStringLiteral("validationError")).toString()
+        != QStringLiteral("The manifest, permissions, or required application files are invalid.")) {
+        qCritical() << "the Files surface did not reach the application bundle workflow";
+        return 1;
+    }
+    if (!expectVisible(bundleDialog, true, "opening the Files application-install dialog")) {
+        return 1;
+    }
+    QMetaObject::invokeMethod(bundleDialog, "close");
     return 0;
 }
 
@@ -188,6 +215,8 @@ int main(int argc, char *argv[])
     }
     ShellState shellState;
     ApplicationLauncher applicationLauncher;
+    ApplicationBundleInstaller applicationBundleInstaller;
+    applicationLauncher.setApplicationBundleInstaller(&applicationBundleInstaller);
     ClockController clockController;
     NotificationCenter notificationCenter;
     QuickSettingsController quickSettingsController;

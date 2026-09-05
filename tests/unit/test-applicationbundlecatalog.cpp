@@ -113,6 +113,9 @@ private slots:
     void filtersApplicationsByDeclaredDocumentType();
     void installsAndMovesUserBundleToTrash();
     void rejectsDuplicateAndUnsafePayload();
+    void reportsProvenanceAndRejectsSystemIdentifier();
+    void marksOnlyDefaultUserBundlesAsUserInstalled();
+    void launcherForwardsBundleWorkflow();
 };
 
 void ApplicationBundleCatalogTest::discoversValidBundleAndLaunchSpec()
@@ -347,9 +350,95 @@ void ApplicationBundleCatalogTest::rejectsDuplicateAndUnsafePayload()
     QVERIFY(writeFile(unsafePayload,
                       "unsafe\n",
                       QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::WriteOther));
+    const QVariantMap unsafeDetails = installer.bundleDetails(
+        bundlePath(sourceRoot, QStringLiteral("org.northstar.Unsafe")));
+    QCOMPARE(unsafeDetails.value(QStringLiteral("valid")).toBool(), false);
+    QVERIFY(!unsafeDetails.value(QStringLiteral("validationError")).toString().isEmpty());
     QVERIFY(!installer.installBundle(bundlePath(sourceRoot, QStringLiteral("org.northstar.Unsafe"))));
     QVERIFY(installer.error());
     QVERIFY(!QFileInfo::exists(bundlePath(applicationRoot, QStringLiteral("org.northstar.Unsafe"))));
+}
+
+void ApplicationBundleCatalogTest::reportsProvenanceAndRejectsSystemIdentifier()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    const QString sourceRoot = QDir(temporaryDirectory.path()).filePath(QStringLiteral("source"));
+    const QString systemRoot = QDir(temporaryDirectory.path()).filePath(QStringLiteral("system"));
+    const QString applicationRoot = QDir(temporaryDirectory.path()).filePath(QStringLiteral("user-apps"));
+    const QString trashRoot = QDir(temporaryDirectory.path()).filePath(QStringLiteral("Trash"));
+    QVERIFY(QDir().mkpath(sourceRoot));
+    QVERIFY(QDir().mkpath(systemRoot));
+    QVERIFY(createBundle(sourceRoot, "org.northstar.Conflict"));
+    QVERIFY(createBundle(systemRoot, "org.northstar.Conflict"));
+
+    ApplicationBundleInstaller installer(applicationRoot, trashRoot, nullptr, {systemRoot});
+    const QString sourcePath = bundlePath(sourceRoot, QStringLiteral("org.northstar.Conflict"));
+    const QVariantMap details = installer.bundleDetails(sourcePath);
+    QCOMPARE(details.value(QStringLiteral("valid")).toBool(), true);
+    QCOMPARE(details.value(QStringLiteral("bundleIdentifier")).toString(),
+             QStringLiteral("org.northstar.Conflict"));
+    QCOMPARE(details.value(QStringLiteral("source")).toString(), QStringLiteral("northstar-project"));
+    QCOMPARE(details.value(QStringLiteral("package")).toString(), QStringLiteral("northstar-welcome"));
+    QCOMPARE(details.value(QStringLiteral("revision")).toString(), QStringLiteral("development"));
+    QCOMPARE(details.value(QStringLiteral("alreadyInstalled")).toBool(), true);
+    QCOMPARE(details.value(QStringLiteral("installedScope")).toString(), QStringLiteral("system"));
+
+    QVERIFY(!installer.installBundle(sourcePath));
+    QVERIFY(installer.error());
+    QVERIFY(installer.statusMessage().contains(QStringLiteral("package-owned")));
+    QVERIFY(!QFileInfo::exists(bundlePath(applicationRoot, QStringLiteral("org.northstar.Conflict"))));
+}
+
+void ApplicationBundleCatalogTest::marksOnlyDefaultUserBundlesAsUserInstalled()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    const QByteArray previousDataHome = qgetenv("XDG_DATA_HOME");
+    qputenv("XDG_DATA_HOME", temporaryDirectory.path().toUtf8());
+    const QString userRoot = QDir(temporaryDirectory.path()).filePath(QStringLiteral("northstar/apps"));
+    QVERIFY(QDir().mkpath(userRoot));
+    QVERIFY(createBundle(userRoot, "org.northstar.UserApplication"));
+
+    ApplicationBundleCatalog catalog({userRoot});
+    QCOMPARE(catalog.applications().size(), 1);
+    const QVariantMap application = catalog.applications().first().toMap();
+    QCOMPARE(application.value(QStringLiteral("bundleIdentifier")).toString(),
+             QStringLiteral("org.northstar.UserApplication"));
+    QCOMPARE(application.value(QStringLiteral("userInstalled")).toBool(), true);
+
+    if (previousDataHome.isNull()) {
+        qunsetenv("XDG_DATA_HOME");
+    } else {
+        qputenv("XDG_DATA_HOME", previousDataHome);
+    }
+}
+
+void ApplicationBundleCatalogTest::launcherForwardsBundleWorkflow()
+{
+    QTemporaryDir temporaryDirectory;
+    QVERIFY(temporaryDirectory.isValid());
+    const QString sourceRoot = QDir(temporaryDirectory.path()).filePath(QStringLiteral("source"));
+    const QString applicationRoot = QDir(temporaryDirectory.path()).filePath(QStringLiteral("user-apps"));
+    const QString trashRoot = QDir(temporaryDirectory.path()).filePath(QStringLiteral("Trash"));
+    QVERIFY(QDir().mkpath(sourceRoot));
+    QVERIFY(createBundle(sourceRoot, "org.northstar.Forwarded"));
+
+    ApplicationLauncher launcher(nullptr, {}, {}, {}, {applicationRoot});
+    ApplicationBundleInstaller installer(applicationRoot, trashRoot);
+    launcher.setApplicationBundleInstaller(&installer);
+    const QString sourcePath = bundlePath(sourceRoot, QStringLiteral("org.northstar.Forwarded"));
+
+    QCOMPARE(launcher.applicationBundleDetails(sourcePath).value(QStringLiteral("valid")).toBool(),
+             true);
+    QVERIFY(launcher.installApplicationBundle(sourcePath));
+    QVERIFY(!launcher.applicationBundleError());
+    QVERIFY(!launcher.applicationBundleStatusMessage().isEmpty());
+    QCOMPARE(launcher.applicationBundleDetails(sourcePath)
+                 .value(QStringLiteral("installedScope")).toString(),
+             QStringLiteral("user"));
+    QVERIFY(launcher.removeApplicationBundle(QStringLiteral("org.northstar.Forwarded")));
+    QVERIFY(!launcher.applicationBundleError());
 }
 
 QTEST_MAIN(ApplicationBundleCatalogTest)

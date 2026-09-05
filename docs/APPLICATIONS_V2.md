@@ -11,6 +11,13 @@ Applications v2 expands Northstar's application experience without pretending th
 5. **Portability reports** — tell users whether an application is native, wrapped, web-based, unavailable, or needs a FreeBSD port; do not imply unsupported compatibility.
 6. **Compatibility research** — evaluate Mach-O formats and legal/runtime boundaries in a separate ADR and experimental branch. No foreign binary runs through the trusted Northstar launcher until that work has its own threat model and acceptance gates.
 
+## Current implementation
+
+- The user bundle foundation provides bounded, atomic, no-root install and Trash-backed removal.
+- Files recognizes `.app` directories, displays validated identity and provenance, and asks for confirmation before installation.
+- Applications displays bundle provenance and offers removal only for bundles installed in the current user's application root.
+- A user bundle cannot replace or shadow an installed package-owned bundle with the same identifier.
+
 ## Foundation acceptance
 
 - A valid, current-user-owned `.app` installs beneath `XDG_DATA_HOME/northstar/apps` without root.

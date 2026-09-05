@@ -4,6 +4,7 @@ import Northstar.Ui 1.0
 
 Window {
     id: overview
+    objectName: "applicationOverview"
 
     LunarPalette {
         id: lunar
@@ -127,6 +128,30 @@ Window {
             }
         }
         return desktopId
+    }
+
+    function applicationForId(desktopId) {
+        const applications = applicationLauncher ? applicationLauncher.applications : []
+        for (let index = 0; index < applications.length; ++index) {
+            if (applications[index].desktopId === desktopId) {
+                return applications[index]
+            }
+        }
+        return { desktopId: desktopId, name: pinnedDisplayName(desktopId) }
+    }
+
+    function configureApplicationMenu(application) {
+        const item = application || {}
+        applicationPinMenu.desktopId = item.desktopId || ""
+        applicationPinMenu.applicationName = item.name || "Application"
+        applicationPinMenu.applicationActions = item.actions ? item.actions : []
+        applicationPinMenu.sourceType = item.sourceType || ""
+        applicationPinMenu.bundleIdentifier = item.bundleIdentifier || ""
+        applicationPinMenu.applicationVersion = item.version || ""
+        applicationPinMenu.provenanceSource = item.provenanceSource || ""
+        applicationPinMenu.provenancePackage = item.provenancePackage || ""
+        applicationPinMenu.provenanceRevision = item.provenanceRevision || ""
+        applicationPinMenu.userInstalled = item.userInstalled === true
     }
 
     function launchPinned(desktopId) {
@@ -291,12 +316,7 @@ Window {
                             hoverEnabled: true
                             onClicked: function(mouse) {
                                 if (mouse.button === Qt.RightButton) {
-                                    applicationPinMenu.desktopId = modelData.desktopId
-                                    applicationPinMenu.applicationName = modelData.name
-                                    // The catalog already carries them, so
-                                    // there is nothing further to ask for.
-                                    applicationPinMenu.applicationActions =
-                                        modelData.actions ? modelData.actions : []
+                                    overview.configureApplicationMenu(modelData)
                                     applicationPinMenu.x = Math.max(8, Math.min(
                                         overview.width - applicationPinMenu.implicitWidth - 8,
                                         applicationDelegate.mapToItem(overview.contentItem, 0, 0).x
@@ -432,9 +452,8 @@ Window {
                                     hoverEnabled: true
                                     onClicked: function(mouse) {
                                         if (mouse.button === Qt.RightButton) {
-                                            applicationPinMenu.desktopId = pinnedShortcut.modelData
-                                            applicationPinMenu.applicationName = overview.pinnedDisplayName(
-                                                pinnedShortcut.modelData)
+                                            overview.configureApplicationMenu(
+                                                overview.applicationForId(pinnedShortcut.modelData))
                                             applicationPinMenu.open()
                                         } else {
                                             overview.launchPinned(pinnedShortcut.modelData)
@@ -473,6 +492,13 @@ Window {
         property string desktopId: ""
         property string applicationName: "Application"
         property var applicationActions: []
+        property string sourceType: ""
+        property string bundleIdentifier: ""
+        property string applicationVersion: ""
+        property string provenanceSource: ""
+        property string provenancePackage: ""
+        property string provenanceRevision: ""
+        property bool userInstalled: false
 
         // An application's own actions come first, matching the dock.
         Instantiator {
@@ -509,6 +535,123 @@ Window {
                     overview.pinnedApplications.unpin(applicationPinMenu.desktopId)
                 } else {
                     overview.pinnedApplications.pin(applicationPinMenu.desktopId)
+                }
+            }
+        }
+
+        MenuSeparator { visible: applicationPinMenu.sourceType === "bundle" }
+
+        MenuItem {
+            visible: applicationPinMenu.sourceType === "bundle"
+            text: "Application Information..."
+            onTriggered: applicationDetailsDialog.openForMenu()
+        }
+    }
+
+    Dialog {
+        id: applicationDetailsDialog
+        objectName: "applicationDetailsDialog"
+        closePolicy: Popup.CloseOnEscape
+        modal: true
+        standardButtons: Dialog.NoButton
+        title: "Application information"
+        width: Math.min(500, overview.width - 48)
+        x: (overview.width - width) / 2
+        y: (overview.height - height) / 2
+
+        function openForMenu() {
+            removalStatus.text = ""
+            operationError = false
+            open()
+        }
+
+        property bool operationError: false
+
+        Column {
+            spacing: 12
+            width: applicationDetailsDialog.width - (2 * applicationDetailsDialog.padding)
+
+            Text {
+                color: overview.surfaceForeground
+                font.bold: true
+                font.pixelSize: 18
+                text: applicationPinMenu.applicationName
+                width: parent.width
+            }
+
+            Text {
+                color: overview.surfaceMuted
+                text: "Version " + applicationPinMenu.applicationVersion
+                    + (applicationPinMenu.userInstalled ? "  -  Installed for you" : "  -  Managed by the system")
+                width: parent.width
+            }
+
+            Rectangle {
+                color: lunar.raised
+                radius: lunar.radiusMedium
+                height: provenanceColumn.implicitHeight + 24
+                width: parent.width
+
+                Column {
+                    id: provenanceColumn
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.margins: 12
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing: 6
+
+                    Text { color: overview.surfaceForeground; text: "Identifier: " + applicationPinMenu.bundleIdentifier; width: parent.width; wrapMode: Text.WrapAnywhere }
+                    Text { color: overview.surfaceForeground; text: "Source: " + applicationPinMenu.provenanceSource; width: parent.width; wrapMode: Text.WrapAnywhere }
+                    Text { color: overview.surfaceForeground; text: "Package: " + applicationPinMenu.provenancePackage; width: parent.width; wrapMode: Text.WrapAnywhere }
+                    Text { color: overview.surfaceForeground; text: "Revision: " + applicationPinMenu.provenanceRevision; width: parent.width; wrapMode: Text.WrapAnywhere }
+                }
+            }
+
+            Text {
+                id: removalStatus
+                color: applicationDetailsDialog.operationError ? lunar.danger : lunar.success
+                visible: text.length > 0
+                width: parent.width
+                wrapMode: Text.WordWrap
+            }
+
+            Item {
+                height: applicationButtons.implicitHeight
+                width: parent.width
+
+                Row {
+                    id: applicationButtons
+                    anchors.right: parent.right
+                    spacing: 10
+
+                    Button {
+                        text: applicationPinMenu.userInstalled ? "Cancel" : "Done"
+                        onClicked: applicationDetailsDialog.close()
+                    }
+
+                    Button {
+                        visible: applicationPinMenu.userInstalled
+                        text: "Move to Trash"
+                        onClicked: {
+                            if (!overview.applicationLauncher) {
+                                applicationDetailsDialog.operationError = true
+                                removalStatus.text = "The Northstar application installer is unavailable."
+                                return
+                            }
+                            if (overview.applicationLauncher.removeApplicationBundle(
+                                    applicationPinMenu.bundleIdentifier)) {
+                                if (overview.pinnedApplications
+                                        && overview.pinnedApplications.isPinned(applicationPinMenu.desktopId)) {
+                                    overview.pinnedApplications.unpin(applicationPinMenu.desktopId)
+                                }
+                                overview.applicationLauncher.refreshApplications()
+                                applicationDetailsDialog.close()
+                            } else {
+                                applicationDetailsDialog.operationError = overview.applicationLauncher.applicationBundleError()
+                                removalStatus.text = overview.applicationLauncher.applicationBundleStatusMessage()
+                            }
+                        }
+                    }
                 }
             }
         }

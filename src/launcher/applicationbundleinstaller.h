@@ -2,6 +2,8 @@
 
 #include <QObject>
 #include <QString>
+#include <QStringList>
+#include <QVariantMap>
 
 class ApplicationBundleInstaller final : public QObject
 {
@@ -12,11 +14,13 @@ class ApplicationBundleInstaller final : public QObject
 public:
     explicit ApplicationBundleInstaller(QString applicationRoot = {},
                                         QString trashRoot = {},
-                                        QObject *parent = nullptr);
+                                        QObject *parent = nullptr,
+                                        QStringList systemRoots = {});
 
     QString statusMessage() const;
     bool error() const;
 
+    Q_INVOKABLE QVariantMap bundleDetails(const QString &sourcePath) const;
     Q_INVOKABLE bool installBundle(const QString &sourcePath);
     Q_INVOKABLE bool removeBundle(const QString &bundleIdentifier);
 
@@ -36,10 +40,12 @@ private:
                   qsizetype *entries,
                   qint64 *bytes,
                   QString *reason) const;
+    QString installedScope(const QString &bundleIdentifier) const;
     void setStatus(const QString &message, bool isError);
 
     QString m_applicationRoot;
     QString m_trashRoot;
+    QStringList m_systemRoots;
     QString m_statusMessage;
     bool m_error = false;
 };

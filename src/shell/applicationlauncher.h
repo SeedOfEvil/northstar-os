@@ -6,9 +6,12 @@
 #include <QString>
 #include <QStringList>
 #include <QVariantList>
+#include <QVariantMap>
 
 #include "../launcher/applicationcatalog.h"
 #include "../launcher/applicationbundlecatalog.h"
+
+class ApplicationBundleInstaller;
 
 class ApplicationLauncher final : public QObject
 {
@@ -67,6 +70,12 @@ public:
     Q_INVOKABLE bool clearPreferredApplicationForFile(const QString &filePath);
     Q_INVOKABLE bool refreshApplications();
     Q_INVOKABLE void clearLaunchMessage();
+    void setApplicationBundleInstaller(ApplicationBundleInstaller *installer);
+    Q_INVOKABLE QVariantMap applicationBundleDetails(const QString &sourcePath) const;
+    Q_INVOKABLE bool installApplicationBundle(const QString &sourcePath);
+    Q_INVOKABLE bool removeApplicationBundle(const QString &bundleIdentifier);
+    Q_INVOKABLE QString applicationBundleStatusMessage() const;
+    Q_INVOKABLE bool applicationBundleError() const;
 
 public slots:
     void setApplicationQuery(const QString &query);
@@ -113,4 +122,5 @@ private:
     QString m_lastLaunchProgram;
     qint64 m_lastLaunchPid = 0;
     bool m_lastLaunchSucceeded = false;
+    ApplicationBundleInstaller *m_bundleInstaller = nullptr;
 };

@@ -490,6 +490,10 @@ Window {
             return
         }
         const entry = files.selectedEntry
+        if (files.isApplicationBundle(entry)) {
+            files.openBundleInstallDialog(files.selectedPath)
+            return
+        }
         if (entry.isDirectory) {
             if (files.fileBrowserController.openEntry(files.selectedPath)) {
                 files.clearSelection()
@@ -501,6 +505,41 @@ Window {
             return
         }
         files.openAssociationDialog()
+    }
+
+    function isApplicationBundle(entry) {
+        return !!entry && entry.isDirectory
+            && String(entry.name || "").endsWith(".app")
+    }
+
+    function entryIconName(entry) {
+        if (files.isApplicationBundle(entry)) {
+            return "software"
+        }
+        return entry && entry.isDirectory ? "files" : "editor"
+    }
+
+    function openBundleInstallDialog(path) {
+        bundleInstallDialog.itemPath = path
+        if (!path) {
+            bundleInstallDialog.details = ({
+                valid: false,
+                validationError: "Northstar could not determine which application to install."
+            })
+        } else if (!files.applicationLauncher) {
+            bundleInstallDialog.details = ({
+                valid: false,
+                validationError: "The Northstar application installer is unavailable."
+            })
+        } else {
+            bundleInstallDialog.details = files.applicationLauncher.applicationBundleDetails(path)
+        }
+        bundleInstallDialog.operationComplete = false
+        bundleInstallDialog.operationError = false
+        bundleInstallStatus.text = ""
+        bundleInstallDialog.show()
+        bundleInstallDialog.raise()
+        bundleInstallDialog.requestActivate()
     }
 
     function openAssociationDialog() {
@@ -1082,7 +1121,7 @@ Window {
                     color: backMouse.containsMouse ? files.surfaceAccent : files.surfaceRaised
                     height: 34
                     radius: 5
-                    width: 70
+                    width: files.isApplicationBundle(files.selectedEntry) ? 96 : 70
 
                     Text {
                         anchors.centerIn: parent
@@ -1415,7 +1454,7 @@ Window {
                         anchors.centerIn: parent
                         color: files.surfaceForeground
                         font.pixelSize: 12
-                        text: "Open"
+                        text: files.isApplicationBundle(files.selectedEntry) ? "Install App" : "Open"
                     }
 
                     MouseArea {
@@ -1639,6 +1678,152 @@ Window {
                         ? "Mounted volumes are read-only. Return Home to create, rename, or delete files."
                     : "Select an item and press Space for Quick Look, choose Open, or drag it onto an app."
                 width: parent.width
+            }
+        }
+    }
+
+    Window {
+        id: bundleInstallDialog
+        objectName: "bundleInstallDialog"
+        color: "transparent"
+        flags: Qt.Dialog | Qt.FramelessWindowHint
+        modality: Qt.WindowModal
+        transientParent: files
+        visible: false
+        property string itemPath: ""
+        property var details: ({})
+        property bool operationComplete: false
+        property bool operationError: false
+        title: details.valid ? details.displayName : "Northstar application"
+        width: Math.min(520, files.width - 48)
+        height: Math.max(300, installDialogContent.implicitHeight + 40)
+        x: files.x + (files.width - width) / 2
+        y: files.y + (files.height - height) / 2
+
+        Rectangle {
+            anchors.fill: parent
+            color: files.surfaceBackground
+            border.color: lunar.borderSoft
+            border.width: 1
+            radius: lunar.radiusLarge
+
+            Column {
+                id: installDialogContent
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: 20
+                spacing: 12
+
+                Text {
+                    color: files.surfaceForeground
+                    font.bold: true
+                    font.pixelSize: 18
+                    text: bundleInstallDialog.operationComplete
+                        ? bundleInstallDialog.details.displayName + " was installed"
+                        : bundleInstallDialog.details.valid
+                        ? "Install " + bundleInstallDialog.details.displayName + "?"
+                        : "This application cannot be installed"
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                }
+
+                Text {
+                    color: files.surfaceMuted
+                    text: bundleInstallDialog.details.valid
+                        ? "Version " + bundleInstallDialog.details.version
+                            + "  -  " + bundleInstallDialog.details.bundleIdentifier
+                        : (bundleInstallDialog.details.validationError
+                            || "Northstar could not validate this application.")
+                    width: parent.width
+                    wrapMode: Text.WrapAnywhere
+                }
+
+                Rectangle {
+                    color: lunar.raised
+                    radius: lunar.radiusMedium
+                    height: visible ? installProvenance.implicitHeight + 24 : 0
+                    visible: bundleInstallDialog.details.valid === true
+                    width: parent.width
+
+                    Column {
+                        id: installProvenance
+                        anchors.left: parent.left
+                        anchors.right: parent.right
+                        anchors.margins: 12
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 6
+
+                        Text { color: files.surfaceForeground; text: "Source: " + (bundleInstallDialog.details.source || ""); width: parent.width; wrapMode: Text.WrapAnywhere }
+                        Text { color: files.surfaceForeground; text: "Package: " + (bundleInstallDialog.details.package || ""); width: parent.width; wrapMode: Text.WrapAnywhere }
+                        Text { color: files.surfaceForeground; text: "Revision: " + (bundleInstallDialog.details.revision || ""); width: parent.width; wrapMode: Text.WrapAnywhere }
+                    }
+                }
+
+                Text {
+                    color: bundleInstallDialog.details.alreadyInstalled ? lunar.danger : files.surfaceMuted
+                    text: bundleInstallDialog.operationComplete ? ""
+                        : !bundleInstallDialog.details.valid ? ""
+                        : bundleInstallDialog.details.installedScope === "system"
+                            ? "A package-owned application already uses this identifier. Northstar will not replace or shadow it."
+                        : bundleInstallDialog.details.installedScope === "user"
+                            ? "This application is already installed for your account."
+                        : "The application will be copied into your private Applications directory without administrator access."
+                    visible: text.length > 0
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                }
+
+                Text {
+                    id: bundleInstallStatus
+                    color: bundleInstallDialog.operationError ? lunar.danger : lunar.success
+                    visible: text.length > 0
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                }
+
+                Item {
+                    height: installButtons.implicitHeight
+                    width: parent.width
+
+                    Row {
+                        id: installButtons
+                        anchors.right: parent.right
+                        spacing: 10
+
+                        Button {
+                            text: bundleInstallDialog.operationComplete ? "Done" : "Cancel"
+                            onClicked: bundleInstallDialog.close()
+                        }
+
+                        Button {
+                            enabled: bundleInstallDialog.details.valid === true
+                                && bundleInstallDialog.details.alreadyInstalled !== true
+                                && !bundleInstallDialog.operationComplete
+                            visible: !bundleInstallDialog.operationComplete
+                            text: "Install"
+                            onClicked: {
+                                if (!files.applicationLauncher) {
+                                    bundleInstallStatus.text = "The Northstar application installer is unavailable."
+                                    bundleInstallDialog.operationError = true
+                                    return
+                                }
+                                const succeeded = files.applicationLauncher.installApplicationBundle(
+                                    bundleInstallDialog.itemPath)
+                                bundleInstallDialog.operationError = files.applicationLauncher.applicationBundleError()
+                                bundleInstallStatus.text = files.applicationLauncher.applicationBundleStatusMessage()
+                                if (succeeded) {
+                                    bundleInstallDialog.operationComplete = true
+                                    bundleInstallDialog.details = files.applicationLauncher.applicationBundleDetails(
+                                        bundleInstallDialog.itemPath)
+                                    if (files.applicationLauncher) {
+                                        files.applicationLauncher.refreshApplications()
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }

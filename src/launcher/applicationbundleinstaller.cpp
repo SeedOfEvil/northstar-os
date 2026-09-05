@@ -13,6 +13,8 @@
 #include <QUrl>
 #include <QUuid>
 
+#include <utility>
+
 #ifdef Q_OS_UNIX
 #include <unistd.h>
 #endif
@@ -50,12 +52,18 @@ QString cleanAbsolutePath(const QString &path)
 
 ApplicationBundleInstaller::ApplicationBundleInstaller(QString applicationRoot,
                                                        QString trashRoot,
-                                                       QObject *parent)
+                                                       QObject *parent,
+                                                       QStringList systemRoots)
     : QObject(parent)
     , m_applicationRoot(applicationRoot.isEmpty() ? defaultApplicationRoot()
                                                   : cleanAbsolutePath(applicationRoot))
     , m_trashRoot(trashRoot.isEmpty() ? defaultTrashRoot() : cleanAbsolutePath(trashRoot))
+    , m_systemRoots(std::move(systemRoots))
 {
+    if (applicationRoot.isEmpty() && m_systemRoots.isEmpty()) {
+        m_systemRoots = ApplicationBundleCatalog::defaultBundleDirectories();
+        m_systemRoots.removeAll(defaultApplicationRoot());
+    }
 }
 
 QString ApplicationBundleInstaller::statusMessage() const
@@ -66,6 +74,45 @@ QString ApplicationBundleInstaller::statusMessage() const
 bool ApplicationBundleInstaller::error() const
 {
     return m_error;
+}
+
+QVariantMap ApplicationBundleInstaller::bundleDetails(const QString &sourcePath) const
+{
+    BundleApplication bundle;
+    if (!ApplicationBundleCatalog::inspectBundle(sourcePath, &bundle)) {
+        return {
+            {QStringLiteral("valid"), false},
+            {QStringLiteral("validationError"),
+             QStringLiteral("The manifest, permissions, or required application files are invalid.")}
+        };
+    }
+
+    const QFileInfo sourceInfo(bundle.bundlePath);
+    QString validationError;
+    if (sourceInfo.ownerId() != processOwnerId()
+        || !validateTree(bundle.bundlePath, sourceInfo.ownerId(), &validationError)) {
+        return {
+            {QStringLiteral("valid"), false},
+            {QStringLiteral("validationError"),
+             validationError.isEmpty()
+                 ? QStringLiteral("The application is not owned by the current user.")
+                 : validationError}
+        };
+    }
+
+    const QString scope = installedScope(bundle.bundleId);
+    return {
+        {QStringLiteral("valid"), true},
+        {QStringLiteral("bundleIdentifier"), bundle.bundleId},
+        {QStringLiteral("displayName"), bundle.name},
+        {QStringLiteral("version"), bundle.version},
+        {QStringLiteral("source"), bundle.provenance.source},
+        {QStringLiteral("package"), bundle.provenance.package},
+        {QStringLiteral("revision"), bundle.provenance.revision},
+        {QStringLiteral("bundlePath"), bundle.bundlePath},
+        {QStringLiteral("alreadyInstalled"), !scope.isEmpty()},
+        {QStringLiteral("installedScope"), scope}
+    };
 }
 
 QString ApplicationBundleInstaller::defaultApplicationRoot()
@@ -223,11 +270,18 @@ bool ApplicationBundleInstaller::installBundle(const QString &sourcePath)
         return false;
     }
 
-    const QString destination = QDir(m_applicationRoot).filePath(source.bundleId + QStringLiteral(".app"));
-    if (QFileInfo::exists(destination)) {
-        setStatus(QStringLiteral("An application with identifier %1 is already installed.").arg(source.bundleId), true);
+    const QString scope = installedScope(source.bundleId);
+    if (!scope.isEmpty()) {
+        setStatus(scope == QStringLiteral("system")
+                      ? QStringLiteral("A package-owned application with identifier %1 is already installed.")
+                            .arg(source.bundleId)
+                      : QStringLiteral("An application with identifier %1 is already installed for this user.")
+                            .arg(source.bundleId),
+                  true);
         return false;
     }
+
+    const QString destination = QDir(m_applicationRoot).filePath(source.bundleId + QStringLiteral(".app"));
 
     const QString staging = QDir(m_applicationRoot).filePath(
         QStringLiteral(".installing-") + QUuid::createUuid().toString(QUuid::WithoutBraces)
@@ -257,6 +311,26 @@ bool ApplicationBundleInstaller::installBundle(const QString &sourcePath)
     setStatus(QStringLiteral("Installed %1 for this user.").arg(source.name), false);
     emit applicationsChanged();
     return true;
+}
+
+QString ApplicationBundleInstaller::installedScope(const QString &bundleIdentifier) const
+{
+    ApplicationBundleCatalog userCatalog({m_applicationRoot});
+    for (const BundleApplication &entry : userCatalog.entries()) {
+        if (entry.bundleId == bundleIdentifier) {
+            return QStringLiteral("user");
+        }
+    }
+
+    for (const QString &root : m_systemRoots) {
+        ApplicationBundleCatalog systemCatalog({root});
+        for (const BundleApplication &entry : systemCatalog.entries()) {
+            if (entry.bundleId == bundleIdentifier) {
+                return QStringLiteral("system");
+            }
+        }
+    }
+    return {};
 }
 
 bool ApplicationBundleInstaller::removeBundle(const QString &bundleIdentifier)
