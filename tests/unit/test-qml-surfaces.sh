@@ -541,4 +541,9 @@ if grep -rn 'sequence: StandardKey\.' "$ROOT/src" "$ROOT/apps" --include=*.qml >
     fail 'use sequences: [StandardKey.X] so every platform binding is registered'
 fi
 
+contains src/shell/FileBrowserWindow.qml 'bundleInstallDialog.details.webNotice'
+contains src/shell/FileBrowserWindow.qml 'objectName: "installDialogScroll"'
+contains src/shell/ApplicationOverview.qml 'applicationPinMenu.webNotice'
+contains src/shell/ApplicationOverview.qml 'objectName: "applicationInfoScroll"'
+
 printf '%s\n' 'All Northstar QML surface contract checks passed.'

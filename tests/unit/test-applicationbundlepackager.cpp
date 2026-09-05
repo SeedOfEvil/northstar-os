@@ -1,6 +1,7 @@
 #include "applicationbundlepackager.h"
 #include "applicationbundlecatalog.h"
 #include "applicationbundleinstaller.h"
+#include "webapplication.h"
 
 #include <QDir>
 #include <QFile>
@@ -50,6 +51,100 @@ class TestApplicationBundlePackager : public QObject
 {
     Q_OBJECT
 private slots:
+    void webBundleRoundTrip()
+    {
+        QTemporaryDir temp;
+        QVERIFY(fixture(temp.path()));
+        QJsonObject web = recipe();
+        web.remove("executable");
+        web.insert("schemaVersion", 2);
+        const QString url = "https://example.org/?q=%24%28touch%20never%29&x=1";
+        web.insert("web", QJsonObject{{"URL", url}, {"Browser", "firefox"}, {"Network", "required"},
+                                     {"Storage", "shared-browser-profile"}, {"Permissions", "browser-managed"}});
+        QVERIFY(write(temp.filePath("recipe.json"), QJsonDocument(web).toJson()));
+        QString error;
+        const QString bundlePath = temp.filePath("Web.app");
+        QVERIFY2(ApplicationBundlePackager::package(temp.filePath("recipe.json"), bundlePath, &error), qPrintable(error));
+        QVERIFY(QDir(bundlePath + "/Contents/Executable").isEmpty());
+        QVERIFY(!read(bundlePath + "/Contents/Info.plist").contains("<key>Executable</key>"));
+        BundleApplication bundle;
+        QVERIFY(ApplicationBundleCatalog::inspectBundle(bundlePath, &bundle));
+        QCOMPARE(bundle.webUrl, url);
+        QVERIFY(bundle.executablePath.isEmpty());
+        ApplicationBundleInstaller installer(temp.filePath("installed"), temp.filePath("trash"));
+        const QVariantMap details = installer.bundleDetails(bundlePath);
+        QCOMPARE(details.value("webOrigin").toString(), QString("https://example.org"));
+        QVERIFY(details.value("webNotice").toString().contains("Shares Firefox cookies"));
+        QVERIFY(installer.installBundle(bundlePath));
+        ApplicationBundleCatalog catalog({temp.filePath("installed")});
+        QCOMPARE(catalog.applications().first().toMap().value("genericName").toString(), QString("Web app • Firefox"));
+        QString program;
+        QStringList arguments;
+        QVERIFY(catalog.launchSpec(bundle.desktopId, &program, &arguments));
+        QCOMPARE(program, QString("/usr/local/bin/firefox"));
+        QCOMPARE(arguments, QStringList({"--new-window", url}));
+        // No actual browser process or network connection is needed for the test.
+        const QString installedManifest = temp.filePath("installed/") + bundle.bundleId + ".app/Contents/Info.plist";
+        QByteArray changed = read(installedManifest);
+        changed.replace("https://example.org/", "file:///tmp/");
+        QVERIFY(write(installedManifest, changed));
+        QVERIFY(!catalog.launchSpec(bundle.desktopId, &program, &arguments));
+        // Restore before testing the existing validated Trash workflow.
+        QVERIFY(write(installedManifest, read(bundlePath + "/Contents/Info.plist")));
+        QVERIFY(installer.removeBundle(bundle.bundleId));
+        const QByteArray original = read(bundlePath + "/Contents/Info.plist");
+        for (const QByteArray &extra : {QByteArray("<key>Executable</key><string>app</string>"),
+                                       QByteArray("<key>DocumentExtensions</key><array><string>txt</string></array>")}) {
+            QByteArray mixed = original;
+            mixed.replace("<key>Icon</key>", extra + "<key>Icon</key>");
+            QVERIFY(write(bundlePath + "/Contents/Info.plist", mixed));
+            QVERIFY(!ApplicationBundleCatalog::inspectBundle(bundlePath, &bundle));
+        }
+        QVERIFY(write(bundlePath + "/Contents/Info.plist", original));
+        QVERIFY(write(bundlePath + "/Contents/Executable/.hidden-script", "#!/bin/sh\nexit 0\n", true));
+        QVERIFY(!ApplicationBundleCatalog::inspectBundle(bundlePath, &bundle));
+    }
+
+    void unsafeWebRecipes_data()
+    {
+        QTest::addColumn<QString>("key");
+        QTest::addColumn<QString>("value");
+        QTest::newRow("http") << QString("URL") << QString("http://example.org/");
+        QTest::newRow("javascript") << QString("URL") << QString("javascript:alert(1)");
+        QTest::newRow("file") << QString("URL") << QString("file:///etc/passwd");
+        QTest::newRow("data") << QString("URL") << QString("data:text/html,hello");
+        QTest::newRow("relative") << QString("URL") << QString("//example.org/");
+        QTest::newRow("flags") << QString("URL") << QString("--profile /tmp/profile");
+        QTest::newRow("credentials") << QString("URL") << QString("https://user:password@example.org/");
+        QTest::newRow("hostless") << QString("URL") << QString("https:/path");
+        QTest::newRow("newline") << QString("URL") << QString("https://example.org/\n");
+        QTest::newRow("backslash") << QString("URL") << QString("https://example.org\\evil");
+        QTest::newRow("invalid-percent") << QString("URL") << QString("https://example.org/%zz");
+        QTest::newRow("browser-path") << QString("Browser") << QString("/tmp/firefox");
+        QTest::newRow("offline-claim") << QString("Network") << QString("offline");
+        QTest::newRow("isolation-claim") << QString("Storage") << QString("isolated");
+        QTest::newRow("permissions-claim") << QString("Permissions") << QString("none");
+        QTest::newRow("extra-field") << QString("Arguments") << QString("--no-remote");
+    }
+    void unsafeWebRecipes()
+    {
+        QFETCH(QString, key);
+        QFETCH(QString, value);
+        QTemporaryDir temp;
+        QVERIFY(fixture(temp.path()));
+        QJsonObject web = recipe();
+        web.remove("executable");
+        web.insert("schemaVersion", 2);
+        QJsonObject fields{{"URL", "https://example.org/"}, {"Browser", "firefox"}, {"Network", "required"},
+                           {"Storage", "shared-browser-profile"}, {"Permissions", "browser-managed"}};
+        fields.insert(key, value);
+        web.insert("web", fields);
+        QVERIFY(write(temp.filePath("recipe.json"), QJsonDocument(web).toJson()));
+        QString error;
+        QVERIFY(!ApplicationBundlePackager::package(temp.filePath("recipe.json"), temp.filePath("Bad.app"), &error));
+        QVERIFY(!QFileInfo::exists(temp.filePath("Bad.app")));
+    }
+
     void roundTripAndDeterminism()
     {
         QTemporaryDir temp;

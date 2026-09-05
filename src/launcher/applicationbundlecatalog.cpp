@@ -1,4 +1,5 @@
 #include "applicationbundlecatalog.h"
+#include "webapplication.h"
 
 #include <QDir>
 #include <QDirIterator>
@@ -27,6 +28,7 @@ struct BundleManifest
     QStringList categories;
     QStringList documentExtensions;
     BundleProvenance provenance;
+    QString webUrl;
 };
 
 QVariant readPlistValue(QXmlStreamReader &reader, bool *ok)
@@ -195,8 +197,18 @@ bool readManifest(const QString &path, BundleManifest *manifest)
     if (!stringValue(QStringLiteral("BundleIdentifier"), &parsed.bundleId)
         || !stringValue(QStringLiteral("DisplayName"), &parsed.displayName)
         || !stringValue(QStringLiteral("Version"), &parsed.version)
-        || !stringValue(QStringLiteral("Executable"), &parsed.executable)
         || !stringValue(QStringLiteral("Icon"), &parsed.icon)) {
+        return false;
+    }
+
+    if (values.contains(QStringLiteral("WebApplication"))) {
+        const QVariant web = values.value(QStringLiteral("WebApplication"));
+        if (values.contains(QStringLiteral("Executable"))
+            || values.contains(QStringLiteral("DocumentExtensions"))
+            || web.typeId() != QMetaType::QVariantMap
+            || !WebApplication::read(web.toMap(), &parsed.webUrl))
+            return false;
+    } else if (!stringValue(QStringLiteral("Executable"), &parsed.executable)) {
         return false;
     }
 
@@ -397,8 +409,11 @@ bool readBundle(const QString &path, BundleApplication *application)
 
     QFileInfo executableInfo;
     QFileInfo iconInfo;
-    if (!resolveOwnedFile(executableRoot, manifest.executable, ownerId, &executableInfo)
-        || !executableInfo.isExecutable()
+    if ((!manifest.webUrl.isEmpty() && !QDir(executableRoot).isEmpty(
+             QDir::AllEntries | QDir::NoDotAndDotDot | QDir::Hidden | QDir::System))
+        || (manifest.webUrl.isEmpty()
+            && (!resolveOwnedFile(executableRoot, manifest.executable, ownerId, &executableInfo)
+                || !executableInfo.isExecutable()))
         || !resolveOwnedFile(resourcesRoot, manifest.icon, ownerId, &iconInfo)) {
         return false;
     }
@@ -415,6 +430,7 @@ bool readBundle(const QString &path, BundleApplication *application)
     parsed.bundlePath = bundlePath;
     parsed.executablePath = executableInfo.canonicalFilePath();
     parsed.iconPath = iconInfo.canonicalFilePath();
+    parsed.webUrl = manifest.webUrl;
     parsed.provenance = manifest.provenance;
     *application = std::move(parsed);
     return true;
@@ -425,6 +441,7 @@ bool matchesQuery(const BundleApplication &application, const QStringList &terms
     const QString searchText = QStringList{
         application.name,
         application.version,
+        application.webUrl,
         application.bundleId,
         application.categories.join(QLatin1Char(' ')),
         application.provenance.source,
@@ -498,13 +515,17 @@ QVariantList ApplicationBundleCatalog::toVariantList(const QList<BundleApplicati
         QVariantMap item;
         item.insert(QStringLiteral("desktopId"), application.desktopId);
         item.insert(QStringLiteral("name"), application.name);
-        item.insert(QStringLiteral("genericName"), QStringLiteral("Version ") + application.version);
+        item.insert(QStringLiteral("genericName"), application.webUrl.isEmpty()
+            ? QStringLiteral("Version ") + application.version : QStringLiteral("Web app • Firefox"));
         item.insert(QStringLiteral("version"), application.version);
         item.insert(QStringLiteral("icon"), application.icon);
         item.insert(QStringLiteral("iconSource"), QUrl::fromLocalFile(application.iconPath));
         item.insert(QStringLiteral("categories"), application.categories);
         item.insert(QStringLiteral("documentExtensions"), application.documentExtensions);
         item.insert(QStringLiteral("sourceType"), QStringLiteral("bundle"));
+        item.insert(QStringLiteral("webUrl"), application.webUrl);
+        item.insert(QStringLiteral("webOrigin"), WebApplication::origin(application.webUrl));
+        item.insert(QStringLiteral("webNotice"), application.webUrl.isEmpty() ? QString() : WebApplication::notice());
         item.insert(QStringLiteral("provenanceSource"), application.provenance.source);
         item.insert(QStringLiteral("provenancePackage"), application.provenance.package);
         item.insert(QStringLiteral("provenanceRevision"), application.provenance.revision);
@@ -630,6 +651,17 @@ bool ApplicationBundleCatalog::launchSpec(const QString &desktopId,
         return false;
     }
 
+    // Re-read web metadata at launch; a cached URL is not authorization to use
+    // a manifest that has subsequently become invalid or changed type.
+    if (!match->webUrl.isEmpty()) {
+        BundleApplication current;
+        if (!readBundle(match->bundlePath, &current) || current.webUrl.isEmpty()
+            || current.bundleId != match->bundleId)
+            return false;
+        *program = WebApplication::browserProgram();
+        *arguments = {QStringLiteral("--new-window"), current.webUrl};
+        return true;
+    }
     *program = match->executablePath;
     arguments->clear();
     return !program->isEmpty();

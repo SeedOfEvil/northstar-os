@@ -3,6 +3,7 @@ add_library(northstar-launcher-core STATIC
     applicationbundlecatalog.cpp
     applicationbundleinstaller.cpp
     applicationbundlepackager.cpp
+    webapplication.cpp
 )
 
 target_include_directories(northstar-launcher-core

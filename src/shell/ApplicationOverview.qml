@@ -151,6 +151,9 @@ Window {
         applicationPinMenu.provenanceSource = item.provenanceSource || ""
         applicationPinMenu.provenancePackage = item.provenancePackage || ""
         applicationPinMenu.provenanceRevision = item.provenanceRevision || ""
+        applicationPinMenu.webUrl = item.webUrl || ""
+        applicationPinMenu.webOrigin = item.webOrigin || ""
+        applicationPinMenu.webNotice = item.webNotice || ""
         applicationPinMenu.userInstalled = item.userInstalled === true
     }
 
@@ -498,6 +501,9 @@ Window {
         property string provenanceSource: ""
         property string provenancePackage: ""
         property string provenanceRevision: ""
+        property string webUrl: ""
+        property string webOrigin: ""
+        property string webNotice: ""
         property bool userInstalled: false
 
         // An application's own actions come first, matching the dock.
@@ -567,9 +573,17 @@ Window {
 
         property bool operationError: false
 
+        contentItem: ScrollView {
+            id: applicationInfoScroll
+            objectName: "applicationInfoScroll"
+            implicitHeight: Math.min(applicationInfoColumn.implicitHeight, Math.max(120, overview.height - 160))
+            contentWidth: availableWidth
+            clip: true
+
         Column {
+            id: applicationInfoColumn
             spacing: 12
-            width: applicationDetailsDialog.width - (2 * applicationDetailsDialog.padding)
+            width: applicationInfoScroll.availableWidth
 
             Text {
                 color: overview.surfaceForeground
@@ -604,6 +618,9 @@ Window {
                     Text { color: overview.surfaceForeground; text: "Source: " + applicationPinMenu.provenanceSource; width: parent.width; wrapMode: Text.WrapAnywhere }
                     Text { color: overview.surfaceForeground; text: "Package: " + applicationPinMenu.provenancePackage; width: parent.width; wrapMode: Text.WrapAnywhere }
                     Text { color: overview.surfaceForeground; text: "Revision: " + applicationPinMenu.provenanceRevision; width: parent.width; wrapMode: Text.WrapAnywhere }
+                    Text { color: overview.surfaceForeground; visible: applicationPinMenu.webUrl.length > 0; text: "Website: " + applicationPinMenu.webUrl; width: parent.width; wrapMode: Text.WrapAnywhere }
+                    Text { color: overview.surfaceForeground; visible: applicationPinMenu.webUrl.length > 0; text: "Origin: " + applicationPinMenu.webOrigin; width: parent.width; wrapMode: Text.WrapAnywhere }
+                    Text { color: overview.surfaceMuted; visible: applicationPinMenu.webUrl.length > 0; text: applicationPinMenu.webNotice; width: parent.width; wrapMode: Text.WordWrap }
                 }
             }
 
@@ -654,6 +671,7 @@ Window {
                     }
                 }
             }
+        }
         }
     }
 }

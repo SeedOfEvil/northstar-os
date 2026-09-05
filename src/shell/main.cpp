@@ -1,5 +1,6 @@
 #include "applicationlauncher.h"
 #include "applicationbundleinstaller.h"
+#include "webapplication.h"
 #include "clockcontroller.h"
 #include "desktopitemscontroller.h"
 #include "desktoplayoutcontroller.h"
@@ -128,7 +129,47 @@ int runShellSelfTest(const QList<QObject *> &surfaces)
     if (!expectVisible(bundleDialog, true, "opening the Files application-install dialog")) {
         return 1;
     }
+    // Exercise long web disclosures as well as the short invalid-bundle case.
+    // This changes test data only; no bundle is installed and no URL is opened.
+    const QString longUrl = QStringLiteral("https://example.org/") + QString(170, QLatin1Char('a'));
+    bundleDialog->setProperty("details", QVariantMap{
+        {"valid", true}, {"displayName", "Web test"}, {"version", "1.0.0"},
+        {"bundleIdentifier", "org.northstar.WebTest"}, {"source", "fixture"},
+        {"package", "web-test"}, {"revision", "fixture"},
+        {"webUrl", longUrl}, {"webOrigin", "https://example.org"},
+        {"webNotice", WebApplication::notice()}});
+    QCoreApplication::processEvents();
+    QObject *installScroll = bundleDialog->findChild<QObject *>(QStringLiteral("installDialogScroll"));
+    if (!installScroll || installScroll->property("contentWidth").toDouble() <= 0
+        || installScroll->property("contentHeight").toDouble() <= 0
+        || bundleDialog->property("height").toDouble() > QGuiApplication::primaryScreen()->size().height()) {
+        qCritical() << "web application disclosures have no bounded, scrollable layout";
+        return 1;
+    }
     QMetaObject::invokeMethod(bundleDialog, "close");
+    QObject *overview = nullptr;
+    for (QObject *surface : surfaces) {
+        overview = surface->findChild<QObject *>(QStringLiteral("applicationOverview"));
+        if (overview)
+            break;
+    }
+    QObject *infoDialog = overview ? overview->findChild<QObject *>(QStringLiteral("applicationDetailsDialog")) : nullptr;
+    const QVariantMap webItem{{"name", "Web test"}, {"version", "1.0.0"}, {"sourceType", "bundle"},
+                             {"bundleIdentifier", "org.northstar.WebTest"}, {"webUrl", longUrl},
+                             {"webOrigin", "https://example.org"}, {"webNotice", WebApplication::notice()}};
+    if (!infoDialog || !QMetaObject::invokeMethod(overview, "configureApplicationMenu", Q_ARG(QVariant, QVariant(webItem)))
+        || !QMetaObject::invokeMethod(infoDialog, "openForMenu")) {
+        qCritical() << "web application information could not be opened";
+        return 1;
+    }
+    QCoreApplication::processEvents();
+    QObject *infoScroll = infoDialog->findChild<QObject *>(QStringLiteral("applicationInfoScroll"));
+    if (!infoScroll || infoScroll->property("contentHeight").toDouble() <= 0
+        || infoScroll->property("contentWidth").toDouble() <= 0) {
+        qCritical() << "web application information has no scrollable content";
+        return 1;
+    }
+    QMetaObject::invokeMethod(infoDialog, "close");
     return 0;
 }
 

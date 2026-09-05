@@ -36,3 +36,4 @@ Accepted records in the initial foundation:
 - [0016: Boot-environment recovery boundary](0016-boot-environment-recovery-boundary.md)
 - [0017: Installer-media assembly boundary](0017-installer-media-assembly-boundary.md)
 - [0018: Pinned trust boundary for third-party packages](0018-third-party-package-trust.md)
+- [0019: Web bundles delegate to the installed browser](0019-web-bundle-browser-boundary.md)
