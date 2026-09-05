@@ -1719,7 +1719,9 @@ Window {
                     color: files.surfaceForeground
                     font.bold: true
                     font.pixelSize: 18
-                    text: bundleInstallDialog.details.valid
+                    text: bundleInstallDialog.operationComplete
+                        ? bundleInstallDialog.details.displayName + " was installed"
+                        : bundleInstallDialog.details.valid
                         ? "Install " + bundleInstallDialog.details.displayName + "?"
                         : "This application cannot be installed"
                     width: parent.width
@@ -1760,7 +1762,8 @@ Window {
 
                 Text {
                     color: bundleInstallDialog.details.alreadyInstalled ? lunar.danger : files.surfaceMuted
-                    text: !bundleInstallDialog.details.valid ? ""
+                    text: bundleInstallDialog.operationComplete ? ""
+                        : !bundleInstallDialog.details.valid ? ""
                         : bundleInstallDialog.details.installedScope === "system"
                             ? "A package-owned application already uses this identifier. Northstar will not replace or shadow it."
                         : bundleInstallDialog.details.installedScope === "user"
@@ -1797,6 +1800,7 @@ Window {
                             enabled: bundleInstallDialog.details.valid === true
                                 && bundleInstallDialog.details.alreadyInstalled !== true
                                 && !bundleInstallDialog.operationComplete
+                            visible: !bundleInstallDialog.operationComplete
                             text: "Install"
                             onClicked: {
                                 if (!files.applicationLauncher) {
