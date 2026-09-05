@@ -1,6 +1,6 @@
 # ADR 0019: Web bundles delegate to the installed browser
 
-Status: Proposed for focused Intel acceptance
+Status: Accepted after focused Intel validation, 2026-09-05
 
 ## Decision
 

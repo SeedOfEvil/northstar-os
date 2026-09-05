@@ -99,12 +99,12 @@ QT_QPA_PLATFORM=offscreen build/src/shell/northstar-shell --qml-self-test
 
 Automated tests inspect exact browser arguments without starting Firefox or
 contacting a website, reject dangerous/misleading recipes, revalidate changed
-web metadata at launch, and cover the existing install/remove flow. Manual
-acceptance remains pending: install the sample from Files, read the website
-and policy text without clipping, launch it in Firefox, inspect Application
-Information, and remove the bundle. Confirm the browser remains a normal
-Firefox window and the native packaging sample still works. Required GitHub
-CI and explicit user acceptance precede merge. No image rebuild is needed.
+web metadata at launch, and cover the existing install/remove flow. The user
+confirmed the staged sample's Files installation, website/policy disclosures,
+Firefox launch, Application Information and removal on the physical Intel
+laptop, then approved merging on 2026-09-05. Required GitHub CI precedes merge.
+No image rebuild is needed. This acceptance covers the browser-launch slice,
+not the deferred profile isolation or offline/PWA capabilities below.
 
 Initial automated evidence: native FreeBSD 15.1 amd64 with Qt 6.11.1 passed all
 three focused CTest entries, QML surface contracts, and the shell runtime
