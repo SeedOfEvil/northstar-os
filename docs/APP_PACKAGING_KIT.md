@@ -132,6 +132,6 @@ described above; completed hardware tests are not repeated.
 On the physical Intel FreeBSD 15.1 amd64 host, the packaging tool and sample
 built with the installed Qt 6.11.1 toolchain. Both focused CTest entries passed;
 the packager QtTest reported 17 passes, zero failures. Repository contracts and
-`git diff --check` passed on the development PC. This is automated evidence,
-not graphical acceptance: manual Files install, Applications launch, and
-Trash-backed removal remain the merge gate. The installed shell is unchanged.
+`git diff --check` passed on the development PC. The user also confirmed manual
+Files installation, Applications launch, and Trash-backed removal of the
+graphical sample on the Intel laptop. The installed shell is unchanged.

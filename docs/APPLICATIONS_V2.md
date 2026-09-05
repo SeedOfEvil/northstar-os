@@ -19,7 +19,7 @@ Applications v2 expands Northstar's application experience without pretending th
 - A user bundle cannot replace or shadow an installed package-owned bundle with the same identifier.
 - The [developer packaging kit](APP_PACKAGING_KIT.md) assembles a validated,
   unsigned bundle from a versioned recipe and finished native build inputs,
-  including licence text. Its graphical sample awaits focused acceptance.
+  including licence text. Its graphical sample passed focused Intel acceptance.
 
 ## Foundation acceptance
 
