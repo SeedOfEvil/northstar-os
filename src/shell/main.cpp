@@ -122,7 +122,7 @@ int runShellSelfTest(const QList<QObject *> &surfaces)
     QCoreApplication::processEvents();
     const QVariantMap bundleDetails = bundleDialog->property("details").toMap();
     if (bundleDetails.value(QStringLiteral("validationError")).toString()
-        != QStringLiteral("The manifest, permissions, or required application files are invalid.")) {
+        != QStringLiteral("Select an existing .app directory, not a symbolic link or standalone file.")) {
         qCritical() << "the Files surface did not reach the application bundle workflow";
         return 1;
     }
@@ -137,6 +137,8 @@ int runShellSelfTest(const QList<QObject *> &surfaces)
         {"bundleIdentifier", "org.northstar.WebTest"}, {"source", "fixture"},
         {"package", "web-test"}, {"revision", "fixture"},
         {"webUrl", longUrl}, {"webOrigin", "https://example.org"},
+        {"compatibility", QVariantMap{{"format", "Web application"},
+            {"message", WebApplication::notice() + QStringLiteral(" Runtime behavior remains unverified.")}}},
         {"webNotice", WebApplication::notice()}});
     QCoreApplication::processEvents();
     QObject *installScroll = bundleDialog->findChild<QObject *>(QStringLiteral("installDialogScroll"));

@@ -73,7 +73,7 @@ public:
     bool reload();
     bool launchSpec(const QString &desktopId, QString *program, QStringList *arguments) const;
 
-    static bool inspectBundle(const QString &path, BundleApplication *application);
+    static bool inspectBundle(const QString &path, BundleApplication *application, QString *reason = nullptr);
     static QStringList defaultBundleDirectories();
 
 signals:

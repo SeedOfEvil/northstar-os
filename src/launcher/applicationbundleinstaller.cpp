@@ -2,6 +2,7 @@
 
 #include "applicationbundlecatalog.h"
 #include "webapplication.h"
+#include "applicationcompatibility.h"
 
 #include <QDateTime>
 #include <QDir>
@@ -80,11 +81,12 @@ bool ApplicationBundleInstaller::error() const
 QVariantMap ApplicationBundleInstaller::bundleDetails(const QString &sourcePath) const
 {
     BundleApplication bundle;
-    if (!ApplicationBundleCatalog::inspectBundle(sourcePath, &bundle)) {
+    QString reason;
+    if (!ApplicationBundleCatalog::inspectBundle(sourcePath, &bundle, &reason)) {
         return {
             {QStringLiteral("valid"), false},
             {QStringLiteral("validationError"),
-             QStringLiteral("The manifest, permissions, or required application files are invalid.")}
+             reason}
         };
     }
 
@@ -94,6 +96,7 @@ QVariantMap ApplicationBundleInstaller::bundleDetails(const QString &sourcePath)
         || !validateTree(bundle.bundlePath, sourceInfo.ownerId(), &validationError)) {
         return {
             {QStringLiteral("valid"), false},
+            {QStringLiteral("compatibility"), ApplicationCompatibility::report(sourcePath)},
             {QStringLiteral("validationError"),
              validationError.isEmpty()
                  ? QStringLiteral("The application is not owned by the current user.")
@@ -104,6 +107,7 @@ QVariantMap ApplicationBundleInstaller::bundleDetails(const QString &sourcePath)
     const QString scope = installedScope(bundle.bundleId);
     return {
         {QStringLiteral("valid"), true},
+        {QStringLiteral("compatibility"), ApplicationCompatibility::report(sourcePath)},
         {QStringLiteral("bundleIdentifier"), bundle.bundleId},
         {QStringLiteral("displayName"), bundle.name},
         {QStringLiteral("version"), bundle.version},

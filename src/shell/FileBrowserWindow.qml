@@ -1765,6 +1765,15 @@ Window {
                         Text { color: files.surfaceForeground; visible: !!bundleInstallDialog.details.webUrl; text: "Website: " + (bundleInstallDialog.details.webUrl || ""); width: parent.width; wrapMode: Text.WrapAnywhere }
                         Text { color: files.surfaceForeground; visible: !!bundleInstallDialog.details.webUrl; text: "Origin: " + (bundleInstallDialog.details.webOrigin || ""); width: parent.width; wrapMode: Text.WrapAnywhere }
                         Text { color: files.surfaceMuted; visible: !!bundleInstallDialog.details.webUrl; text: bundleInstallDialog.details.webNotice || ""; width: parent.width; wrapMode: Text.WordWrap }
+                        Text {
+                            color: files.surfaceMuted
+                            width: parent.width
+                            wrapMode: Text.WordWrap
+                            textFormat: Text.PlainText
+                            visible: !!bundleInstallDialog.details.compatibility
+                            text: "Compatibility: " + (bundleInstallDialog.details.compatibility || {}).format
+                                  + "\n" + ((bundleInstallDialog.details.compatibility || {}).message || "")
+                        }
                     }
                 }
 

@@ -154,6 +154,8 @@ Window {
         applicationPinMenu.webUrl = item.webUrl || ""
         applicationPinMenu.webOrigin = item.webOrigin || ""
         applicationPinMenu.webNotice = item.webNotice || ""
+        applicationPinMenu.compatibility = item.bundlePath && applicationLauncher
+            ? (applicationLauncher.applicationBundleDetails(item.bundlePath).compatibility || {}) : {}
         applicationPinMenu.userInstalled = item.userInstalled === true
     }
 
@@ -504,6 +506,7 @@ Window {
         property string webUrl: ""
         property string webOrigin: ""
         property string webNotice: ""
+        property var compatibility: ({})
         property bool userInstalled: false
 
         // An application's own actions come first, matching the dock.
@@ -621,6 +624,7 @@ Window {
                     Text { color: overview.surfaceForeground; visible: applicationPinMenu.webUrl.length > 0; text: "Website: " + applicationPinMenu.webUrl; width: parent.width; wrapMode: Text.WrapAnywhere }
                     Text { color: overview.surfaceForeground; visible: applicationPinMenu.webUrl.length > 0; text: "Origin: " + applicationPinMenu.webOrigin; width: parent.width; wrapMode: Text.WrapAnywhere }
                     Text { color: overview.surfaceMuted; visible: applicationPinMenu.webUrl.length > 0; text: applicationPinMenu.webNotice; width: parent.width; wrapMode: Text.WordWrap }
+                    Text { color: overview.surfaceMuted; visible: !!applicationPinMenu.compatibility.format; text: "Compatibility: " + (applicationPinMenu.compatibility.format || "") + "\n" + (applicationPinMenu.compatibility.message || ""); textFormat: Text.PlainText; width: parent.width; wrapMode: Text.WordWrap }
                 }
             }
 

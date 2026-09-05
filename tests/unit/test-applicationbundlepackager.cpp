@@ -73,6 +73,8 @@ private slots:
         QVERIFY(bundle.executablePath.isEmpty());
         ApplicationBundleInstaller installer(temp.filePath("installed"), temp.filePath("trash"));
         const QVariantMap details = installer.bundleDetails(bundlePath);
+        QCOMPARE(details.value("compatibility").toMap().value("status").toString(), QString("web"));
+        QVERIFY(details.value("compatibility").toMap().value("message").toString().contains("not been tested"));
         QCOMPARE(details.value("webOrigin").toString(), QString("https://example.org"));
         QVERIFY(details.value("webNotice").toString().contains("Shares Firefox cookies"));
         QVERIFY(installer.installBundle(bundlePath));
@@ -168,6 +170,9 @@ private slots:
         QVERIFY(ApplicationBundleCatalog::inspectBundle(first, &bundle));
         QCOMPARE(bundle.name, QString("Packaging & Test"));
         ApplicationBundleInstaller installer(root + "/installed", root + "/trash");
+        const auto compatibility = installer.bundleDetails(first).value("compatibility").toMap();
+        QCOMPARE(compatibility.value("status").toString(), QString("unverified"));
+        QCOMPARE(compatibility.value("runtimeVerified").toBool(), false);
         QVERIFY(installer.installBundle(first));
         ApplicationBundleCatalog catalog({root + "/installed"});
         QString program;

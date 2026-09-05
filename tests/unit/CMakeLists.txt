@@ -73,6 +73,9 @@ target_link_libraries(test-applicationbundlecatalog
 add_test(NAME northstar-applicationbundlecatalog COMMAND test-applicationbundlecatalog)
 
 qt_add_executable(test-applicationbundlepackager test-applicationbundlepackager.cpp)
+qt_add_executable(test-applicationcompatibility test-applicationcompatibility.cpp)
+target_link_libraries(test-applicationcompatibility PRIVATE northstar-launcher-core Qt6::Test)
+add_test(NAME northstar-applicationcompatibility COMMAND test-applicationcompatibility)
 target_link_libraries(test-applicationbundlepackager PRIVATE northstar-launcher-core Qt6::Test)
 add_test(NAME northstar-applicationbundlepackager COMMAND test-applicationbundlepackager)
 add_test(NAME northstar-web-bundle-cli
