@@ -1,5 +1,6 @@
 #include "applicationbundlecatalog.h"
 #include "applicationbundleinstaller.h"
+#include "applicationbundlepackager.h"
 
 #include <QCoreApplication>
 #include <QTextStream>
@@ -11,10 +12,21 @@ int main(int argc, char **argv)
     QTextStream output(stdout);
     QTextStream error(stderr);
 
+    if (arguments.size() == 4 && arguments.at(1) == QStringLiteral("package")) {
+        QString reason;
+        if (!ApplicationBundlePackager::package(arguments.at(2), arguments.at(3), &reason)) {
+            error << "ERROR: " << reason << '\n';
+            return 1;
+        }
+        output << "Packaged " << arguments.at(3) << ". Not installed or signed.\n";
+        return 0;
+    }
+
     if (arguments.size() != 3) {
         error << "usage: northstar-app inspect <bundle.app>\n"
                  "       northstar-app install <bundle.app>\n"
-                 "       northstar-app remove <bundle-identifier>\n";
+                 "       northstar-app remove <bundle-identifier>\n"
+                 "       northstar-app package <recipe.json> <output.app>\n";
         return 64;
     }
 

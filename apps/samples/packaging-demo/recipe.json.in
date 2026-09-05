@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "bundleIdentifier": "org.northstar.PackagingDemo",
+  "displayName": "Northstar Packaging Demo",
+  "version": "@PROJECT_VERSION@",
+  "executable": "northstar-packaging-demo",
+  "icon": "icon.svg",
+  "categories": ["Development"],
+  "license": {"id": "BSD-2-Clause", "file": "LICENSE"},
+  "provenance": {
+    "source": "northstar-project",
+    "package": "northstar-packaging-demo",
+    "revision": "@DEMO_REVISION@"
+  }
+}
