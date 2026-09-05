@@ -116,6 +116,7 @@ private slots:
     void reportsProvenanceAndRejectsSystemIdentifier();
     void marksOnlyDefaultUserBundlesAsUserInstalled();
     void launcherForwardsBundleWorkflow();
+    void webLauncherNeverPassesLocalFiles();
 };
 
 void ApplicationBundleCatalogTest::discoversValidBundleAndLaunchSpec()
@@ -439,6 +440,36 @@ void ApplicationBundleCatalogTest::launcherForwardsBundleWorkflow()
              QStringLiteral("user"));
     QVERIFY(launcher.removeApplicationBundle(QStringLiteral("org.northstar.Forwarded")));
     QVERIFY(!launcher.applicationBundleError());
+}
+
+void ApplicationBundleCatalogTest::webLauncherNeverPassesLocalFiles()
+{
+    QTemporaryDir temp;
+    QVERIFY(createBundle(temp.path(), "org.northstar.WebTest"));
+    const QString bundle = bundlePath(temp.path(), "org.northstar.WebTest");
+    QVERIFY(QFile::remove(bundle + "/Contents/Executable/northstar-welcome"));
+    QByteArray xml = manifest("org.northstar.WebTest");
+    xml.replace("<key>Executable</key><string>northstar-welcome</string>",
+                "<key>WebApplication</key><dict><key>URL</key><string>https://example.org/</string>"
+                "<key>Browser</key><string>firefox</string><key>Network</key><string>required</string>"
+                "<key>Storage</key><string>shared-browser-profile</string>"
+                "<key>Permissions</key><string>browser-managed</string></dict>");
+    QVERIFY(writeFile(bundle + "/Contents/Info.plist", xml, QFileDevice::ReadOwner | QFileDevice::WriteOwner));
+    int launches = 0;
+    QVERIFY(QDir().mkdir(temp.filePath("desktop")));
+    ApplicationLauncher launcher(nullptr, [&](const QString &program, const QStringList &args, qint64 *) {
+        ++launches;
+        return program == "/usr/local/bin/firefox" && args == QStringList({"--new-window", "https://example.org/"});
+    }, {temp.filePath("desktop")}, temp.filePath("launch.log"), {temp.path()});
+    QVERIFY(launcher.launchApplication("bundle:org.northstar.WebTest"));
+    QCOMPARE(launches, 1);
+    QVERIFY(!launcher.launchApplicationWithFile("bundle:org.northstar.WebTest", bundle + "/Contents/Info.plist"));
+    QCOMPARE(launches, 1);
+    QVERIFY(launcher.applicationsForFile(bundle + "/Contents/Info.plist").isEmpty());
+    ApplicationLauncher unavailable(nullptr, [](const QString &, const QStringList &, qint64 *) { return false; },
+                                    {temp.filePath("desktop")}, temp.filePath("failed.log"), {temp.path()});
+    QVERIFY(!unavailable.launchApplication("bundle:org.northstar.WebTest"));
+    QVERIFY(unavailable.launchMessage().contains("Check that Firefox is installed"));
 }
 
 QTEST_MAIN(ApplicationBundleCatalogTest)

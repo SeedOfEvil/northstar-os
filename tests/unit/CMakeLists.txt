@@ -75,6 +75,9 @@ add_test(NAME northstar-applicationbundlecatalog COMMAND test-applicationbundlec
 qt_add_executable(test-applicationbundlepackager test-applicationbundlepackager.cpp)
 target_link_libraries(test-applicationbundlepackager PRIVATE northstar-launcher-core Qt6::Test)
 add_test(NAME northstar-applicationbundlepackager COMMAND test-applicationbundlepackager)
+add_test(NAME northstar-web-bundle-cli
+    COMMAND sh ${PROJECT_SOURCE_DIR}/tests/unit/test-web-bundle.sh
+        $<TARGET_FILE:northstar-app> ${PROJECT_BINARY_DIR}/apps/samples/web-demo)
 add_test(NAME northstar-packaging-demo
     COMMAND sh ${PROJECT_SOURCE_DIR}/tests/unit/test-packaging-demo.sh
         $<TARGET_FILE:northstar-app> $<TARGET_FILE_DIR:northstar-packaging-demo>)

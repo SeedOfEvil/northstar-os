@@ -1,6 +1,7 @@
 #include "applicationbundlecatalog.h"
 #include "applicationbundleinstaller.h"
 #include "applicationbundlepackager.h"
+#include "webapplication.h"
 
 #include <QCoreApplication>
 #include <QTextStream>
@@ -42,6 +43,11 @@ int main(int argc, char **argv)
                << "Source=" << bundle.provenance.source << '\n'
                << "Package=" << bundle.provenance.package << '\n'
                << "Revision=" << bundle.provenance.revision << '\n';
+        if (!bundle.webUrl.isEmpty()) {
+            output << "Type=Web application\nURL=" << bundle.webUrl
+                   << "\nOrigin=" << WebApplication::origin(bundle.webUrl)
+                   << '\n' << WebApplication::notice() << '\n';
+        }
         return 0;
     }
 

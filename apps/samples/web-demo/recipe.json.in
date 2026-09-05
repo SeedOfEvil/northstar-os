@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 2,
+  "bundleIdentifier": "org.northstar.WebDemo",
+  "displayName": "Northstar Web Demo",
+  "version": "@PROJECT_VERSION@",
+  "icon": "icon.svg",
+  "categories": ["Network"],
+  "license": {"id": "BSD-2-Clause", "file": "LICENSE"},
+  "provenance": {
+    "source": "northstar-project",
+    "package": "northstar-web-demo",
+    "revision": "@WEB_DEMO_REVISION@"
+  },
+  "web": {
+    "URL": "https://example.org/",
+    "Browser": "firefox",
+    "Network": "required",
+    "Storage": "shared-browser-profile",
+    "Permissions": "browser-managed"
+  }
+}

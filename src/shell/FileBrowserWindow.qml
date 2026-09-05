@@ -1696,7 +1696,7 @@ Window {
         property bool operationError: false
         title: details.valid ? details.displayName : "Northstar application"
         width: Math.min(520, files.width - 48)
-        height: Math.max(300, installDialogContent.implicitHeight + 40)
+        height: Math.min(files.screen.height - 64, Math.max(300, installDialogContent.implicitHeight + 40))
         x: files.x + (files.width - width) / 2
         y: files.y + (files.height - height) / 2
 
@@ -1707,12 +1707,17 @@ Window {
             border.width: 1
             radius: lunar.radiusLarge
 
+            ScrollView {
+                id: installDialogScroll
+                objectName: "installDialogScroll"
+                anchors.fill: parent
+                anchors.margins: 20
+                clip: true
+                contentWidth: availableWidth
+
             Column {
                 id: installDialogContent
-                anchors.left: parent.left
-                anchors.right: parent.right
-                anchors.top: parent.top
-                anchors.margins: 20
+                width: installDialogScroll.availableWidth
                 spacing: 12
 
                 Text {
@@ -1757,6 +1762,9 @@ Window {
                         Text { color: files.surfaceForeground; text: "Source: " + (bundleInstallDialog.details.source || ""); width: parent.width; wrapMode: Text.WrapAnywhere }
                         Text { color: files.surfaceForeground; text: "Package: " + (bundleInstallDialog.details.package || ""); width: parent.width; wrapMode: Text.WrapAnywhere }
                         Text { color: files.surfaceForeground; text: "Revision: " + (bundleInstallDialog.details.revision || ""); width: parent.width; wrapMode: Text.WrapAnywhere }
+                        Text { color: files.surfaceForeground; visible: !!bundleInstallDialog.details.webUrl; text: "Website: " + (bundleInstallDialog.details.webUrl || ""); width: parent.width; wrapMode: Text.WrapAnywhere }
+                        Text { color: files.surfaceForeground; visible: !!bundleInstallDialog.details.webUrl; text: "Origin: " + (bundleInstallDialog.details.webOrigin || ""); width: parent.width; wrapMode: Text.WrapAnywhere }
+                        Text { color: files.surfaceMuted; visible: !!bundleInstallDialog.details.webUrl; text: bundleInstallDialog.details.webNotice || ""; width: parent.width; wrapMode: Text.WordWrap }
                     }
                 }
 
@@ -1824,6 +1832,7 @@ Window {
                         }
                     }
                 }
+            }
             }
         }
     }

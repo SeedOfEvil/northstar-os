@@ -21,6 +21,10 @@ Applications v2 expands Northstar's application experience without pretending th
   unsigned bundle from a versioned recipe and finished native build inputs,
   including licence text. Its graphical sample passed focused Intel acceptance.
 
+The [web-bundle browser-launch slice](WEB_APP_BUNDLES.md) adds named website
+shortcuts with explicit shared-browser and online requirements. It does not
+yet close the broader reviewed-PWA/profile/offline milestone.
+
 ## Foundation acceptance
 
 - A valid, current-user-owned `.app` installs beneath `XDG_DATA_HOME/northstar/apps` without root.

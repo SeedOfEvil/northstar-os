@@ -1,5 +1,6 @@
 #include "applicationbundlepackager.h"
 #include "applicationbundleinstaller.h"
+#include "webapplication.h"
 
 #include <QDir>
 #include <QFile>
@@ -122,10 +123,15 @@ bool ApplicationBundlePackager::package(const QString &recipePath, const QString
     if (parseError.error != QJsonParseError::NoError || !document.isObject())
         return fail("Recipe must be a JSON object.");
     const QJsonObject recipe = document.object();
+    const bool webBundle = recipe.value("schemaVersion") == QJsonValue(2);
     if (!exactKeys(recipe, {"schemaVersion", "bundleIdentifier", "displayName", "version",
-                            "executable", "icon", "categories", "license", "provenance"})
-        || recipe.value("schemaVersion") != QJsonValue(1))
-        return fail("Expected recipe schemaVersion 1 and exactly the documented fields.");
+                            webBundle ? "web" : "executable", "icon", "categories", "license", "provenance"})
+        || (!webBundle && recipe.value("schemaVersion") != QJsonValue(1)))
+        return fail("Expected native recipe schemaVersion 1 or web recipe schemaVersion 2 with exactly the documented fields.");
+    QString webUrl;
+    if (webBundle && (!recipe.value("web").isObject()
+                      || !WebApplication::read(recipe.value("web").toObject().toVariantMap(), &webUrl)))
+        return fail("Web recipe requires an HTTPS URL, Firefox, required network, shared browser storage and browser-managed permissions.");
     for (const QString &key : {QString("bundleIdentifier"), QString("displayName"), QString("version")}) {
         if (!safeText(recipe.value(key)))
             return fail("Invalid recipe field: " + key);
@@ -158,14 +164,14 @@ bool ApplicationBundlePackager::package(const QString &recipePath, const QString
 
     const QString base = QFileInfo(recipePath).absolutePath();
     QString executablePath, iconPath, licensePath;
-    if (!relativeInput(base, recipe.value("executable"), &executablePath)
+    if ((!webBundle && !relativeInput(base, recipe.value("executable"), &executablePath))
         || !relativeInput(base, recipe.value("icon"), &iconPath)
         || !relativeInput(base, license.value("file"), &licensePath))
         return fail("Inputs must be relative paths below the recipe directory, without symlinks or traversal.");
     QByteArray executable, icon, licenseText;
-    if (!readInput(executablePath, 128LL * 1024 * 1024, &executable, true))
+    if (!webBundle && !readInput(executablePath, 128LL * 1024 * 1024, &executable, true))
         return fail("Executable must be an owned executable regular file, at most 128 MiB.");
-    if (!executable.startsWith(QByteArray("\x7f" "ELF", 4)) && !executable.startsWith("#!/"))
+    if (!webBundle && !executable.startsWith(QByteArray("\x7f" "ELF", 4)) && !executable.startsWith("#!/"))
         return fail("Executable must be an ELF binary or a script with an absolute shebang; PE/Mach-O are unsupported.");
     const QString iconSuffix = QFileInfo(iconPath).suffix().toLower();
     if (!readInput(iconPath, 8 * 1024 * 1024, &icon)
@@ -219,7 +225,18 @@ bool ApplicationBundlePackager::package(const QString &recipePath, const QString
     field("BundleIdentifier", recipe.value("bundleIdentifier").toString());
     field("DisplayName", recipe.value("displayName").toString());
     field("Version", recipe.value("version").toString());
-    field("Executable", "app");
+    if (webBundle) {
+        writer.writeTextElement("key", "WebApplication");
+        writer.writeStartElement("dict");
+        field("URL", webUrl);
+        field("Browser", "firefox");
+        field("Network", "required");
+        field("Storage", "shared-browser-profile");
+        field("Permissions", "browser-managed");
+        writer.writeEndElement();
+    } else {
+        field("Executable", "app");
+    }
     field("Icon", "icon." + iconSuffix);
     writer.writeTextElement("key", "Categories");
     writer.writeStartElement("array");
@@ -242,7 +259,7 @@ bool ApplicationBundlePackager::package(const QString &recipePath, const QString
     writer.writeEndDocument();
     if (writer.hasError()
         || !writeOutput(bundle + "/Contents/Info.plist", manifest)
-        || !writeOutput(bundle + "/Contents/Executable/app", executable, true)
+        || (!webBundle && !writeOutput(bundle + "/Contents/Executable/app", executable, true))
         || !writeOutput(bundle + "/Contents/Resources/icon." + iconSuffix, icon)
         || !writeOutput(bundle + "/Contents/Resources/LICENSE", licenseText))
         return fail("Could not write the complete staged bundle.");

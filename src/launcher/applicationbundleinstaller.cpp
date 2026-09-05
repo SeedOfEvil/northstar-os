@@ -1,6 +1,7 @@
 #include "applicationbundleinstaller.h"
 
 #include "applicationbundlecatalog.h"
+#include "webapplication.h"
 
 #include <QDateTime>
 #include <QDir>
@@ -110,6 +111,9 @@ QVariantMap ApplicationBundleInstaller::bundleDetails(const QString &sourcePath)
         {QStringLiteral("package"), bundle.provenance.package},
         {QStringLiteral("revision"), bundle.provenance.revision},
         {QStringLiteral("bundlePath"), bundle.bundlePath},
+        {QStringLiteral("webUrl"), bundle.webUrl},
+        {QStringLiteral("webOrigin"), WebApplication::origin(bundle.webUrl)},
+        {QStringLiteral("webNotice"), bundle.webUrl.isEmpty() ? QString() : WebApplication::notice()},
         {QStringLiteral("alreadyInstalled"), !scope.isEmpty()},
         {QStringLiteral("installedScope"), scope}
     };

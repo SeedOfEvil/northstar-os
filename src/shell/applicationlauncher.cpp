@@ -1,6 +1,7 @@
 #include "applicationlauncher.h"
 
 #include "../launcher/applicationbundleinstaller.h"
+#include "../launcher/webapplication.h"
 
 #include <QDateTime>
 #include <QDir>
@@ -263,6 +264,12 @@ bool ApplicationLauncher::launchApplicationAction(const QString &desktopId,
 
 bool ApplicationLauncher::launchApplicationWithFile(const QString &desktopId, const QString &filePath)
 {
+    for (const BundleApplication &bundle : m_bundleCatalog.entries()) {
+        if (bundle.desktopId == desktopId && !bundle.webUrl.isEmpty()) {
+            setLaunchStatus(desktopId, applicationNameFor(desktopId), {}, 0, false);
+            return false;
+        }
+    }
     const QFileInfo fileInfo(filePath);
     if (!fileInfo.exists() || !fileInfo.isFile()) {
         setLaunchStatus(desktopId, applicationNameFor(desktopId), {}, 0, false);
@@ -297,7 +304,8 @@ QString ApplicationLauncher::desktopIdForWindow(const QString &appId, const QStr
     // same executable is also exposed through a compatibility .desktop file.
     for (const QVariant &entry : entries) {
         const QVariantMap application = entry.toMap();
-        if (application.value(QStringLiteral("sourceType")).toString() != QStringLiteral("bundle")) {
+        if (application.value(QStringLiteral("sourceType")).toString() != QStringLiteral("bundle")
+            || !application.value(QStringLiteral("webUrl")).toString().isEmpty()) {
             continue;
         }
         const QString desktopId = application.value(QStringLiteral("desktopId")).toString();
@@ -517,6 +525,9 @@ void ApplicationLauncher::setLaunchStatus(const QString &desktopId,
         m_launchMessage = QStringLiteral("Started %1%2").arg(applicationName, pidSuffix);
     } else {
         m_launchMessage = QStringLiteral("Could not start %1").arg(applicationName);
+        if (program == WebApplication::browserProgram()) {
+            m_launchMessage += QStringLiteral(". Check that Firefox is installed and can open in this session.");
+        }
     }
 
     recordLaunch(desktopId, applicationName, program, pid, succeeded);
