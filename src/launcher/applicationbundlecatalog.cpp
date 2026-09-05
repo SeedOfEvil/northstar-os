@@ -360,8 +360,13 @@ bool resolveOwnedFile(const QString &basePath,
     return true;
 }
 
-bool readBundle(const QString &path, BundleApplication *application)
+bool readBundle(const QString &path, BundleApplication *application, QString *reason = nullptr)
 {
+    const auto fail = [reason](const QString &message) {
+        if (reason) *reason = message;
+        return false;
+    };
+    if (reason) reason->clear();
     if (application == nullptr) {
         return false;
     }
@@ -369,12 +374,12 @@ bool readBundle(const QString &path, BundleApplication *application)
     const QFileInfo bundleInfo(path);
     if (!bundleInfo.isDir() || bundleInfo.isSymLink()
         || !bundleInfo.fileName().endsWith(QStringLiteral(".app"), Qt::CaseSensitive)) {
-        return false;
+        return fail(QStringLiteral("Select an existing .app directory, not a symbolic link or standalone file."));
     }
 
     const QString bundlePath = bundleInfo.canonicalFilePath();
     if (bundlePath.isEmpty() || !isOwnedAndNotGroupWritable(bundleInfo, bundleInfo.ownerId())) {
-        return false;
+        return fail(QStringLiteral("The bundle path or permissions are unsafe. Obtain an owned copy without group/world write permission."));
     }
 
     const uint ownerId = bundleInfo.ownerId();
@@ -382,18 +387,18 @@ bool readBundle(const QString &path, BundleApplication *application)
     const QFileInfo contentsInfo(contentsPath);
     if (!contentsInfo.isDir() || contentsInfo.isSymLink()
         || !isOwnedAndNotGroupWritable(contentsInfo, ownerId)) {
-        return false;
+        return fail(QStringLiteral("Contents is missing, linked, differently owned or writable by other users. Repackage the application."));
     }
 
     const QString manifestPath = QDir(contentsPath).filePath(QStringLiteral("Info.plist"));
     const QFileInfo manifestInfo(manifestPath);
-    if (manifestInfo.isSymLink() || !isOwnedAndNotGroupWritable(manifestInfo, ownerId)) {
-        return false;
+    if (!manifestInfo.isFile() || manifestInfo.isSymLink() || !isOwnedAndNotGroupWritable(manifestInfo, ownerId)) {
+        return fail(QStringLiteral("Contents/Info.plist is missing or has unsafe ownership/permissions. Repackage the application."));
     }
 
     BundleManifest manifest;
     if (!readManifest(manifestPath, &manifest) || !validBundleIdentifier(manifest.bundleId)) {
-        return false;
+        return fail(QStringLiteral("Info.plist is not a valid Northstar manifest. Check identity, version, categories, icon, provenance and the executable or web declaration against the packaging guide. A macOS .app is not a Northstar bundle."));
     }
 
     const QString executableRoot = QDir(contentsPath).filePath(QStringLiteral("Executable"));
@@ -404,7 +409,7 @@ bool readBundle(const QString &path, BundleApplication *application)
         || !resourcesRootInfo.isDir() || resourcesRootInfo.isSymLink()
         || !isOwnedAndNotGroupWritable(executableRootInfo, ownerId)
         || !isOwnedAndNotGroupWritable(resourcesRootInfo, ownerId)) {
-        return false;
+        return fail(QStringLiteral("Contents/Executable or Contents/Resources is missing or unsafe. Repackage the application."));
     }
 
     QFileInfo executableInfo;
@@ -415,7 +420,7 @@ bool readBundle(const QString &path, BundleApplication *application)
             && (!resolveOwnedFile(executableRoot, manifest.executable, ownerId, &executableInfo)
                 || !executableInfo.isExecutable()))
         || !resolveOwnedFile(resourcesRoot, manifest.icon, ownerId, &iconInfo)) {
-        return false;
+        return fail(QStringLiteral("Check the declared executable and icon paths, ownership and executable permission. Web bundles must have an empty Executable directory; links and escaping paths are rejected."));
     }
 
     BundleApplication parsed;
@@ -688,7 +693,7 @@ QStringList ApplicationBundleCatalog::defaultBundleDirectories()
     return result;
 }
 
-bool ApplicationBundleCatalog::inspectBundle(const QString &path, BundleApplication *application)
+bool ApplicationBundleCatalog::inspectBundle(const QString &path, BundleApplication *application, QString *reason)
 {
-    return readBundle(path, application);
+    return readBundle(path, application, reason);
 }

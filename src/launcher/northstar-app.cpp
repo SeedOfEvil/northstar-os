@@ -2,6 +2,7 @@
 #include "applicationbundleinstaller.h"
 #include "applicationbundlepackager.h"
 #include "webapplication.h"
+#include "applicationcompatibility.h"
 
 #include <QCoreApplication>
 #include <QTextStream>
@@ -25,10 +26,20 @@ int main(int argc, char **argv)
 
     if (arguments.size() != 3) {
         error << "usage: northstar-app inspect <bundle.app>\n"
+                 "       northstar-app report <bundle.app-or-file>\n"
                  "       northstar-app install <bundle.app>\n"
                  "       northstar-app remove <bundle-identifier>\n"
                  "       northstar-app package <recipe.json> <output.app>\n";
         return 64;
+    }
+
+    if (arguments.at(1) == QStringLiteral("report")) {
+        const QVariantMap report = ApplicationCompatibility::report(arguments.at(2));
+        output << "Status=" << report.value("status").toString() << '\n'
+               << "Format=" << report.value("format").toString() << '\n'
+               << report.value("message").toString() << '\n'
+               << "RuntimeVerified=no\n";
+        return 0; // A report is evidence, not an installation or compatibility success code.
     }
 
     if (arguments.at(1) == QStringLiteral("inspect")) {
