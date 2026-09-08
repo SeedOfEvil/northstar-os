@@ -64,6 +64,7 @@ qt_add_qml_module(northstar-shell
         WindowDragController.qml
         SoftwareCenterWindow.qml
         FileBrowserWindow.qml
+        FilesBundleInstallDialog.qml
         FileBrowserFileView.qml
         FileBrowserSidebar.qml
         FileBrowserTabBar.qml

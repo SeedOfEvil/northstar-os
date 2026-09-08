@@ -149,6 +149,22 @@ int runShellSelfTest(const QList<QObject *> &surfaces)
         return 1;
     }
     QMetaObject::invokeMethod(bundleDialog, "close");
+    bundleDialog->setProperty("operationComplete", true);
+    bundleDialog->setProperty("operationError", true);
+    bundleDialog->setProperty("statusText", QStringLiteral("previous attempt"));
+    if (!QMetaObject::invokeMethod(filesWindow, "openBundleInstallDialog",
+            Q_ARG(QVariant, QVariant(QStringLiteral("/nonexistent/test.app"))))) {
+        qCritical() << "could not reopen the extracted install dialog";
+        return 1;
+    }
+    QCoreApplication::processEvents();
+    if (bundleDialog->property("operationComplete").toBool()
+        || bundleDialog->property("operationError").toBool()
+        || !bundleDialog->property("statusText").toString().isEmpty()) {
+        qCritical() << "reopening the install dialog retained stale operation state";
+        return 1;
+    }
+    QMetaObject::invokeMethod(bundleDialog, "close");
     QObject *overview = nullptr;
     for (QObject *surface : surfaces) {
         overview = surface->findChild<QObject *>(QStringLiteral("applicationOverview"));

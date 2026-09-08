@@ -536,7 +536,7 @@ Window {
         }
         bundleInstallDialog.operationComplete = false
         bundleInstallDialog.operationError = false
-        bundleInstallStatus.text = ""
+        bundleInstallDialog.statusText = ""
         bundleInstallDialog.show()
         bundleInstallDialog.raise()
         bundleInstallDialog.requestActivate()
@@ -1682,168 +1682,10 @@ Window {
         }
     }
 
-    Window {
+    FilesBundleInstallDialog {
         id: bundleInstallDialog
-        objectName: "bundleInstallDialog"
-        color: "transparent"
-        flags: Qt.Dialog | Qt.FramelessWindowHint
-        modality: Qt.WindowModal
-        transientParent: files
-        visible: false
-        property string itemPath: ""
-        property var details: ({})
-        property bool operationComplete: false
-        property bool operationError: false
-        title: details.valid ? details.displayName : "Northstar application"
-        width: Math.min(520, files.width - 48)
-        height: Math.min(files.screen.height - 64, Math.max(300, installDialogContent.implicitHeight + 40))
-        x: files.x + (files.width - width) / 2
-        y: files.y + (files.height - height) / 2
-
-        Rectangle {
-            anchors.fill: parent
-            color: files.surfaceBackground
-            border.color: lunar.borderSoft
-            border.width: 1
-            radius: lunar.radiusLarge
-
-            ScrollView {
-                id: installDialogScroll
-                objectName: "installDialogScroll"
-                anchors.fill: parent
-                anchors.margins: 20
-                clip: true
-                contentWidth: availableWidth
-
-            Column {
-                id: installDialogContent
-                width: installDialogScroll.availableWidth
-                spacing: 12
-
-                Text {
-                    color: files.surfaceForeground
-                    font.bold: true
-                    font.pixelSize: 18
-                    text: bundleInstallDialog.operationComplete
-                        ? bundleInstallDialog.details.displayName + " was installed"
-                        : bundleInstallDialog.details.valid
-                        ? "Install " + bundleInstallDialog.details.displayName + "?"
-                        : "This application cannot be installed"
-                    width: parent.width
-                    wrapMode: Text.WordWrap
-                }
-
-                Text {
-                    color: files.surfaceMuted
-                    text: bundleInstallDialog.details.valid
-                        ? "Version " + bundleInstallDialog.details.version
-                            + "  -  " + bundleInstallDialog.details.bundleIdentifier
-                        : (bundleInstallDialog.details.validationError
-                            || "Northstar could not validate this application.")
-                    width: parent.width
-                    wrapMode: Text.WrapAnywhere
-                }
-
-                Rectangle {
-                    color: lunar.raised
-                    radius: lunar.radiusMedium
-                    height: visible ? installProvenance.implicitHeight + 24 : 0
-                    visible: bundleInstallDialog.details.valid === true
-                    width: parent.width
-
-                    Column {
-                        id: installProvenance
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.margins: 12
-                        anchors.verticalCenter: parent.verticalCenter
-                        spacing: 6
-
-                        Text { color: files.surfaceForeground; text: "Source: " + (bundleInstallDialog.details.source || ""); width: parent.width; wrapMode: Text.WrapAnywhere }
-                        Text { color: files.surfaceForeground; text: "Package: " + (bundleInstallDialog.details.package || ""); width: parent.width; wrapMode: Text.WrapAnywhere }
-                        Text { color: files.surfaceForeground; text: "Revision: " + (bundleInstallDialog.details.revision || ""); width: parent.width; wrapMode: Text.WrapAnywhere }
-                        Text { color: files.surfaceForeground; visible: !!bundleInstallDialog.details.webUrl; text: "Website: " + (bundleInstallDialog.details.webUrl || ""); width: parent.width; wrapMode: Text.WrapAnywhere }
-                        Text { color: files.surfaceForeground; visible: !!bundleInstallDialog.details.webUrl; text: "Origin: " + (bundleInstallDialog.details.webOrigin || ""); width: parent.width; wrapMode: Text.WrapAnywhere }
-                        Text { color: files.surfaceMuted; visible: !!bundleInstallDialog.details.webUrl; text: bundleInstallDialog.details.webNotice || ""; width: parent.width; wrapMode: Text.WordWrap }
-                        Text {
-                            color: files.surfaceMuted
-                            width: parent.width
-                            wrapMode: Text.WordWrap
-                            textFormat: Text.PlainText
-                            visible: !!bundleInstallDialog.details.compatibility
-                            text: "Compatibility: " + (bundleInstallDialog.details.compatibility || {}).format
-                                  + "\n" + ((bundleInstallDialog.details.compatibility || {}).message || "")
-                        }
-                    }
-                }
-
-                Text {
-                    color: bundleInstallDialog.details.alreadyInstalled ? lunar.danger : files.surfaceMuted
-                    text: bundleInstallDialog.operationComplete ? ""
-                        : !bundleInstallDialog.details.valid ? ""
-                        : bundleInstallDialog.details.installedScope === "system"
-                            ? "A package-owned application already uses this identifier. Northstar will not replace or shadow it."
-                        : bundleInstallDialog.details.installedScope === "user"
-                            ? "This application is already installed for your account."
-                        : "The application will be copied into your private Applications directory without administrator access."
-                    visible: text.length > 0
-                    width: parent.width
-                    wrapMode: Text.WordWrap
-                }
-
-                Text {
-                    id: bundleInstallStatus
-                    color: bundleInstallDialog.operationError ? lunar.danger : lunar.success
-                    visible: text.length > 0
-                    width: parent.width
-                    wrapMode: Text.WordWrap
-                }
-
-                Item {
-                    height: installButtons.implicitHeight
-                    width: parent.width
-
-                    Row {
-                        id: installButtons
-                        anchors.right: parent.right
-                        spacing: 10
-
-                        Button {
-                            text: bundleInstallDialog.operationComplete ? "Done" : "Cancel"
-                            onClicked: bundleInstallDialog.close()
-                        }
-
-                        Button {
-                            enabled: bundleInstallDialog.details.valid === true
-                                && bundleInstallDialog.details.alreadyInstalled !== true
-                                && !bundleInstallDialog.operationComplete
-                            visible: !bundleInstallDialog.operationComplete
-                            text: "Install"
-                            onClicked: {
-                                if (!files.applicationLauncher) {
-                                    bundleInstallStatus.text = "The Northstar application installer is unavailable."
-                                    bundleInstallDialog.operationError = true
-                                    return
-                                }
-                                const succeeded = files.applicationLauncher.installApplicationBundle(
-                                    bundleInstallDialog.itemPath)
-                                bundleInstallDialog.operationError = files.applicationLauncher.applicationBundleError()
-                                bundleInstallStatus.text = files.applicationLauncher.applicationBundleStatusMessage()
-                                if (succeeded) {
-                                    bundleInstallDialog.operationComplete = true
-                                    bundleInstallDialog.details = files.applicationLauncher.applicationBundleDetails(
-                                        bundleInstallDialog.itemPath)
-                                    if (files.applicationLauncher) {
-                                        files.applicationLauncher.refreshApplications()
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            }
-        }
+        ownerWindow: files
+        theme: lunar
     }
 
     Dialog {
