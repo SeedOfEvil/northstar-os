@@ -481,7 +481,7 @@ Window {
         }
         nameDialog.mode = mode
         nameDialog.originalPath = mode === "rename" ? files.selectedPath : ""
-        nameField.text = mode === "rename" ? files.selectedName : ""
+        nameDialog.nameText = mode === "rename" ? files.selectedName : ""
         nameDialog.open()
     }
 
@@ -1941,226 +1941,34 @@ Window {
         }
     }
 
-    Dialog {
+    FilesPasteConflictDialog {
         id: pasteConflictDialog
-
-        title: "An item already exists"
-        modal: true
-        padding: 16
-        standardButtons: Dialog.Cancel
-        width: Math.min(460, files.width - 48)
-        x: (files.width - width) / 2
-        y: (files.height - height) / 2
-
-        background: Rectangle {
-            color: files.surfaceBackground
-            border.color: lunar.warning
-            border.width: 1
-            radius: 8
-        }
-
-        contentItem: Column {
-            spacing: 12
-            width: pasteConflictDialog.width - (2 * pasteConflictDialog.padding)
-
-            Text {
-                color: files.surfaceForeground
-                text: "A file or folder named \""
-                    + (files.fileBrowserController ? files.fileBrowserController.conflictName : "item")
-                    + "\" is already in this location. Keep both items with a safe copy name?"
-                wrapMode: Text.WordWrap
-                width: parent.width
-            }
-
-            AuroraButton {
-                text: "Keep Both"
-                onClicked: {
-                    if (files.fileBrowserController.pasteClipboard("keepBoth")) {
-                        pasteConflictDialog.close()
-                        files.clearSelection()
-                    }
-                }
-            }
-        }
-
-        onRejected: {
-            if (files.fileBrowserController) {
-                files.fileBrowserController.cancelConflict()
-            }
-        }
+        ownerWindow: files
+        theme: lunar
     }
 
-    Dialog {
+    FilesNameDialog {
         id: nameDialog
-        property string mode: "create"
-        property string originalPath: ""
-
-        title: mode === "rename" ? "Rename item"
-            : mode === "file" ? "Create file" : "Create folder"
-        modal: true
-        padding: 16
-        standardButtons: Dialog.Cancel | Dialog.Ok
-        width: Math.min(420, files.width - 48)
-        x: (files.width - width) / 2
-        y: (files.height - height) / 2
-
-        background: Rectangle {
-            color: files.surfaceBackground
-            border.color: files.surfaceAccent
-            border.width: 1
-            radius: 8
-        }
-
-        contentItem: Column {
-            spacing: 10
-            width: nameDialog.width - (2 * nameDialog.padding)
-
-            Text {
-                color: files.surfaceForeground
-                text: nameDialog.mode === "rename"
-                    ? "Choose a new name for the selected item."
-                    : nameDialog.mode === "file"
-                        ? "Choose a name for the new empty file."
-                        : "Choose a name for the new folder."
-                wrapMode: Text.WordWrap
-                width: parent.width
-            }
-
-            TextField {
-                id: nameField
-                width: parent.width
-                placeholderText: "Name"
-                selectByMouse: true
-                onAccepted: nameDialog.accept()
-            }
-        }
-
-        onOpened: {
-            nameField.forceActiveFocus()
-            nameField.selectAll()
-        }
-
-        onAccepted: {
-            const succeeded = mode === "rename"
-                ? files.fileBrowserController.renameEntry(originalPath, nameField.text)
-                : mode === "file"
-                    ? files.fileBrowserController.createFile(nameField.text)
-                    : files.fileBrowserController.createFolder(nameField.text)
-            if (succeeded) {
-                files.clearSelection()
-            } else {
-                Qt.callLater(function() { nameDialog.open() })
-            }
-        }
+        ownerWindow: files
+        theme: lunar
     }
 
-    Dialog {
+    FilesTrashDialog {
         id: trashDialog
-        property string itemPath: ""
-        property string itemName: ""
-
-        title: "Delete item?"
-        modal: true
-        padding: 16
-        standardButtons: Dialog.Cancel | Dialog.Ok
-        width: Math.min(420, files.width - 48)
-        x: (files.width - width) / 2
-        y: (files.height - height) / 2
-
-        background: Rectangle {
-            color: files.surfaceBackground
-            border.color: files.surfaceAccent
-            border.width: 1
-            radius: 8
-        }
-
-        contentItem: Text {
-            color: files.surfaceForeground
-            text: "Move \"" + trashDialog.itemName
-                + "\" to the Northstar Trash? You can restore it later."
-            wrapMode: Text.WordWrap
-            width: trashDialog.width - (2 * trashDialog.padding)
-        }
-
-        onAccepted: {
-            if (files.fileBrowserController.moveToTrash(itemPath)) {
-                files.clearSelection()
-            } else {
-                Qt.callLater(function() { trashDialog.open() })
-            }
-        }
+        ownerWindow: files
+        theme: lunar
     }
 
-    Dialog {
+    FilesRestoreDialog {
         id: restoreDialog
-        property string itemPath: ""
-        property string itemName: ""
-        property string originalLocation: ""
-
-        title: "Restore item?"
-        modal: true
-        padding: 16
-        standardButtons: Dialog.Cancel | Dialog.Ok
-        width: Math.min(440, files.width - 48)
-        x: (files.width - width) / 2
-        y: (files.height - height) / 2
-
-        background: Rectangle {
-            color: files.surfaceBackground
-            border.color: files.surfaceAccent
-            border.width: 1
-            radius: 8
-        }
-
-        contentItem: Text {
-            color: files.surfaceForeground
-            text: "Restore \"" + restoreDialog.itemName + "\" to "
-                + restoreDialog.originalLocation + "?"
-            wrapMode: Text.WordWrap
-            width: restoreDialog.width - (2 * restoreDialog.padding)
-        }
-
-        onAccepted: {
-            if (files.fileBrowserController.restoreEntry(itemPath)) {
-                files.clearSelection()
-            } else {
-                Qt.callLater(function() { restoreDialog.open() })
-            }
-        }
+        ownerWindow: files
+        theme: lunar
     }
 
-    Dialog {
+    FilesEmptyTrashDialog {
         id: emptyTrashDialog
-
-        title: "Empty Trash?"
-        modal: true
-        padding: 16
-        standardButtons: Dialog.Cancel | Dialog.Ok
-        width: Math.min(420, files.width - 48)
-        x: (files.width - width) / 2
-        y: (files.height - height) / 2
-
-        background: Rectangle {
-            color: files.surfaceBackground
-            border.color: "#c34f65"
-            border.width: 1
-            radius: 8
-        }
-
-        contentItem: Text {
-            color: files.surfaceForeground
-            text: "This permanently removes every item currently in the Northstar Trash."
-            wrapMode: Text.WordWrap
-            width: emptyTrashDialog.width - (2 * emptyTrashDialog.padding)
-        }
-
-        onAccepted: {
-            if (files.fileBrowserController.emptyTrash()) {
-                files.clearSelection()
-            } else {
-                Qt.callLater(function() { emptyTrashDialog.open() })
-            }
-        }
+        ownerWindow: files
+        theme: lunar
     }
 
     Rectangle {

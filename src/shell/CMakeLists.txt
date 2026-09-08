@@ -65,6 +65,11 @@ qt_add_qml_module(northstar-shell
         SoftwareCenterWindow.qml
         FileBrowserWindow.qml
         FilesBundleInstallDialog.qml
+        FilesPasteConflictDialog.qml
+        FilesNameDialog.qml
+        FilesTrashDialog.qml
+        FilesRestoreDialog.qml
+        FilesEmptyTrashDialog.qml
         FileBrowserFileView.qml
         FileBrowserSidebar.qml
         FileBrowserTabBar.qml
