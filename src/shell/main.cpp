@@ -111,6 +111,29 @@ int runShellSelfTest(const QList<QObject *> &surfaces)
         qCritical() << "the shell surface exposes no fileBrowserWindow";
         return 1;
     }
+    // Exercise extracted operation surfaces without accepting a filesystem mutation.
+    for (const QString &name : {QStringLiteral("pasteConflictDialog"), QStringLiteral("nameDialog"),
+                               QStringLiteral("trashDialog"), QStringLiteral("restoreDialog"),
+                               QStringLiteral("emptyTrashDialog")}) {
+        QObject *dialog = filesWindow->findChild<QObject *>(name);
+        if (!dialog || dialog->property("ownerWindow").value<QObject *>() != filesWindow
+            || !dialog->property("theme").value<QObject *>()) {
+            qCritical() << "file operation dialog dependencies are missing:" << name;
+            return 1;
+        }
+        if (name == QStringLiteral("nameDialog")) {
+            dialog->setProperty("nameText", QStringLiteral("refactor-test-name"));
+            if (dialog->property("nameText").toString() != QStringLiteral("refactor-test-name"))
+                return 1;
+        }
+        for (int attempt = 0; attempt < 2; ++attempt) {
+            if (!QMetaObject::invokeMethod(dialog, "open")
+                || !expectVisible(dialog, true, "opening file operation dialog")
+                || !QMetaObject::invokeMethod(dialog, "reject")
+                || !expectVisible(dialog, false, "cancelling file operation dialog"))
+                return 1;
+        }
+    }
     QObject *bundleDialog = filesWindow->findChild<QObject *>(
         QStringLiteral("bundleInstallDialog"));
     if (bundleDialog == nullptr
