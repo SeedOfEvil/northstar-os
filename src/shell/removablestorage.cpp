@@ -40,7 +40,7 @@ QVariantList RemovableStorage::parse(const QByteArray &xml, const QSet<QString> 
         if (reader.isDTD() || reader.isEntityReference()) return {};
         if (reader.isStartElement()) {
             const QString name = reader.name().toString();
-            const QString path = stack.join('/') + '/' + name;
+            const QString path = '/' + (stack.isEmpty() ? QString() : stack.join('/') + '/') + name;
             if (stack.size() > 16) return {};
             if (path == "/mesh/class") className.clear();
             if (path == "/mesh/class/geom/provider") { device.clear(); description.clear(); size = 0; }
@@ -82,7 +82,7 @@ RemovableStorage::Scan RemovableStorage::scan()
     if (keys.size() > 32) return {{}, "Device inventory exceeds the supported scan limit."};
     if (keys.isEmpty()) return {{}, "No removable media detected. Connect a drive and choose Refresh."};
     QByteArray flags, xml;
-    if (!readSysctl(keys, &flags) || !readSysctl({"-b", "kern.geom.confxml"}, &xml))
+    if (!readSysctl(keys, &flags) || !readSysctl({"-n", "kern.geom.confxml"}, &xml))
         return {{}, "Device detection failed or the drive changed during scanning. Choose Refresh."};
     QSet<QString> removable;
     const QRegularExpression pattern(QStringLiteral("^kern\\.cam\\.da\\.([0-9]{1,5})\\.flags: [^<]*<([^>]*)>$"));
