@@ -114,7 +114,7 @@ int runShellSelfTest(const QList<QObject *> &surfaces)
     // Exercise extracted operation surfaces without accepting a filesystem mutation.
     for (const QString &name : {QStringLiteral("pasteConflictDialog"), QStringLiteral("nameDialog"),
                                QStringLiteral("trashDialog"), QStringLiteral("restoreDialog"),
-                               QStringLiteral("emptyTrashDialog")}) {
+                               QStringLiteral("emptyTrashDialog"), QStringLiteral("removableDevicesDialog")}) {
         QObject *dialog = filesWindow->findChild<QObject *>(name);
         if (!dialog || dialog->property("ownerWindow").value<QObject *>() != filesWindow
             || !dialog->property("theme").value<QObject *>()) {

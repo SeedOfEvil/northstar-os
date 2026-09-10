@@ -4,6 +4,8 @@
 #include <QObject>
 #include <QString>
 #include <QVariantList>
+#include <QFutureWatcher>
+#include "removablestorage.h"
 
 struct VolumeEntry
 {
@@ -33,6 +35,9 @@ class VolumeController final : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(QVariantList volumes READ volumes NOTIFY volumesChanged)
+    Q_PROPERTY(QVariantList removableDevices READ removableDevices NOTIFY removableChanged)
+    Q_PROPERTY(QString removableStatus READ removableStatus NOTIFY removableChanged)
+    Q_PROPERTY(bool scanning READ scanning NOTIFY removableChanged)
 
 public:
     explicit VolumeController(QObject *parent = nullptr);
@@ -41,12 +46,20 @@ public:
     QVariantList volumes() const;
 
     Q_INVOKABLE bool refresh();
+    Q_INVOKABLE void scanRemovable();
+    QVariantList removableDevices() const { return m_removable; }
+    QString removableStatus() const { return m_removableStatus; }
+    bool scanning() const { return m_scan.isRunning(); }
 
 signals:
     void volumesChanged();
+    void removableChanged();
 
 private:
     static QVariantList toVariantList(const QList<VolumeEntry> &entries);
 
     QList<VolumeEntry> m_entries;
+    QVariantList m_removable;
+    QString m_removableStatus;
+    QFutureWatcher<RemovableStorage::Scan> m_scan;
 };

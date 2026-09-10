@@ -6,6 +6,7 @@
 #include <QSet>
 #include <QStorageInfo>
 #include <QVariantMap>
+#include <QtConcurrent/QtConcurrentRun>
 
 #include <algorithm>
 #include <utility>
@@ -55,7 +56,22 @@ QString formatBytes(qint64 bytes)
 VolumeController::VolumeController(QObject *parent)
     : QObject(parent)
 {
+    connect(&m_scan, &QFutureWatcher<RemovableStorage::Scan>::finished, this, [this] {
+        const auto result = m_scan.result();
+        m_removable = result.devices;
+        m_removableStatus = result.status;
+        emit removableChanged();
+    });
     refresh();
+}
+
+void VolumeController::scanRemovable()
+{
+    if (m_scan.isRunning()) return;
+    m_removable.clear();
+    m_removableStatus = QStringLiteral("Scanning removable-device metadata...");
+    m_scan.setFuture(QtConcurrent::run(&RemovableStorage::scan));
+    emit removableChanged();
 }
 
 QList<VolumeEntry> VolumeController::entries() const
