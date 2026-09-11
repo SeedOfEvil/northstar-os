@@ -1,7 +1,9 @@
 # Removable storage delivery plan
 
-Status: metadata-only discovery implemented; physical UI acceptance pending.
-Mount, write and eject controls are not implemented in this slice.
+Status: metadata-only discovery physically accepted and merged in PR138.
+Protected read-only NTFS mount/unmount is under development on
+`codex/m7-removable-mount-eject`; native and physical gates are tracked below.
+Writes and whole-drive eject remain out of scope.
 
 ## Current evidence
 
@@ -18,7 +20,7 @@ serial identifiers are recorded here.
 The subsequently attached Kingston DataTraveler Duo is reported at about 58 GiB,
 with two GPT Microsoft basic-data partitions labelled Main Data Partition and
 UEFI:NTFS. The user identified it as recreatable Northstar installer media.
-Neither partition was mounted by this work. Labels do not prove filesystem type.
+Neither partition was mounted during discovery. Labels do not prove filesystem type.
 
 ## Discovery implementation
 
@@ -57,9 +59,9 @@ positive USB/removable evidence, reject ignored/boot/helper partitions, inspect
 all siblings for system mounts and pool/swap use, and bind actions to fresh
 identity. Keep boot helper partitions inaccessible through action buttons.
 
-The NTFS mount prerequisite is currently missing. The package dry-run proposes
+At the start of preparation the NTFS mount prerequisite was missing. The package dry-run proposed
 only fusefs-ntfs and its three dependencies (fusefs-libs, libublio, libuuid), with
-no existing-package upgrades. The fusefs kernel module is not loaded. Installing
+no existing-package upgrades. The fusefs kernel module was not loaded. Installing
 these prerequisites is not mount/write acceptance. Begin with explicit read-only
 mount testing; never repair a dirty NTFS volume or force-unmount to bypass errors.
 
@@ -95,6 +97,30 @@ as acceptance of the future graphical mount/eject workflow.
 
 ## Safety requirements
 
+### Read-only NTFS implementation in progress
+
+The `codex/m7-removable-mount-eject` working tree adds a narrow PolicyKit helper
+and Files controls for explicit read-only NTFS mount and non-forced unmount.
+Native checks passed on 2026-09-11; physical GUI acceptance remains pending. No runtime deployment or
+new installer is implied. bsdisks is used for discovery only, never its Mount
+method, because the installed version ignores the supplied read-only options.
+
+The helper requires fresh USB/removable metadata, serial/partition identity,
+kernel GEOM identity and filesystem checks. It rejects protected partition
+layouts and allows only fixed mount options and root-controlled destinations.
+The GUI closes its dialog before authentication and reports the operation result.
+Whole-drive eject, writes, formatting and repair remain unsupported.
+
+Verified on the Intel laptop: native shell/helper build; storage-access and
+volume-catalog tests; offscreen shell QML self-test. The opt-in read-only live
+inventory test identifies da0p1 as eligible and rejects da0p2. No mount was
+performed by these checks. Local repository and QML surface contracts also pass.
+
+Pending gates: authorization cancellation;
+read-only mount and browsing as the desktop user; verified native mount flags;
+busy unmount refusal; successful unmount; stale identity refusal after replug.
+The existing direct driver-only mount test does not satisfy these GUI gates.
+
 - No automatic mount, format, partition, repair or destructive operation.
 - No broad vfs.usermount switch or blanket PolicyKit grants.
 - Never infer USB/removable status solely from a device name such as da0.
@@ -104,7 +130,7 @@ as acceptance of the future graphical mount/eject workflow.
   unplugging or device-name reuse. Revalidate filesystem, mount and ownership.
 - Do not allow arbitrary device paths, mount destinations or command-line options
   from QML. Show errors instead of falling back to more permissive behavior.
-- Begin with one proven filesystem (candidate: FAT32); do not claim exFAT/NTFS
+- Begin with one proven filesystem (this slice: NTFS read-only); do not claim exFAT/NTFS
   write support until their drivers and behavior have separate acceptance.
 - Refuse busy unmounts; never force-unmount. Report safe removal only after the
   relevant mounts are gone and the service's completion is verified.

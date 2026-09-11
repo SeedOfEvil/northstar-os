@@ -5,6 +5,7 @@
 #include <QString>
 #include <QVariantList>
 #include <QFutureWatcher>
+#include <QProcess>
 #include "removablestorage.h"
 
 struct VolumeEntry
@@ -38,6 +39,9 @@ class VolumeController final : public QObject
     Q_PROPERTY(QVariantList removableDevices READ removableDevices NOTIFY removableChanged)
     Q_PROPERTY(QString removableStatus READ removableStatus NOTIFY removableChanged)
     Q_PROPERTY(bool scanning READ scanning NOTIFY removableChanged)
+    Q_PROPERTY(QVariantList storagePartitions READ storagePartitions NOTIFY removableChanged)
+    Q_PROPERTY(QString operationStatus READ operationStatus NOTIFY storageOperationChanged)
+    Q_PROPERTY(bool operationBusy READ operationBusy NOTIFY storageOperationChanged)
 
 public:
     explicit VolumeController(QObject *parent = nullptr);
@@ -50,10 +54,16 @@ public:
     QVariantList removableDevices() const { return m_removable; }
     QString removableStatus() const { return m_removableStatus; }
     bool scanning() const { return m_scan.isRunning(); }
+    QVariantList storagePartitions() const { return m_partitions; }
+    QString operationStatus() const { return m_operationStatus; }
+    bool operationBusy() const { return m_action.state() != QProcess::NotRunning; }
+    Q_INVOKABLE void storageAction(const QString &device, const QString &identity, bool mount);
 
 signals:
     void volumesChanged();
     void removableChanged();
+    void storageOperationChanged();
+    void storageOperationFinished();
 
 private:
     static QVariantList toVariantList(const QList<VolumeEntry> &entries);
@@ -62,4 +72,8 @@ private:
     QVariantList m_removable;
     QString m_removableStatus;
     QFutureWatcher<RemovableStorage::Scan> m_scan;
+    QVariantList m_partitions;
+    QProcess m_action;
+    QByteArray m_actionOutput;
+    QString m_operationStatus;
 };
