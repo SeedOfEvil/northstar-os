@@ -44,6 +44,29 @@ using device-name guesses.
 
 ## Delivery slices
 
+### Mount/eject preparation (2026-09-11)
+
+After detection acceptance and PR138 merge, bsdisks 0.40 was installed by the
+operator. Read-only ObjectManager inspection confirmed the Kingston drive's
+USB ConnectionBus and removable flags; the main partition reports ntfs and the
+small UEFI:NTFS helper reports vfat. Neither was mounted by this work.
+
+Do not rely on HintSystem alone: this version reports false for the installed
+internal NVMe Block objects as well. Future action eligibility must require
+positive USB/removable evidence, reject ignored/boot/helper partitions, inspect
+all siblings for system mounts and pool/swap use, and bind actions to fresh
+identity. Keep boot helper partitions inaccessible through action buttons.
+
+The NTFS mount prerequisite is currently missing. The package dry-run proposes
+only fusefs-ntfs and its three dependencies (fusefs-libs, libublio, libuuid), with
+no existing-package upgrades. The fusefs kernel module is not loaded. Installing
+these prerequisites is not mount/write acceptance. Begin with explicit read-only
+mount testing; never repair a dirty NTFS volume or force-unmount to bypass errors.
+
+Although the service advertises Eject and PowerOff methods, introspection is not
+proof of their implementation or safe completion. Verify backend behavior and
+post-operation mount/device state before displaying a safe-removal claim.
+
 1. Read-only removable-device discovery and visible states: unavailable service,
    scanning, unmounted, mounted, unsupported filesystem, busy and failed operation.
    Test against a physically attached spare USB device before adding mutation.
