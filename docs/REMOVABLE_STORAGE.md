@@ -67,6 +67,21 @@ Although the service advertises Eject and PowerOff methods, introspection is not
 proof of their implementation or safe completion. Verify backend behavior and
 post-operation mount/device state before displaying a safe-removal claim.
 
+Source review of bsdisks 0.40 found a concrete blocker: `BlockFilesystem::Mount`
+accepts an options map but does not consume it or capture it in its authorization
+callback. Its NTFS path invokes ntfs-3g with only device and mountpoint. Passing
+`ro` through this API therefore cannot establish a read-only mount. Do not expose
+or invoke this path as read-only. A corrected service or narrow helper is needed.
+
+Evidence: the FreeBSD port at e9e40e40c5d926e4d17c156665b69e8073cc863b identifies
+bsdisks-0.40.tar.bz2 with SHA-256
+66b23d93ee4886face3b27b8fc51dc05273d14f13924f9bd2a69dc2f23f91030. The reviewed
+archive matched that digest exactly. The relevant file is blockfilesystem.cpp.
+No upstream code was copied into this repository. The operator loaded fusefs;
+/dev/fuse is now present. A direct driver-only test must request
+`ro,norecover,nosuid,noexec`, verify the resulting mount flags and not be claimed
+as acceptance of the future graphical mount/eject workflow.
+
 1. Read-only removable-device discovery and visible states: unavailable service,
    scanning, unmounted, mounted, unsupported filesystem, busy and failed operation.
    Test against a physically attached spare USB device before adding mutation.
