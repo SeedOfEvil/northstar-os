@@ -9,7 +9,50 @@ class VolumeCatalogTest final : public QObject
 
 private slots:
     void discoversSystemVolume();
+    void removableMetadata();
+    void liveInventoryIsNonActionable();
 };
+
+void VolumeCatalogTest::liveInventoryIsNonActionable()
+{
+    const auto result = RemovableStorage::scan();
+    QVERIFY(!result.status.isEmpty());
+    qInfo().noquote() << result.status;
+    for (const auto &value : result.devices) {
+        const auto device = value.toMap();
+        QVERIFY(!device.value("canMount").toBool());
+        QVERIFY(!device.value("canEject").toBool());
+        qInfo().noquote() << device.value("device").toString() << device.value("name").toString();
+    }
+}
+
+void VolumeCatalogTest::removableMetadata()
+{
+    const QByteArray xml = "<mesh><class><name>DISK</name><geom><provider>"
+        "<name>da0</name><mediasize>61872793600</mediasize><config>"
+        "<descr>Kingston &amp; Test</descr><ident>PRIVATE-SERIAL</ident></config>"
+        "</provider></geom><geom><provider><name>nda0</name><mediasize>256000000000</mediasize>"
+        "</provider></geom></class><class><name>PART</name><geom><provider>"
+        "<name>da0</name><mediasize>1</mediasize></provider></geom></class></mesh>";
+    bool valid;
+    const auto devices = RemovableStorage::parse(xml, {"da0", "nda0"}, &valid);
+    QVERIFY(valid);
+    QCOMPARE(devices.size(), 1);
+    const auto device = devices.first().toMap();
+    QCOMPARE(device.value("name").toString(), QString("Kingston & Test"));
+    QCOMPARE(device.value("totalBytes").toLongLong(), 61872793600LL);
+    QVERIFY(!device.value("canMount").toBool());
+    QVERIFY(!device.value("canEject").toBool());
+    QVERIFY(!device.contains("ident"));
+    QCOMPARE(RemovableStorage::parse(xml, {}, &valid).size(), 0);
+    QVERIFY(valid);
+    QVERIFY(RemovableStorage::parse(xml.left(xml.size() - 8), {"da0"}, &valid).isEmpty());
+    QVERIFY(!valid);
+    QVERIFY(RemovableStorage::parse(QByteArray(2 * 1024 * 1024 + 1, 'x'), {"da0"}, &valid).isEmpty());
+    QVERIFY(!valid);
+    QVERIFY(RemovableStorage::parse("<!DOCTYPE mesh [<!ENTITY x 'bad'>]><mesh/>", {}, &valid).isEmpty());
+    QVERIFY(!valid);
+}
 
 void VolumeCatalogTest::discoversSystemVolume()
 {

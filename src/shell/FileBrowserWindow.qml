@@ -940,13 +940,13 @@ Window {
                     anchors.rightMargin: 10
                     spacing: 8
 
-                    Text {
+                    AuroraButton {
                         anchors.verticalCenter: parent.verticalCenter
-                        color: files.surfaceMuted
-                        font.bold: true
-                        font.pixelSize: 12
-                        text: "Locations"
+                        font.pixelSize: 11
+                        text: "Devices..."
                         width: 68
+                        padding: 4
+                        onClicked: removableDevicesDialog.open()
                     }
 
                     Rectangle {
@@ -1967,6 +1967,12 @@ Window {
 
     FilesEmptyTrashDialog {
         id: emptyTrashDialog
+        ownerWindow: files
+        theme: lunar
+    }
+
+    FilesRemovableDevicesDialog {
+        id: removableDevicesDialog
         ownerWindow: files
         theme: lunar
     }

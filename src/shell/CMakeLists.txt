@@ -24,6 +24,7 @@ add_library(northstar-shell-core STATIC
     updateauthorizationcontroller.cpp
     updateplancontroller.cpp
     volumecatalog.cpp
+    removablestorage.cpp
     wallpapercontroller.cpp
     windowcontroller.cpp
 )
@@ -70,6 +71,7 @@ qt_add_qml_module(northstar-shell
         FilesTrashDialog.qml
         FilesRestoreDialog.qml
         FilesEmptyTrashDialog.qml
+        FilesRemovableDevicesDialog.qml
         FileBrowserFileView.qml
         FileBrowserSidebar.qml
         FileBrowserTabBar.qml
