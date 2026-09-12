@@ -121,6 +121,20 @@ read-only mount and browsing as the desktop user; verified native mount flags;
 busy unmount refusal; successful unmount; stale identity refusal after replug.
 The existing direct driver-only mount test does not satisfy these GUI gates.
 
+### Browse follow-up
+
+The first GUI mount reported a completion warning despite a later independent
+SSH check confirming a read-only mount. That helper completion issue remains
+open; it is not physical acceptance of the entire operation.
+
+The Browse action now stays present for eligible partitions: unmounted media
+offers Mount & Browse through the existing authorization flow, while mounted
+media offers Browse. Refresh retains disabled rows rather than removing buttons
+during scanning. Automatic browsing requires the same device/identity and a
+ready, read-only QStorageInfo mount with the exact expected source/destination;
+unverified mounts do not navigate to an empty mount-point directory.
+The action row wraps on narrow windows. Physical button acceptance is pending.
+
 - No automatic mount, format, partition, repair or destructive operation.
 - No broad vfs.usermount switch or blanket PolicyKit grants.
 - Never infer USB/removable status solely from a device name such as da0.

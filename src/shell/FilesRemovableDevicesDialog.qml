@@ -8,12 +8,31 @@ Dialog {
     required property var ownerWindow
     required property var theme
     property bool waitingForOperation: false
+    property string pendingBrowseDevice: ""
+    property string pendingBrowseIdentity: ""
+    function browseVerifiedPartition() {
+        const controller = ownerWindow.volumeController
+        if (!pendingBrowseDevice || !controller || controller.scanning || controller.operationBusy) return
+        const device = pendingBrowseDevice
+        const identity = pendingBrowseIdentity
+        pendingBrowseDevice = ""
+        pendingBrowseIdentity = ""
+        for (const partition of controller.storagePartitions) {
+            if (partition.device === device && partition.identity === identity && partition.browseReady) {
+                ownerWindow.openVolume(partition.mountPath, partition.name)
+                devicesDialog.close()
+                return
+            }
+        }
+    }
     Connections {
         target: ownerWindow.volumeController
+        function onRemovableChanged() { devicesDialog.browseVerifiedPartition() }
         function onStorageOperationFinished() {
             if (devicesDialog.waitingForOperation) {
                 devicesDialog.waitingForOperation = false
                 devicesDialog.open()
+                devicesDialog.browseVerifiedPartition()
             }
         }
     }
@@ -64,7 +83,7 @@ Dialog {
             delegate: Rectangle {
                 required property var modelData
                 width: ListView.view.width
-                height: deviceText.implicitHeight + 24 + (modelData.eligible ? 44 : 0)
+                height: deviceText.implicitHeight + 24 + (modelData.eligible ? actionButtons.implicitHeight + 8 : 0)
                 radius: 8
                 color: theme.raised
                 Text {
@@ -78,11 +97,13 @@ Dialog {
                     textFormat: Text.PlainText
                     text: (modelData.name || "Removable media") + "\n"
                         + modelData.device + " • " + (modelData.totalBytes / 1073741824).toFixed(1)
-                        + " GiB\n" + (modelData.eligible ? (modelData.mounted ? "Mounted read-only" : "NTFS • Read-only mount available")
+                        + " GiB\n" + (modelData.eligible ? (modelData.mounted ? (modelData.browseReady ? "Mounted read-only" : "Mount verification required") : "NTFS • Read-only mount available")
                             : (modelData.reason || "Detected only — filesystem and mount eligibility unverified"))
                 }
-                Row {
+                Flow {
+                    id: actionButtons
                     anchors.left: parent.left
+                    anchors.right: parent.right
                     anchors.bottom: parent.bottom
                     anchors.margins: 8
                     spacing: 8
@@ -103,11 +124,25 @@ Dialog {
                         }
                     }
                     AuroraButton {
-                        text: "Browse"
-                        visible: !!modelData.mounted
+                        objectName: "removableBrowseAction"
+                        text: modelData.mounted ? "Browse" : "Mount & Browse"
+                        enabled: !!modelData.eligible && !ownerWindow.volumeController.scanning
+                            && !ownerWindow.volumeController.operationBusy && (!modelData.mounted || !!modelData.browseReady)
                         onClicked: {
-                            ownerWindow.openVolume(modelData.mountPath, modelData.name)
+                            if (modelData.browseReady) {
+                                ownerWindow.openVolume(modelData.mountPath, modelData.name)
+                                devicesDialog.close()
+                                return
+                            }
+                            const device = modelData.device
+                            const identity = modelData.identity
+                            devicesDialog.pendingBrowseDevice = device
+                            devicesDialog.pendingBrowseIdentity = identity
+                            devicesDialog.waitingForOperation = true
                             devicesDialog.close()
+                            Qt.callLater(function() {
+                                ownerWindow.volumeController.storageAction(device, identity, true)
+                            })
                         }
                     }
                 }

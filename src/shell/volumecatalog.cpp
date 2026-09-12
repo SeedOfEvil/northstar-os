@@ -94,8 +94,8 @@ VolumeController::VolumeController(QObject *parent)
 void VolumeController::scanRemovable()
 {
     if (m_scan.isRunning() || operationBusy()) return;
-    m_removable.clear();
-    m_partitions.clear();
+    // Keep existing rows visible but disabled while refreshing. The finished
+    // snapshot replaces them, including clearing devices that disappeared.
     m_removableStatus = QStringLiteral("Scanning removable-device metadata...");
     m_scan.setFuture(QtConcurrent::run([] {
         auto result = RemovableStorage::scan();
@@ -108,6 +108,8 @@ void VolumeController::scanRemovable()
             const QString target = StorageAccess::mountPath(::getuid(), row.value("device").toString());
             const QStorageInfo storage(target);
             row.insert("mounted", !target.isEmpty() && storage.isReady() && storage.rootPath() == target);
+            row.insert("browseReady", row.value("mounted").toBool() && storage.isReadOnly()
+                && storage.device() == row.value("device").toString().toUtf8());
             row.insert("mountPath", target);
             entry = row;
         }
