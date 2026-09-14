@@ -6,6 +6,7 @@
 #include <QSet>
 #include <QStorageInfo>
 #include <QVariantMap>
+#include <QTimer>
 #include <QtConcurrent/QtConcurrentRun>
 #include "storageaccess.h"
 #ifdef Q_OS_UNIX
@@ -65,7 +66,9 @@ VolumeController::VolumeController(QObject *parent)
         m_removable = result.devices;
         m_removableStatus = result.status;
         m_partitions = result.partitions;
+        m_scanning = false;
         emit removableChanged();
+        emit removableScanFinished();
     });
     m_action.setProcessChannelMode(QProcess::MergedChannels);
     connect(&m_action, &QProcess::readyReadStandardOutput, this, [this] {
@@ -89,11 +92,13 @@ VolumeController::VolumeController(QObject *parent)
         emit storageOperationFinished();
     });
     refresh();
+    QTimer::singleShot(0, this, &VolumeController::scanRemovable);
 }
 
 void VolumeController::scanRemovable()
 {
-    if (m_scan.isRunning() || operationBusy()) return;
+    if (m_scanning || operationBusy()) return;
+    m_scanning = true;
     // Keep existing rows visible but disabled while refreshing. The finished
     // snapshot replaces them, including clearing devices that disappeared.
     m_removableStatus = QStringLiteral("Scanning removable-device metadata...");

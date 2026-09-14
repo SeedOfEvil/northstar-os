@@ -11,7 +11,25 @@ private slots:
     void discoversSystemVolume();
     void removableMetadata();
     void liveInventoryIsNonActionable();
+    void automaticallyPublishesInventory();
 };
+
+void VolumeCatalogTest::automaticallyPublishesInventory()
+{
+    VolumeController controller;
+    QSignalSpy finished(&controller, &VolumeController::removableScanFinished);
+    bool completionWasPublished = false;
+    connect(&controller, &VolumeController::removableScanFinished, this, [&] {
+        completionWasPublished = !controller.scanning() && !controller.removableStatus().isEmpty();
+    });
+    QTRY_VERIFY_WITH_TIMEOUT(finished.count() > 0, 20000);
+    QVERIFY(completionWasPublished);
+    controller.scanRemovable();
+    QVERIFY(controller.scanning());
+    controller.scanRemovable(); // Coalesce overlapping requests.
+    QTRY_COMPARE_WITH_TIMEOUT(finished.count(), 2, 20000);
+    QVERIFY(!controller.scanning());
+}
 
 void VolumeCatalogTest::liveInventoryIsNonActionable()
 {

@@ -53,7 +53,7 @@ public:
     Q_INVOKABLE void scanRemovable();
     QVariantList removableDevices() const { return m_removable; }
     QString removableStatus() const { return m_removableStatus; }
-    bool scanning() const { return m_scan.isRunning(); }
+    bool scanning() const { return m_scanning; }
     QVariantList storagePartitions() const { return m_partitions; }
     QString operationStatus() const { return m_operationStatus; }
     bool operationBusy() const { return m_action.state() != QProcess::NotRunning; }
@@ -62,6 +62,7 @@ public:
 signals:
     void volumesChanged();
     void removableChanged();
+    void removableScanFinished();
     void storageOperationChanged();
     void storageOperationFinished();
 
@@ -72,6 +73,7 @@ private:
     QVariantList m_removable;
     QString m_removableStatus;
     QFutureWatcher<RemovableStorage::Scan> m_scan;
+    bool m_scanning = false;
     QVariantList m_partitions;
     QProcess m_action;
     QByteArray m_actionOutput;

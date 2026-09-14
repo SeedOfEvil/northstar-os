@@ -10,9 +10,23 @@ Dialog {
     property bool waitingForOperation: false
     property string pendingBrowseDevice: ""
     property string pendingBrowseIdentity: ""
+    property var queuedStorageRequest: null
+    function requestStorage(device, identity, mount, browse) {
+        pendingBrowseDevice = browse ? device : ""
+        pendingBrowseIdentity = browse ? identity : ""
+        queuedStorageRequest = {device: device, identity: identity, mount: mount}
+        waitingForOperation = true
+        close()
+    }
+    onClosed: {
+        if (!queuedStorageRequest) return
+        const request = queuedStorageRequest
+        queuedStorageRequest = null
+        ownerWindow.volumeController.storageAction(request.device, request.identity, request.mount)
+    }
     function browseVerifiedPartition() {
         const controller = ownerWindow.volumeController
-        if (!pendingBrowseDevice || !controller || controller.scanning || controller.operationBusy) return
+        if (!pendingBrowseDevice || waitingForOperation || !controller || controller.scanning || controller.operationBusy) return
         const device = pendingBrowseDevice
         const identity = pendingBrowseIdentity
         pendingBrowseDevice = ""
@@ -27,7 +41,7 @@ Dialog {
     }
     Connections {
         target: ownerWindow.volumeController
-        function onRemovableChanged() { devicesDialog.browseVerifiedPartition() }
+        function onRemovableScanFinished() { devicesDialog.browseVerifiedPartition() }
         function onStorageOperationFinished() {
             if (devicesDialog.waitingForOperation) {
                 devicesDialog.waitingForOperation = false
@@ -44,7 +58,7 @@ Dialog {
     height: Math.min(420, ownerWindow.height - 48)
     x: (ownerWindow.width - width) / 2
     y: (ownerWindow.height - height) / 2
-    onOpened: if (ownerWindow.volumeController) ownerWindow.volumeController.scanRemovable()
+    onAboutToShow: if (ownerWindow.volumeController) ownerWindow.volumeController.scanRemovable()
     background: Rectangle {
         color: ownerWindow.surfaceBackground
         border.color: theme.borderSoft
@@ -113,14 +127,7 @@ Dialog {
                         text: modelData.mounted ? "Unmount" : "Mount read-only"
                         enabled: !!modelData.eligible && !ownerWindow.volumeController.operationBusy && !ownerWindow.volumeController.scanning
                         onClicked: {
-                            const device = modelData.device
-                            const identity = modelData.identity
-                            const mount = !modelData.mounted
-                            devicesDialog.waitingForOperation = true
-                            devicesDialog.close()
-                            Qt.callLater(function() {
-                                ownerWindow.volumeController.storageAction(device, identity, mount)
-                            })
+                            devicesDialog.requestStorage(modelData.device, modelData.identity, !modelData.mounted, false)
                         }
                     }
                     AuroraButton {
@@ -134,15 +141,7 @@ Dialog {
                                 devicesDialog.close()
                                 return
                             }
-                            const device = modelData.device
-                            const identity = modelData.identity
-                            devicesDialog.pendingBrowseDevice = device
-                            devicesDialog.pendingBrowseIdentity = identity
-                            devicesDialog.waitingForOperation = true
-                            devicesDialog.close()
-                            Qt.callLater(function() {
-                                ownerWindow.volumeController.storageAction(device, identity, true)
-                            })
+                            devicesDialog.requestStorage(modelData.device, modelData.identity, true, true)
                         }
                     }
                 }

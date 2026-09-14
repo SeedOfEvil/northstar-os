@@ -32,6 +32,7 @@
 
 #include <QCoreApplication>
 #include <QDebug>
+#include <QEventLoop>
 #include <QFontDatabase>
 #include <QGuiApplication>
 #include <QQmlComponent>
@@ -132,6 +133,61 @@ int runShellSelfTest(const QList<QObject *> &surfaces)
                 || !QMetaObject::invokeMethod(dialog, "reject")
                 || !expectVisible(dialog, false, "cancelling file operation dialog"))
                 return 1;
+        }
+        if (name == QStringLiteral("removableDevicesDialog")) {
+            // Drive the asynchronous dialog flow with a fake controller. No
+            // pkexec, mount or actual navigation is performed by this test.
+            QQmlComponent fixture(qmlEngine(dialog));
+            fixture.setData(R"(
+                import QtQml
+                QtObject {
+                    property int width: 600
+                    property int height: 500
+                    property string surfaceBackground: "#222222"
+                    property string surfaceMuted: "#aaaaaa"
+                    property string surfaceForeground: "#ffffff"
+                    property var volumeController: this
+                    property bool scanning: false
+                    property bool operationBusy: false
+                    property string operationStatus: ""
+                    property string removableStatus: "Test inventory"
+                    property var removableDevices: []
+                    property var storagePartitions: []
+                    property int requests: 0
+                    property int browses: 0
+                    signal removableScanFinished()
+                    signal storageOperationFinished()
+                    function scanRemovable() { scanning = true }
+                    function storageAction(device, identity, mount) { requests++; operationBusy = true }
+                    function openVolume(path, name) { browses++ }
+                    function finishScan() { scanning = false; removableScanFinished() }
+                    function finishOperation() { operationBusy = false; storageOperationFinished() }
+                }
+            )", QUrl());
+            std::unique_ptr<QObject> fake(fixture.create());
+            if (!fake) { qCritical() << fixture.errors(); return 1; }
+            dialog->setProperty("ownerWindow", QVariant::fromValue(fake.get()));
+            QMetaObject::invokeMethod(dialog, "open");
+            QMetaObject::invokeMethod(fake.get(), "finishScan");
+            QMetaObject::invokeMethod(dialog, "requestStorage", Q_ARG(QVariant, QVariant("/dev/da0p1")),
+                Q_ARG(QVariant, QVariant("test-identity")), Q_ARG(QVariant, QVariant(true)), Q_ARG(QVariant, QVariant(true)));
+            QEventLoop settle;
+            QTimer::singleShot(300, &settle, &QEventLoop::quit);
+            settle.exec();
+            if (fake->property("requests").toInt() != 1) {
+                qCritical() << "Mount and Browse did not dispatch after closing"; return 1;
+            }
+            QMetaObject::invokeMethod(fake.get(), "finishOperation");
+            if (fake->property("browses").toInt() != 0) return 1;
+            fake->setProperty("storagePartitions", QVariantList{QVariantMap{
+                {"device", "/dev/da0p1"}, {"identity", "test-identity"}, {"browseReady", true},
+                {"eligible", true}, {"mounted", true}, {"totalBytes", 1000},
+                {"mountPath", "/test-only"}, {"name", "Test"}}});
+            QMetaObject::invokeMethod(fake.get(), "finishScan");
+            if (fake->property("browses").toInt() != 1) {
+                qCritical() << "Mount and Browse did not navigate after verified scan"; return 1;
+            }
+            dialog->setProperty("ownerWindow", QVariant::fromValue(filesWindow));
         }
     }
     QObject *bundleDialog = filesWindow->findChild<QObject *>(

@@ -135,6 +135,16 @@ ready, read-only QStorageInfo mount with the exact expected source/destination;
 unverified mounts do not navigate to an empty mount-point directory.
 The action row wraps on narrow windows. Physical button acceptance is pending.
 
+The subsequent flow fix starts read-only discovery when the controller enters
+the event loop and refreshes before the Devices popup is shown. Scan-in-progress
+state is now owned by the UI thread until the result is published; a dedicated
+scan-completed signal drives deferred browsing, not intermediate property changes.
+Storage requests are dispatched by the persistent dialog after its close event,
+instead of deferred callbacks owned by list delegates. Native tests cover automatic
+inventory publication and overlapping scans; the offscreen QML test uses a fake
+controller to verify one request after closing and one navigation only after the
+verified result arrives. Actual mount completion warnings remain separately open.
+
 - No automatic mount, format, partition, repair or destructive operation.
 - No broad vfs.usermount switch or blanket PolicyKit grants.
 - Never infer USB/removable status solely from a device name such as da0.
