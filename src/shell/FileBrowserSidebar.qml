@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import Northstar.Ui 1.0
 
 Rectangle {
@@ -14,9 +15,17 @@ Rectangle {
     border.width: 1
     radius: lunar.radiusLarge
 
-    Column {
+    Flickable {
         anchors.fill: parent
         anchors.margins: 14
+        clip: true
+        contentWidth: width
+        contentHeight: sidebarContent.implicitHeight
+        boundsBehavior: Flickable.StopAtBounds
+        ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }
+    Column {
+        id: sidebarContent
+        width: parent.width
         spacing: 10
 
         Row {
@@ -140,6 +149,12 @@ Rectangle {
             width: parent.width
         }
 
+        FilesRemovableSidebar {
+            width: parent.width
+            hostWindow: files
+            theme: lunar
+        }
+
         Text {
             color: files.surfaceMuted
             font.pixelSize: 11
@@ -167,5 +182,6 @@ Rectangle {
             wrapMode: Text.WordWrap
             width: parent.width
         }
+    }
     }
 }

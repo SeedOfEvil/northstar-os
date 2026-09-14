@@ -70,6 +70,29 @@ Window {
     modality: Qt.NonModal
     title: "Northstar Files"
 
+    Timer {
+        objectName: "removableSidebarRefresh"
+        interval: 5000
+        repeat: true
+        triggeredOnStart: true
+        running: files.visible && !!files.volumeController
+            && !removableDevicesDialog.visible && !removableDevicesDialog.waitingForOperation
+        onTriggered: files.volumeController.scanRemovable()
+    }
+
+    function openRemovablePartition(partition) {
+        if (!volumeController || volumeController.scanning || volumeController.operationBusy || !partition.eligible) return
+        if (partition.browseReady) openVolume(partition.mountPath, partition.name)
+        else if (!partition.mounted)
+            removableDevicesDialog.requestStorage(partition.device, partition.identity, true, true)
+    }
+
+    function unmountRemovablePartition(partition) {
+        if (!volumeController || volumeController.scanning || volumeController.operationBusy
+                || !partition.eligible || !partition.mounted) return
+        removableDevicesDialog.requestStorage(partition.device, partition.identity, false, false)
+    }
+
     Connections {
         target: files.fileBrowserController
 

@@ -16,14 +16,16 @@ Dialog {
         pendingBrowseIdentity = browse ? identity : ""
         queuedStorageRequest = {device: device, identity: identity, mount: mount}
         waitingForOperation = true
-        close()
+        if (visible) close()
+        else dispatchStorageRequest()
     }
-    onClosed: {
+    function dispatchStorageRequest() {
         if (!queuedStorageRequest) return
         const request = queuedStorageRequest
         queuedStorageRequest = null
         ownerWindow.volumeController.storageAction(request.device, request.identity, request.mount)
     }
+    onClosed: dispatchStorageRequest()
     function browseVerifiedPartition() {
         const controller = ownerWindow.volumeController
         if (!pendingBrowseDevice || waitingForOperation || !controller || controller.scanning || controller.operationBusy) return

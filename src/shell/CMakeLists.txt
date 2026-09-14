@@ -82,6 +82,7 @@ qt_add_qml_module(northstar-shell
         FilesRemovableDevicesDialog.qml
         FileBrowserFileView.qml
         FileBrowserSidebar.qml
+        FilesRemovableSidebar.qml
         FileBrowserTabBar.qml
         MenuBarPopup.qml
         SystemMenu.qml
