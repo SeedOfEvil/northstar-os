@@ -6,7 +6,12 @@
 #include <QSet>
 #include <QStorageInfo>
 #include <QVariantMap>
+#include <QTimer>
 #include <QtConcurrent/QtConcurrentRun>
+#include "storageaccess.h"
+#ifdef Q_OS_UNIX
+#include <unistd.h>
+#endif
 
 #include <algorithm>
 #include <utility>
@@ -60,18 +65,84 @@ VolumeController::VolumeController(QObject *parent)
         const auto result = m_scan.result();
         m_removable = result.devices;
         m_removableStatus = result.status;
+        m_partitions = result.partitions;
+        m_scanning = false;
         emit removableChanged();
+        emit removableScanFinished();
+    });
+    m_action.setProcessChannelMode(QProcess::MergedChannels);
+    connect(&m_action, &QProcess::readyReadStandardOutput, this, [this] {
+        m_actionOutput += m_action.readAllStandardOutput();
+        if (m_actionOutput.size() > 16384) m_actionOutput = m_actionOutput.right(16384);
+    });
+    connect(&m_action, &QProcess::finished, this, [this](int code, QProcess::ExitStatus state) {
+        m_actionOutput += m_action.readAllStandardOutput();
+        m_operationStatus = QString::fromUtf8(m_actionOutput.right(16384)).trimmed();
+        if (m_operationStatus.isEmpty()) m_operationStatus = code == 0 && state == QProcess::NormalExit
+            ? QStringLiteral("Operation completed. Refresh to verify state.") : QStringLiteral("Operation failed or authorization was cancelled.");
+        emit storageOperationChanged();
+        scanRemovable();
+        refresh();
+        emit storageOperationFinished();
+    });
+    connect(&m_action, &QProcess::errorOccurred, this, [this](QProcess::ProcessError error) {
+        if (error != QProcess::FailedToStart) return;
+        m_operationStatus = QStringLiteral("Could not start the protected storage helper. Check installation.");
+        emit storageOperationChanged();
+        emit storageOperationFinished();
     });
     refresh();
+    QTimer::singleShot(0, this, &VolumeController::scanRemovable);
 }
 
 void VolumeController::scanRemovable()
 {
-    if (m_scan.isRunning()) return;
-    m_removable.clear();
+    if (m_scanning || operationBusy()) return;
+    m_scanning = true;
+    // Keep existing rows visible but disabled while refreshing. The finished
+    // snapshot replaces them, including clearing devices that disappeared.
     m_removableStatus = QStringLiteral("Scanning removable-device metadata...");
-    m_scan.setFuture(QtConcurrent::run(&RemovableStorage::scan));
+    m_scan.setFuture(QtConcurrent::run([] {
+        auto result = RemovableStorage::scan();
+        const auto snapshot = StorageAccess::inspect();
+        if (!snapshot.error.isEmpty()) { result.status = snapshot.error; return result; }
+        result.partitions = StorageAccess::describe(snapshot.objects);
+#ifdef Q_OS_UNIX
+        for (auto &entry : result.partitions) {
+            auto row = entry.toMap();
+            const QString target = StorageAccess::mountPath(::getuid(), row.value("device").toString());
+            const QStorageInfo storage(target);
+            row.insert("mounted", !target.isEmpty() && storage.isReady() && storage.rootPath() == target);
+            row.insert("browseReady", row.value("mounted").toBool() && storage.isReadOnly()
+                && storage.device() == row.value("device").toString().toUtf8());
+            row.insert("mountPath", target);
+            entry = row;
+        }
+#endif
+        result.status = QStringLiteral("NTFS data partitions can be mounted read-only. Authorization is required. Boot/helper partitions remain protected.");
+        return result;
+    }));
     emit removableChanged();
+}
+
+void VolumeController::storageAction(const QString &device, const QString &identity, bool mount)
+{
+    if (operationBusy() || scanning()) return;
+    bool allowed = false;
+    for (const auto &entry : m_partitions) {
+        const auto row = entry.toMap();
+        if (row.value("device") == device && row.value("identity") == identity
+            && row.value("eligible").toBool() && row.value("mounted").toBool() != mount) allowed = true;
+    }
+    if (!allowed) {
+        m_operationStatus = QStringLiteral("Selection is stale or protected. Refresh Devices.");
+        emit storageOperationChanged(); emit storageOperationFinished(); return;
+    }
+    m_actionOutput.clear();
+    m_operationStatus = QStringLiteral("Waiting for administrator authorization and storage verification...");
+    m_action.start(QStringLiteral("/usr/local/bin/pkexec"),
+        {QStringLiteral("/usr/local/libexec/northstar-storage"), mount ? QStringLiteral("--mount-readonly") : QStringLiteral("--unmount"), device, identity});
+    emit storageOperationChanged();
 }
 
 QList<VolumeEntry> VolumeController::entries() const

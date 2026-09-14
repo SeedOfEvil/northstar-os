@@ -1,3 +1,10 @@
+add_library(northstar-storage-core STATIC storageaccess.cpp)
+target_link_libraries(northstar-storage-core PUBLIC Qt6::Core Qt6::DBus)
+target_include_directories(northstar-storage-core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+qt_add_executable(northstar-storage northstar-storage.cpp)
+target_link_libraries(northstar-storage PRIVATE northstar-storage-core)
+install(TARGETS northstar-storage RUNTIME DESTINATION libexec)
+
 add_library(northstar-shell-core STATIC
     applicationlauncher.cpp
     clockcontroller.cpp
@@ -37,6 +44,7 @@ target_include_directories(northstar-shell-core
 target_link_libraries(northstar-shell-core
     PUBLIC
         northstar-launcher-core
+        northstar-storage-core
         Qt6::Concurrent
         Qt6::Core
         Qt6::Gui

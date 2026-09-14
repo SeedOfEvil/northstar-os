@@ -154,7 +154,13 @@ for required_rfcomm_line in \
         exit 1
     }
 done
-grep -F 'kld_list="i915kms"' "$ASSEMBLER" >/dev/null || {
+for storage_root in bsdisks fusefs-ntfs; do
+    grep -Fx "$storage_root" "$ROOT/image/manifests/northstar-runtime-roots.txt" >/dev/null || {
+        printf 'FAIL: image omits storage prerequisite: %s\n' "$storage_root" >&2
+        exit 1
+    }
+done
+grep -F 'kld_list="i915kms fusefs"' "$ASSEMBLER" >/dev/null || {
     printf 'FAIL: image does not enable i915kms for the Intel Alpha lane\n' >&2
     exit 1
 }

@@ -455,3 +455,6 @@ set_tests_properties(
     northstar-desktoplayoutcontroller
     PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
 )
+qt_add_executable(test-storageaccess test-storageaccess.cpp)
+target_link_libraries(test-storageaccess PRIVATE northstar-storage-core Qt6::Test)
+add_test(NAME northstar-storageaccess COMMAND test-storageaccess)

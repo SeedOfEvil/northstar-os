@@ -1,7 +1,19 @@
 # Removable storage delivery plan
 
-Status: metadata-only discovery implemented; physical UI acceptance pending.
-Mount, write and eject controls are not implemented in this slice.
+## Startup prerequisite acceptance (2026-09-13)
+
+The operator confirmed Mount & Browse works after loading fusefs. Live checks
+confirmed `/dev/fuse`, a read-only NTFS mount, and persisted `kld_list="i915kms fusefs"`.
+This verifies the saved startup setting, not a completed reboot test.
+Future image configuration includes fusefs alongside i915kms, and runtime roots
+include bsdisks and fusefs-ntfs. The installer payload check expects both drivers.
+The protected helper now gives specific missing-driver/package errors rather than
+the generic mount-confirmation warning. No image rebuild or merge is implied.
+
+Status: metadata-only discovery physically accepted and merged in PR138.
+Protected read-only NTFS mount/unmount is under development on
+`codex/m7-removable-mount-eject`; native and physical gates are tracked below.
+Writes and whole-drive eject remain out of scope.
 
 ## Current evidence
 
@@ -18,7 +30,7 @@ serial identifiers are recorded here.
 The subsequently attached Kingston DataTraveler Duo is reported at about 58 GiB,
 with two GPT Microsoft basic-data partitions labelled Main Data Partition and
 UEFI:NTFS. The user identified it as recreatable Northstar installer media.
-Neither partition was mounted by this work. Labels do not prove filesystem type.
+Neither partition was mounted during discovery. Labels do not prove filesystem type.
 
 ## Discovery implementation
 
@@ -44,6 +56,44 @@ using device-name guesses.
 
 ## Delivery slices
 
+### Mount/eject preparation (2026-09-11)
+
+After detection acceptance and PR138 merge, bsdisks 0.40 was installed by the
+operator. Read-only ObjectManager inspection confirmed the Kingston drive's
+USB ConnectionBus and removable flags; the main partition reports ntfs and the
+small UEFI:NTFS helper reports vfat. Neither was mounted by this work.
+
+Do not rely on HintSystem alone: this version reports false for the installed
+internal NVMe Block objects as well. Future action eligibility must require
+positive USB/removable evidence, reject ignored/boot/helper partitions, inspect
+all siblings for system mounts and pool/swap use, and bind actions to fresh
+identity. Keep boot helper partitions inaccessible through action buttons.
+
+At the start of preparation the NTFS mount prerequisite was missing. The package dry-run proposed
+only fusefs-ntfs and its three dependencies (fusefs-libs, libublio, libuuid), with
+no existing-package upgrades. The fusefs kernel module was not loaded. Installing
+these prerequisites is not mount/write acceptance. Begin with explicit read-only
+mount testing; never repair a dirty NTFS volume or force-unmount to bypass errors.
+
+Although the service advertises Eject and PowerOff methods, introspection is not
+proof of their implementation or safe completion. Verify backend behavior and
+post-operation mount/device state before displaying a safe-removal claim.
+
+Source review of bsdisks 0.40 found a concrete blocker: `BlockFilesystem::Mount`
+accepts an options map but does not consume it or capture it in its authorization
+callback. Its NTFS path invokes ntfs-3g with only device and mountpoint. Passing
+`ro` through this API therefore cannot establish a read-only mount. Do not expose
+or invoke this path as read-only. A corrected service or narrow helper is needed.
+
+Evidence: the FreeBSD port at e9e40e40c5d926e4d17c156665b69e8073cc863b identifies
+bsdisks-0.40.tar.bz2 with SHA-256
+66b23d93ee4886face3b27b8fc51dc05273d14f13924f9bd2a69dc2f23f91030. The reviewed
+archive matched that digest exactly. The relevant file is blockfilesystem.cpp.
+No upstream code was copied into this repository. The operator loaded fusefs;
+/dev/fuse is now present. A direct driver-only test must request
+`ro,norecover,nosuid,noexec`, verify the resulting mount flags and not be claimed
+as acceptance of the future graphical mount/eject workflow.
+
 1. Read-only removable-device discovery and visible states: unavailable service,
    scanning, unmounted, mounted, unsupported filesystem, busy and failed operation.
    Test against a physically attached spare USB device before adding mutation.
@@ -57,6 +107,54 @@ using device-name guesses.
 
 ## Safety requirements
 
+### Read-only NTFS implementation in progress
+
+The `codex/m7-removable-mount-eject` working tree adds a narrow PolicyKit helper
+and Files controls for explicit read-only NTFS mount and non-forced unmount.
+Native checks passed on 2026-09-11; physical GUI acceptance remains pending. No runtime deployment or
+new installer is implied. bsdisks is used for discovery only, never its Mount
+method, because the installed version ignores the supplied read-only options.
+
+The helper requires fresh USB/removable metadata, serial/partition identity,
+kernel GEOM identity and filesystem checks. It rejects protected partition
+layouts and allows only fixed mount options and root-controlled destinations.
+The GUI closes its dialog before authentication and reports the operation result.
+Whole-drive eject, writes, formatting and repair remain unsupported.
+
+Verified on the Intel laptop: native shell/helper build; storage-access and
+volume-catalog tests; offscreen shell QML self-test. The opt-in read-only live
+inventory test identifies da0p1 as eligible and rejects da0p2. No mount was
+performed by these checks. Local repository and QML surface contracts also pass.
+
+Pending gates: authorization cancellation;
+read-only mount and browsing as the desktop user; verified native mount flags;
+busy unmount refusal; successful unmount; stale identity refusal after replug.
+The existing direct driver-only mount test does not satisfy these GUI gates.
+
+### Browse follow-up
+
+The first GUI mount reported a completion warning despite a later independent
+SSH check confirming a read-only mount. That helper completion issue remains
+open; it is not physical acceptance of the entire operation.
+
+The Browse action now stays present for eligible partitions: unmounted media
+offers Mount & Browse through the existing authorization flow, while mounted
+media offers Browse. Refresh retains disabled rows rather than removing buttons
+during scanning. Automatic browsing requires the same device/identity and a
+ready, read-only QStorageInfo mount with the exact expected source/destination;
+unverified mounts do not navigate to an empty mount-point directory.
+The action row wraps on narrow windows. Physical button acceptance is pending.
+
+The subsequent flow fix starts read-only discovery when the controller enters
+the event loop and refreshes before the Devices popup is shown. Scan-in-progress
+state is now owned by the UI thread until the result is published; a dedicated
+scan-completed signal drives deferred browsing, not intermediate property changes.
+Storage requests are dispatched by the persistent dialog after its close event,
+instead of deferred callbacks owned by list delegates. Native tests cover automatic
+inventory publication and overlapping scans; the offscreen QML test uses a fake
+controller to verify one request after closing and one navigation only after the
+verified result arrives. Actual mount completion warnings remain separately open.
+
 - No automatic mount, format, partition, repair or destructive operation.
 - No broad vfs.usermount switch or blanket PolicyKit grants.
 - Never infer USB/removable status solely from a device name such as da0.
@@ -66,7 +164,7 @@ using device-name guesses.
   unplugging or device-name reuse. Revalidate filesystem, mount and ownership.
 - Do not allow arbitrary device paths, mount destinations or command-line options
   from QML. Show errors instead of falling back to more permissive behavior.
-- Begin with one proven filesystem (candidate: FAT32); do not claim exFAT/NTFS
+- Begin with one proven filesystem (this slice: NTFS read-only); do not claim exFAT/NTFS
   write support until their drivers and behavior have separate acceptance.
 - Refuse busy unmounts; never force-unmount. Report safe removal only after the
   relevant mounts are gone and the service's completion is verified.

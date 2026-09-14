@@ -23,7 +23,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-find_package(Qt6 6.6 REQUIRED COMPONENTS Concurrent Core Gui Network Qml Quick QuickControls2 Test)
+find_package(Qt6 6.6 REQUIRED COMPONENTS Concurrent Core DBus Gui Network Qml Quick QuickControls2 Test)
 
 include(CTest)
 
@@ -74,6 +74,7 @@ install(FILES packaging/polkit/org.northstar.update.policy
               packaging/polkit/org.northstar.wifi.policy
               packaging/polkit/org.northstar.installer.policy
               packaging/polkit/org.northstar.recovery.policy
+              packaging/polkit/org.northstar.storage.policy
     DESTINATION share/polkit-1/actions
 )
 
