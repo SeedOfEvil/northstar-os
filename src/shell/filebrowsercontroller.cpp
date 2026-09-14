@@ -761,6 +761,7 @@ bool FileBrowserController::copyEntry(const QString &path)
 
     m_clipboardPath = resolvedPath;
     m_clipboardOperation = QStringLiteral("copy");
+    m_clipboardSourceRoot = homeLocation() ? QString() : m_navigationRoot;
     clearConflict();
     setTransferStatus(QStringLiteral("Ready to copy %1.").arg(sourceInfo.fileName()), 0);
     setErrorMessage({});
@@ -784,6 +785,7 @@ bool FileBrowserController::cutEntry(const QString &path)
 
     m_clipboardPath = resolvedPath;
     m_clipboardOperation = QStringLiteral("cut");
+    m_clipboardSourceRoot.clear();
     clearConflict();
     setTransferStatus(QStringLiteral("Ready to move %1.").arg(sourceInfo.fileName()), 0);
     setErrorMessage({});
@@ -794,6 +796,13 @@ bool FileBrowserController::cutEntry(const QString &path)
 bool FileBrowserController::pasteClipboard()
 {
     return pasteClipboard(QStringLiteral("ask"));
+}
+
+bool FileBrowserController::copyToHome(const QString &path)
+{
+    if (m_transferActive || !readOnlyLocation() || !copyEntry(path)) return false;
+    if (!goHome()) return false;
+    return pasteClipboard();
 }
 
 bool FileBrowserController::pasteClipboard(const QString &conflictResolution)
@@ -808,6 +817,11 @@ bool FileBrowserController::pasteClipboard(const QString &conflictResolution)
     }
 
     const QFileInfo sourceInfo(m_clipboardPath);
+    if (!m_clipboardSourceRoot.isEmpty() && (!isMountedLocationRoot(m_clipboardSourceRoot)
+        || !pathMatchesRoot(m_clipboardPath, m_clipboardSourceRoot))) {
+        setErrorMessage(QStringLiteral("The source volume is no longer available. Reconnect it and select the item again."));
+        return false;
+    }
     QString destinationPath = normalizedPath(QDir(m_currentPath).filePath(sourceInfo.fileName()));
     if (!isWithinRoot(destinationPath) || destinationPath == m_clipboardPath
         || pathMatchesRoot(destinationPath, m_clipboardPath)) {
@@ -842,15 +856,31 @@ bool FileBrowserController::pasteClipboard(const QString &conflictResolution)
     emit clipboardChanged();
     const bool moving = m_clipboardOperation == QStringLiteral("cut");
     const QString sourcePath = m_clipboardPath;
+    m_importState = !m_clipboardSourceRoot.isEmpty() ? std::make_shared<FileImportState>() : nullptr;
+    const auto importState = m_importState;
     auto *watcher = new QFutureWatcher<bool>(this);
+    auto *progress = new QTimer(watcher);
+    if (importState) {
+        connect(progress, &QTimer::timeout, this, [this, importState] {
+            const auto total = importState->total.load();
+            const auto copied = importState->copied.load();
+            setTransferStatus(QStringLiteral("Copying to Home: %1 / %2 MiB").arg(copied / 1048576).arg(total / 1048576),
+                total > 0 ? qMin(99, int(100.0 * copied / total)) : 0);
+        });
+        progress->start(100);
+        emit transferChanged();
+    }
     connect(watcher, &QFutureWatcher<bool>::finished, this,
-            [this, watcher, moving, sourcePath, destinationPath]() {
+            [this, watcher, progress, importState, moving, sourcePath, destinationPath]() {
+        progress->stop();
         const bool succeeded = watcher->result();
         watcher->deleteLater();
         m_transferActive = false;
+        m_importState.reset();
         if (!succeeded) {
-            setTransferStatus(QStringLiteral("Transfer failed."), 0);
-            setErrorMessage(QStringLiteral("Unable to transfer that item."));
+            const bool cancelled = importState && importState->cancelled;
+            setTransferStatus(cancelled ? QStringLiteral("Copy cancelled; incomplete import removed.") : QStringLiteral("Transfer failed."), 0);
+            setErrorMessage(cancelled ? QString() : QStringLiteral("Unable to transfer that item. Check the source device and available Home space."));
             emit clipboardChanged();
             return;
         }
@@ -871,7 +901,8 @@ bool FileBrowserController::pasteClipboard(const QString &conflictResolution)
         emit clipboardChanged();
         refresh();
     });
-    watcher->setFuture(QtConcurrent::run([moving, sourcePath, destinationPath]() {
+    watcher->setFuture(QtConcurrent::run([moving, importState, sourcePath, destinationPath]() {
+        if (importState) return importFileTree(sourcePath, destinationPath, importState);
         return moving
             ? QFile::rename(sourcePath, destinationPath)
             : copyEntryRecursively(sourcePath, destinationPath);
