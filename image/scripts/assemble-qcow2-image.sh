@@ -425,7 +425,7 @@ sddm_enable="YES"
 sdpd_enable="YES"
 sshd_enable="YES"
 zfs_enable="YES"
-kld_list="i915kms"
+kld_list="i915kms fusefs"
 northstar_session_selector_enable="YES"
 EOF
 cat > "$MOUNT_ROOT/boot/loader.conf" <<'EOF'

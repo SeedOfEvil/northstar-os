@@ -160,7 +160,7 @@ case "$1" in
     printf '%s\n' 'zfs_load="YES"' > "$destination/boot/loader.conf"
     printf '%s\n' '/dev/msdosfs/NSTAR_EFI /boot/efi msdosfs rw,noatime 0 0' > "$destination/etc/fstab"
     printf '%s\n' 'northstar-setup:*:1001:1001:Northstar Setup:/home/northstar-setup:/bin/sh' > "$destination/etc/passwd"
-    printf '%s\n' 'zfs_enable="YES"' 'kld_list="i915kms"' \
+    printf '%s\n' 'zfs_enable="YES"' 'kld_list="i915kms fusefs"' \
       'northstar_session_selector_enable="YES"' > "$destination/etc/rc.conf"
     cp "$NORTHSTAR_TEST_RUNTIME_MANIFEST" "$destination/var/db/northstar/runtime-manifest.conf"
     printf '%s\n' '#!/bin/sh' 'exit 0' > "$destination/usr/local/bin/northstar-session"

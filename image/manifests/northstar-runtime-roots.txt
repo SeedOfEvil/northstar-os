@@ -9,6 +9,8 @@ lxqt-policykit
 northstar
 noto-sans
 obexapp
+bsdisks
+fusefs-ntfs
 pkg
 plasma6-layer-shell-qt
 qterminal

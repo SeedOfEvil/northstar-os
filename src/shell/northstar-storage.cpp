@@ -135,6 +135,11 @@ int main(int argc, char **argv)
         return 0;
     }
     if (mounted) return fail("The volume is already mounted.");
+    struct stat fuse {};
+    if (::stat("/dev/fuse", &fuse) != 0 || !S_ISCHR(fuse.st_mode))
+        return fail("NTFS mounting requires the FUSE driver. Ask an administrator to load fusefs and enable it at startup.");
+    if (::access("/usr/local/bin/ntfs-3g", X_OK) != 0)
+        return fail("NTFS mounting requires the fusefs-ntfs package. Ask an administrator to install it.");
     if (!directory(destination)) return fail("Mount destination is unsafe.");
     if (!QDir(destination).isEmpty(QDir::AllEntries | QDir::Hidden | QDir::System | QDir::NoDotAndDotDot))
         return fail("Mount destination is not empty.");

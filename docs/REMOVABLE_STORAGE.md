@@ -1,5 +1,15 @@
 # Removable storage delivery plan
 
+## Startup prerequisite acceptance (2026-09-13)
+
+The operator confirmed Mount & Browse works after loading fusefs. Live checks
+confirmed `/dev/fuse`, a read-only NTFS mount, and persisted `kld_list="i915kms fusefs"`.
+This verifies the saved startup setting, not a completed reboot test.
+Future image configuration includes fusefs alongside i915kms, and runtime roots
+include bsdisks and fusefs-ntfs. The installer payload check expects both drivers.
+The protected helper now gives specific missing-driver/package errors rather than
+the generic mount-confirmation warning. No image rebuild or merge is implied.
+
 Status: metadata-only discovery physically accepted and merged in PR138.
 Protected read-only NTFS mount/unmount is under development on
 `codex/m7-removable-mount-eject`; native and physical gates are tracked below.
