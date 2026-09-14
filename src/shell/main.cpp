@@ -187,6 +187,14 @@ int runShellSelfTest(const QList<QObject *> &surfaces)
             if (fake->property("browses").toInt() != 1) {
                 qCritical() << "Mount and Browse did not navigate after verified scan"; return 1;
             }
+            QMetaObject::invokeMethod(dialog, "requestStorage", Q_ARG(QVariant, QVariant("/dev/da0p1")),
+                Q_ARG(QVariant, QVariant("test-identity")), Q_ARG(QVariant, QVariant(false)), Q_ARG(QVariant, QVariant(false)));
+            if (fake->property("requests").toInt() != 2) {
+                qCritical() << "Sidebar request with closed dialog was not dispatched"; return 1;
+            }
+            QMetaObject::invokeMethod(fake.get(), "finishOperation");
+            QMetaObject::invokeMethod(fake.get(), "finishScan");
+            QMetaObject::invokeMethod(dialog, "close");
             dialog->setProperty("ownerWindow", QVariant::fromValue(filesWindow));
         }
     }
