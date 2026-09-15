@@ -23,6 +23,11 @@ Undo moves that copy to Trash.
 
 Tests cover imported file contents, directory imports, Keep Both, pre-cancellation,
 unsafe links, and preservation of existing destination data on failed publication.
+Real mounted-volume discovery is also covered without injected test roots. A
+physical logging-folder attempt exposed that the original source check accepted
+only injected roots; the active volume is now revalidated against mounted volumes.
+The native regression suite passes, but the corrected GUI copy still needs
+physical acceptance.
 Physical acceptance: import a disposable USB file, open/check its contents in
 Home, verify the original remains on the read-only USB, test Keep Both and cancel
 a sufficiently large copy. Do not unplug a mounted device to simulate failure.

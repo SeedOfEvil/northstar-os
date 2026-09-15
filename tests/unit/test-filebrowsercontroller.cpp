@@ -5,6 +5,7 @@
 #include <QFileInfo>
 #include <QUrl>
 #include <QTemporaryDir>
+#include <QStorageInfo>
 #include <QtTest/QtTest>
 
 class FileBrowserControllerTest final : public QObject
@@ -33,6 +34,7 @@ private slots:
     void resolvesPasteConflictsWithKeepBoth();
     void copiesFromMountedLocationButRejectsCut();
     void importsToHomeAndKeepsBoth();
+    void importsFromDiscoveredVolume();
     void importCancellationAndUnsafeTree();
     void cancelsImportThroughController();
     void rejectsUnsafeMutations();
@@ -539,6 +541,25 @@ void FileBrowserControllerTest::importsToHomeAndKeepsBoth()
     QVERIFY(controller.copyToHome(folder));
     QTRY_VERIFY_WITH_TIMEOUT(!controller.transferActive(), TransferTimeoutMs);
     QVERIFY(QFileInfo::exists(QDir(home.path()).filePath("folder/nested.txt")));
+}
+
+void FileBrowserControllerTest::importsFromDiscoveredVolume()
+{
+    QTemporaryDir home, source;
+    const QString folder = QDir(source.path()).filePath("logging");
+    QVERIFY(QDir().mkdir(folder));
+    QVERIFY(writeFile(QDir(folder).filePath("test.txt"), "real mount discovery"));
+    const QStorageInfo volume(source.path());
+    QVERIFY(volume.isReady());
+    FileBrowserController controller(nullptr, home.path()); // No injected roots.
+    QVERIFY(controller.openLocation(volume.rootPath(), "Discovered volume"));
+    QVERIFY(controller.copyToHome(folder));
+    QTRY_VERIFY_WITH_TIMEOUT(!controller.transferActive(), TransferTimeoutMs);
+    QCOMPARE(controller.errorMessage(), QString());
+    QFile result(QDir(home.path()).filePath("logging/test.txt"));
+    QVERIFY(result.open(QIODevice::ReadOnly));
+    QCOMPARE(result.readAll(), QByteArray("real mount discovery"));
+    QVERIFY(QFileInfo::exists(QDir(folder).filePath("test.txt")));
 }
 
 void FileBrowserControllerTest::importCancellationAndUnsafeTree()

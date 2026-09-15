@@ -22,7 +22,8 @@ constexpr qsizetype MaximumSearchResults = 500;
 
 bool pathMatchesRoot(const QString &path, const QString &root)
 {
-    return path == root || path.startsWith(root + QLatin1Char('/'));
+    return path == root || path.startsWith(root.endsWith(QLatin1Char('/'))
+        ? root : root + QLatin1Char('/'));
 }
 
 bool isLaunchableDesktopEntry(const QFileInfo &info)
@@ -1434,6 +1435,13 @@ bool FileBrowserController::isAllowedClipboardSource(const QString &path) const
 {
     if (isWithinRoot(path)) {
         return true;
+    }
+    // Real sessions discover volumes dynamically; injected roots are only used
+    // by tests. Revalidate the active mounted root before accepting its items.
+    if (readOnlyLocation() && isMountedLocationRoot(m_navigationRoot)) {
+        const QString relative = QDir(m_navigationRoot).relativeFilePath(path);
+        if (!QDir::isAbsolutePath(relative) && relative != QStringLiteral("..")
+            && !relative.startsWith(QStringLiteral("../"))) return true;
     }
     for (const QString &root : m_mountedLocationRoots) {
         if (pathMatchesRoot(normalizedPath(path), canonicalOrNormalizedPath(root))) {
