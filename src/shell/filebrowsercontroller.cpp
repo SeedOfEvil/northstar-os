@@ -806,6 +806,25 @@ bool FileBrowserController::copyToHome(const QString &path)
     return pasteClipboard();
 }
 
+void FileBrowserController::mountedLocationUnavailable(const QString &path)
+{
+    if (path.isEmpty()) return;
+    if (m_clipboardSourceRoot == path) {
+        if (m_importState) {
+            m_importState->sourceUnavailable = true;
+            m_importState->cancelled = true;
+        }
+        m_clipboardPath.clear();
+        m_clipboardOperation.clear();
+        m_clipboardSourceRoot.clear();
+        emit clipboardChanged();
+    }
+    if (readOnlyLocation() && m_navigationRoot == path) {
+        goHome();
+        setErrorMessage(QStringLiteral("The USB volume is no longer available. Returned to Home."));
+    }
+}
+
 bool FileBrowserController::pasteClipboard(const QString &conflictResolution)
 {
     if (m_transferActive) {
@@ -881,7 +900,9 @@ bool FileBrowserController::pasteClipboard(const QString &conflictResolution)
         if (!succeeded) {
             const bool cancelled = importState && importState->cancelled;
             setTransferStatus(cancelled ? QStringLiteral("Copy cancelled; incomplete import removed.") : QStringLiteral("Transfer failed."), 0);
-            setErrorMessage(cancelled ? QString() : QStringLiteral("Unable to transfer that item. Check the source device and available Home space."));
+            setErrorMessage(importState && importState->sourceUnavailable
+                ? QStringLiteral("The source USB volume became unavailable. Copy did not complete; incomplete data was removed.")
+                : cancelled ? QString() : QStringLiteral("Unable to transfer that item. Check the source device and available Home space."));
             emit clipboardChanged();
             return;
         }

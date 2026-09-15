@@ -383,6 +383,8 @@ int main(int argc, char *argv[])
     SessionController sessionController;
     ShortcutCatalog shortcutCatalog;
     VolumeController volumeController;
+    QObject::connect(&volumeController, &VolumeController::mountedLocationUnavailable,
+                     &fileBrowserController, &FileBrowserController::mountedLocationUnavailable);
     WallpaperController wallpaperController;
     WindowController windowController;
     notificationCenter.setDoNotDisturb(quickSettingsController.doNotDisturb());

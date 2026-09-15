@@ -11,6 +11,17 @@ Column {
     spacing: 6
 
     Text {
+        objectName: "sidebarStorageResult"
+        width: parent.width
+        visible: text.length > 0
+        text: controller ? controller.operationStatus : ""
+        textFormat: Text.PlainText
+        color: hostWindow.surfaceForeground
+        font.pixelSize: 11
+        wrapMode: Text.Wrap
+    }
+
+    Text {
         width: parent.width
         text: "REMOVABLE"
         color: hostWindow.surfaceMuted
@@ -61,7 +72,9 @@ Column {
                 width: parent.width
                 visible: !!volumeRow.modelData.mounted
                 enabled: !storageSidebar.controller.scanning && !storageSidebar.controller.operationBusy
-                text: "Unmount"
+                    && !!storageSidebar.hostWindow.fileBrowserController
+                    && !storageSidebar.hostWindow.fileBrowserController.transferActive
+                text: "Eject"
                 onClicked: storageSidebar.hostWindow.unmountRemovablePartition(volumeRow.modelData)
             }
         }

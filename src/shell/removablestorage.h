@@ -3,7 +3,7 @@
 #include <QVariantList>
 
 namespace RemovableStorage {
-struct Scan { QVariantList devices; QString status; QVariantList partitions; };
+struct Scan { QVariantList devices; QString status; QVariantList partitions; bool inventoryValid = false; };
 QVariantList parse(const QByteArray &xml, const QSet<QString> &removable, bool *valid);
 Scan scan();
 }

@@ -126,8 +126,10 @@ Dialog {
                     visible: !!modelData.eligible
                     AuroraButton {
                         objectName: "removableMountAction"
-                        text: modelData.mounted ? "Unmount" : "Mount read-only"
+                        text: modelData.mounted ? "Eject" : "Mount read-only"
                         enabled: !!modelData.eligible && !ownerWindow.volumeController.operationBusy && !ownerWindow.volumeController.scanning
+                            && (!modelData.mounted || (!!ownerWindow.fileBrowserController
+                                && !ownerWindow.fileBrowserController.transferActive))
                         onClicked: {
                             devicesDialog.requestStorage(modelData.device, modelData.identity, !modelData.mounted, false)
                         }

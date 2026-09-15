@@ -88,6 +88,7 @@ Window {
     }
 
     function unmountRemovablePartition(partition) {
+        if (fileBrowserController && fileBrowserController.transferActive) return
         if (!volumeController || volumeController.scanning || volumeController.operationBusy
                 || !partition.eligible || !partition.mounted) return
         removableDevicesDialog.requestStorage(partition.device, partition.identity, false, false)

@@ -10,6 +10,7 @@
 
 struct FileImportState {
     std::atomic<bool> cancelled{false};
+    std::atomic<bool> sourceUnavailable{false};
     std::atomic<qint64> total{0};
     std::atomic<qint64> copied{0};
 };

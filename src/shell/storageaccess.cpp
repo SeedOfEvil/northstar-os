@@ -84,3 +84,41 @@ QVariantList StorageAccess::describe(const Objects &objects)
     }
     return result;
 }
+
+bool StorageAccess::diskHasMounts(const QString &device, const QStringList &sources)
+{
+    const auto match = QRegularExpression(QStringLiteral("^/dev/(da[0-9]+)p[0-9]+$")).match(device);
+    if (!match.hasMatch()) return true; // Unknown means not safe to unplug.
+    const QString disk = QStringLiteral("/dev/") + match.captured(1);
+    for (const auto &source : sources) {
+        if (source == disk || source.startsWith(disk + QLatin1Char('p'))
+            || source.startsWith(disk + QLatin1Char('s'))) return true;
+        if (source.startsWith(QStringLiteral("/dev/"))
+            && !QRegularExpression(QStringLiteral("^/dev/(da|nda|ada|nvd|md)[0-9]+([ps][0-9]+)?$")).match(source).hasMatch())
+            return true; // An unresolved device alias cannot justify safe removal.
+    }
+    return false;
+}
+
+QStringList StorageAccess::resolveMountSources(const QStringList &sources, const QByteArray &labels)
+{
+    QMap<QString, QString> aliases;
+    if (labels.size() > 1024 * 1024) return sources;
+    for (const auto &line : labels.split('\n')) {
+        const auto fields = line.simplified().split(' ');
+        if (fields.size() != 3 || fields[1] != "N/A") continue;
+        const QString alias = QStringLiteral("/dev/") + QString::fromUtf8(fields[0]);
+        const QString provider = QStringLiteral("/dev/") + QString::fromUtf8(fields[2]);
+        if (aliases.contains(alias) && aliases.value(alias) != provider) return sources;
+        aliases.insert(alias, provider);
+    }
+    QStringList result;
+    for (const auto &source : sources) {
+        QString resolved = source;
+        for (int depth = 0; depth < 16 && aliases.contains(resolved); ++depth)
+            resolved = aliases.value(resolved);
+        // Cyclic or over-deep aliases remain unresolved and fail closed.
+        result.append(aliases.contains(resolved) ? source : resolved);
+    }
+    return result;
+}
