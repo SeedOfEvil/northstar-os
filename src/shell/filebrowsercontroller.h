@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include "fileimport.h"
 
 #include <QFileSystemWatcher>
 #include <QObject>
@@ -36,10 +37,12 @@ class FileBrowserController final : public QObject
     Q_PROPERTY(QString transferStatus READ transferStatus NOTIFY transferChanged)
     Q_PROPERTY(int transferProgress READ transferProgress NOTIFY transferChanged)
     Q_PROPERTY(bool transferActive READ transferActive NOTIFY transferChanged)
+    Q_PROPERTY(bool canCancelTransfer READ canCancelTransfer NOTIFY transferChanged)
     Q_PROPERTY(bool canUndo READ canUndo NOTIFY undoChanged)
     Q_PROPERTY(QString undoLabel READ undoLabel NOTIFY undoChanged)
 
 public:
+    ~FileBrowserController() override { if (m_importState) m_importState->cancelled = true; }
     using OpenFunction = std::function<bool(const QUrl &url)>;
 
     explicit FileBrowserController(QObject *parent = nullptr,
@@ -70,6 +73,9 @@ public:
     QString transferStatus() const;
     int transferProgress() const;
     bool transferActive() const;
+    bool canCancelTransfer() const { return m_transferActive && bool(m_importState); }
+    Q_INVOKABLE void cancelTransfer() { if (m_importState) m_importState->cancelled = true; }
+    Q_INVOKABLE bool copyToHome(const QString &path);
     bool canUndo() const;
     QString undoLabel() const;
 
@@ -154,6 +160,8 @@ private:
     bool m_sortAscending = true;
     bool m_showingTrash = false;
     QString m_clipboardPath;
+    QString m_clipboardSourceRoot;
+    std::shared_ptr<FileImportState> m_importState;
     QString m_clipboardOperation;
     QString m_conflictDestination;
     QString m_transferStatus;

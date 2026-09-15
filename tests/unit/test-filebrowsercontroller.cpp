@@ -5,6 +5,7 @@
 #include <QFileInfo>
 #include <QUrl>
 #include <QTemporaryDir>
+#include <QStorageInfo>
 #include <QtTest/QtTest>
 
 class FileBrowserControllerTest final : public QObject
@@ -32,6 +33,10 @@ private slots:
     void movesAndUndoesEntries();
     void resolvesPasteConflictsWithKeepBoth();
     void copiesFromMountedLocationButRejectsCut();
+    void importsToHomeAndKeepsBoth();
+    void importsFromDiscoveredVolume();
+    void importCancellationAndUnsafeTree();
+    void cancelsImportThroughController();
     void rejectsUnsafeMutations();
     void opensMountedLocationReadOnly();
 };
@@ -506,6 +511,99 @@ void FileBrowserControllerTest::copiesFromMountedLocationButRejectsCut()
     QVERIFY(controller.pasteClipboard());
     QTRY_VERIFY_WITH_TIMEOUT(
         QFileInfo::exists(QDir(homeDirectory.path()).filePath(QStringLiteral("volume-note.txt"))), TransferTimeoutMs);
+}
+
+void FileBrowserControllerTest::importsToHomeAndKeepsBoth()
+{
+    QTemporaryDir home, volume;
+    const QString source = QDir(volume.path()).filePath("sample.bin");
+    const QByteArray contents(2 * 1024 * 1024, 'x');
+    QVERIFY(writeFile(source, contents));
+    FileBrowserController controller(nullptr, home.path(), {}, {volume.path()});
+    QVERIFY(controller.openLocation(volume.path(), "USB"));
+    QVERIFY(controller.copyToHome(source));
+    QTRY_VERIFY_WITH_TIMEOUT(!controller.transferActive(), TransferTimeoutMs);
+    QFile result(QDir(home.path()).filePath("sample.bin"));
+    QVERIFY(result.open(QIODevice::ReadOnly));
+    QCOMPARE(result.readAll(), contents);
+    QCOMPARE(controller.transferProgress(), 100);
+    QVERIFY(QFileInfo::exists(source));
+    QVERIFY(controller.openLocation(volume.path(), "USB"));
+    QVERIFY(!controller.copyToHome(source));
+    QVERIFY(controller.conflictPending());
+    QVERIFY(controller.pasteClipboard("keepboth"));
+    QTRY_VERIFY_WITH_TIMEOUT(!controller.transferActive(), TransferTimeoutMs);
+    QVERIFY(QFileInfo::exists(QDir(home.path()).filePath("sample copy.bin")));
+    const QString folder = QDir(volume.path()).filePath("folder");
+    QVERIFY(QDir().mkdir(folder));
+    QVERIFY(writeFile(QDir(folder).filePath("nested.txt"), "nested"));
+    QVERIFY(controller.openLocation(volume.path(), "USB"));
+    QVERIFY(controller.copyToHome(folder));
+    QTRY_VERIFY_WITH_TIMEOUT(!controller.transferActive(), TransferTimeoutMs);
+    QVERIFY(QFileInfo::exists(QDir(home.path()).filePath("folder/nested.txt")));
+}
+
+void FileBrowserControllerTest::importsFromDiscoveredVolume()
+{
+    QTemporaryDir home, source;
+    const QString folder = QDir(source.path()).filePath("logging");
+    QVERIFY(QDir().mkdir(folder));
+    QVERIFY(writeFile(QDir(folder).filePath("test.txt"), "real mount discovery"));
+    const QStorageInfo volume(source.path());
+    QVERIFY(volume.isReady());
+    FileBrowserController controller(nullptr, home.path()); // No injected roots.
+    QVERIFY(controller.openLocation(volume.rootPath(), "Discovered volume"));
+    QVERIFY(controller.copyToHome(folder));
+    QTRY_VERIFY_WITH_TIMEOUT(!controller.transferActive(), TransferTimeoutMs);
+    QCOMPARE(controller.errorMessage(), QString());
+    QFile result(QDir(home.path()).filePath("logging/test.txt"));
+    QVERIFY(result.open(QIODevice::ReadOnly));
+    QCOMPARE(result.readAll(), QByteArray("real mount discovery"));
+    QVERIFY(QFileInfo::exists(QDir(folder).filePath("test.txt")));
+}
+
+void FileBrowserControllerTest::importCancellationAndUnsafeTree()
+{
+    QTemporaryDir home, volume;
+    const QString source = QDir(volume.path()).filePath("sample.bin");
+    QVERIFY(writeFile(source, "source untouched"));
+    const QString destination = QDir(home.path()).filePath("result");
+    auto state = std::make_shared<FileImportState>();
+    state->cancelled = true;
+    QVERIFY(!importFileTree(source, destination, state));
+    QVERIFY(!QFileInfo::exists(destination));
+    QVERIFY(QFileInfo::exists(source));
+    state = std::make_shared<FileImportState>();
+    QVERIFY(writeFile(destination, "existing destination"));
+    QVERIFY(!importFileTree(source, destination, state));
+    QVERIFY(state->copied > 0);
+    QFile original(destination);
+    QVERIFY(original.open(QIODevice::ReadOnly));
+    QCOMPARE(original.readAll(), QByteArray("existing destination"));
+    original.close();
+    QVERIFY(QFile::remove(destination));
+    state = std::make_shared<FileImportState>();
+    QVERIFY(QFile::link(source, QDir(volume.path()).filePath("link")));
+    QVERIFY(!importFileTree(volume.path(), destination, state));
+    QVERIFY(!QFileInfo::exists(destination));
+    QCOMPARE(QDir(home.path()).entryList(QDir::AllEntries | QDir::Hidden | QDir::NoDotAndDotDot).size(), 0);
+}
+
+void FileBrowserControllerTest::cancelsImportThroughController()
+{
+    QTemporaryDir home, volume;
+    const QString source = QDir(volume.path()).filePath("cancel.bin");
+    QVERIFY(writeFile(source, QByteArray(1024 * 1024, 'c')));
+    FileBrowserController controller(nullptr, home.path(), {}, {volume.path()});
+    connect(&controller, &FileBrowserController::transferChanged, this, [&] {
+        if (controller.canCancelTransfer()) controller.cancelTransfer();
+    });
+    QVERIFY(controller.openLocation(volume.path(), "USB"));
+    QVERIFY(controller.copyToHome(source));
+    QTRY_VERIFY_WITH_TIMEOUT(!controller.transferActive(), TransferTimeoutMs);
+    QVERIFY(controller.transferStatus().contains("cancelled"));
+    QVERIFY(!QFileInfo::exists(QDir(home.path()).filePath("cancel.bin")));
+    QVERIFY(QFileInfo::exists(source));
 }
 
 void FileBrowserControllerTest::rejectsUnsafeMutations()

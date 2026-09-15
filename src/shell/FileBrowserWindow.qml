@@ -1387,16 +1387,22 @@ Window {
                 width: parent.width
 
                 AuroraButton {
-                    text: "Copy"
+                    text: files.fileBrowserController && files.fileBrowserController.readOnlyLocation ? "Copy to Home" : "Copy"
                     enabled: files.hasSelection && !files.showingTrash
-                    onClicked: files.fileBrowserController.copyEntry(files.selectedPath)
+                    onClicked: {
+                        if (files.fileBrowserController.readOnlyLocation) files.fileBrowserController.copyToHome(files.selectedPath)
+                        else files.fileBrowserController.copyEntry(files.selectedPath)
+                    }
                 }
 
                 AuroraButton {
-                    text: "Cut"
-                    enabled: files.hasSelection && !files.showingTrash
-                        && files.fileBrowserController && files.fileBrowserController.homeLocation
-                    onClicked: files.fileBrowserController.cutEntry(files.selectedPath)
+                    text: files.fileBrowserController && files.fileBrowserController.canCancelTransfer ? "Cancel copy" : "Cut"
+                    enabled: files.fileBrowserController && (files.fileBrowserController.canCancelTransfer
+                        || (files.hasSelection && !files.showingTrash && files.fileBrowserController.homeLocation))
+                    onClicked: {
+                        if (files.fileBrowserController.canCancelTransfer) files.fileBrowserController.cancelTransfer()
+                        else files.fileBrowserController.cutEntry(files.selectedPath)
+                    }
                 }
 
                 AuroraButton {
@@ -1417,7 +1423,7 @@ Window {
                     anchors.verticalCenter: parent.verticalCenter
                     from: 0
                     indeterminate: files.fileBrowserController
-                        ? files.fileBrowserController.transferActive : false
+                        ? files.fileBrowserController.transferActive && !files.fileBrowserController.canCancelTransfer : false
                     to: 100
                     value: files.fileBrowserController ? files.fileBrowserController.transferProgress : 0
                     visible: indeterminate || value > 0
