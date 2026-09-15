@@ -10,6 +10,7 @@ struct Snapshot { Objects objects; QString error; };
 Snapshot inspect();
 QVariantList describe(const Objects &objects);
 QString mountPath(uint uid, const QString &device);
+bool diskHasMounts(const QString &device, const QStringList &mountedSources);
 }
 Q_DECLARE_METATYPE(StorageAccess::Interfaces)
 Q_DECLARE_METATYPE(StorageAccess::Objects)

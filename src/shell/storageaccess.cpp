@@ -84,3 +84,18 @@ QVariantList StorageAccess::describe(const Objects &objects)
     }
     return result;
 }
+
+bool StorageAccess::diskHasMounts(const QString &device, const QStringList &sources)
+{
+    const auto match = QRegularExpression(QStringLiteral("^/dev/(da[0-9]+)p[0-9]+$")).match(device);
+    if (!match.hasMatch()) return true; // Unknown means not safe to unplug.
+    const QString disk = QStringLiteral("/dev/") + match.captured(1);
+    for (const auto &source : sources) {
+        if (source == disk || source.startsWith(disk + QLatin1Char('p'))
+            || source.startsWith(disk + QLatin1Char('s'))) return true;
+        if (source.startsWith(QStringLiteral("/dev/"))
+            && !QRegularExpression(QStringLiteral("^/dev/(da|nda|ada|nvd|md)[0-9]+([ps][0-9]+)?$")).match(source).hasMatch())
+            return true; // An unresolved device alias cannot justify safe removal.
+    }
+    return false;
+}

@@ -65,6 +65,7 @@ signals:
     void removableScanFinished();
     void storageOperationChanged();
     void storageOperationFinished();
+    void mountedLocationUnavailable(const QString &path);
 
 private:
     static QVariantList toVariantList(const QList<VolumeEntry> &entries);

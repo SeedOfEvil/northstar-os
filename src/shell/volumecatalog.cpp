@@ -63,6 +63,26 @@ VolumeController::VolumeController(QObject *parent)
 {
     connect(&m_scan, &QFutureWatcher<RemovableStorage::Scan>::finished, this, [this] {
         const auto result = m_scan.result();
+        if (!result.inventoryValid) {
+            m_removableStatus = result.status;
+            m_scanning = false;
+            emit removableChanged();
+            emit removableScanFinished();
+            return; // A service failure is not evidence of unplugging.
+        }
+        if (result.inventoryValid) {
+            for (const auto &entry : m_partitions) {
+                const auto previous = entry.toMap();
+                if (!previous.value("mounted").toBool()) continue;
+                bool present = false;
+                for (const auto &next : result.partitions) {
+                    const auto row = next.toMap();
+                    if (row.value("identity") == previous.value("identity")
+                        && row.value("browseReady").toBool()) present = true;
+                }
+                if (!present) emit mountedLocationUnavailable(previous.value("mountPath").toString());
+            }
+        }
         m_removable = result.devices;
         m_removableStatus = result.status;
         m_partitions = result.partitions;
@@ -107,6 +127,7 @@ void VolumeController::scanRemovable()
         const auto snapshot = StorageAccess::inspect();
         if (!snapshot.error.isEmpty()) { result.status = snapshot.error; return result; }
         result.partitions = StorageAccess::describe(snapshot.objects);
+        result.inventoryValid = true;
 #ifdef Q_OS_UNIX
         for (auto &entry : result.partitions) {
             auto row = entry.toMap();

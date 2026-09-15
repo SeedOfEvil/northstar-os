@@ -131,7 +131,19 @@ int main(int argc, char **argv)
         if (!nativeMount(destination, device, &mounted) || mounted || !ok)
             return fail("Unmount failed or the volume is busy. Close files and try again; no force was used.");
         ::rmdir(QFile::encodeName(destination).constData());
-        output << "Volume unmounted. Other partitions must also be unmounted before unplugging.\n";
+        struct statfs *remaining = nullptr;
+        const int count = ::getmntinfo(&remaining, MNT_NOWAIT);
+        QStringList sources;
+        for (int i = 0; i < count; ++i) {
+            const QString source = QString::fromLocal8Bit(remaining[i].f_mntfromname);
+            // Resolve device aliases such as /dev/gpt/... before comparing.
+            const QString canonical = QFileInfo(source).canonicalFilePath();
+            sources.append(canonical.isEmpty() ? source : canonical);
+        }
+        if (count > 0 && !StorageAccess::diskHasMounts(device, sources))
+            output << "Safe to unplug. This USB drive has no mounted partitions.\n";
+        else
+            output << "Volume unmounted. Other mounts remain or could not be verified; do not unplug yet.\n";
         return 0;
     }
     if (mounted) return fail("The volume is already mounted.");

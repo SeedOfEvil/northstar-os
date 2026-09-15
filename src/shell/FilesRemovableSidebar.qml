@@ -61,7 +61,9 @@ Column {
                 width: parent.width
                 visible: !!volumeRow.modelData.mounted
                 enabled: !storageSidebar.controller.scanning && !storageSidebar.controller.operationBusy
-                text: "Unmount"
+                    && !!storageSidebar.hostWindow.fileBrowserController
+                    && !storageSidebar.hostWindow.fileBrowserController.transferActive
+                text: "Eject"
                 onClicked: storageSidebar.hostWindow.unmountRemovablePartition(volumeRow.modelData)
             }
         }

@@ -56,6 +56,14 @@ private slots:
         QVERIFY(StorageAccess::mountPath(1002, "/dev/../nda0p1").isEmpty());
         QVERIFY(StorageAccess::mountPath(1002, "/dev/nda0p1").isEmpty());
     }
+    void safeRemovalMounts() {
+        QVERIFY(!StorageAccess::diskHasMounts("/dev/da0p1", {"/dev/da1p1", "nstar/home"}));
+        QVERIFY(StorageAccess::diskHasMounts("/dev/da0p1", {"/dev/da0p2"}));
+        QVERIFY(StorageAccess::diskHasMounts("/dev/da0p1", {"/dev/da0"}));
+        QVERIFY(!StorageAccess::diskHasMounts("/dev/da0p1", {"/dev/da01p1"}));
+        QVERIFY(StorageAccess::diskHasMounts("/dev/da0p1", {"/dev/gpt/unknown"}));
+        QVERIFY(StorageAccess::diskHasMounts("invalid", {}));
+    }
     void unsupportedFilesystem() {
         auto objects = fixture();
         objects[QDBusObjectPath("/partition")]["org.freedesktop.UDisks2.Block"]["IdType"] = "vfat";

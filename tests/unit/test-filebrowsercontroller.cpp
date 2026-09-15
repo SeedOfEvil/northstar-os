@@ -35,6 +35,8 @@ private slots:
     void copiesFromMountedLocationButRejectsCut();
     void importsToHomeAndKeepsBoth();
     void importsFromDiscoveredVolume();
+    void unavailableVolumeReturnsHome();
+    void unavailableVolumeCancelsImport();
     void importCancellationAndUnsafeTree();
     void cancelsImportThroughController();
     void rejectsUnsafeMutations();
@@ -587,6 +589,40 @@ void FileBrowserControllerTest::importCancellationAndUnsafeTree()
     QVERIFY(!importFileTree(volume.path(), destination, state));
     QVERIFY(!QFileInfo::exists(destination));
     QCOMPARE(QDir(home.path()).entryList(QDir::AllEntries | QDir::Hidden | QDir::NoDotAndDotDot).size(), 0);
+}
+
+void FileBrowserControllerTest::unavailableVolumeReturnsHome()
+{
+    QTemporaryDir home, volume;
+    const QString source = QDir(volume.path()).filePath("sample.txt");
+    QVERIFY(writeFile(source, "source"));
+    FileBrowserController controller(nullptr, home.path(), {}, {volume.path()});
+    QVERIFY(controller.openLocation(volume.path(), "USB"));
+    QVERIFY(controller.copyEntry(source));
+    controller.mountedLocationUnavailable("/unrelated");
+    QVERIFY(controller.readOnlyLocation());
+    controller.mountedLocationUnavailable(volume.path());
+    QVERIFY(controller.homeLocation());
+    QVERIFY(!controller.canPaste());
+    QVERIFY(controller.errorMessage().contains("no longer available"));
+    QVERIFY(QFileInfo::exists(source));
+}
+
+void FileBrowserControllerTest::unavailableVolumeCancelsImport()
+{
+    QTemporaryDir home, volume;
+    const QString source = QDir(volume.path()).filePath("sample.txt");
+    QVERIFY(writeFile(source, "source"));
+    FileBrowserController controller(nullptr, home.path(), {}, {volume.path()});
+    connect(&controller, &FileBrowserController::transferChanged, this, [&] {
+        if (controller.canCancelTransfer()) controller.mountedLocationUnavailable(volume.path());
+    });
+    QVERIFY(controller.openLocation(volume.path(), "USB"));
+    QVERIFY(controller.copyToHome(source));
+    QTRY_VERIFY_WITH_TIMEOUT(!controller.transferActive(), TransferTimeoutMs);
+    QVERIFY(controller.errorMessage().contains("became unavailable"));
+    QVERIFY(!QFileInfo::exists(QDir(home.path()).filePath("sample.txt")));
+    QVERIFY(QFileInfo::exists(source));
 }
 
 void FileBrowserControllerTest::cancelsImportThroughController()

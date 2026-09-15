@@ -76,6 +76,7 @@ public:
     bool canCancelTransfer() const { return m_transferActive && bool(m_importState); }
     Q_INVOKABLE void cancelTransfer() { if (m_importState) m_importState->cancelled = true; }
     Q_INVOKABLE bool copyToHome(const QString &path);
+    void mountedLocationUnavailable(const QString &path);
     bool canUndo() const;
     QString undoLabel() const;
 
