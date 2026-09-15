@@ -11,6 +11,17 @@ Column {
     spacing: 6
 
     Text {
+        objectName: "sidebarStorageResult"
+        width: parent.width
+        visible: text.length > 0
+        text: controller ? controller.operationStatus : ""
+        textFormat: Text.PlainText
+        color: hostWindow.surfaceForeground
+        font.pixelSize: 11
+        wrapMode: Text.Wrap
+    }
+
+    Text {
         width: parent.width
         text: "REMOVABLE"
         color: hostWindow.surfaceMuted

@@ -140,6 +140,9 @@ int main(int argc, char **argv)
             const QString canonical = QFileInfo(source).canonicalFilePath();
             sources.append(canonical.isEmpty() ? source : canonical);
         }
+        QByteArray labels;
+        if (run("/sbin/geom", {"label", "status"}, &labels))
+            sources = StorageAccess::resolveMountSources(sources, labels);
         if (count > 0 && !StorageAccess::diskHasMounts(device, sources))
             output << "Safe to unplug. This USB drive has no mounted partitions.\n";
         else

@@ -99,3 +99,26 @@ bool StorageAccess::diskHasMounts(const QString &device, const QStringList &sour
     }
     return false;
 }
+
+QStringList StorageAccess::resolveMountSources(const QStringList &sources, const QByteArray &labels)
+{
+    QMap<QString, QString> aliases;
+    if (labels.size() > 1024 * 1024) return sources;
+    for (const auto &line : labels.split('\n')) {
+        const auto fields = line.simplified().split(' ');
+        if (fields.size() != 3 || fields[1] != "N/A") continue;
+        const QString alias = QStringLiteral("/dev/") + QString::fromUtf8(fields[0]);
+        const QString provider = QStringLiteral("/dev/") + QString::fromUtf8(fields[2]);
+        if (aliases.contains(alias) && aliases.value(alias) != provider) return sources;
+        aliases.insert(alias, provider);
+    }
+    QStringList result;
+    for (const auto &source : sources) {
+        QString resolved = source;
+        for (int depth = 0; depth < 16 && aliases.contains(resolved); ++depth)
+            resolved = aliases.value(resolved);
+        // Cyclic or over-deep aliases remain unresolved and fail closed.
+        result.append(aliases.contains(resolved) ? source : resolved);
+    }
+    return result;
+}
